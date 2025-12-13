@@ -12,6 +12,26 @@ export interface Book {
   author: string;
   coverColor: string;
   chapters: Chapter[];
+  description?: string;
+  coverImage?: string;
+  rating?: number;
+  readTime?: string;
+}
+
+export interface Bookmark {
+  id: string;
+  bookId: number;
+  chapterId: number;
+  title: string;
+  createdAt: Date;
+}
+
+export interface Shelf {
+  id: string;
+  title: string;
+  description?: string;
+  bookIds: number[];
+  color?: string;
 }
 
 export const mockBook: Book = {
@@ -19,6 +39,9 @@ export const mockBook: Book = {
   title: "Эхо Будущего",
   author: "Алексей Ветров",
   coverColor: "bg-indigo-900",
+  description: "Научная фантастика о границах человеческого сознания и искусственного интеллекта. Погрузитесь в мир будущего с нейро-комментариями.",
+  rating: 4.8,
+  readTime: "~2.5 ч.",
   chapters: [
     {
       id: 1,
@@ -92,3 +115,78 @@ export const mockBook: Book = {
     }
   ]
 };
+
+export const mockBooks: Book[] = [
+  mockBook,
+  {
+    id: 2,
+    title: "Код Вечности",
+    author: "Мария Скворцова",
+    coverColor: "bg-emerald-900",
+    description: "Детектив в мире, где смерть отменена. Кто решился на убийство, когда жизнь бесконечна?",
+    rating: 4.5,
+    readTime: "~3.1 ч.",
+    chapters: []
+  },
+  {
+    id: 3,
+    title: "Звездный Пилигрим",
+    author: "Иван Громов",
+    coverColor: "bg-amber-900",
+    description: "Космическая опера о последнем корабле, покинувшем умирающую Землю в поисках нового дома.",
+    rating: 4.9,
+    readTime: "~5.0 ч.",
+    chapters: []
+  },
+  {
+    id: 4,
+    title: "Нейромант 2.0",
+    author: "Уильям Гибсон (AI)",
+    coverColor: "bg-slate-900",
+    description: "Сгенерированное продолжение культового романа, созданное нейросетью на основе черновиков автора.",
+    rating: 4.2,
+    readTime: "~4.5 ч.",
+    chapters: []
+  }
+];
+
+export const mockShelves: Shelf[] = [
+  {
+    id: '1',
+    title: 'Избранное',
+    description: 'Книги, которые хочется перечитывать',
+    bookIds: [1],
+    color: 'bg-rose-100 dark:bg-rose-900/20'
+  },
+  {
+    id: '2',
+    title: 'Хочу прочитать',
+    description: 'Список на будущее',
+    bookIds: [2, 3],
+    color: 'bg-blue-100 dark:bg-blue-900/20'
+  },
+  {
+    id: '3',
+    title: 'Научная фантастика',
+    description: 'Лучшее из жанра Sci-Fi',
+    bookIds: [1, 3, 4],
+    color: 'bg-purple-100 dark:bg-purple-900/20'
+  }
+];
+
+export const mockBookmarks: Bookmark[] = [
+  {
+    id: '1',
+    bookId: 1,
+    chapterId: 1,
+    title: 'Начало пути Артема',
+    createdAt: new Date('2024-03-10')
+  },
+  {
+    id: '2',
+    bookId: 1,
+    chapterId: 2,
+    title: 'Описание города будущего',
+    createdAt: new Date('2024-03-11')
+  }
+];

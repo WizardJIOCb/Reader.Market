@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { mockBook } from '@/lib/mockData';
+import { mockBook, mockBookmarks, Bookmark } from '@/lib/mockData';
 import { BookReader } from '@/components/BookReader';
 import { AISidebar } from '@/components/AISidebar';
+import { BookmarksPanel } from '@/components/BookmarksPanel';
 import { Button } from '@/components/ui/button';
-import { Brain, ArrowLeft, Menu, Type } from 'lucide-react';
+import { Brain, ArrowLeft, Type } from 'lucide-react';
 import { Link } from 'wouter';
 import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,6 +15,7 @@ export default function Reader() {
   const [location, setLocation] = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [fontSize, setFontSize] = useState(20);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(mockBookmarks);
 
   const bookId = parseInt(params?.bookId || '1');
   const chapterId = parseInt(params?.chapterId || '1');
@@ -40,6 +42,25 @@ export default function Reader() {
     }
   };
 
+  const handleAddBookmark = (title: string) => {
+    const newBookmark: Bookmark = {
+      id: Date.now().toString(),
+      bookId,
+      chapterId,
+      title,
+      createdAt: new Date()
+    };
+    setBookmarks([newBookmark, ...bookmarks]);
+  };
+
+  const handleRemoveBookmark = (id: string) => {
+    setBookmarks(bookmarks.filter(b => b.id !== id));
+  };
+
+  const handleNavigateToBookmark = (chapterId: number) => {
+    setLocation(`/read/${bookId}/${chapterId}`);
+  };
+
   return (
     <div className="min-h-screen bg-background transition-colors duration-500">
       {/* Top Navigation Bar */}
@@ -57,6 +78,16 @@ export default function Reader() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Bookmarks */}
+          <BookmarksPanel 
+            bookId={bookId}
+            chapterId={chapterId}
+            bookmarks={bookmarks}
+            onAddBookmark={handleAddBookmark}
+            onRemoveBookmark={handleRemoveBookmark}
+            onNavigate={handleNavigateToBookmark}
+          />
+
           {/* Font Size Control */}
           <Popover>
             <PopoverTrigger asChild>
