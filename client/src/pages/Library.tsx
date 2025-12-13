@@ -1,17 +1,32 @@
 import React, { useState } from 'react';
 import { Link, useRoute } from 'wouter';
-import { mockBook } from '@/lib/mockData';
-import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon, MessageSquare, Award } from 'lucide-react';
+import { mockBook, mockShelves, Shelf } from '@/lib/mockData';
+import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon, MessageSquare, Award, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommentsSection } from '@/components/CommentsSection';
 import { ReviewsSection } from '@/components/ReviewsSection';
+import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import generatedImage from '@assets/generated_images/digital_lines_merging_with_paper_pages.png';
 
 export default function Library() {
   const [activeTab, setActiveTab] = useState("chapters");
+  const [shelves, setShelves] = useState<Shelf[]>(mockShelves);
   const book = mockBook;
+
+  const handleToggleShelf = (bookId: number, shelfId: string, isAdded: boolean) => {
+    setShelves(shelves.map(shelf => {
+      if (shelf.id === shelfId) {
+        if (isAdded) {
+          return { ...shelf, bookIds: [...shelf.bookIds, bookId] };
+        } else {
+          return { ...shelf, bookIds: shelf.bookIds.filter(id => id !== bookId) };
+        }
+      }
+      return shelf;
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-background font-sans">
@@ -57,10 +72,23 @@ export default function Library() {
                   Читать сейчас
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="h-14 px-8 text-lg gap-3 rounded-full">
-                <BookOpen className="w-5 h-5" />
-                О книге
-              </Button>
+              <div className="flex gap-2">
+                <Button size="lg" variant="outline" className="h-14 px-8 text-lg gap-3 rounded-full">
+                  <BookOpen className="w-5 h-5" />
+                  О книге
+                </Button>
+                
+                <AddToShelfDialog 
+                  bookId={book.id} 
+                  shelves={shelves} 
+                  onToggleShelf={handleToggleShelf}
+                  trigger={
+                    <Button size="icon" variant="outline" className="h-14 w-14 rounded-full border-dashed border-2 hover:border-solid">
+                      <Plus className="w-6 h-6" />
+                    </Button>
+                  }
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-8 pt-8 border-t border-border/50">

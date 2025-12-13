@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 
 export default function Shelves() {
   const [shelves, setShelves] = useState<Shelf[]>(mockShelves);
@@ -35,10 +35,14 @@ export default function Shelves() {
     }
   };
 
-  const addBookToShelf = (bookId: number, shelfId: string) => {
+  const handleToggleShelf = (bookId: number, shelfId: string, isAdded: boolean) => {
     setShelves(shelves.map(shelf => {
-      if (shelf.id === shelfId && !shelf.bookIds.includes(bookId)) {
-        return { ...shelf, bookIds: [...shelf.bookIds, bookId] };
+      if (shelf.id === shelfId) {
+        if (isAdded) {
+          return { ...shelf, bookIds: [...shelf.bookIds, bookId] };
+        } else {
+          return { ...shelf, bookIds: shelf.bookIds.filter(id => id !== bookId) };
+        }
       }
       return shelf;
     }));
@@ -124,20 +128,19 @@ export default function Shelves() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-serif font-bold truncate">{book.title}</h3>
                       <p className="text-sm text-muted-foreground truncate mb-2">{book.author}</p>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full text-xs h-8">
-                            Добавить на полку
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {shelves.map(shelf => (
-                            <DropdownMenuItem key={shelf.id} onClick={() => addBookToShelf(book.id, shelf.id)}>
-                              {shelf.title}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      
+                      <div className="mt-2">
+                        <AddToShelfDialog 
+                          bookId={book.id}
+                          shelves={shelves}
+                          onToggleShelf={handleToggleShelf}
+                          trigger={
+                            <Button variant="outline" size="sm" className="w-full text-xs h-8">
+                              Добавить на полку
+                            </Button>
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
                 ))
