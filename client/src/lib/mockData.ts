@@ -59,6 +59,23 @@ export interface Review {
   reactions: Reaction[];
 }
 
+export interface UserStats {
+  booksRead: number;
+  wordsRead: number;
+  lettersRead: number;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  bio: string;
+  stats: UserStats;
+  shelves: Shelf[];
+  recentlyReadIds: number[];
+}
+
 export const mockBook: Book = {
   id: 1,
   title: "Эхо Будущего",
@@ -266,3 +283,45 @@ export const mockReviews: Review[] = [
     ]
   }
 ];
+
+export const mockUser: User = {
+  id: 'user1',
+  name: 'Алекс Читатель',
+  username: '@alex_reads',
+  bio: `Любитель научной фантастики и <b>киберпанка</b>. 
+  
+  Мой топ авторов:
+  - Филип Дик
+  - Уильям Гибсон
+  - Станислав Лем
+  
+  Ищу единомышленников для обсуждения новинок!`,
+  stats: {
+    booksRead: 42,
+    wordsRead: 1543002,
+    lettersRead: 9845120
+  },
+  shelves: mockShelves,
+  recentlyReadIds: [1, 2]
+};
+
+export const mockOtherUser: User = {
+  id: 'user2',
+  name: 'Мария SciFi',
+  username: '@maria_scifi',
+  bio: 'Пишу рецензии на новинки фантастики. Веду блог о книгах будущего.',
+  stats: {
+    booksRead: 156,
+    wordsRead: 5430020,
+    lettersRead: 32845120
+  },
+  shelves: [
+    {
+      id: '10',
+      title: 'Топ 2024',
+      bookIds: [1, 3],
+      color: 'bg-emerald-100 dark:bg-emerald-900/20'
+    }
+  ],
+  recentlyReadIds: [3, 4]
+};
