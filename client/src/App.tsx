@@ -8,12 +8,14 @@ import Library from "@/pages/Library";
 import Reader from "@/pages/Reader";
 import Shelves from "@/pages/Shelves";
 import Profile from "@/pages/Profile";
+import SearchPage from "@/pages/Search";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Library} />
       <Route path="/shelves" component={Shelves} />
+      <Route path="/search" component={SearchPage} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
       <Route path="/profile/:userId?" component={Profile} />
       <Route component={NotFound} />
