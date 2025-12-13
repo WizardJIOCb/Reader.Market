@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useRoute } from 'wouter';
+import { Link } from 'wouter';
 import { mockBook, mockShelves, Shelf } from '@/lib/mockData';
-import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon, MessageSquare, Award, Plus, User } from 'lucide-react';
+import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon, MessageSquare, Award, Plus, User, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +39,11 @@ export default function Library() {
             <span className="font-semibold text-xl tracking-tight">NeuroReader</span>
           </div>
           <div className="flex items-center gap-4">
+             <Link href="/search">
+               <Button variant="ghost" size="icon">
+                 <Search className="w-5 h-5" />
+               </Button>
+             </Link>
              <Link href="/shelves">
                <Button variant="ghost" className="gap-2">
                  <LibraryIcon className="w-4 h-4" />
