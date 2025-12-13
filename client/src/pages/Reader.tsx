@@ -5,7 +5,7 @@ import { BookReader } from '@/components/BookReader';
 import { AISidebar } from '@/components/AISidebar';
 import { BookmarksPanel } from '@/components/BookmarksPanel';
 import { Button } from '@/components/ui/button';
-import { Brain, ArrowLeft, Type } from 'lucide-react';
+import { Brain, ArrowLeft, ArrowRight, Type } from 'lucide-react';
 import { Link } from 'wouter';
 import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -137,6 +137,28 @@ export default function Reader() {
           fontSize={fontSize}
         />
       </main>
+
+      {/* Navigation Zones */}
+      {hasPrev && (
+        <div 
+          className="fixed left-0 top-16 bottom-0 w-16 md:w-32 z-10 hidden lg:flex items-center justify-start pl-4 cursor-pointer opacity-0 hover:opacity-100 hover:bg-gradient-to-r hover:from-foreground/5 to-transparent transition-all duration-300 group"
+          onClick={handlePrev}
+          title="Предыдущая глава"
+        >
+          <ArrowLeft className="w-10 h-10 text-muted-foreground/40 group-hover:-translate-x-2 transition-transform duration-300" />
+        </div>
+      )}
+
+      {hasNext && (
+        <div 
+          className={`fixed right-0 top-16 bottom-0 w-16 md:w-32 z-10 hidden lg:flex items-center justify-end pr-4 cursor-pointer opacity-0 hover:opacity-100 hover:bg-gradient-to-l hover:from-foreground/5 to-transparent transition-all duration-300 group ${isSidebarOpen ? 'mr-[400px]' : ''}`}
+          onClick={handleNext}
+          title="Следующая глава"
+          style={{ transitionProperty: 'margin-right, opacity, background-color' }}
+        >
+          <ArrowRight className="w-10 h-10 text-muted-foreground/40 group-hover:translate-x-2 transition-transform duration-300" />
+        </div>
+      )}
 
       {/* AI Sidebar */}
       <AISidebar 
