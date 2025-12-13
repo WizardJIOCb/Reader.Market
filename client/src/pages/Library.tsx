@@ -1,12 +1,16 @@
-import React from 'react';
-import { Link } from 'wouter';
+import React, { useState } from 'react';
+import { Link, useRoute } from 'wouter';
 import { mockBook } from '@/lib/mockData';
-import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon } from 'lucide-react';
+import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon, MessageSquare, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CommentsSection } from '@/components/CommentsSection';
+import { ReviewsSection } from '@/components/ReviewsSection';
 import generatedImage from '@assets/generated_images/digital_lines_merging_with_paper_pages.png';
 
 export default function Library() {
+  const [activeTab, setActiveTab] = useState("chapters");
   const book = mockBook;
 
   return (
@@ -30,9 +34,9 @@ export default function Library() {
           </div>
         </header>
 
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="grid md:grid-cols-2 gap-12 items-start mb-24">
           {/* Hero Content */}
-          <div className="space-y-8">
+          <div className="space-y-8 sticky top-24">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium">
               <Star className="w-4 h-4 fill-accent" />
               <span>Выбор редакции</span>
@@ -92,33 +96,58 @@ export default function Library() {
           </div>
         </div>
 
-        {/* Recent Chapters Preview */}
-        <section className="mt-24">
-          <h2 className="font-serif text-2xl font-bold mb-8">Оглавление</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {book.chapters.map((chapter) => (
-              <Link key={chapter.id} href={`/read/${book.id}/${chapter.id}`}>
-                <div className="group p-6 rounded-xl border bg-card hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer h-full flex flex-col">
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-xs font-bold text-primary/60 uppercase tracking-wider">Глава {chapter.id}</span>
-                    <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                      ~10 мин
-                    </Badge>
-                  </div>
-                  <h3 className="font-serif text-xl font-bold mb-3 group-hover:text-primary transition-colors">
-                    {chapter.title.split(': ')[1] || chapter.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1">
-                    {chapter.summary}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs font-medium text-accent">
-                    <span>Сгенерировать пересказ</span>
-                    <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+        {/* Tabs Content */}
+        <section className="border-t pt-12">
+          <Tabs defaultValue="chapters" value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-8 p-1 bg-muted/30 rounded-full h-auto inline-flex">
+              <TabsTrigger value="chapters" className="rounded-full px-6 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
+                Оглавление
+              </TabsTrigger>
+              <TabsTrigger value="comments" className="rounded-full px-6 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Комментарии
+              </TabsTrigger>
+              <TabsTrigger value="reviews" className="rounded-full px-6 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all gap-2">
+                <Award className="w-4 h-4" />
+                Рецензии
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="chapters" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {book.chapters.map((chapter) => (
+                  <Link key={chapter.id} href={`/read/${book.id}/${chapter.id}`}>
+                    <div className="group p-6 rounded-xl border bg-card hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer h-full flex flex-col">
+                      <div className="flex justify-between items-start mb-4">
+                        <span className="text-xs font-bold text-primary/60 uppercase tracking-wider">Глава {chapter.id}</span>
+                        <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                          ~10 мин
+                        </Badge>
+                      </div>
+                      <h3 className="font-serif text-xl font-bold mb-3 group-hover:text-primary transition-colors">
+                        {chapter.title.split(': ')[1] || chapter.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1">
+                        {chapter.summary}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs font-medium text-accent">
+                        <span>Сгенерировать пересказ</span>
+                        <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="comments" className="max-w-2xl">
+              <CommentsSection bookId={book.id} />
+            </TabsContent>
+
+            <TabsContent value="reviews" className="max-w-2xl">
+              <ReviewsSection bookId={book.id} />
+            </TabsContent>
+          </Tabs>
         </section>
       </div>
     </div>

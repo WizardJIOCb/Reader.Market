@@ -34,6 +34,31 @@ export interface Shelf {
   color?: string;
 }
 
+export interface Reaction {
+  emoji: string;
+  count: number;
+  userReacted: boolean;
+}
+
+export interface Comment {
+  id: string;
+  bookId: number;
+  author: string;
+  content: string;
+  createdAt: string; // ISO date string
+  reactions: Reaction[];
+}
+
+export interface Review {
+  id: string;
+  bookId: number;
+  author: string;
+  rating: number; // 0-10
+  content: string;
+  createdAt: string; // ISO date string
+  reactions: Reaction[];
+}
+
 export const mockBook: Book = {
   id: 1,
   title: "Эхо Будущего",
@@ -188,5 +213,56 @@ export const mockBookmarks: Bookmark[] = [
     chapterId: 2,
     title: 'Описание города будущего',
     createdAt: new Date('2024-03-11')
+  }
+];
+
+export const mockComments: Comment[] = [
+  {
+    id: '1',
+    bookId: 1,
+    author: 'КиберПанк2077',
+    content: 'Атмосфера просто нереальная! Читаю и не могу оторваться. Очень напоминает Филиппа Дика.',
+    createdAt: '2024-03-15T10:30:00Z',
+    reactions: [
+      { emoji: '🔥', count: 12, userReacted: true },
+      { emoji: '❤️', count: 5, userReacted: false }
+    ]
+  },
+  {
+    id: '2',
+    bookId: 1,
+    author: 'Елена Рид',
+    content: 'Вторая глава показалась немного затянутой, но концовка вытянула всё.',
+    createdAt: '2024-03-14T15:20:00Z',
+    reactions: [
+      { emoji: '👍', count: 2, userReacted: false }
+    ]
+  }
+];
+
+export const mockReviews: Review[] = [
+  {
+    id: '1',
+    bookId: 1,
+    author: 'Иван Критик',
+    rating: 9,
+    content: 'Потрясающая работа. Автор мастерски сплетает философские вопросы о природе сознания с динамичным сюжетом. Особенно впечатлила концепция "Синтетиков" и то, как она перекликается с современными дискуссиями об ИИ. Однозначно рекомендую всем любителям жанра.',
+    createdAt: '2024-03-12T09:00:00Z',
+    reactions: [
+      { emoji: '👏', count: 45, userReacted: true },
+      { emoji: '🤯', count: 10, userReacted: false }
+    ]
+  },
+  {
+    id: '2',
+    bookId: 1,
+    author: 'Скептик_3000',
+    rating: 6,
+    content: 'Идея хорошая, но реализация хромает. Персонажи кажутся плоскими, их мотивация не всегда ясна. Надеюсь, в следующих главах автор раскроет их лучше. Пока что 6 из 10 за интересный мир.',
+    createdAt: '2024-03-13T18:45:00Z',
+    reactions: [
+      { emoji: '🤔', count: 8, userReacted: false },
+      { emoji: '👎', count: 3, userReacted: false }
+    ]
   }
 ];
