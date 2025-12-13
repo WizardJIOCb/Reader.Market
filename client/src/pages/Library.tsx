@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useRoute } from 'wouter';
 import { mockBook, mockShelves, Shelf } from '@/lib/mockData';
-import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon, MessageSquare, Award, Plus } from 'lucide-react';
+import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon, MessageSquare, Award, Plus, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,10 +42,15 @@ export default function Library() {
              <Link href="/shelves">
                <Button variant="ghost" className="gap-2">
                  <LibraryIcon className="w-4 h-4" />
-                 Мои полки
+                 <span className="hidden sm:inline">Мои полки</span>
                </Button>
              </Link>
-             <Button variant="ghost" className="text-muted-foreground">Войти</Button>
+             <Link href="/profile/user1">
+               <Button variant="ghost" className="gap-2">
+                 <User className="w-4 h-4" />
+                 <span className="hidden sm:inline">Профиль</span>
+               </Button>
+             </Link>
           </div>
         </header>
 
