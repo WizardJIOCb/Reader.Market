@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'wouter';
 import { mockBook } from '@/lib/mockData';
-import { Play, BookOpen, Clock, Star, ArrowRight } from 'lucide-react';
+import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import generatedImage from '@assets/generated_images/digital_lines_merging_with_paper_pages.png';
@@ -19,7 +19,15 @@ export default function Library() {
             </div>
             <span className="font-semibold text-xl tracking-tight">NeuroReader</span>
           </div>
-          <Button variant="ghost" className="text-muted-foreground">Войти</Button>
+          <div className="flex items-center gap-4">
+             <Link href="/shelves">
+               <Button variant="ghost" className="gap-2">
+                 <LibraryIcon className="w-4 h-4" />
+                 Мои полки
+               </Button>
+             </Link>
+             <Button variant="ghost" className="text-muted-foreground">Войти</Button>
+          </div>
         </header>
 
         <div className="grid md:grid-cols-2 gap-12 items-center">
