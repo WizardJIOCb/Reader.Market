@@ -69,6 +69,15 @@ export interface UserStats {
   lettersRead: number;
 }
 
+// New interface for reading progress
+export interface ReadingProgress {
+  bookId: number;
+  percentage: number;
+  wordsRead: number;
+  lettersRead: number;
+  lastReadAt: Date;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -78,6 +87,7 @@ export interface User {
   stats: UserStats;
   shelves: Shelf[];
   recentlyReadIds: number[];
+  readingProgress?: ReadingProgress[]; // Add reading progress to user
 }
 
 export const mockBook: Book = {
@@ -254,6 +264,17 @@ export const mockBooks: Book[] = [
   }
 ];
 
+// Recently searched books (for default search view)
+export const recentlySearchedBooks: Book[] = [
+  mockBooks[0], // Эхо Будущего
+  mockBooks[2], // Звездный Пилигрим
+  mockBooks[3], // Нейромант 2.0
+  mockBooks[1], // Код Вечности
+  mockBooks[6], // Хроники Марса
+  mockBooks[4], // Тени Петербурга
+  mockBooks[5], // Алгоритм Любви
+];
+
 export const mockShelves: Shelf[] = [
   {
     id: '1',
@@ -364,7 +385,23 @@ export const mockUser: User = {
     lettersRead: 9845120
   },
   shelves: mockShelves,
-  recentlyReadIds: [1, 2]
+  recentlyReadIds: [1, 2],
+  readingProgress: [
+    {
+      bookId: 1,
+      percentage: 65,
+      wordsRead: 12500,
+      lettersRead: 75000,
+      lastReadAt: new Date('2024-03-15')
+    },
+    {
+      bookId: 2,
+      percentage: 30,
+      wordsRead: 8200,
+      lettersRead: 49200,
+      lastReadAt: new Date('2024-03-12')
+    }
+  ]
 };
 
 export const mockOtherUser: User = {
@@ -385,5 +422,14 @@ export const mockOtherUser: User = {
       color: 'bg-emerald-100 dark:bg-emerald-900/20'
     }
   ],
-  recentlyReadIds: [3, 4]
+  recentlyReadIds: [3, 4],
+  readingProgress: [
+    {
+      bookId: 3,
+      percentage: 85,
+      wordsRead: 5400,
+      lettersRead: 32000,
+      lastReadAt: new Date('2024-03-16')
+    }
+  ]
 };

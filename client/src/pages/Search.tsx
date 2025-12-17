@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'wouter';
-import { mockBooks, mockShelves, Shelf } from '@/lib/mockData';
+import { mockBooks, mockShelves, recentlySearchedBooks, Shelf, mockUser } from '@/lib/mockData';
 import { 
   Search, 
   Filter, 
   Book as BookIcon, 
-  ArrowLeft,
   X,
   SlidersHorizontal
 } from 'lucide-react';
@@ -25,6 +24,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
+import { SearchBar } from '@/components/SearchBar';
+import { BookCard } from '@/components/BookCard';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,6 +43,11 @@ export default function SearchPage() {
 
   // Filter Logic
   const filteredBooks = useMemo(() => {
+    // If there's no search query, show recently searched books
+    if (!searchQuery) {
+      return recentlySearchedBooks;
+    }
+    
     return mockBooks.filter(book => {
       // Text Search
       const searchLower = searchQuery.toLowerCase();
@@ -107,202 +114,41 @@ export default function SearchPage() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
-        <header className="flex flex-col gap-6 mb-8">
-          <div className="flex items-center justify-between">
-            <Link href="/">
-              <Button variant="ghost" className="gap-2 pl-0 hover:bg-transparent hover:text-primary">
-                <ArrowLeft className="w-5 h-5" />
-                <span className="hidden sm:inline">Назад в библиотеку</span>
-              </Button>
-            </Link>
-            <h1 className="font-serif text-2xl font-bold">Глобальный Поиск</h1>
-          </div>
-
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Название, автор, жанр или тег..." 
-                className="pl-9 h-12 bg-muted/30 border-muted focus-visible:ring-1 text-lg"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-              />
-              {searchQuery && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="h-12 px-4 gap-2 border-muted bg-muted/10">
-                  <SlidersHorizontal className="w-4 h-4" />
-                  <span className="hidden sm:inline">Фильтры</span>
-                  {(selectedGenres.length > 0 || selectedStyles.length > 0) && (
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                      {selectedGenres.length + selectedStyles.length}
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="w-[320px] sm:w-[400px] overflow-y-auto">
-                <SheetHeader className="mb-6">
-                  <SheetTitle className="font-serif text-2xl">Фильтры</SheetTitle>
-                </SheetHeader>
-                
-                <div className="space-y-8 pb-12">
-                  {/* Genres */}
-                  <div className="space-y-4">
-                    <h3 className="font-medium flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
-                      Жанры
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {allGenres.map(genre => (
-                        <Badge
-                          key={genre}
-                          variant={selectedGenres.includes(genre) ? "default" : "outline"}
-                          className="cursor-pointer px-3 py-1.5 hover:border-primary/50 transition-colors"
-                          onClick={() => toggleGenre(genre)}
-                        >
-                          {genre}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Styles */}
-                  <div className="space-y-4">
-                    <h3 className="font-medium flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
-                      Стилистика
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {allStyles.map(style => (
-                        <Badge
-                          key={style}
-                          variant={selectedStyles.includes(style) ? "default" : "outline"}
-                          className="cursor-pointer px-3 py-1.5 hover:border-primary/50 transition-colors"
-                          onClick={() => toggleStyle(style)}
-                        >
-                          {style}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Year Range */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                       <h3 className="font-medium flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
-                        Год издания
-                      </h3>
-                      <span className="text-sm font-mono text-muted-foreground">
-                        {yearRange[0]} - {yearRange[1]}
-                      </span>
-                    </div>
-                    <Slider
-                      defaultValue={[1950, 2025]}
-                      min={1950}
-                      max={2025}
-                      step={1}
-                      value={yearRange}
-                      onValueChange={(vals) => setYearRange(vals as [number, number])}
-                    />
-                  </div>
-
-                  <Button 
-                    variant="ghost" 
-                    className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={clearFilters}
-                  >
-                    Сбросить все фильтры
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </header>
+        <PageHeader title="Глобальный Поиск" />
+        
+        <div className="mb-8">
+          <SearchBar 
+            initialQuery={searchQuery}
+            onSearch={setSearchQuery}
+          />
+        </div>
 
         {/* Results */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted-foreground">
-              Найдено книг: {filteredBooks.length}
+              {!searchQuery 
+                ? "Последние просмотренные книги" 
+                : `Найдено книг: ${filteredBooks.length}`}
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredBooks.length > 0 ? (
-              filteredBooks.map(book => (
-                <div key={book.id} className="bg-card border rounded-xl p-4 flex gap-5 hover:border-primary/30 transition-all group">
-                  <div className={`w-24 h-36 rounded-lg shadow-md flex-shrink-0 ${book.coverColor} relative overflow-hidden`}>
-                     <Link href={`/read/${book.id}/1`}>
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors cursor-pointer" />
-                     </Link>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0 flex flex-col">
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-1">
-                        <Link href={`/read/${book.id}/1`}>
-                          <h3 className="font-serif font-bold text-lg truncate hover:text-primary cursor-pointer transition-colors">
-                            {book.title}
-                          </h3>
-                        </Link>
-                        {book.rating && (
-                          <div className="flex items-center gap-1 text-xs font-medium bg-accent/10 text-accent px-1.5 py-0.5 rounded">
-                            <Star className="w-3 h-3 fill-current" />
-                            {book.rating}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <p className="text-sm text-muted-foreground mb-3">{book.author} • {book.year}</p>
-                      
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {book.genre.slice(0, 2).map(g => (
-                          <Badge key={g} variant="secondary" className="text-[10px] h-5 px-1.5">
-                            {g}
-                          </Badge>
-                        ))}
-                        {book.style && (
-                          <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-dashed">
-                            {book.style}
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <p className="text-sm text-foreground/80 line-clamp-2 mb-4">
-                        {book.description}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-dashed">
-                       <Link href={`/read/${book.id}/1`}>
-                          <Button variant="ghost" size="sm" className="h-8 -ml-2 text-xs">
-                            Подробнее
-                          </Button>
-                       </Link>
-                       <AddToShelfDialog 
-                          bookId={book.id}
-                          shelves={shelves}
-                          onToggleShelf={handleToggleShelf}
-                        />
-                    </div>
-                  </div>
-                </div>
-              ))
+              filteredBooks.map(book => {
+                // Find reading progress for this book
+                const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === book.id) || undefined;
+                
+                return (
+                  <BookCard 
+                    key={book.id} 
+                    book={book} 
+                    variant="detailed"
+                    readingProgress={readingProgress}
+                    onAddToShelf={(bookId) => console.log(`Add book ${bookId} to shelf`)}
+                  />
+                );
+              })
             ) : (
               <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
                 <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">

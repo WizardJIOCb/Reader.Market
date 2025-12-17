@@ -4,8 +4,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ReactionBar } from '@/components/ReactionBar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Star, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -140,9 +141,18 @@ export function ReviewsSection({ bookId }: ReviewsProps) {
                 </Avatar>
                 <div>
                   <h4 className="font-semibold text-sm">{review.author}</h4>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true, locale: ru })}
-                  </span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-muted-foreground cursor-help">
+                          {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true, locale: ru })}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{format(new Date(review.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
               <Badge variant="outline" className={`text-lg font-bold px-3 py-1 ${getRatingColor(review.rating)}`}>

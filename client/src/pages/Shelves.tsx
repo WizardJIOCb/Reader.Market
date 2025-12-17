@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'wouter';
-import { mockBooks, mockShelves, Shelf, Book } from '@/lib/mockData';
+import { mockBooks, mockShelves, Shelf, Book, mockUser } from '@/lib/mockData';
 import { Plus, Search, Book as BookIcon, MoreVertical, X, LayoutGrid, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
+import { BookCard } from '@/components/BookCard';
+import { useAuth } from '@/lib/auth';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function Shelves() {
+  const { user } = useAuth();
   const [shelves, setShelves] = useState<Shelf[]>(mockShelves);
   const [searchQuery, setSearchQuery] = useState('');
   const [newShelfName, setNewShelfName] = useState('');
@@ -51,16 +55,9 @@ export default function Shelves() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <header className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-3">
-             <Link href="/">
-                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-serif font-bold text-xl cursor-pointer">
-                  N
-                </div>
-             </Link>
-            <h1 className="font-serif text-2xl font-bold">Мои полки</h1>
-          </div>
-          
+        <PageHeader title="Мои полки" />
+        
+        <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2">
             <Link href="/profile/user1">
                <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
@@ -104,7 +101,7 @@ export default function Shelves() {
               </DialogContent>
             </Dialog>
           </div>
-        </header>
+        </div>
 
         {/* Mobile Search */}
         <div className="md:hidden mb-8">
@@ -126,30 +123,22 @@ export default function Shelves() {
               <Search className="w-4 h-4" />
               Результаты поиска
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {filteredBooks.length > 0 ? (
-                filteredBooks.map(book => (
-                  <div key={book.id} className="bg-card border rounded-xl p-4 flex gap-4 hover:shadow-lg transition-all">
-                    <div className={`w-16 h-24 rounded-md shadow-sm flex-shrink-0 ${book.coverColor}`} />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-serif font-bold truncate">{book.title}</h3>
-                      <p className="text-sm text-muted-foreground truncate mb-2">{book.author}</p>
-                      
-                      <div className="mt-2">
-                        <AddToShelfDialog 
-                          bookId={book.id}
-                          shelves={shelves}
-                          onToggleShelf={handleToggleShelf}
-                          trigger={
-                            <Button variant="outline" size="sm" className="w-full text-xs h-8">
-                              Добавить на полку
-                            </Button>
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))
+                filteredBooks.map(book => {
+                  // Find reading progress for this book
+                  const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === book.id) || undefined;
+                  
+                  return (
+                    <BookCard 
+                      key={book.id} 
+                      book={book} 
+                      variant="detailed"
+                      readingProgress={readingProgress}
+                      onAddToShelf={(bookId) => console.log(`Add book ${bookId} to shelf`)}
+                    />
+                  );
+                })
               ) : (
                 <div className="col-span-full text-center py-12 text-muted-foreground">
                   Ничего не найдено
@@ -179,28 +168,24 @@ export default function Shelves() {
                   <p>Полка пуста</p>
                 </div>
               ) : (
-                <ScrollArea className="w-full whitespace-nowrap rounded-xl">
-                  <div className="flex w-max space-x-4 p-1 pb-4">
-                    {shelf.bookIds.map(bookId => {
-                      const book = mockBooks.find(b => b.id === bookId);
-                      if (!book) return null;
-                      return (
-                        <div key={book.id} className="w-[160px] group/book relative">
-                          <Link href={`/read/${book.id}/1`}>
-                            <div className={`aspect-[2/3] rounded-lg shadow-md mb-3 overflow-hidden cursor-pointer transition-transform hover:scale-105 ${book.coverColor} relative`}>
-                               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover/book:opacity-100 transition-opacity flex items-end p-3">
-                                  <span className="text-white text-xs font-medium">Читать</span>
-                               </div>
-                            </div>
-                          </Link>
-                          <h3 className="font-bold text-sm truncate pr-2" title={book.title}>{book.title}</h3>
-                          <p className="text-xs text-muted-foreground truncate">{book.author}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {shelf.bookIds.map(bookId => {
+                    const book = mockBooks.find(b => b.id === bookId);
+                    if (!book) return null;
+                    
+                    // Find reading progress for this book
+                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === bookId) || undefined;
+                    
+                    return (
+                      <BookCard 
+                        key={book.id} 
+                        book={book} 
+                        variant="detailed"
+                        readingProgress={readingProgress}
+                      />
+                    );
+                  })}
+                </div>
               )}
             </section>
           ))}

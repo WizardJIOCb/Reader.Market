@@ -4,7 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ReactionBar } from '@/components/ReactionBar';
-import { formatDistanceToNow } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Send } from 'lucide-react';
 
@@ -101,12 +102,21 @@ export function CommentsSection({ bookId }: CommentsProps) {
               <AvatarFallback>{comment.author[0]}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-2">
-              <div className="flex items-baseline justify-between">
+              <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-sm">{comment.author}</span>
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: ru })}
-                </span>
               </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-xs text-muted-foreground cursor-help">
+                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: ru })}
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{format(new Date(comment.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <p className="text-sm text-foreground/90 leading-relaxed">{comment.content}</p>
               <ReactionBar 
                 reactions={comment.reactions} 

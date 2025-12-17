@@ -63,71 +63,8 @@ export default function Reader() {
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-500">
-      {/* Top Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-40 h-16 bg-background/80 backdrop-blur-md border-b flex items-center justify-between px-4 md:px-8 transition-all duration-300">
-        <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div className="hidden md:block">
-            <h1 className="font-serif font-bold text-sm tracking-wide">{book.title}</h1>
-            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{currentChapter.title}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Bookmarks */}
-          <BookmarksPanel 
-            bookId={bookId}
-            chapterId={chapterId}
-            bookmarks={bookmarks}
-            onAddBookmark={handleAddBookmark}
-            onRemoveBookmark={handleRemoveBookmark}
-            onNavigate={handleNavigateToBookmark}
-          />
-
-          {/* Font Size Control */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                <Type className="w-5 h-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64">
-              <div className="space-y-4">
-                <h4 className="font-medium leading-none">Размер шрифта</h4>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs">A</span>
-                  <Slider
-                    value={[fontSize]}
-                    onValueChange={(vals) => setFontSize(vals[0])}
-                    min={14}
-                    max={32}
-                    step={1}
-                    className="flex-1"
-                  />
-                  <span className="text-lg">A</span>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* AI Toggle */}
-          <Button 
-            variant={isSidebarOpen ? "default" : "outline"}
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="gap-2 transition-all duration-300 border-primary/20 hover:border-primary/50"
-          >
-            <Brain className="w-4 h-4" />
-            <span className="hidden sm:inline">AI Анализ</span>
-          </Button>
-        </div>
-      </nav>
-
-      {/* Main Content Area */}
-      <main className={`pt-16 min-h-screen transition-all duration-500 ease-in-out ${isSidebarOpen ? 'pr-0 md:pr-[400px]' : ''}`}>
+      {/* Main Content Area - pt-16 removed since we're using the main navbar */}
+      <main className={`min-h-screen transition-all duration-500 ease-in-out ${isSidebarOpen ? 'pr-0 md:pr-[400px]' : ''}`}>
         <BookReader 
           chapter={currentChapter}
           onNext={handleNext}
@@ -137,6 +74,55 @@ export default function Reader() {
           fontSize={fontSize}
         />
       </main>
+
+      {/* Floating Controls - positioned absolutely to avoid interfering with main navbar */}
+      <div className="fixed top-20 right-4 z-40 flex items-center gap-2">
+        {/* Bookmarks */}
+        <BookmarksPanel 
+          bookId={bookId}
+          chapterId={chapterId}
+          bookmarks={bookmarks}
+          onAddBookmark={handleAddBookmark}
+          onRemoveBookmark={handleRemoveBookmark}
+          onNavigate={handleNavigateToBookmark}
+        />
+
+        {/* Font Size Control */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <Type className="w-5 h-5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64">
+            <div className="space-y-4">
+              <h4 className="font-medium leading-none">Размер шрифта</h4>
+              <div className="flex items-center gap-4">
+                <span className="text-xs">A</span>
+                <Slider
+                  value={[fontSize]}
+                  onValueChange={(vals) => setFontSize(vals[0])}
+                  min={14}
+                  max={32}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-lg">A</span>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* AI Toggle */}
+        <Button 
+          variant={isSidebarOpen ? "default" : "outline"}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="gap-2 transition-all duration-300 border-primary/20 hover:border-primary/50"
+        >
+          <Brain className="w-4 h-4" />
+          <span className="hidden sm:inline">AI Анализ</span>
+        </Button>
+      </div>
 
       {/* Navigation Zones */}
       {hasPrev && (

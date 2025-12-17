@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useRoute, Link } from 'wouter';
 import { mockUser, mockOtherUser, mockBooks, mockShelves, Shelf } from '@/lib/mockData';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
+import { BookCard } from '@/components/BookCard';
 import { 
   BookOpen, 
   Type, 
@@ -17,7 +18,8 @@ import {
   Share2, 
   ArrowLeft,
   Mail,
-  MoreVertical
+  MoreVertical,
+  User
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -66,15 +68,10 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header Navigation */}
         <header className="flex justify-between items-center mb-8">
-          <Link href="/">
-            <Button variant="ghost" className="gap-2 pl-0 hover:bg-transparent hover:text-primary">
-              <ArrowLeft className="w-5 h-5" />
-              <span className="hidden sm:inline">Назад в библиотеку</span>
-            </Button>
-          </Link>
+          <div></div> {/* Empty div for spacing */}
           {isOwnProfile && (
              <Button variant="ghost" size="icon">
                <Settings className="w-5 h-5" />
@@ -83,59 +80,65 @@ export default function Profile() {
         </header>
 
         {/* Profile Header */}
-        <div className="flex flex-col md:flex-row gap-8 items-start mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Avatar className="w-32 h-32 border-4 border-background shadow-xl">
-            <AvatarImage src={user.avatar} />
-            <AvatarFallback className="text-4xl font-serif bg-primary text-primary-foreground">
-              {user.name[0]}
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="flex-1 space-y-4 w-full">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h1 className="text-3xl font-serif font-bold">{user.name}</h1>
-                <p className="text-muted-foreground font-medium">{user.username}</p>
-              </div>
-              
-              <div className="flex gap-2 w-full sm:w-auto">
-                {!isOwnProfile ? (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="flex-1 sm:flex-none gap-2">
-                        <Mail className="w-4 h-4" />
-                        Написать
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Написать сообщение {user.name}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 pt-4">
-                        <Textarea 
-                          placeholder="Привет! Как тебе последняя книга..." 
-                          className="min-h-[150px]"
-                          value={message}
-                          onChange={(e) => setMessage(e.target.value)}
-                        />
-                        <div className="flex justify-end">
-                          <Button onClick={handleSendMessage}>Отправить</Button>
+        <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex flex-col items-start">
+              <Avatar className="w-32 h-32 border-4 border-background shadow-xl flex-shrink-0">
+                <AvatarImage src={user.avatar} />
+                <AvatarFallback className="bg-muted flex items-center justify-center">
+                  <User className="w-16 h-16 text-muted-foreground" />
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            
+            <div className="flex-1 space-y-4 w-full">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h1 className="text-3xl font-serif font-bold">{user.name}</h1>
+                  <p className="text-muted-foreground font-medium">{user.username}</p>
+                  {!isOwnProfile && (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="-ml-2 mt-1 p-1 cursor-pointer">
+                          <Mail className="w-5 h-5" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Написать сообщение {user.name}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-4">
+                          <Textarea 
+                            placeholder="Привет! Как тебе последняя книга..." 
+                            className="min-h-[150px]"
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                          />
+                          <div className="flex justify-end">
+                            <Button onClick={handleSendMessage} className="cursor-pointer">Отправить</Button>
+                          </div>
                         </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                ) : (
-                  <Button variant="outline" className="flex-1 sm:flex-none gap-2">
-                    <Share2 className="w-4 h-4" />
-                    Поделиться профилем
-                  </Button>
-                )}
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
+                
+                <div className="flex gap-2 w-full sm:w-auto">
+                  {isOwnProfile && (
+                    <Button variant="outline" className="flex-1 sm:flex-none gap-2 cursor-pointer">
+                      <Share2 className="w-4 h-4" />
+                      Поделиться профилем
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Bio with HTML rendering */}
+          </div>
+          
+          {/* Bio with HTML rendering - full width below avatar and user info */}
+          <div className="mt-6">
             <div 
-              className="prose prose-sm dark:prose-invert text-foreground/90 leading-relaxed bg-muted/30 p-4 rounded-lg border"
+              className="prose prose-sm dark:prose-invert text-foreground/90 leading-relaxed bg-muted/30 p-6 rounded-lg border w-full"
               dangerouslySetInnerHTML={{ __html: user.bio.replace(/\n/g, '<br/>') }}
             />
           </div>
@@ -180,39 +183,21 @@ export default function Profile() {
             <ClockIcon className="w-5 h-5 text-muted-foreground" />
             Недавно читал
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {user.recentlyReadIds.map(bookId => {
               const book = mockBooks.find(b => b.id === bookId);
               if (!book) return null;
               
+              // Find reading progress for this book
+              const progress = user.readingProgress?.find(p => p.bookId === bookId) || undefined;
+              
               return (
-                <div key={bookId} className="group bg-card border rounded-xl p-4 flex gap-4 hover:shadow-lg transition-all">
-                  <Link href={`/read/${book.id}/1`}>
-                    <div className={`w-16 h-24 rounded-md shadow-sm flex-shrink-0 ${book.coverColor} cursor-pointer hover:opacity-90 transition-opacity`} />
-                  </Link>
-                  <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
-                    <div>
-                      <Link href={`/read/${book.id}/1`}>
-                         <h3 className="font-serif font-bold truncate hover:text-primary transition-colors cursor-pointer">{book.title}</h3>
-                      </Link>
-                      <p className="text-sm text-muted-foreground truncate">{book.author}</p>
-                    </div>
-                    
-                    <div className="flex gap-2 mt-2">
-                      <Link href={`/read/${book.id}/1`}>
-                        <Button size="sm" variant="secondary" className="text-xs h-8">
-                          Читать
-                        </Button>
-                      </Link>
-                      {/* Only show Add to Shelf if viewing another user's profile, or just general utility */}
-                      <AddToShelfDialog 
-                        bookId={book.id}
-                        shelves={myShelves} // Always add to MY shelves (current logged in user)
-                        onToggleShelf={handleToggleShelf}
-                      />
-                    </div>
-                  </div>
-                </div>
+                <BookCard 
+                  key={book.id} 
+                  book={book} 
+                  variant="detailed"
+                  readingProgress={progress}
+                />
               );
             })}
           </div>
@@ -237,23 +222,20 @@ export default function Profile() {
                 {shelf.bookIds.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Полка пуста</p>
                 ) : (
-                  <ScrollArea className="w-full whitespace-nowrap">
-                    <div className="flex w-max space-x-4 pb-4">
-                      {shelf.bookIds.map(bookId => {
-                        const book = mockBooks.find(b => b.id === bookId);
-                        if (!book) return null;
-                        return (
-                          <div key={book.id} className="w-[100px] group/book relative">
-                            <Link href={`/read/${book.id}/1`}>
-                              <div className={`aspect-[2/3] rounded-lg shadow-md mb-2 overflow-hidden cursor-pointer transition-transform hover:scale-105 ${book.coverColor}`} />
-                            </Link>
-                            <h4 className="font-medium text-xs truncate" title={book.title}>{book.title}</h4>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <ScrollBar orientation="horizontal" />
-                  </ScrollArea>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {shelf.bookIds.map(bookId => {
+                      const book = mockBooks.find(b => b.id === bookId);
+                      if (!book) return null;
+                                    
+                      return (
+                        <BookCard 
+                          key={book.id} 
+                          book={book} 
+                          variant="shelf"
+                        />
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             ))}

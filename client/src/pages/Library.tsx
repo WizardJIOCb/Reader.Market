@@ -1,192 +1,209 @@
 import React, { useState } from 'react';
 import { Link } from 'wouter';
-import { mockBook, mockShelves, Shelf } from '@/lib/mockData';
-import { Play, BookOpen, Clock, Star, ArrowRight, Library as LibraryIcon, MessageSquare, Award, Plus, User, Search } from 'lucide-react';
+import { mockBooks, mockShelves, Shelf, ReadingProgress, mockUser } from '@/lib/mockData';
+import { 
+  Search, 
+  BookOpen, 
+  MessageSquare, 
+  Award, 
+  Clock, 
+  Users, 
+  TrendingUp, 
+  Star,
+  Library as LibraryIcon,
+  User
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CommentsSection } from '@/components/CommentsSection';
-import { ReviewsSection } from '@/components/ReviewsSection';
-import { AddToShelfDialog } from '@/components/AddToShelfDialog';
-import generatedImage from '@assets/generated_images/digital_lines_merging_with_paper_pages.png';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { useAuth } from '@/lib/auth';
+import { SearchBar } from '@/components/SearchBar';
+import { BookCard } from '@/components/BookCard';
+import { PageHeader } from '@/components/PageHeader';
+
+// Mock data for popular books, trending books, and recently reviewed books
+const popularBooks = mockBooks.slice(0, 4);
+const trendingBooks = mockBooks.slice(2, 6);
+const recentlyReviewedBooks = mockBooks.slice(1, 5);
+
+// Mock data for user's currently reading books with progress
+const userCurrentlyReading = [
+  {
+    book: mockBooks[0],
+    progress: 65,
+    lastRead: '2 дня назад'
+  },
+  {
+    book: mockBooks[1],
+    progress: 30,
+    lastRead: '5 дней назад'
+  }
+];
+
+// Group books by genre
+const booksByGenre = [
+  {
+    genre: 'Научная Фантастика',
+    books: mockBooks.filter(book => book.genre.includes('Научная Фантастика')).slice(0, 3)
+  },
+  {
+    genre: 'Детектив',
+    books: mockBooks.filter(book => book.genre.includes('Детектив')).slice(0, 3)
+  },
+  {
+    genre: 'Киберпанк',
+    books: mockBooks.filter(book => book.genre.includes('Киберпанк')).slice(0, 3)
+  }
+];
 
 export default function Library() {
-  const [activeTab, setActiveTab] = useState("chapters");
-  const [shelves, setShelves] = useState<Shelf[]>(mockShelves);
-  const book = mockBook;
+  const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleToggleShelf = (bookId: number, shelfId: string, isAdded: boolean) => {
-    setShelves(shelves.map(shelf => {
-      if (shelf.id === shelfId) {
-        if (isAdded) {
-          return { ...shelf, bookIds: [...shelf.bookIds, bookId] };
-        } else {
-          return { ...shelf, bookIds: shelf.bookIds.filter(id => id !== bookId) };
-        }
-      }
-      return shelf;
-    }));
+  const handleSearch = (query: string) => {
+    // In a real app, this would navigate to search results
+    console.log('Searching for:', query);
+    setSearchQuery(query);
   };
 
   return (
-    <div className="min-h-screen bg-background font-sans">
-      <div className="container mx-auto px-4 py-12 md:py-24 max-w-6xl">
-        <header className="flex justify-between items-center mb-12">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-serif font-bold text-xl">
-              N
-            </div>
-            <span className="font-semibold text-xl tracking-tight">NeuroReader</span>
-          </div>
-          <div className="flex items-center gap-4">
-             <Link href="/search">
-               <Button variant="ghost" size="icon">
-                 <Search className="w-5 h-5" />
-               </Button>
-             </Link>
-             <Link href="/shelves">
-               <Button variant="ghost" className="gap-2">
-                 <LibraryIcon className="w-4 h-4" />
-                 <span className="hidden sm:inline">Мои полки</span>
-               </Button>
-             </Link>
-             <Link href="/profile/user1">
-               <Button variant="ghost" className="gap-2">
-                 <User className="w-4 h-4" />
-                 <span className="hidden sm:inline">Профиль</span>
-               </Button>
-             </Link>
-          </div>
-        </header>
-
-        <div className="grid md:grid-cols-2 gap-12 items-start mb-24">
-          {/* Hero Content */}
-          <div className="space-y-8 sticky top-24">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium">
-              <Star className="w-4 h-4 fill-accent" />
-              <span>Выбор редакции</span>
-            </div>
-            
-            <h1 className="font-serif text-5xl md:text-7xl font-bold leading-tight text-foreground">
-              {book.title}
-            </h1>
-            
-            <p className="text-xl text-muted-foreground leading-relaxed max-w-lg">
-              Научная фантастика о границах человеческого сознания и искусственного интеллекта. Погрузитесь в мир будущего с нейро-комментариями.
-            </p>
-
-            <div className="flex flex-wrap gap-4 pt-4">
-              <Link href={`/read/${book.id}/1`}>
-                <Button size="lg" className="h-14 px-8 text-lg gap-3 rounded-full shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
-                  <Play className="w-5 h-5 fill-current" />
-                  Читать сейчас
-                </Button>
-              </Link>
-              <div className="flex gap-2">
-                <Button size="lg" variant="outline" className="h-14 px-8 text-lg gap-3 rounded-full">
-                  <BookOpen className="w-5 h-5" />
-                  О книге
-                </Button>
-                
-                <AddToShelfDialog 
-                  bookId={book.id} 
-                  shelves={shelves} 
-                  onToggleShelf={handleToggleShelf}
-                  trigger={
-                    <Button size="icon" variant="outline" className="h-14 w-14 rounded-full border-dashed border-2 hover:border-solid">
-                      <Plus className="w-6 h-6" />
-                    </Button>
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-8 pt-8 border-t border-border/50">
-              <div>
-                <p className="text-2xl font-bold font-serif">{book.chapters.length}</p>
-                <p className="text-sm text-muted-foreground uppercase tracking-wider">Глав</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold font-serif">4.8</p>
-                <p className="text-sm text-muted-foreground uppercase tracking-wider">Рейтинг</p>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="w-4 h-4" />
-                <span className="text-sm">~2.5 ч. чтения</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Book Cover / Visual */}
-          <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-accent/20 rounded-[2rem] blur-3xl transform rotate-6 scale-90 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-            <div className="relative aspect-[3/4] md:aspect-square rounded-[2rem] overflow-hidden shadow-2xl border border-white/10">
-              <img 
-                src={generatedImage} 
-                alt="Book Cover Abstract" 
-                className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-8 flex flex-col justify-end">
-                <p className="text-white/80 font-medium mb-1">Алексей Ветров</p>
-                <h3 className="text-white font-serif text-3xl font-bold">{book.title}</h3>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-background font-sans pb-20">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <PageHeader title="Библиотека" />
+        
+        {/* Search Bar */}
+        <div className="mb-12">
+          <SearchBar onSearch={handleSearch} />
         </div>
 
-        {/* Tabs Content */}
-        <section className="border-t pt-12">
-          <Tabs defaultValue="chapters" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-8 p-1 bg-muted/30 rounded-full h-auto inline-flex">
-              <TabsTrigger value="chapters" className="rounded-full px-6 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
-                Оглавление
-              </TabsTrigger>
-              <TabsTrigger value="comments" className="rounded-full px-6 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all gap-2">
-                <MessageSquare className="w-4 h-4" />
-                Комментарии
-              </TabsTrigger>
-              <TabsTrigger value="reviews" className="rounded-full px-6 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all gap-2">
-                <Award className="w-4 h-4" />
-                Рецензии
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="chapters" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {book.chapters.map((chapter) => (
-                  <Link key={chapter.id} href={`/read/${book.id}/${chapter.id}`}>
-                    <div className="group p-6 rounded-xl border bg-card hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer h-full flex flex-col">
-                      <div className="flex justify-between items-start mb-4">
-                        <span className="text-xs font-bold text-primary/60 uppercase tracking-wider">Глава {chapter.id}</span>
-                        <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                          ~10 мин
-                        </Badge>
-                      </div>
-                      <h3 className="font-serif text-xl font-bold mb-3 group-hover:text-primary transition-colors">
-                        {chapter.title.split(': ')[1] || chapter.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1">
-                        {chapter.summary}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs font-medium text-accent">
-                        <span>Сгенерировать пересказ</span>
-                        <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="comments" className="max-w-2xl">
-              <CommentsSection bookId={book.id} />
-            </TabsContent>
-
-            <TabsContent value="reviews" className="max-w-2xl">
-              <ReviewsSection bookId={book.id} />
-            </TabsContent>
-          </Tabs>
+        {/* Popular Books Section */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
+              <TrendingUp className="w-6 h-6 text-primary" />
+              Популярные книги
+            </h2>
+            <Link href="/search" className="text-sm text-primary hover:underline">
+              Все популярные
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {popularBooks.map((book) => {
+              // Find reading progress for this book
+              const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === book.id) || undefined;
+              
+              return (
+                <BookCard 
+                  key={book.id} 
+                  book={book} 
+                  variant="detailed"
+                  readingProgress={readingProgress}
+                />
+              );
+            })}
+          </div>
         </section>
+
+        {/* Books by Genre */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2">
+            <Users className="w-6 h-6 text-primary" />
+            Книги по жанрам
+          </h2>
+          
+          <div className="space-y-10">
+            {booksByGenre.map((genreGroup, index) => (
+              <div key={index}>
+                <h3 className="text-xl font-serif font-bold mb-4">{genreGroup.genre}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {genreGroup.books.map((book) => {
+                    // Find reading progress for this book
+                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === book.id) || undefined;
+                    
+                    return (
+                      <BookCard 
+                        key={book.id} 
+                        book={book} 
+                        variant="standard"
+                        readingProgress={readingProgress}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Recently Reviewed Books */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
+              <Award className="w-6 h-6 text-primary" />
+              Новые обзоры
+            </h2>
+            <Link href="/search" className="text-sm text-primary hover:underline">
+              Все обзоры
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {recentlyReviewedBooks.map((book) => {
+              // Find reading progress for this book
+              const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === book.id) || undefined;
+              
+              return (
+                <BookCard 
+                  key={book.id} 
+                  book={book} 
+                  variant="detailed"
+                  readingProgress={readingProgress}
+                />
+              );
+            })}
+          </div>
+        </section>
+
+        {/* User's Currently Reading */}
+        {user && (
+          <section className="mb-12">
+            <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-primary" />
+              Мои книги
+            </h2>
+            
+            {mockUser.readingProgress && mockUser.readingProgress.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {mockUser.readingProgress.map((progress) => {
+                  const book = mockBooks.find(b => b.id === progress.bookId);
+                  if (!book) return null;
+                  
+                  return (
+                    <BookCard 
+                      key={book.id} 
+                      book={book} 
+                      variant="detailed"
+                      readingProgress={progress}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <Card className="p-8 text-center">
+                <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">У вас нет активных книг</h3>
+                <p className="text-muted-foreground mb-4">
+                  Начните читать книгу, и она появится здесь с прогрессом чтения.
+                </p>
+                <Link href="/search">
+                  <Button>Найти книгу</Button>
+                </Link>
+              </Card>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
