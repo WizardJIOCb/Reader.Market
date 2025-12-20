@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from '@/components/ui/textarea';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import { BookCard } from '@/components/BookCard';
+import { LogoutButton } from '@/components/LogoutButton';
+import { useAuth } from '@/lib/auth'; // Added import for auth context
 import { 
   BookOpen, 
   Type, 
@@ -26,10 +28,12 @@ import { useToast } from '@/hooks/use-toast';
 export default function Profile() {
   const [match, params] = useRoute('/profile/:userId');
   const { toast } = useToast();
+  const { user: currentUser } = useAuth(); // Get current authenticated user
   const userId = params?.userId || 'user1'; // Default to logged-in user if no param
   
-  // Mock logic to determine if viewing own profile
-  const isOwnProfile = userId === 'user1';
+  // Determine if viewing own profile using real authentication
+  const isOwnProfile = currentUser?.id === userId;
+  // For mock data, still use the existing logic but with real user detection
   const user = isOwnProfile ? mockUser : mockOtherUser;
   
   // Local state for shelves to support adding books
@@ -73,9 +77,12 @@ export default function Profile() {
         <header className="flex justify-between items-center mb-8">
           <div></div> {/* Empty div for spacing */}
           {isOwnProfile && (
-             <Button variant="ghost" size="icon">
-               <Settings className="w-5 h-5" />
-             </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="icon">
+                <Settings className="w-5 h-5" />
+              </Button>
+              <LogoutButton />
+            </div>
           )}
         </header>
 

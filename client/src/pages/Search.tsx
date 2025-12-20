@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Link } from 'wouter';
-import { mockBooks, mockShelves, recentlySearchedBooks, Shelf, mockUser } from '@/lib/mockData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link, useLocation } from 'wouter';
 import { 
   Search, 
   Filter, 
@@ -12,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import {
   Sheet,
   SheetContent,
@@ -27,69 +25,189 @@ import { Separator } from '@/components/ui/separator';
 import { SearchBar } from '@/components/SearchBar';
 import { BookCard } from '@/components/BookCard';
 import { PageHeader } from '@/components/PageHeader';
+import { useShelves } from '@/hooks/useShelves';
+import { AddToShelfDialog } from '@/components/AddToShelfDialog';
+import { Plus } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
+
+// Define the Book interface to match our database schema
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  description?: string;
+  coverImageUrl?: string;
+  filePath?: string;
+  fileSize?: number;
+  fileType?: string;
+  genre?: string;
+  publishedYear?: number;
+  rating?: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [shelves, setShelves] = useState<Shelf[]>(mockShelves);
+  const { shelves, addBookToShelf, removeBookFromShelf } = useShelves();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+  
+  // State for books and loading
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Filters State
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [yearRange, setYearRange] = useState<[number, number]>([1950, 2025]);
 
+  // Check for query parameter in URL when component mounts
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParam = urlParams.get('q');
+    if (queryParam) {
+      const decodedQuery = decodeURIComponent(queryParam);
+      setSearchQuery(decodedQuery);
+      performSearch(decodedQuery);
+    }
+  }, []);
+
+  // Fetch all books for filters when component mounts
+  useEffect(() => {
+    const fetchAllBooks = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+        
+        const response = await fetch('/api/books/search', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setBooks(data);
+        } else {
+          throw new Error('Failed to fetch books');
+        }
+      } catch (err) {
+        console.error('Error fetching books:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load books');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAllBooks();
+  }, []);
+
   // Derived Data for Filters
-  const allGenres = Array.from(new Set(mockBooks.flatMap(b => b.genre)));
-  const allStyles = Array.from(new Set(mockBooks.map(b => b.style).filter(Boolean) as string[]));
+  const allGenres = useMemo(() => {
+    const genres = new Set<string>();
+    books.forEach(book => {
+      if (book.genre) {
+        book.genre.split(',').forEach(g => genres.add(g.trim()));
+      }
+    });
+    return Array.from(genres);
+  }, [books]);
+
+  const allStyles = useMemo(() => {
+    // For now, we don't have styles in our database schema
+    return [];
+  }, []);
+
+  const performSearch = async (query: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      // For now, we'll do client-side filtering
+      // In a real implementation, this would be a server-side search
+      const filtered = books.filter(book => {
+        if (!query) return true;
+        
+        const searchLower = query.toLowerCase();
+        return (
+          book.title.toLowerCase().includes(searchLower) ||
+          book.author.toLowerCase().includes(searchLower) ||
+          (book.description && book.description.toLowerCase().includes(searchLower)) ||
+          (book.genre && book.genre.toLowerCase().includes(searchLower))
+        );
+      });
+      
+      setBooks(filtered);
+    } catch (err) {
+      console.error('Search error:', err);
+      setError(err instanceof Error ? err.message : 'Search failed');
+      toast({
+        title: "Ошибка поиска",
+        description: "Не удалось выполнить поиск",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter Logic
   const filteredBooks = useMemo(() => {
-    // If there's no search query, show recently searched books
-    if (!searchQuery) {
-      return recentlySearchedBooks;
-    }
-    
-    return mockBooks.filter(book => {
-      // Text Search
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = 
-        book.title.toLowerCase().includes(searchLower) || 
-        book.author.toLowerCase().includes(searchLower) ||
-        (book.description && book.description.toLowerCase().includes(searchLower)) ||
-        book.tags?.some(tag => tag.toLowerCase().includes(searchLower));
-
-      if (!matchesSearch) return false;
-
+    return books.filter(book => {
       // Genre Filter
       if (selectedGenres.length > 0) {
-        const hasGenre = book.genre.some(g => selectedGenres.includes(g));
+        if (!book.genre) return false;
+        const bookGenres = book.genre.split(',').map(g => g.trim());
+        const hasGenre = selectedGenres.some(g => bookGenres.includes(g));
         if (!hasGenre) return false;
       }
 
-      // Style Filter
+      // Style Filter (not implemented in our schema)
       if (selectedStyles.length > 0) {
-        if (!book.style || !selectedStyles.includes(book.style)) return false;
+        return false; // No style field in our database
       }
 
       // Year Filter
-      if (book.year && (book.year < yearRange[0] || book.year > yearRange[1])) {
+      if (book.publishedYear && (book.publishedYear < yearRange[0] || book.publishedYear > yearRange[1])) {
         return false;
       }
 
       return true;
     });
-  }, [searchQuery, selectedGenres, selectedStyles, yearRange]);
+  }, [books, selectedGenres, selectedStyles, yearRange]);
 
-  const handleToggleShelf = (bookId: number, shelfId: string, isAdded: boolean) => {
-    setShelves(shelves.map(shelf => {
-      if (shelf.id === shelfId) {
-        if (isAdded) {
-          return { ...shelf, bookIds: [...shelf.bookIds, bookId] };
-        } else {
-          return { ...shelf, bookIds: shelf.bookIds.filter(id => id !== bookId) };
+  const handleToggleShelf = async (bookId: number, shelfId: string, isAdded: boolean) => {
+    try {
+      if (isAdded) {
+        // Check if book is already in shelf
+        const shelf = shelves.find(s => s.id === shelfId);
+        if (shelf && shelf.bookIds.includes(bookId.toString())) {
+          return;
         }
+        
+        await addBookToShelf(shelfId, bookId.toString());
+      } else {
+        await removeBookFromShelf(shelfId, bookId.toString());
       }
-      return shelf;
-    }));
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : "Не удалось обновить полку",
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleGenre = (genre: string) => {
@@ -109,6 +227,22 @@ export default function SearchPage() {
     setSelectedStyles([]);
     setYearRange([1950, 2025]);
     setSearchQuery('');
+    
+    // Reset URL
+    setLocation('/search', { replace: true });
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    
+    // Update URL with query parameter
+    if (query) {
+      setLocation(`/search?q=${encodeURIComponent(query)}`, { replace: true });
+    } else {
+      setLocation('/search', { replace: true });
+    }
+    
+    performSearch(query);
   };
 
   return (
@@ -119,7 +253,7 @@ export default function SearchPage() {
         <div className="mb-8">
           <SearchBar 
             initialQuery={searchQuery}
-            onSearch={setSearchQuery}
+            onSearch={handleSearch}
           />
         </div>
 
@@ -128,63 +262,73 @@ export default function SearchPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted-foreground">
               {!searchQuery 
-                ? "Последние просмотренные книги" 
+                ? "Все книги" 
                 : `Найдено книг: ${filteredBooks.length}`}
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredBooks.length > 0 ? (
-              filteredBooks.map(book => {
-                // Find reading progress for this book
-                const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === book.id) || undefined;
-                
-                return (
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-destructive">{error}</p>
+              <Button onClick={() => performSearch(searchQuery)} className="mt-4">
+                Повторить попытку
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredBooks.length > 0 ? (
+                filteredBooks.map(book => (
                   <BookCard 
                     key={book.id} 
-                    book={book} 
+                    book={{
+                      ...book,
+                      id: parseInt(book.id), // Convert string ID to number for BookCard
+                      coverColor: '' // Not used since we have coverImageUrl
+                    }} 
                     variant="detailed"
-                    readingProgress={readingProgress}
-                    onAddToShelf={(bookId) => console.log(`Add book ${bookId} to shelf`)}
+                    addToShelfButton={
+                      <AddToShelfDialog 
+                        bookId={parseInt(book.id)}
+                        shelves={shelves.map(s => ({
+                          id: s.id,
+                          title: s.name,
+                          description: s.description,
+                          bookIds: s.bookIds.map(id => parseInt(id)),
+                          color: s.color
+                        }))}
+                        onToggleShelf={handleToggleShelf}
+                        trigger={
+                          <Button variant="outline" size="sm" className="gap-2 w-full">
+                            <Plus className="w-4 h-4" />
+                            Добавить на полку
+                          </Button>
+                        }
+                      />
+                    }
                   />
-                );
-              })
-            ) : (
-              <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                  <Search className="w-8 h-8 text-muted-foreground" />
+                ))
+              ) : (
+                <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
+                  <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                    <Search className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">Ничего не найдено</h3>
+                  <p className="text-muted-foreground max-w-sm">
+                    Попробуйте изменить поисковый запрос или сбросить фильтры
+                  </p>
+                  <Button variant="outline" className="mt-6" onClick={clearFilters}>
+                    Сбросить фильтры
+                  </Button>
                 </div>
-                <h3 className="text-lg font-medium mb-2">Ничего не найдено</h3>
-                <p className="text-muted-foreground max-w-sm">
-                  Попробуйте изменить поисковый запрос или сбросить фильтры
-                </p>
-                <Button variant="outline" className="mt-6" onClick={clearFilters}>
-                  Сбросить фильтры
-                </Button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
-  );
-}
-
-function Star({ className }: { className?: string }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-    </svg>
   );
 }

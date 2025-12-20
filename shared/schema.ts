@@ -39,6 +39,7 @@ export const books = pgTable("books", {
   genre: text("genre"),
   publishedYear: integer("published_year"),
   rating: numeric("rating", { precision: 2, scale: 1 }),
+  userId: varchar("user_id").notNull().references(() => users.id), // Added userId field to track uploader
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

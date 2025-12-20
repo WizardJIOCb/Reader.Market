@@ -32,9 +32,9 @@ export interface Bookmark {
 
 export interface Shelf {
   id: string;
-  title: string;
+  name: string;
   description?: string;
-  bookIds: number[];
+  bookIds: string[];
   color?: string;
 }
 
@@ -278,23 +278,23 @@ export const recentlySearchedBooks: Book[] = [
 export const mockShelves: Shelf[] = [
   {
     id: '1',
-    title: 'Избранное',
+    name: 'Избранное',
     description: 'Книги, которые хочется перечитывать',
-    bookIds: [1],
+    bookIds: ['1'],
     color: 'bg-rose-100 dark:bg-rose-900/20'
   },
   {
     id: '2',
-    title: 'Хочу прочитать',
+    name: 'Хочу прочитать',
     description: 'Список на будущее',
-    bookIds: [2, 3],
+    bookIds: ['2', '3'],
     color: 'bg-blue-100 dark:bg-blue-900/20'
   },
   {
     id: '3',
-    title: 'Научная фантастика',
+    name: 'Научная фантастика',
     description: 'Лучшее из жанра Sci-Fi',
-    bookIds: [1, 3, 4],
+    bookIds: ['1', '3', '4'],
     color: 'bg-purple-100 dark:bg-purple-900/20'
   }
 ];
@@ -417,8 +417,8 @@ export const mockOtherUser: User = {
   shelves: [
     {
       id: '10',
-      title: 'Топ 2024',
-      bookIds: [1, 3],
+      name: 'Топ 2024',
+      bookIds: ['1', '3'],
       color: 'bg-emerald-100 dark:bg-emerald-900/20'
     }
   ],

@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics } from "@shared/schema";
-import { eq, and } from "drizzle-orm/sql";
+import { eq, and, inArray } from "drizzle-orm/sql";
 
 // Database connection
 console.log("Connecting to database with URL:", process.env.DATABASE_URL);
@@ -23,6 +23,7 @@ export interface IStorage {
   createBook(bookData: any): Promise<any>;
   getBook(id: string): Promise<any | undefined>;
   searchBooks(query: string): Promise<any[]>;
+  deleteBook(id: string, userId: string): Promise<boolean>;
   
   // Shelf operations
   createShelf(userId: string, shelfData: any): Promise<any>;
@@ -112,10 +113,72 @@ export class DBStorage implements IStorage {
 
   async searchBooks(query: string): Promise<any[]> {
     try {
-      const result = await db.select().from(books);
+      let result;
+      if (query) {
+        // Perform a search based on the query
+        result = await db.select().from(books).where(
+          sql`title ILIKE ${'%' + query + '%'} OR author ILIKE ${'%' + query + '%'} OR description ILIKE ${'%' + query + '%'} OR genre ILIKE ${'%' + query + '%'}`
+        );
+      } else {
+        // Return all books if no query
+        result = await db.select().from(books);
+      }
       return result;
     } catch (error) {
       console.error("Error searching books:", error);
+      return [];
+    }
+  }
+  
+  /**
+   * Delete a book by ID if the user is the owner
+   * @param id Book ID
+   * @param userId User ID
+   * @returns boolean indicating success
+   */
+  async deleteBook(id: string, userId: string): Promise<boolean> {
+    try {
+      // First, get the book to check ownership and get file paths
+      const book = await this.getBook(id);
+      if (!book) {
+        return false; // Book not found
+      }
+      
+      // Check if the user owns this book
+      if (book.userId !== userId) {
+        throw new Error("Unauthorized: You can only delete books you uploaded");
+      }
+      
+      // Delete associated records first (in reverse order of dependencies)
+      // Delete bookmarks
+      await db.delete(bookmarks).where(eq(bookmarks.bookId, id));
+      
+      // Delete reading statistics
+      await db.delete(readingStatistics).where(eq(readingStatistics.bookId, id));
+      
+      // Delete reading progress
+      await db.delete(readingProgress).where(eq(readingProgress.bookId, id));
+      
+      // Remove book from all shelves
+      await db.delete(shelfBooks).where(eq(shelfBooks.bookId, id));
+      
+      // Finally, delete the book itself
+      const result = await db.delete(books).where(eq(books.id, id));
+      
+      return true;
+    } catch (error) {
+      console.error("Error deleting book:", error);
+      throw error;
+    }
+  }
+  
+  async getBooksByIds(bookIds: string[]): Promise<any[]> {
+    try {
+      if (bookIds.length === 0) return [];
+      const result = await db.select().from(books).where(inArray(books.id, bookIds));
+      return result;
+    } catch (error) {
+      console.error("Error getting books by IDs:", error);
       return [];
     }
   }
@@ -132,8 +195,22 @@ export class DBStorage implements IStorage {
 
   async getShelves(userId: string): Promise<any[]> {
     try {
-      const result = await db.select().from(shelves).where(eq(shelves.userId, userId));
-      return result;
+      // First get all shelves for the user
+      const userShelves = await db.select().from(shelves).where(eq(shelves.userId, userId));
+      
+      // For each shelf, get the associated book IDs
+      const shelvesWithBooks = await Promise.all(userShelves.map(async (shelf) => {
+        // Get all book IDs for this shelf
+        const shelfBookRecords = await db.select().from(shelfBooks).where(eq(shelfBooks.shelfId, shelf.id));
+        const bookIds = shelfBookRecords.map(record => record.bookId);
+        
+        return {
+          ...shelf,
+          bookIds
+        };
+      }));
+      
+      return shelvesWithBooks;
     } catch (error) {
       console.error("Error getting shelves:", error);
       return [];
@@ -152,6 +229,9 @@ export class DBStorage implements IStorage {
 
   async deleteShelf(id: string): Promise<void> {
     try {
+      // First remove all book associations
+      await db.delete(shelfBooks).where(eq(shelfBooks.shelfId, id));
+      // Then delete the shelf itself
       await db.delete(shelves).where(eq(shelves.id, id));
     } catch (error) {
       console.error("Error deleting shelf:", error);
