@@ -31,9 +31,10 @@ import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import { CommentsSection } from '@/components/CommentsSection';
 import { ReviewsSection } from '@/components/ReviewsSection';
 import { useToast } from '@/hooks/use-toast';
-import { useMockShelves } from '@/hooks/useMockShelves';
+import { useShelves } from '@/hooks/useShelves';
 import { useAuth } from '@/lib/auth';
 import { useBook } from '@/hooks/useBooks';
+import { setCachedComments, setCachedReviews, getPendingRequest, trackPendingRequest } from '@/lib/dataCache';
 
 interface Book {
   id: string;
@@ -59,10 +60,10 @@ export default function BookDetail() {
   const { bookId } = useParams<{ bookId: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { shelves, addBookToShelf, removeBookFromShelf } = useMockShelves();
+  const { shelves, addBookToShelf, removeBookFromShelf } = useShelves();
   
   // Use the real book hook instead of mock data
-  const { book, loading, error } = useBook(bookId);
+  const { book, loading, error, refresh } = useBook(bookId);
   
   // Form states for comments and reviews
   const [newComment, setNewComment] = useState('');
@@ -73,49 +74,107 @@ export default function BookDetail() {
   const [commentsCount, setCommentsCount] = useState(0);
   const [reviewsCount, setReviewsCount] = useState(0);
   
-  // Fetch comment and review counts when book changes
+  // Book rating state
+  const [bookRating, setBookRating] = useState<number | null>(book?.rating || null);
+  
+  // Fetch full comment and review data when book changes
   useEffect(() => {
-    const fetchCounts = async () => {
+    // Check if there are already pending requests for this book
+    const pendingCommentsRequest = getPendingRequest('comments', bookId);
+    const pendingReviewsRequest = getPendingRequest('reviews', bookId);
+    
+    if (pendingCommentsRequest || pendingReviewsRequest) {
+      // Wait for pending requests to complete
+      Promise.all([
+        pendingCommentsRequest || Promise.resolve(),
+        pendingReviewsRequest || Promise.resolve()
+      ]).then(([commentsData, reviewsData]) => {
+        if (commentsData) {
+          setCommentsCount(commentsData.length);
+        }
+        if (reviewsData) {
+          setReviewsCount(reviewsData.length);
+        }
+      }).catch(err => {
+        console.error('Error waiting for pending requests:', err);
+      });
+      return;
+    }
+
+    const fetchData = async () => {
       if (!bookId) return;
       
       try {
         const token = localStorage.getItem('authToken');
         if (!token) return;
         
-        // Fetch comment count
-        const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
+        // Track comments request
+        const commentsPromise = trackPendingRequest('comments', bookId, fetch(`/api/books/${bookId}/comments`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
-        });
+        }).then(response => {
+          if (response.ok) {
+            return response.json();
+          }
+          throw new Error('Failed to fetch comments');
+        }));
         
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json();
+        // Track reviews request
+        const reviewsPromise = trackPendingRequest('reviews', bookId, fetch(`/api/books/${bookId}/reviews`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }).then(response => {
+          if (response.ok) {
+            return response.json();
+          }
+          throw new Error('Failed to fetch reviews');
+        }));
+        
+        // Wait for both requests
+        const [commentsResponse, reviewsResponse] = await Promise.allSettled([commentsPromise, reviewsPromise]);
+        
+        if (commentsResponse.status === 'fulfilled') {
+          const commentsData = commentsResponse.value;
           setCommentsCount(commentsData.length);
+          // Cache the comments data
+          setCachedComments(bookId, commentsData);
         }
         
-        // Fetch review count
-        const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (reviewsResponse.ok) {
-          const reviewsData = await reviewsResponse.json();
+        if (reviewsResponse.status === 'fulfilled') {
+          const reviewsData = reviewsResponse.value;
           setReviewsCount(reviewsData.length);
+          // Cache the reviews data
+          setCachedReviews(bookId, reviewsData);
         }
+        
+        // Return promises for potential pending request handlers
+        return {
+          comments: commentsResponse.status === 'fulfilled' ? commentsResponse.value : null,
+          reviews: reviewsResponse.status === 'fulfilled' ? reviewsResponse.value : null
+        };
       } catch (err) {
-        console.error('Error fetching comment/review counts:', err);
+        console.error('Error fetching comment/review data:', err);
+        throw err;
       }
     };
     
     if (bookId) {
-      fetchCounts();
+      // Track this request to prevent duplicates
+      const trackedRequest = trackPendingRequest('book-data', bookId, fetchData());
+      trackedRequest.catch(() => {}); // Prevent unhandled promise rejection
     }
   }, [bookId]);
+  
+  // Update bookRating when book prop changes
+  useEffect(() => {
+    if (book) {
+      setBookRating(book.rating || null);
+    }
+  }, [book]);
   
   // For reading stats
   const [readingProgress, setReadingProgress] = useState<number | null>(null);
@@ -159,7 +218,7 @@ export default function BookDetail() {
     }
   };
   
-  const handleToggleShelf = async (shelfId: string, isAdded: boolean) => {
+  const handleToggleShelf = async (shelfId: string, bookId: string, isAdded: boolean) => {
     try {
       if (isAdded) {
         await addBookToShelf(shelfId, bookId);
@@ -202,6 +261,30 @@ export default function BookDetail() {
     if (bytes < 1024) return bytes + ' bytes';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / 1048576).toFixed(1) + ' MB';
+  };
+  
+  // Russian pluralization for "голос" (vote)
+  const formatVotesCount = (count: number) => {
+    const lastDigit = count % 10;
+    const lastTwoDigits = count % 100;
+    
+    // Exceptions for 11-19
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
+      return `${count} голосов`;
+    }
+    
+    // 1 vote
+    if (lastDigit === 1) {
+      return `${count} голос`;
+    }
+    
+    // 2-4 votes
+    if (lastDigit >= 2 && lastDigit <= 4) {
+      return `${count} голоса`;
+    }
+    
+    // 5-9, 0 votes
+    return `${count} голосов`;
   };
   
   // Get book dates - using created_at as fallback for uploaded_at
@@ -282,12 +365,12 @@ export default function BookDetail() {
                       bookId={book.id}
                       shelves={shelves.map(s => ({
                         id: s.id,
-                        title: s.name,
+                        name: s.name,
                         description: s.description,
                         bookIds: s.bookIds || [],
                         color: s.color
                       }))}
-                      onToggleShelf={(bookId, shelfId, isAdded) => handleToggleShelf(shelfId, isAdded)}
+                      onToggleShelf={(shelfId, bookId, isAdded) => handleToggleShelf(shelfId, bookId, isAdded)}
                       trigger={
                         <Button variant="outline" className="w-full gap-2 truncate">
                           <Plus className="w-4 h-4 flex-shrink-0" />
@@ -341,11 +424,12 @@ export default function BookDetail() {
                         {[...Array(5)].map((_, i) => (
                           <Star 
                             key={i} 
-                            className={`w-5 h-5 ${i < Math.floor(book.rating || 0) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
+                            className={`w-5 h-5 ${i < Math.floor((bookRating || 0) / 2) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
                           />
                         ))}
                       </div>
-                      <span className="text-lg font-medium">{(book.rating || 0).toFixed(1)}</span>
+                      <span className="text-lg font-medium">{(bookRating || 0).toFixed(1)}/10</span>
+                      <span className="text-muted-foreground text-sm">({formatVotesCount(reviewsCount)})</span>
                     </div>
                     
                     <p className="text-muted-foreground">{book.description}</p>
@@ -433,6 +517,7 @@ export default function BookDetail() {
                   <ReviewsSection 
                     bookId={bookId} 
                     onReviewsCountChange={setReviewsCount}
+                    onBookRatingChange={setBookRating}
                   />
                 </TabsContent>
               </CardContent>

@@ -132,16 +132,23 @@ export class DBStorage implements IStorage {
 
   async getBook(id: string): Promise<any | undefined> {
     try {
+      console.log(`Getting book with ID: ${id}`);
       const result = await db.select().from(books).where(eq(books.id, id));
+      console.log(`Database result for book ${id}:`, result[0]);
       if (result[0]) {
         // Format dates for the frontend
-        return {
+        const formattedBook = {
           ...result[0],
+          rating: result[0].rating !== null && result[0].rating !== undefined ? 
+            (typeof result[0].rating === 'number' ? result[0].rating : parseFloat(result[0].rating.toString())) : 
+            null,
           uploadedAt: result[0].uploadedAt ? result[0].uploadedAt.toISOString() : null,
           publishedAt: result[0].publishedAt ? result[0].publishedAt.toISOString() : null,
           createdAt: result[0].createdAt.toISOString(),
           updatedAt: result[0].updatedAt.toISOString()
         };
+        console.log(`Formatted book ${id}:`, formattedBook);
+        return formattedBook;
       }
       return result[0];
     } catch (error) {
@@ -166,6 +173,9 @@ export class DBStorage implements IStorage {
       // Format dates for the frontend
       return result.map(book => ({
         ...book,
+        rating: book.rating !== null && book.rating !== undefined ? 
+          (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+          null,
         uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
         publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
         createdAt: book.createdAt.toISOString(),
@@ -228,8 +238,18 @@ export class DBStorage implements IStorage {
       // First get the books
       const booksResult = await db.select().from(books).where(inArray(books.id, bookIds));
       
+      // For books without ratings, calculate them
+      for (const book of booksResult) {
+        if (book.rating === null || book.rating === undefined) {
+          await this.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      const updatedBooksResult = await db.select().from(books).where(inArray(books.id, bookIds));
+      
       // For each book, get the comment and review counts
-      const result = await Promise.all(booksResult.map(async (book) => {
+      const result = await Promise.all(updatedBooksResult.map(async (book) => {
         console.log('Fetching counts for book ID:', book.id);
         
         // Get comment count using raw SQL
@@ -245,6 +265,9 @@ export class DBStorage implements IStorage {
         // Format dates for the frontend
         const formattedBook = {
           ...book,
+          rating: book.rating !== null && book.rating !== undefined ? 
+            (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+            null,
           uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
           publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
           createdAt: book.createdAt.toISOString(),
@@ -325,7 +348,9 @@ export class DBStorage implements IStorage {
 
   async getShelf(id: string): Promise<any | undefined> {
     try {
+      console.log(`Getting shelf with ID: ${id}`);
       const result = await db.select().from(shelves).where(eq(shelves.id, id));
+      console.log(`Database result for shelf ${id}:`, result[0]);
       return result[0];
     } catch (error) {
       console.error("Error getting shelf:", error);
@@ -621,9 +646,11 @@ export class DBStorage implements IStorage {
 
   async createReview(reviewData: any): Promise<any> {
     try {
+      console.log('Creating review with data:', reviewData);
       // Insert the review
       const insertResult = await db.insert(reviews).values(reviewData).returning();
-      
+        
+      console.log('Inserted review result:', insertResult[0]);
       // Get the review with user information
       const result = await db.select({
         id: reviews.id,
@@ -639,7 +666,12 @@ export class DBStorage implements IStorage {
       .from(reviews)
       .leftJoin(users, eq(reviews.userId, users.id))
       .where(eq(reviews.id, insertResult[0].id));
-      
+        
+      console.log('Selected review result:', result[0]);
+      // Calculate and update the book's average rating
+      console.log('Calling updateBookAverageRating for book:', reviewData.bookId);
+      await this.updateBookAverageRating(reviewData.bookId);
+        
       // Format the response to match what the frontend expects
       const review = result[0];
       return {
@@ -657,6 +689,42 @@ export class DBStorage implements IStorage {
       throw error;
     }
   }
+    
+  async updateBookAverageRating(bookId: string): Promise<void> {
+    try {
+      console.log(`Updating average rating for book ${bookId}`);
+      // Get all reviews for this book
+      const bookReviews = await db.select().from(reviews).where(eq(reviews.bookId, bookId));
+        
+      console.log(`Found ${bookReviews.length} reviews for book ${bookId}`);
+      if (bookReviews.length > 0) {
+        // Calculate average rating
+        const totalRating = bookReviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = totalRating / bookReviews.length;
+        
+        console.log(`Calculated average rating: ${averageRating} for book ${bookId}`);
+          
+        // Update the book's rating field
+        // Ensure the rating is properly formatted for the database
+        const formattedRating = Math.round(averageRating * 10) / 10; // Round to 1 decimal place
+        await db.update(books)
+          .set({ rating: formattedRating })
+          .where(eq(books.id, bookId));
+          
+        console.log(`Updated book ${bookId} rating to ${formattedRating}`);
+      } else {
+        // If no reviews, set rating to null
+        await db.update(books)
+          .set({ rating: null })
+          .where(eq(books.id, bookId));
+          
+        console.log(`Set book ${bookId} rating to null (no reviews)`);
+      }
+    } catch (error) {
+      console.error("Error updating book average rating:", error);
+      // Don't throw error as this is a secondary operation
+    }
+  };
 
   async getReviews(bookId: string): Promise<any[]> {
     try {
@@ -723,11 +791,17 @@ export class DBStorage implements IStorage {
         return false; // Review not found or doesn't belong to user
       }
       
+      const bookId = review[0].bookId;
+      
       // Delete associated reactions first
       await db.delete(reactions).where(eq(reactions.reviewId, id));
       
       // Delete the review
       await db.delete(reviews).where(eq(reviews.id, id));
+      
+      // Recalculate and update the book's average rating
+      await this.updateBookAverageRating(bookId);
+      
       return true;
     } catch (error) {
       console.error("Error deleting review:", error);

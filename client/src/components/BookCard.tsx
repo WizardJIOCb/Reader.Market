@@ -133,7 +133,7 @@ export const BookCard: React.FC<BookCardProps> = ({
               Читать
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" className="flex-1" asChild>
+          <Button variant="outline" size="sm" className="flex-1" asChild>
             <Link href={`/book/${book.id}`}>
               Подробнее
             </Link>

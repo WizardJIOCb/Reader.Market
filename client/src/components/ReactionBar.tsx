@@ -13,7 +13,7 @@ interface Reaction {
 
 interface ReactionBarProps {
   reactions: Reaction[];
-  onReact: (emoji: string) => void;
+  onReact: (emoji: string) => void | Promise<void>;
   commentId?: string;
   reviewId?: string;
 }
@@ -44,7 +44,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId }: Re
 
       if (response.ok) {
         // Call the original onReact to update the UI
-        onReact(emoji);
+        await onReact(emoji);
       }
     } catch (error) {
       console.error('Failed to react:', error);

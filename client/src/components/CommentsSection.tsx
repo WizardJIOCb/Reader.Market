@@ -8,6 +8,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Send } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { dataCache, getCachedComments, setCachedComments, getPendingRequest, trackPendingRequest, isCachedDataStale } from '@/lib/dataCache';
 
 interface Reaction {
   emoji: string;
@@ -50,24 +51,65 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         if (response.ok) {
           const fetchedComments = await response.json();
           setComments(fetchedComments);
+          // Cache the fetched data
+          setCachedComments(bookId, fetchedComments);
           // Notify parent component of comment count change
           if (onCommentsCountChange) {
             onCommentsCountChange(fetchedComments.length);
           }
+          return fetchedComments;
         }
+        throw new Error('Failed to fetch comments');
       } catch (error) {
         console.error('Failed to fetch comments:', error);
         // Even on error, notify parent with 0 count
         if (onCommentsCountChange) {
           onCommentsCountChange(0);
         }
+        throw error;
       } finally {
         setLoading(false);
       }
     };
 
+    // Check if we have cached data for this book
+    const cachedCommentsEntry = dataCache.comments[bookId];
+    if (cachedCommentsEntry) {
+      setComments(cachedCommentsEntry.data);
+      if (onCommentsCountChange) {
+        onCommentsCountChange(cachedCommentsEntry.data.length);
+      }
+      setLoading(false);
+      // Only fetch fresh data in background if the cached data is stale
+      if (bookId && isCachedDataStale(cachedCommentsEntry.timestamp)) {
+        fetchComments().catch(() => {}); // Don't block UI on background refresh
+      }
+      return;
+    }
+
+    // Check if there's already a pending request for this book
+    const pendingRequest = getPendingRequest('comments', bookId);
+    if (pendingRequest) {
+      // Wait for the pending request to complete
+      pendingRequest.then((fetchedComments) => {
+        setComments(fetchedComments);
+        if (onCommentsCountChange) {
+          onCommentsCountChange(fetchedComments.length);
+        }
+        setLoading(false);
+      }).catch(() => {
+        if (onCommentsCountChange) {
+          onCommentsCountChange(0);
+        }
+        setLoading(false);
+      });
+      return;
+    }
+
     if (bookId) {
-      fetchComments();
+      // Track this request to prevent duplicates
+      const trackedRequest = trackPendingRequest('comments', bookId, fetchComments());
+      trackedRequest.catch(() => {}); // Prevent unhandled promise rejection
     }
   }, [bookId, onCommentsCountChange]);
 
@@ -98,18 +140,17 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
           userId: user.id
         };
         
+        // Optimistically add the new comment to the beginning of the list
+        const updatedComments = [formattedComment, ...comments];
+        setComments(updatedComments);
         setNewComment('');
         
-        // Refresh comments to get the newly added one
-        const response2 = await fetch(`/api/books/${bookId}/comments`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
-        });
+        // Update cache with new comment
+        setCachedComments(bookId, updatedComments);
         
-        if (response2.ok) {
-          const fetchedComments = await response2.json();
-          setComments(fetchedComments);
+        // Notify parent component of comment count change
+        if (onCommentsCountChange) {
+          onCommentsCountChange(updatedComments.length);
         }
       } else {
         console.error('Failed to post comment');
@@ -119,8 +160,13 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     }
   };
 
-  const handleReact = (commentId: string, emoji: string) => {
-    setComments(comments.map(comment => {
+  const handleReact = async (commentId: string, emoji: string) => {
+    // Since reactions are handled on the server, we need to:
+    // 1. Optimistically update the UI
+    // 2. Refetch the comments to get the accurate reaction counts from the server
+    
+    // Optimistically update the UI for immediate feedback
+    const updatedComments = comments.map(comment => {
       if (comment.id !== commentId) return comment;
 
       const existingReactionIndex = comment.reactions.findIndex(r => r.emoji === emoji);
@@ -128,23 +174,16 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
 
       if (existingReactionIndex >= 0) {
         const reaction = newReactions[existingReactionIndex];
-        if (reaction.userReacted) {
-          // Unlike
-          newReactions[existingReactionIndex] = {
-            ...reaction,
-            count: reaction.count - 1,
-            userReacted: false
-          };
-          if (newReactions[existingReactionIndex].count === 0) {
-            newReactions.splice(existingReactionIndex, 1);
-          }
-        } else {
-          // Like existing emoji
-          newReactions[existingReactionIndex] = {
-            ...reaction,
-            count: reaction.count + 1,
-            userReacted: true
-          };
+        // Toggle the userReacted flag for the current user
+        newReactions[existingReactionIndex] = {
+          ...reaction,
+          userReacted: !reaction.userReacted,
+          count: reaction.userReacted ? reaction.count - 1 : reaction.count + 1
+        };
+        
+        // Remove reaction if count becomes 0
+        if (newReactions[existingReactionIndex].count === 0) {
+          newReactions.splice(existingReactionIndex, 1);
         }
       } else {
         // Add new reaction
@@ -156,7 +195,33 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       }
 
       return { ...comment, reactions: newReactions };
-    }));
+    });
+
+    setComments(updatedComments);
+    
+    // Update cache with the updated comments
+    setCachedComments(bookId, updatedComments);
+    
+    // Now refetch the comments to get accurate data from the server
+    try {
+      const response = await fetch(`/api/books/${bookId}/comments`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+      
+      if (response.ok) {
+        const fetchedComments = await response.json();
+        setComments(fetchedComments);
+        
+        // Update cache with fresh data
+        setCachedComments(bookId, fetchedComments);
+      }
+    } catch (error) {
+      console.error('Failed to refresh comments after reaction:', error);
+      // Revert to previous state if refresh fails
+      setComments(comments);
+    }
   };
 
   const handleDeleteComment = async (commentId: string) => {
@@ -172,7 +237,14 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       
       if (response.ok) {
         // Remove the comment from the state
-        setComments(comments.filter(comment => comment.id !== commentId));
+        const updatedComments = comments.filter(comment => comment.id !== commentId);
+        setComments(updatedComments);
+        // Update cache
+        setCachedComments(bookId, updatedComments);
+        // Notify parent component of comment count change
+        if (onCommentsCountChange) {
+          onCommentsCountChange(updatedComments.length);
+        }
       } else {
         console.error('Failed to delete comment');
       }

@@ -91,7 +91,7 @@ export default function Shelves() {
     }
   };
 
-  const handleToggleShelf = async (bookId: string | number, shelfId: string, isAdded: boolean) => {
+  const handleToggleShelf = async (shelfId: string, bookId: string | number, isAdded: boolean) => {
     try {
       // Convert bookId to string if it's a number
       const bookIdStr = typeof bookId === 'number' ? bookId.toString() : bookId;
@@ -328,7 +328,7 @@ export default function Shelves() {
                           }))}
                           onToggleShelf={handleToggleShelf}
                           trigger={
-                            <Button variant="outline" size="sm" className="gap-2 w-full truncate">
+                            <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
                                 <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
                               </svg>
@@ -428,9 +428,9 @@ export default function Shelves() {
                               bookIds: s.bookIds || [],
                               color: s.color
                             }))}
-                            onToggleShelf={(bookId, shelfId, isAdded) => handleToggleShelf(bookId, shelfId, isAdded)}
+                            onToggleShelf={handleToggleShelf}
                             trigger={
-                              <Button variant="outline" size="sm" className="gap-2 w-full truncate">
+                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
                                   <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
                                 </svg>
