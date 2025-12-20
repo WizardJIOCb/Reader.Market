@@ -270,15 +270,27 @@ export async function registerRoutes(
     console.log("Get book by ID endpoint called");
     try {
       const { id } = req.params;
+      console.log(`Getting book with ID: ${id}`);
       if (!id) {
         return res.status(400).json({ error: "Book ID is required" });
       }
       
-      const book = await storage.getBook(id);
+      let book = await storage.getBook(id);
+      console.log(`Retrieved book:`, book);
       if (!book) {
         return res.status(404).json({ error: "Book not found" });
       }
       
+      // If the book has no rating or the rating is null, calculate it
+      if (book.rating === null || book.rating === undefined) {
+        console.log(`Book ${id} has no rating, calculating...`);
+        await storage.updateBookAverageRating(id);
+        // Fetch the book again with the updated rating
+        book = await storage.getBook(id);
+        console.log(`Book after rating calculation:`, book);
+      }
+      
+      console.log(`Returning book:`, book);
       res.json(book);
     } catch (error) {
       console.error("Get book by ID error:", error);
@@ -292,7 +304,18 @@ export async function registerRoutes(
     try {
       // For now, return all books
       // In a real implementation, this would filter based on query parameters
-      const books = await storage.searchBooks('');
+      let books = await storage.searchBooks('');
+      
+      // For books without ratings, calculate them
+      for (const book of books) {
+        if (book.rating === null || book.rating === undefined) {
+          await storage.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      books = await storage.searchBooks('');
+      
       res.json(books);
     } catch (error) {
       console.error("Search books error:", error);
@@ -427,21 +450,26 @@ export async function registerRoutes(
     try {
       const { id: shelfId, bookId } = req.params;
       
+      console.log(`Request to add book ${bookId} to shelf ${shelfId}`);
+      
       // Verify that the shelf exists
       const shelf = await storage.getShelf(shelfId);
       if (!shelf) {
+        console.log(`Shelf with ID ${shelfId} not found`);
         return res.status(404).json({ error: "Shelf not found" });
       }
       
       // Verify that the book exists
       const book = await storage.getBook(bookId);
       if (!book) {
+        console.log(`Book with ID ${bookId} not found`);
         return res.status(404).json({ error: "Book not found" });
       }
       
       // Verify the shelf belongs to the user
       const userId = (req as any).user.userId;
       if (shelf.userId !== userId) {
+        console.log(`Access denied: Shelf ${shelfId} does not belong to user ${userId}`);
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -459,21 +487,26 @@ export async function registerRoutes(
     try {
       const { id: shelfId, bookId } = req.params;
       
+      console.log(`Request to remove book ${bookId} from shelf ${shelfId}`);
+      
       // Verify that the shelf exists
       const shelf = await storage.getShelf(shelfId);
       if (!shelf) {
+        console.log(`Shelf with ID ${shelfId} not found`);
         return res.status(404).json({ error: "Shelf not found" });
       }
       
       // Verify that the book exists
       const book = await storage.getBook(bookId);
       if (!book) {
+        console.log(`Book with ID ${bookId} not found`);
         return res.status(404).json({ error: "Book not found" });
       }
       
       // Verify the shelf belongs to the user
       const userId = (req as any).user.userId;
       if (shelf.userId !== userId) {
+        console.log(`Access denied: Shelf ${shelfId} does not belong to user ${userId}`);
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -629,6 +662,8 @@ export async function registerRoutes(
       const { bookId } = req.params;
       const { rating, content } = req.body;
       
+      console.log(`Creating review for book ${bookId} by user ${userId} with rating ${rating}`);
+      
       if (rating === undefined || rating === null || content === undefined || content === null || content.trim() === '') {
         return res.status(400).json({ error: "Rating and content are required" });
       }
@@ -651,6 +686,7 @@ export async function registerRoutes(
         content
       });
       
+      console.log(`Successfully created review for book ${bookId}:`, review);
       res.status(201).json(review);
     } catch (error) {
       console.error("Create review error:", error);

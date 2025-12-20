@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { getCachedShelves, setCachedShelves, dataCache, isCachedDataStale } from '@/lib/dataCache';
 
 export interface Shelf {
   id: string;
@@ -20,6 +21,14 @@ export function useShelves() {
 
   // Fetch shelves from API
   const fetchShelves = async () => {
+    // Check if we have cached data
+    const cachedShelves = getCachedShelves();
+    if (cachedShelves && !isCachedDataStale(dataCache.shelves.timestamp)) {
+      setShelves(cachedShelves);
+      setLoading(false);
+      return;
+    }
+
     if (!user) {
       setShelves([]);
       setLoading(false);
@@ -46,9 +55,13 @@ export function useShelves() {
       if (response.ok) {
         const data = await response.json();
         setShelves(data);
+        // Cache the data
+        setCachedShelves(data);
       } else {
         const errorText = await response.text();
-        setError(`Failed to fetch shelves: ${response.status} ${response.statusText} - ${errorText}`);
+        const errorMessage = `Failed to fetch shelves: ${response.status} ${response.statusText} - ${errorText}`;
+        console.error(errorMessage);
+        setError(errorMessage);
       }
     } catch (err) {
       setError(`Failed to fetch shelves: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -87,7 +100,9 @@ export function useShelves() {
         return shelfWithBookIds;
       } else {
         const errorText = await response.text();
-        throw new Error(`Failed to create shelf: ${response.status} ${response.statusText} - ${errorText}`);
+        const errorMessage = `Failed to create shelf: ${response.status} ${response.statusText} - ${errorText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (err) {
       console.error('Error creating shelf:', err);
@@ -127,7 +142,9 @@ export function useShelves() {
         return updatedShelf;
       } else {
         const errorText = await response.text();
-        throw new Error(`Failed to update shelf: ${response.status} ${response.statusText} - ${errorText}`);
+        const errorMessage = `Failed to update shelf: ${response.status} ${response.statusText} - ${errorText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (err) {
       console.error('Error updating shelf:', err);
@@ -159,7 +176,9 @@ export function useShelves() {
         setShelves(prev => prev.filter(shelf => shelf.id !== id));
       } else {
         const errorText = await response.text();
-        throw new Error(`Failed to delete shelf: ${response.status} ${response.statusText} - ${errorText}`);
+        const errorMessage = `Failed to delete shelf: ${response.status} ${response.statusText} - ${errorText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (err) {
       console.error('Error deleting shelf:', err);
@@ -179,6 +198,9 @@ export function useShelves() {
         throw new Error('No authentication token found');
       }
       
+      console.log(`Adding book ${bookId} to shelf ${shelfId}`);
+      console.log(`Using auth token: ${token.substring(0, 10)}...`);
+      
       const response = await fetch(`/api/shelves/${shelfId}/books/${bookId}`, {
         method: 'POST',
         headers: {
@@ -186,7 +208,10 @@ export function useShelves() {
         },
       });
 
+      console.log(`Server response status: ${response.status}`);
+      
       if (response.ok) {
+        console.log(`Successfully added book ${bookId} to shelf ${shelfId}`);
         // Update local state
         setShelves(prev => 
           prev.map(shelf => 
@@ -197,7 +222,10 @@ export function useShelves() {
         );
       } else {
         const errorText = await response.text();
-        throw new Error(`Failed to add book to shelf: ${response.status} ${response.statusText} - ${errorText}`);
+        console.log(`Server error response: ${errorText}`);
+        const errorMessage = `Failed to add book to shelf: ${response.status} ${response.statusText} - ${errorText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (err) {
       console.error('Error adding book to shelf:', err);
@@ -217,6 +245,9 @@ export function useShelves() {
         throw new Error('No authentication token found');
       }
       
+      console.log(`Removing book ${bookId} from shelf ${shelfId}`);
+      console.log(`Using auth token: ${token.substring(0, 10)}...`);
+      
       const response = await fetch(`/api/shelves/${shelfId}/books/${bookId}`, {
         method: 'DELETE',
         headers: {
@@ -224,7 +255,10 @@ export function useShelves() {
         },
       });
 
+      console.log(`Server response status: ${response.status}`);
+      
       if (response.ok) {
+        console.log(`Successfully removed book ${bookId} from shelf ${shelfId}`);
         // Update local state
         setShelves(prev => 
           prev.map(shelf => 
@@ -235,7 +269,10 @@ export function useShelves() {
         );
       } else {
         const errorText = await response.text();
-        throw new Error(`Failed to remove book from shelf: ${response.status} ${response.statusText} - ${errorText}`);
+        console.log(`Server error response: ${errorText}`);
+        const errorMessage = `Failed to remove book from shelf: ${response.status} ${response.statusText} - ${errorText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (err) {
       console.error('Error removing book from shelf:', err);

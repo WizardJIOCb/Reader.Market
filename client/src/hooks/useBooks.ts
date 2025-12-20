@@ -21,6 +21,13 @@ export interface Book {
   publishedAt?: string;
 }
 
+export interface UseBookReturn {
+  book: Book | null;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+}
+
 export function useBooks() {
   const { user } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
@@ -70,52 +77,55 @@ export function useBooks() {
 }
 
 // Hook for fetching a single book
-export function useBook(bookId: string | undefined) {
+export function useBook(bookId: string | undefined): UseBookReturn {
   const { user } = useAuth();
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchBook = async () => {
+    console.log('Fetching book data for book ID:', bookId);
+    if (!bookId || !user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`/api/books/${bookId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Received book data:', data);
+        setBook(data);
+      } else if (response.status === 404) {
+        setError('Book not found');
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch book: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+    } catch (err) {
+      console.error('Error fetching book:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load book');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchBook = async () => {
-      if (!bookId || !user) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-        
-        const response = await fetch(`/api/books/${bookId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setBook(data);
-        } else if (response.status === 404) {
-          setError('Book not found');
-        } else {
-          const errorText = await response.text();
-          throw new Error(`Failed to fetch book: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-      } catch (err) {
-        console.error('Error fetching book:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load book');
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    console.log('useBook useEffect triggered with bookId:', bookId, 'user:', user);
     fetchBook();
   }, [bookId, user]);
 
@@ -123,5 +133,6 @@ export function useBook(bookId: string | undefined) {
     book,
     loading,
     error,
+    refresh: fetchBook,
   };
 }
