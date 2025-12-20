@@ -4,9 +4,72 @@ import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Ollama } from "ollama";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Initialize Ollama client
 const ollama = new Ollama({ host: process.env.OLLAMA_HOST || 'http://localhost:11434' });
+
+// Configure multer for file uploads
+const storageEngine = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Create uploads directory if it doesn't exist
+    const uploadDir = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storageEngine,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept book files and image files
+    const allowedBookTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/epub+zip',
+      'text/plain',
+      'application/fb2',
+      'application/x-fictionbook+xml',
+      'text/xml',
+      'application/octet-stream'
+    ];
+    
+    const allowedImageTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ];
+    
+    // Check if it's an FB2 file by extension
+    const fileName = file.originalname.toLowerCase();
+    const isFB2File = fileName.endsWith('.fb2');
+    
+    if (allowedBookTypes.includes(file.mimetype) || allowedImageTypes.includes(file.mimetype) || isFB2File) {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported file type'), false);
+    }
+  }
+});
 
 // Helper function to generate JWT token
 const generateToken = (userId: string) => {
@@ -16,7 +79,7 @@ const generateToken = (userId: string) => {
 };
 
 // Middleware to authenticate requests
-const authenticateToken = (req: Request, res: Response, next: Function) => {
+const authenticateToken = async (req: Request, res: Response, next: Function) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
@@ -24,12 +87,23 @@ const authenticateToken = (req: Request, res: Response, next: Function) => {
     return res.status(401).json({ error: "Access token required" });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || "default_secret", (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || "default_secret", async (err, user) => {
     if (err) {
       return res.status(403).json({ error: "Invalid token" });
     }
-    (req as any).user = user;
-    next();
+    
+    // Verify that the user actually exists in the database
+    try {
+      const userData = await storage.getUser((user as any).userId);
+      if (!userData) {
+        return res.status(401).json({ error: "User not found. Please log in again." });
+      }
+      (req as any).user = user;
+      next();
+    } catch (dbError) {
+      console.error("Database error during authentication:", dbError);
+      return res.status(500).json({ error: "Authentication failed" });
+    }
   });
 };
 
@@ -37,16 +111,20 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  console.log("Registering API routes...");
+  
   // put application routes here
   // prefix all routes with /api
   
   // Health check endpoint
   app.get("/api/health", (req, res) => {
+    console.log("Health check endpoint called");
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
   
   // User registration
   app.post("/api/auth/register", async (req, res) => {
+    console.log("Registration endpoint called");
     try {
       const { username, password, email, fullName } = req.body;
       if (!username || !password) {
@@ -84,6 +162,7 @@ export async function registerRoutes(
   
   // User login
   app.post("/api/auth/login", async (req, res) => {
+    console.log("Login endpoint called");
     try {
       const { username, password } = req.body;
       if (!username || !password) {
@@ -116,6 +195,7 @@ export async function registerRoutes(
   
   // Get current user profile
   app.get("/api/profile", authenticateToken, async (req, res) => {
+    console.log("Profile endpoint called");
     try {
       const userId = (req as any).user.userId;
       const user = await storage.getUser(userId);
@@ -131,107 +211,10 @@ export async function registerRoutes(
     }
   });
   
-  // Update user profile
-  app.put("/api/profile", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const { fullName, bio, avatarUrl, email } = req.body;
-      
-      const updatedUser = await storage.updateUser(userId, {
-        fullName,
-        bio,
-        avatarUrl,
-        email
-      });
-      
-      const { password: _, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
-    } catch (error) {
-      console.error("Update profile error:", error);
-      res.status(500).json({ error: "Failed to update profile" });
-    }
-  });
-  
-  // Change password
-  app.put("/api/profile/password", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const { currentPassword, newPassword } = req.body;
-      
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ error: "Current and new passwords are required" });
-      }
-      
-      // Get current user
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      
-      // Check current password
-      const validPassword = await bcrypt.compare(currentPassword, user.password);
-      if (!validPassword) {
-        return res.status(400).json({ error: "Current password is incorrect" });
-      }
-      
-      // Hash new password
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      
-      // Update password
-      const updatedUser = await storage.updateUser(userId, {
-        password: hashedPassword
-      });
-      
-      const { password: _, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
-    } catch (error) {
-      console.error("Change password error:", error);
-      res.status(500).json({ error: "Failed to change password" });
-    }
-  });
-  
-  // Search books
-  app.get("/api/books/search", async (req, res) => {
-    try {
-      const { q } = req.query;
-      const books = await storage.searchBooks(q as string);
-      res.json(books);
-    } catch (error) {
-      console.error("Search books error:", error);
-      res.status(500).json({ error: "Failed to search books" });
-    }
-  });
-  
-  // Get book by ID
-  app.get("/api/books/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const book = await storage.getBook(id);
-      if (!book) {
-        return res.status(404).json({ error: "Book not found" });
-      }
-      res.json(book);
-    } catch (error) {
-      console.error("Get book error:", error);
-      res.status(500).json({ error: "Failed to get book" });
-    }
-  });
-  
-  // Create book (admin only)
-  app.post("/api/books", authenticateToken, async (req, res) => {
-    try {
-      // In a real app, you would check if user is admin
-      const bookData = req.body;
-      const book = await storage.createBook(bookData);
-      res.status(201).json(book);
-    } catch (error) {
-      console.error("Create book error:", error);
-      res.status(500).json({ error: "Failed to create book" });
-    }
-  });
-  
-  // Get user's shelves
+  // Shelf endpoints
+  // Get all shelves for the current user
   app.get("/api/shelves", authenticateToken, async (req, res) => {
+    console.log("Get shelves endpoint called");
     try {
       const userId = (req as any).user.userId;
       const shelves = await storage.getShelves(userId);
@@ -242,12 +225,139 @@ export async function registerRoutes(
     }
   });
   
-  // Create shelf
-  app.post("/api/shelves", authenticateToken, async (req, res) => {
+  // Get books by IDs
+  app.post("/api/books/by-ids", authenticateToken, async (req, res) => {
+    console.log("Get books by IDs endpoint called");
+    try {
+      const { bookIds } = req.body;
+      if (!bookIds || !Array.isArray(bookIds)) {
+        return res.status(400).json({ error: "bookIds array is required" });
+      }
+      
+      const books = await storage.getBooksByIds(bookIds);
+      res.json(books);
+    } catch (error) {
+      console.error("Get books by IDs error:", error);
+      res.status(500).json({ error: "Failed to get books" });
+    }
+  });
+  
+  // Get a single book by ID
+  app.get("/api/books/:id", authenticateToken, async (req, res) => {
+    console.log("Get book by ID endpoint called");
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ error: "Book ID is required" });
+      }
+      
+      const book = await storage.getBook(id);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      res.json(book);
+    } catch (error) {
+      console.error("Get book by ID error:", error);
+      res.status(500).json({ error: "Failed to get book" });
+    }
+  });
+  
+  // Search books
+  app.get("/api/books/search", authenticateToken, async (req, res) => {
+    console.log("Search books endpoint called");
+    try {
+      // For now, return all books
+      // In a real implementation, this would filter based on query parameters
+      const books = await storage.searchBooks('');
+      res.json(books);
+    } catch (error) {
+      console.error("Search books error:", error);
+      res.status(500).json({ error: "Failed to search books" });
+    }
+  });
+
+  // Upload book endpoint
+  app.post("/api/books/upload", authenticateToken, upload.fields([{ name: 'bookFile' }, { name: 'coverImage' }]), async (req, res) => {
+    console.log("Upload book endpoint called");
     try {
       const userId = (req as any).user.userId;
-      const shelfData = req.body;
-      const shelf = await storage.createShelf(userId, shelfData);
+      
+      // Extract book metadata from form data
+      const { title, author, description, genre, year } = req.body;
+      
+      if (!title || !author) {
+        return res.status(400).json({ error: "Title and author are required" });
+      }
+      
+      // Create book record
+      const bookData: any = {
+        title,
+        author,
+        description: description || '',
+        genre: genre || '',
+        publishedYear: year ? parseInt(year) : null,
+        userId // Add userId to track who uploaded the book
+      };
+      
+      // If book file was uploaded, add file information
+      if (req.files && (req.files as any).bookFile) {
+        const bookFile = (req.files as any).bookFile[0];
+        // Store only the relative path from the uploads directory
+        bookData.filePath = bookFile.path.replace(/^.*[\\\/]uploads[\\\/]/, 'uploads/');
+        bookData.fileSize = bookFile.size;
+        bookData.fileType = bookFile.mimetype;
+      }
+      
+      // If cover image was uploaded, add cover image information
+      if (req.files && (req.files as any).coverImage) {
+        const coverImage = (req.files as any).coverImage[0];
+        // Store only the relative path from the uploads directory
+        bookData.coverImageUrl = coverImage.path.replace(/^.*[\\\/]uploads[\\\/]/, 'uploads/');
+      }
+      
+      const book = await storage.createBook(bookData);
+      
+      // Add book to the "Uploaded" shelf if it exists, or create it
+      let uploadedShelf = (await storage.getShelves(userId)).find(shelf => shelf.name === "Загруженные");
+      
+      if (!uploadedShelf) {
+        // Create the "Загруженные" shelf
+        uploadedShelf = await storage.createShelf(userId, {
+          name: "Загруженные",
+          description: "Загруженные книги",
+          color: "bg-blue-100 dark:bg-blue-900/20"
+        });
+      }
+      
+      // Add book to the shelf
+      await storage.addBookToShelf(uploadedShelf.id, book.id);
+      
+      res.status(201).json({ 
+        message: "Book uploaded successfully", 
+        book,
+        shelf: uploadedShelf 
+      });
+    } catch (error: any) {
+      console.error("Upload book error:", error);
+      res.status(500).json({ error: error.message || "Failed to upload book" });
+    }
+  });
+  
+
+  
+  // Create a new shelf
+  app.post("/api/shelves", authenticateToken, async (req, res) => {
+    console.log("Create shelf endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { name, description, color } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Shelf name is required" });
+      }
+      
+      const shelf = await storage.createShelf(userId, { name, description, color });
       res.status(201).json(shelf);
     } catch (error) {
       console.error("Create shelf error:", error);
@@ -255,12 +365,15 @@ export async function registerRoutes(
     }
   });
   
-  // Update shelf
+  // Update a shelf
   app.put("/api/shelves/:id", authenticateToken, async (req, res) => {
+    console.log("Update shelf endpoint called");
     try {
       const { id } = req.params;
-      const shelfData = req.body;
-      const shelf = await storage.updateShelf(id, shelfData);
+      const { name, description, color } = req.body;
+      
+      // In a real implementation, you'd verify the shelf belongs to the user
+      const shelf = await storage.updateShelf(id, { name, description, color });
       res.json(shelf);
     } catch (error) {
       console.error("Update shelf error:", error);
@@ -268,10 +381,13 @@ export async function registerRoutes(
     }
   });
   
-  // Delete shelf
+  // Delete a shelf
   app.delete("/api/shelves/:id", authenticateToken, async (req, res) => {
+    console.log("Delete shelf endpoint called");
     try {
       const { id } = req.params;
+      
+      // In a real implementation, you'd verify the shelf belongs to the user
       await storage.deleteShelf(id);
       res.status(204).send();
     } catch (error) {
@@ -280,10 +396,13 @@ export async function registerRoutes(
     }
   });
   
-  // Add book to shelf
-  app.post("/api/shelves/:shelfId/books/:bookId", authenticateToken, async (req, res) => {
+  // Add a book to a shelf
+  app.post("/api/shelves/:id/books/:bookId", authenticateToken, async (req, res) => {
+    console.log("Add book to shelf endpoint called");
     try {
-      const { shelfId, bookId } = req.params;
+      const { id: shelfId, bookId } = req.params;
+      
+      // In a real implementation, you'd verify the shelf belongs to the user
       await storage.addBookToShelf(shelfId, bookId);
       res.status(204).send();
     } catch (error) {
@@ -292,10 +411,13 @@ export async function registerRoutes(
     }
   });
   
-  // Remove book from shelf
-  app.delete("/api/shelves/:shelfId/books/:bookId", authenticateToken, async (req, res) => {
+  // Remove a book from a shelf
+  app.delete("/api/shelves/:id/books/:bookId", authenticateToken, async (req, res) => {
+    console.log("Remove book from shelf endpoint called");
     try {
-      const { shelfId, bookId } = req.params;
+      const { id: shelfId, bookId } = req.params;
+      
+      // In a real implementation, you'd verify the shelf belongs to the user
       await storage.removeBookFromShelf(shelfId, bookId);
       res.status(204).send();
     } catch (error) {
@@ -304,211 +426,36 @@ export async function registerRoutes(
     }
   });
   
-  // Update reading progress
-  app.post("/api/progress/:bookId", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const { bookId } = req.params;
-      const progressData = req.body;
-      
-      const progress = await storage.updateReadingProgress(userId, bookId, progressData);
-      res.json(progress);
-    } catch (error) {
-      console.error("Update reading progress error:", error);
-      res.status(500).json({ error: "Failed to update reading progress" });
-    }
-  });
-  
-  // Get reading progress
-  app.get("/api/progress/:bookId", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const { bookId } = req.params;
-      
-      const progress = await storage.getReadingProgress(userId, bookId);
-      if (!progress) {
-        return res.status(404).json({ error: "Progress not found" });
-      }
-      
-      res.json(progress);
-    } catch (error) {
-      console.error("Get reading progress error:", error);
-      res.status(500).json({ error: "Failed to get reading progress" });
-    }
-  });
-  
-  // Update reading statistics
-  app.post("/api/statistics/:bookId", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const { bookId } = req.params;
-      const statsData = req.body;
-      
-      const stats = await storage.updateReadingStatistics(userId, bookId, statsData);
-      res.json(stats);
-    } catch (error) {
-      console.error("Update reading statistics error:", error);
-      res.status(500).json({ error: "Failed to update reading statistics" });
-    }
-  });
-  
-  // Get reading statistics
-  app.get("/api/statistics/:bookId", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const { bookId } = req.params;
-      
-      const stats = await storage.getReadingStatistics(userId, bookId);
-      if (!stats) {
-        return res.status(404).json({ error: "Statistics not found" });
-      }
-      
-      res.json(stats);
-    } catch (error) {
-      console.error("Get reading statistics error:", error);
-      res.status(500).json({ error: "Failed to get reading statistics" });
-    }
-  });
-  
-  // Get user statistics
-  app.get("/api/user-statistics", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      
-      const stats = await storage.getUserStatistics(userId);
-      res.json(stats || {});
-    } catch (error) {
-      console.error("Get user statistics error:", error);
-      res.status(500).json({ error: "Failed to get user statistics" });
-    }
-  });
-  
-  // Update user statistics
-  app.post("/api/user-statistics", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const statsData = req.body;
-      
-      const stats = await storage.updateUserStatistics(userId, statsData);
-      res.json(stats);
-    } catch (error) {
-      console.error("Update user statistics error:", error);
-      res.status(500).json({ error: "Failed to update user statistics" });
-    }
-  });
-
-  // Create bookmark
-  app.post("/api/bookmarks", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const bookmarkData = { ...req.body, userId };
-      
-      const bookmark = await storage.createBookmark(bookmarkData);
-      res.status(201).json(bookmark);
-    } catch (error) {
-      console.error("Create bookmark error:", error);
-      res.status(500).json({ error: "Failed to create bookmark" });
-    }
-  });
-  
-  // Get bookmarks for a book
-  app.get("/api/bookmarks/:bookId", authenticateToken, async (req, res) => {
-    try {
-      const userId = (req as any).user.userId;
-      const { bookId } = req.params;
-      
-      const bookmarks = await storage.getBookmarks(userId, bookId);
-      res.json(bookmarks);
-    } catch (error) {
-      console.error("Get bookmarks error:", error);
-      res.status(500).json({ error: "Failed to get bookmarks" });
-    }
-  });
-  
-  // Delete bookmark
-  app.delete("/api/bookmarks/:id", authenticateToken, async (req, res) => {
+  // Delete a book
+  app.delete("/api/books/:id", authenticateToken, async (req, res) => {
+    console.log("Delete book endpoint called");
     try {
       const { id } = req.params;
-      await storage.deleteBookmark(id);
+      const userId = (req as any).user.userId;
+      
+      if (!id) {
+        return res.status(400).json({ error: "Book ID is required" });
+      }
+      
+      // Attempt to delete the book
+      const success = await storage.deleteBook(id, userId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
       res.status(204).send();
-    } catch (error) {
-      console.error("Delete bookmark error:", error);
-      res.status(500).json({ error: "Failed to delete bookmark" });
+    } catch (error: any) {
+      console.error("Delete book error:", error);
+      if (error.message && error.message.includes("Unauthorized")) {
+        return res.status(403).json({ error: error.message });
+      }
+      res.status(500).json({ error: "Failed to delete book" });
     }
   });
   
-  // Generate book summary with Ollama
-  app.post("/api/ai/summarize/book/:bookId", authenticateToken, async (req, res) => {
-    try {
-      const { bookId } = req.params;
-      const { content } = req.body;
-      
-      if (!content) {
-        return res.status(400).json({ error: "Content is required" });
-      }
-      
-      // Call Ollama to generate summary
-      const response = await ollama.generate({
-        model: process.env.OLLAMA_MODEL || "llama2",
-        prompt: `Please provide a concise summary of the following book content:\n\n${content}`,
-        stream: false
-      });
-      
-      res.json({ summary: response.response });
-    } catch (error) {
-      console.error("Generate book summary error:", error);
-      res.status(500).json({ error: "Failed to generate book summary" });
-    }
-  });
+  console.log("API routes registered successfully");
   
-  // Generate chapter summary with Ollama
-  app.post("/api/ai/summarize/chapter/:bookId/:chapterId", authenticateToken, async (req, res) => {
-    try {
-      const { bookId, chapterId } = req.params;
-      const { content } = req.body;
-      
-      if (!content) {
-        return res.status(400).json({ error: "Content is required" });
-      }
-      
-      // Call Ollama to generate summary
-      const response = await ollama.generate({
-        model: process.env.OLLAMA_MODEL || "llama2",
-        prompt: `Please provide a concise summary of the following chapter content:\n\n${content}`,
-        stream: false
-      });
-      
-      res.json({ summary: response.response });
-    } catch (error) {
-      console.error("Generate chapter summary error:", error);
-      res.status(500).json({ error: "Failed to generate chapter summary" });
-    }
-  });
-  
-  // Generate key takeaways with Ollama
-  app.post("/api/ai/takeaways/:bookId/:chapterId", authenticateToken, async (req, res) => {
-    try {
-      const { bookId, chapterId } = req.params;
-      const { content } = req.body;
-      
-      if (!content) {
-        return res.status(400).json({ error: "Content is required" });
-      }
-      
-      // Call Ollama to generate key takeaways
-      const response = await ollama.generate({
-        model: process.env.OLLAMA_MODEL || "llama2",
-        prompt: `Please list 3-5 key takeaways from the following content:\n\n${content}`,
-        stream: false
-      });
-      
-      res.json({ takeaways: response.response });
-    } catch (error) {
-      console.error("Generate key takeaways error:", error);
-      res.status(500).json({ error: "Failed to generate key takeaways" });
-    }
-  });
-
   // use storage to perform CRUD operations on the storage interface
   // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
 

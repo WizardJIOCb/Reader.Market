@@ -9,6 +9,7 @@ const httpServer = createServer(app);
 
 // Add CORS middleware
 app.use((req, res, next) => {
+  console.log(`CORS middleware: ${req.method} ${req.path}`);
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -36,6 +37,9 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// Serve uploaded files BEFORE any other routes to ensure they're not intercepted
+app.use('/uploads', express.static('uploads'));
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -48,6 +52,7 @@ export function log(message: string, source = "express") {
 }
 
 app.use((req, res, next) => {
+  console.log(`Logging middleware: ${req.method} ${req.path}`);
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
@@ -73,9 +78,10 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  await registerRoutes(httpServer, app);
-
+// Register API routes first, before Vite middleware
+registerRoutes(httpServer, app).then(async () => {
+  console.log("Setting up error handling and Vite middleware...");
+  
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -109,4 +115,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
-})();
+}).catch(error => {
+  console.error("Failed to register routes:", error);
+  process.exit(1);
+});

@@ -8,17 +8,23 @@ import { Plus, Check } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AddToShelfDialogProps {
-  bookId: number;
+  bookId: number | string; // Support both number and string IDs
   shelves: Shelf[];
-  onToggleShelf: (bookId: number, shelfId: string, isAdded: boolean) => void;
+  onToggleShelf: (bookId: number | string, shelfId: string, isAdded: boolean) => void;
   trigger?: React.ReactNode;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function AddToShelfDialog({ bookId, shelves, onToggleShelf, trigger }: AddToShelfDialogProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
+export function AddToShelfDialog({ bookId, shelves, onToggleShelf, trigger, isOpen, onOpenChange }: AddToShelfDialogProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  
+  const isControlled = isOpen !== undefined;
+  const openState = isControlled ? isOpen : internalOpen;
+  const setOpenState = isControlled ? onOpenChange : setInternalOpen;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={openState} onOpenChange={setOpenState}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm" className="gap-2">
@@ -35,7 +41,10 @@ export function AddToShelfDialog({ bookId, shelves, onToggleShelf, trigger }: Ad
           <ScrollArea className="h-[300px] pr-4">
             <div className="space-y-4">
               {shelves.map((shelf) => {
-                const isAdded = shelf.bookIds.includes(bookId);
+                // Ensure both bookId and shelf bookIds are strings for comparison
+                const bookIdStr = bookId.toString();
+                const isAdded = shelf.bookIds.includes(bookIdStr);
+                
                 return (
                   <div key={shelf.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                     <Checkbox 
@@ -48,7 +57,7 @@ export function AddToShelfDialog({ bookId, shelves, onToggleShelf, trigger }: Ad
                         htmlFor={`shelf-${shelf.id}`}
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                       >
-                        {shelf.title}
+                        {shelf.name}
                       </Label>
                       {shelf.description && (
                         <p className="text-xs text-muted-foreground">
