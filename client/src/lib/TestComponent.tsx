@@ -1,5 +1,59 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { loadFB2File } from './fb2Parser';
 
-export const TestComponent: React.FC = () => {
-  return <div>Test</div>;
-};
+export function TestComponent() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const testFB2Parsing = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    
+    try {
+      // Test with the FB2 file we know exists
+      const testData = await loadFB2File('http://localhost:5001/uploads/bookFile-1766339282563-965612108.fb2');
+      setResult(testData);
+    } catch (err) {
+      console.error('Test failed:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">FB2 Parser Test</h1>
+      <button 
+        onClick={testFB2Parsing}
+        disabled={loading}
+        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+      >
+        {loading ? 'Testing...' : 'Test FB2 Parsing'}
+      </button>
+      
+      {error && (
+        <div className="mt-4 p-4 bg-red-100 text-red-800 rounded">
+          <h2 className="font-bold">Error:</h2>
+          <p>{error}</p>
+        </div>
+      )}
+      
+      {result && (
+        <div className="mt-4 p-4 bg-green-100 text-green-800 rounded">
+          <h2 className="font-bold">Success!</h2>
+          <p>Metadata: {result.metadata.title} by {result.metadata.author}</p>
+          <p>Chapters found: {result.chapters.length}</p>
+          {result.chapters.slice(0, 3).map((chapter: any, index: number) => (
+            <div key={index} className="mt-2 p-2 bg-white rounded">
+              <h3 className="font-bold">Chapter {chapter.id}: {chapter.title}</h3>
+              <p className="text-sm truncate">{chapter.content.substring(0, 100)}...</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
