@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { SearchBar } from '@/components/SearchBar';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
+import { dataCache } from '@/lib/dataCache';
 import { Upload, BookOpen, FileText } from 'lucide-react';
 
 export default function AddBook() {
@@ -132,6 +133,9 @@ export default function AddBook() {
         title: "Книга загружена",
         description: `"${formData.title}" успешно добавлена в вашу библиотеку!`,
       });
+      
+      // Clear the shelves cache to force a refresh when navigating to shelves
+      dataCache.shelves = { data: null, timestamp: 0 };
       
       // Navigate back to shelves
       navigate('/shelves');

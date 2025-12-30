@@ -122,7 +122,7 @@ export function BookmarksPanel({
                       </Button>
                     </div>
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
-                      <span>Глава {bookmark.chapterId}</span>
+                      <span>Страница {bookmark.chapterId}</span>
                       <span>{format(bookmark.createdAt, 'd MMM yyyy', { locale: ru })}</span>
                     </div>
                   </motion.div>

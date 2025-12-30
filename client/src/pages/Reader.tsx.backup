@@ -1,0 +1,408 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useRoute, useLocation } from 'wouter';
+import { mockBookmarks, Bookmark } from '@/lib/mockData';
+import { EnhancedBookReader } from '@/components/ebook-reader/EnhancedBookReader';
+import { AISidebar } from '@/components/AISidebar';
+import { BookmarksPanel } from '@/components/BookmarksPanel';
+import { Button } from '@/components/ui/button';
+import { Brain, ArrowLeft, ArrowRight, Type } from 'lucide-react';
+import { Link } from 'wouter';
+import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
+// With Foliate.js, we no longer need these custom parsing and pagination utilities
+
+// With Foliate.js, reading position tracking is handled internally by the reader
+// Most of these functions are no longer needed
+
+// Define the Book interface to match our database schema
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  description?: string;
+  coverImageUrl?: string;
+  filePath?: string;
+  fileSize?: number;
+  fileType?: string;
+  genre?: string;
+  publishedYear?: number;
+  rating?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export default function Reader() {
+  const [match, params] = useRoute('/read/:bookId/:position');
+  const [location, setLocation] = useLocation();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [fontSize, setFontSize] = useState(20);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(mockBookmarks);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // State for book data
+  const [book, setBook] = useState<Book | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  
+  // With Foliate.js, we no longer need complex pagination logic
+  // The reader handles pagination internally
+  
+  const bookId = params?.bookId || '';
+  
+  // Save reading position when component unmounts
+  useEffect(() => {
+    return () => {
+      // Save current reading position
+      if (paginatedContent.length > 0 && paginatedContent[0] && paginatedContent[0][currentPageIndex]) {
+        try {
+          const currentPosition = getPagePositionIdentifier(paginatedContent[0][currentPageIndex]);
+          saveReadingPosition(bookId, currentPosition);
+        } catch (e) {
+          console.warn('Failed to save reading position:', e);
+        }
+      }
+    };
+  }, []); // Empty dependency array to run only on unmount
+  // Position can be either a page number, position identifier, or character index
+  const positionParam = params?.position || '';
+  // We'll determine if it's a number (page) or string (position identifier)
+  const isPageNumber = /^\d+$/.test(positionParam);
+  const isCharIndex = /^\d+:\d+$/.test(positionParam); // Format: chapterId:charIndex
+  const pageNumber = isPageNumber ? (parseInt(positionParam) > 0 ? parseInt(positionParam) - 1 : 0) : 0;
+  
+  // With Foliate.js, page navigation is handled internally by the reader
+  // We no longer need this complex useEffect hook for pagination
+
+  // Fetch book data
+  useEffect(() => {
+    const fetchBook = async () => {
+      if (!bookId) return;
+      
+      // Prevent multiple requests for the same book
+      if (book && book.id === bookId) return;
+      
+      try {
+        setLoading(true);
+        setError(null); // Clear previous errors
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+        
+        // Fetch book data
+        const bookResponse = await fetch(`http://localhost:5001/api/books/${bookId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (!bookResponse.ok) {
+          throw new Error('Failed to fetch book data');
+        }
+        
+        const bookData = await bookResponse.json();
+        setBook(bookData);
+        
+        // With Foliate.js, we pass the book file URL directly to the reader
+        // No need to parse or convert chapters manually
+            if (bookData.fileType === 'application/fb2' || bookData.fileType === 'application/x-fictionbook+xml' || bookData.filePath.endsWith('.fb2')) {
+              const parsedData: FB2ParsedData = await loadFB2File(fileUrl);
+              
+              // Convert FB2 chapters to our Chapter format
+              const bookChapters: Chapter[] = parsedData.chapters.map((fb2Chapter, index) => ({
+                id: fb2Chapter.id,
+                title: fb2Chapter.title,
+                content: fb2Chapter.content,
+                summary: `Summary for ${fb2Chapter.title}`,
+                keyTakeaways: [`Key point 1 from ${fb2Chapter.title}`, `Key point 2 from ${fb2Chapter.title}`]
+              }));
+              
+              setChapters(bookChapters);
+            } 
+            // For other file types, we could implement different parsers
+            else {
+              // For now, we'll generate mock chapters for other file types
+              const mockChapters: Chapter[] = [
+                {
+                  id: 1,
+                  title: "Введение",
+                  content: `Это пример содержания книги "${bookData.title}" от ${bookData.author}.
+                  
+В настоящей реализации здесь будет отображаться фактическое содержание книги, которое было извлечено из загруженного файла.
+                  
+Пока что это демонстрационный контент для проверки функциональности чтения.`,
+                  summary: "Введение в книгу",
+                  keyTakeaways: ["Знакомство с темой книги", "Основные идеи автора"]
+                },
+                {
+                  id: 2,
+                  title: "Первая глава",
+                  content: `Это содержание первой главы книги.
+                  
+В реальной системе здесь будет отображаться текст главы, извлеченный из загруженного файла книги.
+                  
+Система также может включать функции анализа текста, выделения ключевых моментов и создания закладок.`,
+                  summary: "Основное содержание первой главы",
+                  keyTakeaways: ["Ключевая идея главы", "Важные концепции", "Выводы"]
+                },
+                {
+                  id: 3,
+                  title: "Заключение",
+                  content: `Это заключение книги.
+                  
+В заключении обычно подводятся итоги прочитанного, формулируются основные выводы и возможные направления дальнейшего изучения темы.
+                  
+Спасибо за внимание к этой книге!`,
+                  summary: "Завершение книги",
+                  keyTakeaways: ["Основные выводы", "Рекомендации по дальнейшему изучению"]
+                }
+              ];
+              
+              setChapters(mockChapters);
+            }
+          } catch (parseError) {
+            console.error('Error parsing book file:', parseError);
+            // Fallback to mock chapters if parsing fails
+            const mockChapters: Chapter[] = [
+              {
+                id: 1,
+                title: "Введение",
+                content: `Это пример содержания книги "${bookData.title}" от ${bookData.author}.
+                
+К сожалению, не удалось загрузить содержание книги из файла. Показывается демонстрационный контент.`,
+                summary: "Введение в книгу",
+                keyTakeaways: ["Знакомство с темой книги", "Основные идеи автора"]
+              }
+            ];
+            
+            setChapters(mockChapters);
+          }
+        } else {
+          // If no file path, use mock chapters
+          const mockChapters: Chapter[] = [
+            {
+              id: 1,
+              title: "Введение",
+              content: `Это пример содержания книги "${bookData.title}" от ${bookData.author}.
+              
+У этой книги нет загруженного файла. Показывается демонстрационный контент для проверки функциональности чтения.`,
+              summary: "Введение в книгу",
+              keyTakeaways: ["Знакомство с темой книги", "Основные идеи автора"]
+            }
+          ];
+          
+          setChapters(mockChapters);
+        }
+      } catch (err) {
+        console.error('Error fetching book:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load book');
+        toast({
+          title: "Ошибка",
+          description: "Не удалось загрузить данные книги",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchBook();
+  }, [bookId, toast, book]);
+
+  // With Foliate.js, pagination is handled internally by the reader
+  // We no longer need this complex pagination logic
+  
+  // With Foliate.js, we no longer need these pagination variables
+  
+  const hasPrev = currentPageIndex > 0;
+  const hasNext = currentPageIndex < totalPages - 1;
+
+  // With Foliate.js, we no longer need the showLoading state
+  const showLoading = false;
+  
+  if (loading || showLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading book...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !book) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold mb-2">Error Loading Book</h2>
+          <p className="text-muted-foreground mb-4">{error || 'Failed to load book data'}</p>
+          <Link href="/library">
+            <Button>Return to Library</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const handleNext = () => {
+    // With Foliate.js, navigation is handled internally
+    // For now, we'll just increment the page index for UI purposes
+    if (hasNext) {
+      setCurrentPageIndex(prev => prev + 1);
+      // In a real implementation, the reader would handle actual navigation
+    }
+  };
+
+  const handlePrev = () => {
+    // With Foliate.js, navigation is handled internally
+    // For now, we'll just decrement the page index for UI purposes
+    if (hasPrev) {
+      setCurrentPageIndex(prev => Math.max(0, prev - 1));
+      // In a real implementation, the reader would handle actual navigation
+    }
+  };
+
+  const handleAddBookmark = (title: string) => {
+    const newBookmark: Bookmark = {
+      id: Date.now().toString(),
+      bookId: parseInt(bookId),
+      chapterId: currentPageIndex + 1, // Use 1-based index for chapterId
+      title,
+      createdAt: new Date()
+    };
+    setBookmarks([newBookmark, ...bookmarks]);
+  };
+
+  const handleRemoveBookmark = (id: string) => {
+    setBookmarks(bookmarks.filter(b => b.id !== id));
+  };
+
+  const handleNavigateToBookmark = (chapterId: number) => {
+    // For bookmarks, we'll still use page numbers for simplicity
+    setLocation(`/read/${bookId}/${chapterId}`);
+  };
+
+  // Construct the book URL for Foliate.js
+  const bookUrl = book?.filePath ? `http://localhost:5001/${book.filePath}` : '';
+  
+  return (
+    <div className="h-screen bg-background transition-colors duration-500 flex flex-col overflow-hidden">
+      {/* Main Content Area - pt-16 removed since we're using the main navbar */}
+      <main className={`flex-grow overflow-hidden transition-all duration-500 ease-in-out ${isSidebarOpen ? 'pr-0 md:pr-[400px]' : ''}`} style={{ maxHeight: 'calc(100vh - 80px)' }}>
+        <div className="h-full overflow-hidden">
+          <EnhancedBookReader 
+            bookId={bookId}
+            bookUrl={bookUrl}
+            fileType={book?.fileType || ''}
+            initialLocation={positionParam}
+            fontSize={fontSize}
+            onProgressUpdate={(progress) => console.log('Progress:', progress)}
+            onBookmarkAdded={handleAddBookmark}
+            onTextSelected={(text) => console.log('Selected text:', text)}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+          />
+        </div>
+      </main>
+
+      {/* Floating Controls - positioned absolutely to avoid interfering with main navbar */}
+      <div className="fixed top-20 right-4 z-40 flex items-center gap-2">
+        {/* Bookmarks */}
+        <BookmarksPanel 
+          bookId={parseInt(bookId)}
+          chapterId={currentPageIndex + 1}
+          bookmarks={bookmarks}
+          onAddBookmark={handleAddBookmark}
+          onRemoveBookmark={handleRemoveBookmark}
+          onNavigate={handleNavigateToBookmark}
+        />
+
+        {/* Font Size Control */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <Type className="w-5 h-5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64">
+            <div className="space-y-4">
+              <h4 className="font-medium leading-none">Размер шрифта</h4>
+              <div className="flex items-center gap-4">
+                <span className="text-xs">A</span>
+                <Slider
+                  value={[fontSize]}
+                  onValueChange={(vals) => setFontSize(vals[0])}
+                  min={14}
+                  max={32}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-lg">A</span>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* AI Toggle */}
+        <Button 
+          variant={isSidebarOpen ? "default" : "outline"}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="gap-2 transition-all duration-300 border-primary/20 hover:border-primary/50"
+        >
+          <Brain className="w-4 h-4" />
+          <span className="hidden sm:inline">AI Анализ</span>
+        </Button>
+      </div>
+
+      {/* Navigation Zones */}
+      {hasPrev && (
+        <div 
+          className="fixed left-0 top-16 bottom-32 w-16 md:w-32 z-10 hidden lg:flex items-center justify-start pl-4 cursor-pointer opacity-0 hover:opacity-100 hover:bg-gradient-to-r hover:from-foreground/5 to-transparent transition-all duration-300 group"
+          onClick={handlePrev}
+          title="Previous page"
+        >
+          <ArrowLeft className="w-10 h-10 text-muted-foreground/40 group-hover:-translate-x-2 transition-transform duration-300" />
+        </div>
+      )}
+            
+      {hasNext && (
+        <div 
+          className={`fixed right-0 top-16 bottom-32 w-16 md:w-32 z-10 hidden lg:flex items-center justify-end pr-4 cursor-pointer opacity-0 hover:opacity-100 hover:bg-gradient-to-l hover:from-foreground/5 to-transparent transition-all duration-300 group ${isSidebarOpen ? 'mr-[400px]' : ''}`}
+          onClick={handleNext}
+          title="Next page"
+          style={{ transitionProperty: 'margin-right, opacity, background-color' }}
+        >
+          <ArrowRight className="w-10 h-10 text-muted-foreground/40 group-hover:translate-x-2 transition-transform duration-300" />
+        </div>
+      )}
+
+      {/* AI Sidebar */}
+      <AISidebar 
+        chapter={{
+          id: currentPageIndex + 1,
+          title: `Страница ${currentPageIndex + 1}`,
+          content: '', // Content will be provided by the reader
+          summary: "Анализ страницы недоступен",
+          keyTakeaways: ["Ключевой момент 1", "Ключевой момент 2"]
+        }}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+    </div>
+  );
+}
