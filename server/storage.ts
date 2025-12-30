@@ -350,7 +350,10 @@ export class DBStorage implements IStorage {
   async deleteBook(id: string, userId: string): Promise<boolean> {
     try {
       // First, get the book to check ownership and get file paths
-      const book = await this.getBook(id);
+      // We need to get the raw book data to access the filePath
+      const bookResult = await db.select().from(books).where(eq(books.id, id));
+      const book = bookResult[0];
+      
       if (!book) {
         return false; // Book not found
       }
@@ -372,6 +375,43 @@ export class DBStorage implements IStorage {
       
       // Remove book from all shelves
       await db.delete(shelfBooks).where(eq(shelfBooks.bookId, id));
+      
+      // Delete comments
+      await db.delete(comments).where(eq(comments.bookId, id));
+      
+      // Delete reviews
+      await db.delete(reviews).where(eq(reviews.bookId, id));
+      
+      // Delete the physical file if it exists
+      if (book.filePath) {
+        try {
+          const path = await import('path');
+          const fs = await import('fs');
+          const { fileURLToPath } = await import('url');
+          
+          // Get __dirname equivalent for ES modules
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = path.dirname(__filename);
+          
+          // Construct the full file path - handle both relative and absolute paths
+          let fullPath;
+          if (path.isAbsolute(book.filePath)) {
+            fullPath = book.filePath;
+          } else {
+            // For relative paths, construct from the project root
+            fullPath = path.join(__dirname, '../..', book.filePath);
+          }
+          
+          // Check if file exists and delete it
+          if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+            console.log(`Deleted file: ${fullPath}`);
+          }
+        } catch (fileError) {
+          console.warn(`Could not delete file for book ${id}:`, fileError);
+          // Don't throw error here as we still want to delete the database record
+        }
+      }
       
       // Finally, delete the book itself
       const result = await db.delete(books).where(eq(books.id, id));

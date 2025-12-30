@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'wouter';
+import { useRoute, Link } from 'wouter';
 import * as MockData from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { 
   BookOpen, 
@@ -17,8 +17,7 @@ import {
   Send,
   Clock,
   Award,
-  Trash,
-  Download
+  Trash
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,14 +27,11 @@ import { ru } from 'date-fns/locale';
 import { ReactionBar } from '@/components/ReactionBar';
 import { PageHeader } from '@/components/PageHeader';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
-import { CommentsSection } from '@/components/CommentsSection';
-import { ReviewsSection } from '@/components/ReviewsSection';
 import { useToast } from '@/hooks/use-toast';
 import { useShelves } from '@/hooks/useShelves';
 import { useAuth } from '@/lib/auth';
-import { useBook } from '@/hooks/useBooks';
-import { setCachedComments, setCachedReviews, getPendingRequest, trackPendingRequest } from '@/lib/dataCache';
 
+// Define the Book interface to match our database schema
 interface Book {
   id: string;
   title: string;
@@ -48,189 +44,451 @@ interface Book {
   genre?: string;
   publishedYear?: number;
   rating?: number;
-  uploadedAt?: string;
-  publishedAt?: string;
+  userId: string; // Added userId field
   createdAt: string;
   updatedAt: string;
-  commentCount?: number;
-  reviewCount?: number;
+}
+
+// Define comment and review interfaces
+interface Comment {
+  id: string;
+  bookId: string;
+  author: string;
+  content: string;
+  createdAt: string;
+  reactions: Reaction[];
+}
+
+interface Review {
+  id: string;
+  bookId: string;
+  author: string;
+  content: string;
+  rating: number;
+  createdAt: string;
+  reactions: Reaction[];
+}
+
+interface Reaction {
+  emoji: string;
+  count: number;
+  userReacted: boolean;
 }
 
 export default function BookDetail() {
-  const { bookId } = useParams<{ bookId: string }>();
-  const { user } = useAuth();
+  const [match, params] = useRoute('/book/:bookId');
+  const bookId = params?.bookId || '';
   const { toast } = useToast();
   const { shelves, addBookToShelf, removeBookFromShelf } = useShelves();
+  const { user } = useAuth();
   
-  // Use the real book hook instead of mock data
-  const { book, loading, error, refresh } = useBook(bookId);
+  // State for book data
+  const [book, setBook] = useState<Book | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false); // Added state for delete operation
   
-  // Form states for comments and reviews
+  // State for comments and reviews
+  const [bookComments, setBookComments] = useState<Comment[]>([]);
+  const [bookReviews, setBookReviews] = useState<Review[]>([]);
+  
+  // State for new comment/review
   const [newComment, setNewComment] = useState('');
   const [newReview, setNewReview] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   
-  // Comment and review counts
-  const [commentsCount, setCommentsCount] = useState(0);
-  const [reviewsCount, setReviewsCount] = useState(0);
-  
-  // Book rating state
-  const [bookRating, setBookRating] = useState<number | null>(book?.rating || null);
-  
-  // Fetch full comment and review data when book changes
+  // Fetch book data and comments/reviews
   useEffect(() => {
-    // Check if there are already pending requests for this book
-    const pendingCommentsRequest = getPendingRequest('comments', bookId);
-    const pendingReviewsRequest = getPendingRequest('reviews', bookId);
-    
-    if (pendingCommentsRequest || pendingReviewsRequest) {
-      // Wait for pending requests to complete
-      Promise.all([
-        pendingCommentsRequest || Promise.resolve(),
-        pendingReviewsRequest || Promise.resolve()
-      ]).then(([commentsData, reviewsData]) => {
-        if (commentsData) {
-          setCommentsCount(commentsData.length);
-        }
-        if (reviewsData) {
-          setReviewsCount(reviewsData.length);
-        }
-      }).catch(err => {
-        console.error('Error waiting for pending requests:', err);
-      });
-      return;
-    }
-
-    const fetchData = async () => {
+    const fetchBookData = async () => {
       if (!bookId) return;
       
       try {
+        setLoading(true);
         const token = localStorage.getItem('authToken');
-        if (!token) return;
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
         
-        // Track comments request
-        const commentsPromise = trackPendingRequest('comments', bookId, fetch(`http://localhost:5001/api/books/${bookId}/comments`, {
-          method: 'GET',
+        // Fetch book data
+        const bookResponse = await fetch(`/api/books/${bookId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
-        }).then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-          throw new Error('Failed to fetch comments');
-        }));
+        });
         
-        // Track reviews request
-        const reviewsPromise = trackPendingRequest('reviews', bookId, fetch(`http://localhost:5001/api/books/${bookId}/reviews`, {
-          method: 'GET',
+        if (!bookResponse.ok) {
+          throw new Error('Failed to fetch book data');
+        }
+        
+        const bookData = await bookResponse.json();
+        setBook(bookData);
+        
+        // Fetch comments
+        const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
-        }).then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-          throw new Error('Failed to fetch reviews');
-        }));
+        });
         
-        // Wait for both requests
-        const [commentsResponse, reviewsResponse] = await Promise.allSettled([commentsPromise, reviewsPromise]);
-        
-        if (commentsResponse.status === 'fulfilled') {
-          const commentsData = commentsResponse.value;
-          setCommentsCount(commentsData.length);
-          // Cache the comments data
-          setCachedComments(bookId, commentsData);
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json();
+          setBookComments(commentsData);
         }
         
-        if (reviewsResponse.status === 'fulfilled') {
-          const reviewsData = reviewsResponse.value;
-          setReviewsCount(reviewsData.length);
-          // Cache the reviews data
-          setCachedReviews(bookId, reviewsData);
-        }
+        // Fetch reviews
+        const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
         
-        // Return promises for potential pending request handlers
-        return {
-          comments: commentsResponse.status === 'fulfilled' ? commentsResponse.value : null,
-          reviews: reviewsResponse.status === 'fulfilled' ? reviewsResponse.value : null
-        };
+        if (reviewsResponse.ok) {
+          const reviewsData = await reviewsResponse.json();
+          setBookReviews(reviewsData);
+        }
       } catch (err) {
-        console.error('Error fetching comment/review data:', err);
-        throw err;
+        console.error('Error fetching book data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load book');
+        toast({
+          title: "Ошибка",
+          description: "Не удалось загрузить данные книги",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
       }
     };
     
-    if (bookId) {
-      // Track this request to prevent duplicates
-      const trackedRequest = trackPendingRequest('book-data', bookId, fetchData());
-      trackedRequest.catch(() => {}); // Prevent unhandled promise rejection
+    fetchBookData();
+  }, [bookId, toast]);
+  
+  const handleAddComment = async () => {
+    if (newComment.trim() && book) {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+        
+        const response = await fetch(`/api/books/${book.id}/comments`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content: newComment }),
+        });
+        
+        if (response.ok) {
+          const commentData = await response.json();
+          // Add to local state
+          setBookComments(prev => [commentData, ...prev]);
+          setNewComment('');
+          toast({
+            title: "Комментарий добавлен",
+            description: "Ваш комментарий успешно добавлен!",
+          });
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to add comment');
+        }
+      } catch (err) {
+        console.error('Error adding comment:', err);
+        toast({
+          title: "Ошибка",
+          description: err instanceof Error ? err.message : "Не удалось добавить комментарий",
+          variant: "destructive",
+        });
+      }
     }
-  }, [bookId]);
-  
-  // Update bookRating when book prop changes
-  useEffect(() => {
-    if (book) {
-      setBookRating(book.rating || null);
-    }
-  }, [book]);
-  
-  // For reading stats
-  const [readingProgress, setReadingProgress] = useState<number | null>(null);
-  const [timeSpent, setTimeSpent] = useState<number | null>(null);
-  const [lastRead, setLastRead] = useState<Date | null>(null);
-  
+  };
 
-
-  
-  const handleDownload = async () => {
-    if (!book?.filePath) {
-      toast({
-        title: "Ошибка",
-        description: "Файл книги недоступен для скачивания",
-        variant: "destructive",
-      });
-      return;
-    }
-    
+  const handleDeleteComment = async (commentId: string) => {
     try {
-      // In a real implementation, this would download the actual file
-      // For now, we'll just show a message
-      toast({
-        title: "Скачивание",
-        description: "Файл книги готов к скачиванию",
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
       
-      // Simulate download
-      const link = document.createElement('a');
-      link.href = `/api/books/${book.id}/download`;
-      link.download = `${book.title}.${book.fileType?.split('/')[1] || 'txt'}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (response.ok) {
+        // Remove from local state
+        setBookComments(prev => prev.filter(comment => comment.id !== commentId));
+        toast({
+          title: "Комментарий удален",
+          description: "Ваш комментарий успешно удален!",
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete comment');
+      }
     } catch (err) {
+      console.error('Error deleting comment:', err);
       toast({
         title: "Ошибка",
-        description: "Не удалось скачать файл книги",
+        description: err instanceof Error ? err.message : "Не удалось удалить комментарий",
         variant: "destructive",
       });
     }
   };
   
+  const handleAddReview = async () => {
+    if (newReview.trim() && book) {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+        
+        const response = await fetch(`/api/books/${book.id}/reviews`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            content: newReview,
+            rating: reviewRating
+          }),
+        });
+        
+        if (response.ok) {
+          const reviewData = await response.json();
+          // Add to local state
+          setBookReviews(prev => [reviewData, ...prev]);
+          setNewReview('');
+          setReviewRating(5);
+          
+          // Refresh book data to update rating
+          const bookResponse = await fetch(`/api/books/${book.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (bookResponse.ok) {
+            const updatedBookData = await bookResponse.json();
+            setBook(updatedBookData);
+          }
+          
+          toast({
+            title: "Рецензия добавлена",
+            description: "Ваша рецензия успешно добавлена!",
+          });
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to add review');
+        }
+      } catch (err) {
+        console.error('Error adding review:', err);
+        toast({
+          title: "Ошибка",
+          description: err instanceof Error ? err.message : "Не удалось добавить рецензию",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`/api/reviews/${reviewId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        // Remove from local state
+        setBookReviews(prev => prev.filter(review => review.id !== reviewId));
+        
+        // Refresh book data to update rating
+        if (book) {
+          const bookResponse = await fetch(`/api/books/${book.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (bookResponse.ok) {
+            const updatedBookData = await bookResponse.json();
+            setBook(updatedBookData);
+          }
+        }
+        
+        toast({
+          title: "Рецензия удалена",
+          description: "Ваша рецензия успешно удалена!",
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete review');
+      }
+    } catch (err) {
+      console.error('Error deleting review:', err);
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : "Не удалось удалить рецензию",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleReactToComment = async (commentId: string, emoji: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`/api/reactions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          commentId,
+          emoji
+        }),
+      });
+      
+      if (response.ok) {
+        // Refresh comments and reviews to get updated reactions
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        
+        // Fetch comments
+        const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json();
+          setBookComments(commentsData);
+        }
+        
+        // Fetch reviews
+        const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (reviewsResponse.ok) {
+          const reviewsData = await reviewsResponse.json();
+          setBookReviews(reviewsData);
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add reaction');
+      }
+    } catch (err) {
+      console.error('Error adding reaction:', err);
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : "Не удалось добавить реакцию",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleReactToReview = async (reviewId: string, emoji: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`/api/reactions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          reviewId,
+          emoji
+        }),
+      });
+      
+      if (response.ok) {
+        // Refresh comments and reviews to get updated reactions
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        
+        // Fetch comments
+        const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json();
+          setBookComments(commentsData);
+        }
+        
+        // Fetch reviews
+        const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (reviewsResponse.ok) {
+          const reviewsData = await reviewsResponse.json();
+          setBookReviews(reviewsData);
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add reaction');
+      }
+    } catch (err) {
+      console.error('Error adding reaction:', err);
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : "Не удалось добавить реакцию",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleToggleShelf = async (shelfId: string, bookId: string, isAdded: boolean) => {
     try {
       if (isAdded) {
+        // Check if book is already in shelf
+        const shelf = shelves.find(s => s.id === shelfId);
+        if (shelf && shelf.bookIds.includes(bookId)) {
+          return;
+        }
+        
         await addBookToShelf(shelfId, bookId);
+        
         toast({
-          title: "Успех",
-          description: "Книга добавлена на полку",
+          title: "Книга добавлена",
+          description: "Книга успешно добавлена на полку!",
         });
       } else {
         await removeBookFromShelf(shelfId, bookId);
+        
         toast({
-          title: "Успех",
-          description: "Книга удалена с полки",
+          title: "Книга удалена",
+          description: "Книга удалена с полки!",
         });
       }
     } catch (err) {
@@ -241,289 +499,365 @@ export default function BookDetail() {
       });
     }
   };
-  
 
-  
-  // Format date for display
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-  
-  // Format bytes to human readable format
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    if (bytes < 1024) return bytes + ' bytes';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1048576).toFixed(1) + ' MB';
-  };
-  
-  // Russian pluralization for "голос" (vote)
-  const formatVotesCount = (count: number) => {
-    const lastDigit = count % 10;
-    const lastTwoDigits = count % 100;
+  const handleDeleteBook = async () => {
+    if (!book || !user) return;
     
-    // Exceptions for 11-19
-    if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
-      return `${count} голосов`;
+    // Confirm deletion
+    if (!window.confirm('Вы уверены, что хотите удалить эту книгу? Это действие нельзя отменить.')) {
+      return;
     }
     
-    // 1 vote
-    if (lastDigit === 1) {
-      return `${count} голос`;
+    try {
+      setIsDeleting(true);
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`/api/books/${book.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete book');
+      }
+      
+      // Show success message
+      toast({
+        title: "Книга удалена",
+        description: "Книга успешно удалена из вашей библиотеки",
+      });
+      
+      // Redirect to shelves page after successful deletion
+      window.location.href = '/shelves';
+    } catch (err) {
+      console.error('Error deleting book:', err);
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : 'Не удалось удалить книгу',
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
     }
-    
-    // 2-4 votes
-    if (lastDigit >= 2 && lastDigit <= 4) {
-      return `${count} голоса`;
-    }
-    
-    // 5-9, 0 votes
-    return `${count} голосов`;
   };
-  
-  // Get book dates - using created_at as fallback for uploaded_at
-  const uploadedAt = book?.uploadedAt || book?.createdAt;
-  const publishedAt = book?.publishedAt;
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-background font-sans pb-20">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
+      <div className="min-h-screen bg-background font-sans pb-20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Загрузка данных книги...</p>
         </div>
       </div>
     );
   }
-  
+
   if (error || !book) {
     return (
-      <div className="min-h-screen bg-background font-sans pb-20">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <div className="flex justify-center items-center h-64">
-            <div className="text-center">
-              <p className="text-destructive mb-4">Ошибка загрузки информации о книге</p>
-              <Button onClick={() => window.location.reload()}>
-                Повторить попытку
-              </Button>
-            </div>
+      <div className="min-h-screen bg-background font-sans pb-20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
           </div>
+          <h2 className="text-xl font-bold mb-2">Ошибка загрузки</h2>
+          <p className="text-muted-foreground mb-4">{error || 'Не удалось загрузить данные книги'}</p>
+          <Link href="/library">
+            <Button>Вернуться в библиотеку</Button>
+          </Link>
         </div>
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <PageHeader title="Детали книги" />
         
-        <Card className="overflow-hidden">
+        {/* Book Card - Matching the design from library */}
+        <Card className="overflow-hidden mb-8">
           <div className="flex flex-col md:flex-row">
-            {/* Cover Image */}
-            <div className="md:w-1/3">
-              <div className="h-full sticky top-8 p-6">
-                {book.coverImageUrl ? (
-                  <img 
-                    src={book.coverImageUrl.startsWith('http') ? book.coverImageUrl : `http://localhost:5001/${book.coverImageUrl.startsWith('/') ? book.coverImageUrl.substring(1) : book.coverImageUrl}`} 
-                    alt={book.title}
-                    className="w-full rounded-lg shadow-lg object-cover aspect-[2/3]"
-                  />
-                ) : (
-                  <div className="w-full rounded-lg shadow-lg bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center aspect-[2/3]">
-                    <BookOpen className="w-16 h-16 text-gray-400" />
-                  </div>
-                )}
-                
-                <div className="mt-6 space-y-3">
-                  <Button className="w-full gap-2" asChild>
-                    <Link href={`/read/${book.id}/1`}>
-                      <Play className="w-4 h-4" />
-                      Читать
-                    </Link>
-                  </Button>
-                  
-                  {book.filePath && (
-                    <Button 
-                      variant="outline" 
-                      className="w-full gap-2"
-                      onClick={handleDownload}
-                    >
-                      <Download className="w-4 h-4" />
-                      Скачать
-                    </Button>
-                  )}
-                  
-                  {user && (
-                    <AddToShelfDialog 
-                      bookId={book.id}
-                      shelves={shelves.map(s => ({
-                        id: s.id,
-                        name: s.name,
-                        description: s.description,
-                        bookIds: s.bookIds || [],
-                        color: s.color
-                      }))}
-                      onToggleShelf={(shelfId, bookId, isAdded) => handleToggleShelf(shelfId, bookId, isAdded)}
-                      trigger={
-                        <Button variant="outline" className="w-full gap-2 truncate">
-                          <Plus className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">Добавить на полку</span>
-                        </Button>
-                      }
-                    />
-                  )}
+            {/* Book Cover */}
+            <div className="w-full md:w-64 h-96 relative">
+              {book.coverImageUrl ? (
+                <img 
+                  src={book.coverImageUrl.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl} 
+                  alt={book.title} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className={`w-full h-full bg-gray-200 dark:bg-gray-700 relative flex items-center justify-center`}>
+                  <BookOpen className="w-16 h-16 text-white/30" />
                 </div>
-                
-                {/* Reading Stats */}
-                {(readingProgress !== null || timeSpent !== null || lastRead !== null) && (
-                  <div className="mt-6 p-4 bg-muted/30 rounded-lg">
-                    <h3 className="font-medium mb-3 flex items-center gap-2">
-                      <Award className="w-4 h-4" />
-                      Ваши достижения
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      {readingProgress !== null && (
-                        <div className="flex justify-between">
-                          <span>Прогресс:</span>
-                          <span className="font-medium">{readingProgress}%</span>
-                        </div>
-                      )}
-                      {timeSpent !== null && (
-                        <div className="flex justify-between">
-                          <span>Время чтения:</span>
-                          <span className="font-medium">{Math.round(timeSpent / 60)} мин</span>
-                        </div>
-                      )}
-                      {lastRead && (
-                        <div className="flex justify-between">
-                          <span>Последнее чтение:</span>
-                          <span className="font-medium">{formatDistanceToNow(lastRead, { addSuffix: true, locale: ru })}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
             
-            {/* Main Content with Tabs */}
-            <div className="md:w-2/3 border-l">
-              <div className="pt-6">
-                <h1 className="text-2xl font-bold px-6 mb-6">{book.title}</h1>
-                <CardContent className="space-y-6 pt-0">
-                  <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
+            {/* Book Info */}
+            <div className="flex-1">
+              <CardHeader className="p-6 pb-4">
+                <h1 className="font-serif text-2xl md:text-3xl font-bold mb-2">{book.title}</h1>
+                <p className="text-lg text-muted-foreground mb-4">Автор: {book.author}</p>
+                
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {book.genre && book.genre.split(',').map((g, index) => (
+                    <Badge key={index} variant="secondary">
+                      {g.trim()}
+                    </Badge>
+                  ))}
+                </div>
+              </CardHeader>
+              
+              <CardContent className="px-6 py-0">
+                {book.rating && (
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="flex items-center gap-1">
+                      <div className="flex">
+                        {[...Array(10)].map((_, i) => (
                           <Star 
                             key={i} 
-                            className={`w-5 h-5 ${i < Math.floor((bookRating || 0) / 2) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
+                            className={`w-5 h-5 ${i < Math.floor(book.rating!) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
                           />
                         ))}
                       </div>
-                      <span className="text-lg font-medium">{(bookRating || 0).toFixed(1)}/10</span>
-                      <span className="text-muted-foreground text-sm">({formatVotesCount(reviewsCount)})</span>
+                      <span className="font-medium ml-2">{book.rating}/10</span>
                     </div>
-                    
-                    <p className="text-muted-foreground">{book.description}</p>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Автор</h3>
-                      <p className="font-medium">{book.author}</p>
-                    </div>
-                    
-                    {book.genre && (
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Жанры</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {book.genre.split(',').map((g: string, i: number) => (
-                            <Badge key={i} variant="secondary">
-                              {g.trim()}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Дата публикации</h3>
-                      <p>{publishedAt ? formatDate(publishedAt) : 'Не указана'}</p>
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Добавлено</h3>
-                      <p>{uploadedAt ? formatDate(uploadedAt) : 'Не указана'}</p>
-                    </div>
-                    
-                    {book.publishedYear && (
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Год издания</h3>
-                        <p>{book.publishedYear}</p>
-                      </div>
-                    )}
-                    
-                    {book.fileSize && (
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Размер файла</h3>
-                        <p>{formatFileSize(book.fileSize)}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </div>
+                )}
+                
+                <p className="text-foreground/90 mb-6 leading-relaxed">
+                  {book.description || 'Описание отсутствует'}
+                </p>
+              </CardContent>
               
-
+              <CardFooter className="p-6 pt-0 flex flex-wrap gap-3">
+                <Link href={`/read/${book.id}/1`}>
+                  <Button className="gap-2">
+                    <Play className="w-4 h-4" />
+                    Читать сейчас
+                  </Button>
+                </Link>
+                
+                <AddToShelfDialog 
+                  bookId={book.id}
+                  shelves={shelves}
+                  onToggleShelf={handleToggleShelf}
+                  trigger={
+                    <Button variant="outline" className="gap-2">
+                      <Plus className="w-4 h-4" />
+                      В мои полки
+                    </Button>
+                  }
+                />
+                
+                {/* Delete button - only show if the current user is the uploader */}
+                {book.userId === user?.id && (
+                  <Button 
+                    variant="destructive" 
+                    className="gap-2"
+                    onClick={handleDeleteBook}
+                    disabled={isDeleting}
+                  >
+                    <Trash className="w-4 h-4" />
+                    {isDeleting ? 'Удаление...' : 'Удалить'}
+                  </Button>
+                )}
+              </CardFooter>
             </div>
           </div>
         </Card>
         
-        {/* Comments and Reviews Section */}
-        <div className="mt-8">
-          <Card>
-            <Tabs defaultValue="comments">
-              <CardHeader className="pb-0">
-                <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
-                  <TabsTrigger value="comments" className="relative h-10 rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4" />
-                      Комментарии ({commentsCount})
-                    </div>
-                  </TabsTrigger>
-                  <TabsTrigger value="reviews" className="relative h-10 rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">
-                    <div className="flex items-center gap-2">
-                      <Star className="w-4 h-4" />
-                      Рецензии ({reviewsCount})
-                    </div>
-                  </TabsTrigger>
-                </TabsList>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <TabsContent value="comments" className="mt-0">
-                  <CommentsSection 
-                    bookId={bookId} 
-                    onCommentsCountChange={setCommentsCount}
-                  />
-                </TabsContent>
-                <TabsContent value="reviews" className="mt-0">
-                  <ReviewsSection 
-                    bookId={bookId} 
-                    onReviewsCountChange={setReviewsCount}
-                    onBookRatingChange={setBookRating}
-                  />
-                </TabsContent>
+
+        
+        {/* Tabs for Table of Contents, Comments, and Reviews */}
+        <Card>
+          <Tabs defaultValue="comments" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="toc">Оглавление</TabsTrigger>
+              <TabsTrigger value="comments">Комментарии ({bookComments.length})</TabsTrigger>
+              <TabsTrigger value="reviews">Рецензии ({bookReviews.length})</TabsTrigger>
+            </TabsList>
+            
+            {/* Table of Contents Tab */}
+            <TabsContent value="toc" className="mt-0">
+              <CardContent className="p-0">
+                <div className="p-4 text-center text-muted-foreground">
+                  Оглавление будет доступно после начала чтения книги.
+                </div>
               </CardContent>
-            </Tabs>
-          </Card>
-        </div>
+            </TabsContent>
+            
+            {/* Comments Tab */}
+            <TabsContent value="comments" className="mt-0">
+              <CardContent className="space-y-6 pt-4">
+                {/* Add Comment Form */}
+                <div className="pt-4">
+                  <h4 className="font-medium mb-3">Добавить комментарий</h4>
+                  <div className="space-y-4">
+                    <Textarea 
+                      placeholder="Ваш комментарий..." 
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="flex justify-end">
+                      <Button onClick={handleAddComment} className="gap-2">
+                        <Send className="w-4 h-4" />
+                        Отправить
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                {bookComments.map(comment => (
+                  <div key={comment.id} className="border-b pb-6 last:border-0 last:pb-0">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback>
+                          <User className="w-5 h-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm">{comment.author}</p>
+                          {comment.userId === user?.id && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteComment(comment.id)}
+                            >
+                              <Trash className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="text-xs text-muted-foreground cursor-help mb-3">
+                                {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: ru })}
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{format(new Date(comment.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <p className="text-foreground/90 mb-3">{comment.content}</p>
+                        <ReactionBar 
+                          reactions={comment.reactions} 
+                          onReact={(emoji) => handleReactToComment(comment.id, emoji)} 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </TabsContent>
+            
+            {/* Reviews Tab */}
+            <TabsContent value="reviews" className="mt-0">
+              <CardContent className="space-y-6 pt-4">
+                {/* Add Review Form */}
+                <div className="pt-4">
+                  <h4 className="font-medium mb-3">Написать рецензию</h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">Оценка:</span>
+                      <div className="flex">
+                        {[...Array(10)].map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setReviewRating(i + 1)}
+                            className="p-1"
+                          >
+                            <Star 
+                              className={`w-5 h-5 ${
+                                i < reviewRating 
+                                  ? 'fill-yellow-400 text-yellow-400' 
+                                  : 'text-muted-foreground'
+                              }`} 
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      <span className="text-sm font-medium">{reviewRating}/10</span>
+                    </div>
+                    <Textarea 
+                      placeholder="Ваша рецензия..." 
+                      value={newReview}
+                      onChange={(e) => setNewReview(e.target.value)}
+                      rows={5}
+                    />
+                    <div className="flex justify-end">
+                      <Button onClick={handleAddReview} className="gap-2">
+                        <Send className="w-4 h-4" />
+                        Опубликовать
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                {bookReviews.map(review => (
+                  <div key={review.id} className="border-b pb-6 last:border-0 last:pb-0">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback>
+                          <User className="w-5 h-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm">{review.author}</p>
+                          <div className="flex items-center gap-1">
+                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                            <span className="text-sm font-medium">{review.rating}/10</span>
+                          </div>
+                          {review.userId === user?.id && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteReview(review.id)}
+                            >
+                              <Trash className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="text-xs text-muted-foreground cursor-help mb-3">
+                                {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true, locale: ru })}
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{format(new Date(review.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <p className="text-foreground/90 mb-3">{review.content}</p>
+                        <ReactionBar 
+                          reactions={review.reactions} 
+                          onReact={(emoji) => handleReactToReview(review.id, emoji)} 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </TabsContent>
+          </Tabs>
+        </Card>
       </div>
     </div>
   );

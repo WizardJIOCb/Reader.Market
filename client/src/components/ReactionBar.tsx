@@ -29,7 +29,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId }: Re
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/reactions', {
+      const response = await fetch('/api/reactions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

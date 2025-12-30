@@ -184,7 +184,7 @@ export const BookCard: React.FC<BookCardProps> = ({
       <CardFooter className="flex flex-col gap-2">
         <div className="flex gap-2 w-full">
           <Button variant="outline" size="sm" className="flex-1" asChild>
-            <Link href={`/reader/${book.id}`}>
+            <Link href={`/read/${book.id}/1`}>
               Читать
             </Link>
           </Button>
