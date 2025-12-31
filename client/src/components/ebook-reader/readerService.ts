@@ -36,337 +36,6 @@ export class ReaderService {
   private reader: any = null;
   private container: HTMLElement | null = null;
   private textContentElement: HTMLElement | null = null;
-  
-  // Helper method to validate container readiness
-  private async validateContainerReady(container: HTMLElement, maxRetries: number = 30): Promise<HTMLElement> {
-    console.log('=== CONTAINER VALIDATION START ===');
-    console.log('Initial container:', container);
-    console.log('Initial container dimensions:', container?.offsetWidth, 'x', container?.offsetHeight);
-    
-    // First, ensure container is in DOM
-    if (!document.contains(container)) {
-      console.warn('Container not in DOM, attempting to find by ID');
-      const containerById = document.getElementById('reader-container');
-      if (containerById && document.contains(containerById)) {
-        console.log('Found container by ID:', containerById);
-        container = containerById;
-      } else {
-        // Try query selector approach
-        const queryContainer = document.querySelector('div#reader-container');
-        if (queryContainer && document.contains(queryContainer)) {
-          console.log('Found container by querySelector:', queryContainer);
-          container = queryContainer as HTMLElement;
-        } else {
-          // Last resort: iterate through all divs
-          const allDivs = document.querySelectorAll('div');
-          for (let i = 0; i < allDivs.length; i++) {
-            if (allDivs[i].id === 'reader-container' && document.contains(allDivs[i])) {
-              console.log('Found container by iteration:', allDivs[i]);
-              container = allDivs[i] as HTMLElement;
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    if (!container || !document.contains(container)) {
-      throw new Error('Container element not found in DOM after all attempts');
-    }
-    
-    console.log('Container found and in DOM:', container);
-    
-    // Ensure container has proper ID
-    if (!container.id) {
-      container.id = 'reader-container';
-      console.log('Assigned ID to container:', container.id);
-    }
-    
-    // Make container visible if hidden
-    const computedStyle = window.getComputedStyle(container);
-    if (computedStyle.display === 'none') {
-      container.style.display = 'block';
-      console.log('Made container visible (was display: none)');
-    }
-    
-    if (computedStyle.visibility === 'hidden') {
-      container.style.visibility = 'visible';
-      console.log('Made container visible (was visibility: hidden)');
-    }
-    
-    // Ensure proper positioning and dimensions
-    if (!container.style.position || container.style.position === 'static') {
-      container.style.position = 'relative';
-    }
-    
-    if (!container.style.width || container.style.width === '0px') {
-      container.style.width = '100%';
-    }
-    
-    if (!container.style.height || container.style.height === '0px') {
-      container.style.height = '100%';
-    }
-    
-    if (!container.style.minHeight || container.style.minHeight === '0px') {
-      container.style.minHeight = '400px';
-    }
-    
-    // Force reflow
-    container.offsetHeight;
-    
-    // Wait for container to have proper dimensions
-    let retries = 0;
-    while ((container.offsetWidth === 0 || container.offsetHeight === 0) && retries < maxRetries) {
-      retries++;
-      console.log(`Container has zero dimensions, waiting... (attempt ${retries}/${maxRetries})`);
-      
-      // Use requestAnimationFrame for better timing
-      await new Promise(resolve => {
-        const checkDimensions = () => {
-          if (container.offsetWidth > 0 && container.offsetHeight > 0) {
-            resolve(undefined);
-          } else if (retries >= maxRetries) {
-            resolve(undefined);
-          } else {
-            requestAnimationFrame(checkDimensions);
-          }
-        };
-        requestAnimationFrame(checkDimensions);
-      });
-      
-      // Additional timeout if RAF didn't work
-      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-        await new Promise(resolve => setTimeout(resolve, 50 * Math.min(retries, 10)));
-      }
-      
-      console.log(`Container dimensions after wait ${retries}:`, container.offsetWidth, 'x', container.offsetHeight);
-    }
-    
-    // Final validation
-    if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-      console.warn('Container still has zero dimensions after maximum retries');
-      // Force explicit sizing as last resort
-      container.style.width = '100%';
-      container.style.height = '100vh';
-      container.style.minHeight = '400px';
-      container.style.position = 'relative';
-      container.offsetHeight; // Force reflow
-      
-      // One final check
-      await new Promise(resolve => setTimeout(resolve, 100));
-      console.log('Final container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
-    }
-    
-    console.log('=== CONTAINER VALIDATION END ===');
-    console.log('Final validated container:', container);
-    console.log('Final dimensions:', container.offsetWidth, 'x', container.offsetHeight);
-    
-    return container;
-  }
-  
-  // Enhanced initialization with retry mechanism
-  private async initializeWithRetry(bookUrl: string, container: HTMLElement, maxRetries: number = 3): Promise<void> {
-    console.log('=== ENHANCED INITIALIZATION WITH RETRY START ===');
-    console.log('Max retries:', maxRetries);
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`Initialization attempt ${attempt}/${maxRetries}`);
-        
-        // Validate and prepare container
-        const validatedContainer = await this.validateContainerReady(container);
-        
-        // Clear any previous content
-        validatedContainer.innerHTML = '';
-        
-        // Store reference
-        this.container = validatedContainer;
-        
-        // Check file type and handle accordingly
-        if (bookUrl.endsWith('.fb2') || bookUrl.endsWith('.txt')) {
-          console.log(`${bookUrl.endsWith('.fb2') ? 'FB2' : 'TXT'} file detected, using plain text display`);
-          await this.loadPlainText(bookUrl, validatedContainer);
-          console.log('=== INITIALIZATION SUCCESSFUL (PLAIN TEXT) ===');
-          return;
-        }
-        
-        // For non-text files, use Foliate.js
-        console.log('Non-text file detected, attempting Foliate.js initialization');
-        
-        // Import Foliate.js
-        console.log('Importing Foliate.js module...');
-        const foliateModule = await import('foliate-js/reader.js');
-        console.log('Foliate module imported successfully');
-        
-        const { Reader } = foliateModule;
-        
-        // Create reader instance with extensive validation
-        console.log('Creating Reader instance...');
-        this.reader = new Reader(validatedContainer, this.settings);
-        
-        // Validate reader was created successfully
-        if (!this.reader) {
-          throw new Error('Failed to create Reader instance');
-        }
-        
-        console.log('Reader instance created successfully:', this.reader);
-        
-        // Set up event listeners with null safety
-        console.log('Setting up event listeners with null safety...');
-        this.setupEventListenersSafe();
-        
-        // Load the book
-        console.log('Loading book...');
-        await this.loadBook(bookUrl);
-        
-        console.log('=== INITIALIZATION SUCCESSFUL (FOLIATE.JS) ===');
-        return;
-        
-      } catch (error) {
-        console.error(`Initialization attempt ${attempt} failed:`, error);
-        
-        // Cleanup on failure
-        this.cleanupOnFailure();
-        
-        // If this is the last attempt, re-throw the error
-        if (attempt === maxRetries) {
-          console.error('All initialization attempts failed');
-          throw new Error(`Failed to initialize reader after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-        
-        // Wait before retry with exponential backoff
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Max 5 seconds
-        console.log(`Waiting ${delay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  // Safe event listener setup with comprehensive null checks
-  private setupEventListenersSafe(): void {
-    console.log('=== SAFE EVENT LISTENER SETUP START ===');
-    
-    // Validate reader exists
-    if (!this.reader) {
-      console.error('Cannot setup event listeners: reader is null');
-      return;
-    }
-    
-    console.log('Reader available for event listener setup:', this.reader);
-    
-    // Check what methods are available
-    const hasOnMethod = typeof this.reader.on === 'function';
-    const hasAddEventListener = typeof this.reader.addEventListener === 'function';
-    
-    console.log('Reader methods available:', {
-      on: hasOnMethod,
-      addEventListener: hasAddEventListener
-    });
-    
-    // Setup bookready listener
-    try {
-      if (hasOnMethod) {
-        console.log('Setting up bookready listener using .on() method');
-        this.reader.on('bookready', () => {
-          console.log('Book ready event triggered');
-          this.emit('ready');
-        });
-      } else if (hasAddEventListener) {
-        console.log('Setting up bookready listener using .addEventListener() method');
-        this.reader.addEventListener('bookready', () => {
-          console.log('Book ready event triggered');
-          this.emit('ready');
-        });
-      } else {
-        console.warn('Reader has neither .on() nor .addEventListener() method for bookready');
-      }
-    } catch (error) {
-      console.error('Error setting up bookready listener:', error);
-    }
-    
-    // Setup relocate listener
-    try {
-      if (hasOnMethod) {
-        console.log('Setting up relocate listener using .on() method');
-        this.reader.on('relocate', (location: any) => {
-          console.log('Relocate event triggered:', location);
-          this.emit('relocate', location);
-        });
-      } else if (hasAddEventListener) {
-        console.log('Setting up relocate listener using .addEventListener() method');
-        this.reader.addEventListener('relocate', (event: any) => {
-          console.log('Relocate event triggered:', event.detail);
-          this.emit('relocate', event.detail);
-        });
-      } else {
-        console.warn('Reader has neither .on() nor .addEventListener() method for relocate');
-      }
-    } catch (error) {
-      console.error('Error setting up relocate listener:', error);
-    }
-    
-    // Setup error listener
-    try {
-      if (hasOnMethod) {
-        console.log('Setting up error listener using .on() method');
-        this.reader.on('error', (error: any) => {
-          console.log('Error event triggered:', error);
-          this.emit('error', error);
-        });
-      } else if (hasAddEventListener) {
-        console.log('Setting up error listener using .addEventListener() method');
-        this.reader.addEventListener('error', (event: any) => {
-          console.log('Error event triggered:', event.detail);
-          this.emit('error', event.detail);
-        });
-      } else {
-        console.warn('Reader has neither .on() nor .addEventListener() method for error');
-      }
-    } catch (error) {
-      console.error('Error setting up error listener:', error);
-    }
-    
-    console.log('=== SAFE EVENT LISTENER SETUP END ===');
-  }
-  
-  // Cleanup method for failed initialization attempts
-  private cleanupOnFailure(): void {
-    console.log('Cleaning up after failed initialization attempt');
-    
-    if (this.reader) {
-      try {
-        // Try to clean up reader event listeners
-        if (this.reader.off) {
-          console.log('Cleaning up reader .off() listeners');
-          // We don't know what listeners were added, so we can't remove specific ones
-        } else if (this.reader.removeEventListener) {
-          console.log('Cleaning up reader .removeEventListener() listeners');
-          // Same issue - we don't know what was added
-        }
-        
-        // Destroy reader if possible
-        if (this.reader.destroy) {
-          console.log('Destroying reader instance');
-          this.reader.destroy();
-        }
-      } catch (error) {
-        console.warn('Error during reader cleanup:', error);
-      } finally {
-        this.reader = null;
-      }
-    }
-    
-    // Clear container content
-    if (this.container) {
-      try {
-        this.container.innerHTML = '';
-      } catch (error) {
-        console.warn('Error clearing container content:', error);
-      }
-    }
-    
-    console.log('Cleanup completed');
-  }
   private settings: ReaderSettings = {
     fontSize: 18,
     fontFamily: 'Georgia, serif',
@@ -430,11 +99,203 @@ export class ReaderService {
       console.log('=== READER SERVICE INITIALIZATION START ===');
       console.log('Book URL:', bookUrl);
       console.log('Initial container element:', container);
+      console.log('Initial container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
       
-      // Use the enhanced initialization with retry mechanism
-      await this.initializeWithRetry(bookUrl, container, 3);
+      // Validate container is actually in the DOM
+      if (!document.contains(container)) {
+        console.warn('Container element is not in the DOM');
+        // Try to find the container by ID as a fallback
+        const containerById = document.getElementById('reader-container');
+        if (containerById) {
+          console.log('Found container by ID:', containerById);
+          container = containerById;
+        } else {
+          // Try another approach - query for div with reader-container ID
+          const alternativeContainer = document.querySelector('div#reader-container');
+          if (alternativeContainer) {
+            console.log('Found container by querySelector:', alternativeContainer);
+            container = alternativeContainer as HTMLElement;
+          } else {
+            // Try yet another approach - look for the container in the document body
+            const allDivs = document.querySelectorAll('div');
+            for (let i = 0; i < allDivs.length; i++) {
+              if (allDivs[i].id === 'reader-container') {
+                console.log('Found container by iterating through divs:', allDivs[i]);
+                container = allDivs[i] as HTMLElement;
+                break;
+              }
+            }
+            
+            if (!container || !document.contains(container)) {
+              // If we still can't find it, create a more descriptive error
+              console.error('Container element not found in DOM. Available elements:', document.body.innerHTML.substring(0, 500));
+              throw new Error(`Container element is not in the DOM. Book URL: ${bookUrl}, Container ID: reader-container`);
+            }
+          }
+        }
+      }
       
-      console.log('=== READER SERVICE INITIALIZATION END ===');
+      // Double-check that we have a valid container
+      if (!container) {
+        console.error('Container element is null or undefined');
+        throw new Error('Container element is null or undefined');
+      }
+      
+      console.log('Final validated container element:', container);
+      console.log('Final container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
+      
+      // Add a small delay to ensure the container is fully rendered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Check if container is visible
+      const containerStyle = window.getComputedStyle(container);
+      if (containerStyle.display === 'none') {
+        console.warn('Container element is hidden (display: none)');
+        container.style.display = 'block';
+        console.log('Set container display to block');
+      }
+      
+      if (containerStyle.visibility === 'hidden') {
+        console.warn('Container element is hidden (visibility: hidden)');
+        container.style.visibility = 'visible';
+        console.log('Set container visibility to visible');
+      }
+      
+      // Ensure container has an ID
+      if (!container.id) {
+        console.log('Container missing ID, setting to reader-container');
+        container.id = 'reader-container';
+      }
+      
+      // Ensure container is properly attached to DOM and visible
+      console.log('Ensuring container is visible and properly attached');
+      if (container.style.display === 'none') {
+        console.log('Container was hidden, making visible');
+        container.style.display = 'block';
+      }
+      
+      if (container.style.visibility === 'hidden') {
+        console.log('Container was invisible, making visible');
+        container.style.visibility = 'visible';
+      }
+      
+      // Ensure container has proper positioning
+      if (!container.style.position || container.style.position === 'static') {
+        console.log('Setting container position to relative');
+        container.style.position = 'relative';
+      }
+      
+      // Ensure container has proper dimensions and styles
+      console.log('Ensuring container has proper dimensions and styles');
+      
+      // Additional validation - ensure container has proper styles
+      if (container.style.position === 'static' || container.style.position === '') {
+        console.log('Setting container position to relative');
+        container.style.position = 'relative';
+      }
+      
+      if (!container.style.width || container.style.width === '0px') {
+        console.log('Setting container width to 100%');
+        container.style.width = '100%';
+      }
+      
+      if (!container.style.height || container.style.height === '0px') {
+        console.log('Setting container height to 100%');
+        container.style.height = '100%';
+      }
+      
+      // Ensure minimum height
+      if (!container.style.minHeight || container.style.minHeight === '0px') {
+        console.log('Setting container minimum height to 400px');
+        container.style.minHeight = '400px';
+      }
+      
+      // Force a reflow
+      container.offsetHeight; // Trigger reflow
+      
+      // Wait a bit to ensure container is properly rendered
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        console.log('Container has zero dimensions, waiting for layout...');
+        // Try multiple times with increasing delays
+        for (let i = 0; i < 30; i++) { // Increased attempts
+          await new Promise(resolve => setTimeout(resolve, 50 * (i + 1)));
+          console.log(`Container dimensions after wait attempt ${i + 1}:`, container.offsetWidth, 'x', container.offsetHeight);
+          if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+            break;
+          }
+        }
+        
+        // Final check
+        if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+          console.warn('Container still has zero dimensions after waiting');
+          // Try to force layout with a different approach
+          console.log('Attempting to force layout with explicit sizing');
+          container.style.width = '100%';
+          container.style.height = '100%';
+          container.style.minHeight = '400px';
+          container.style.position = 'relative';
+          
+          // Force reflow
+          container.offsetHeight;
+          
+          // Wait one more time
+          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log('Container dimensions after forced layout:', container.offsetWidth, 'x', container.offsetHeight);
+        }
+      }
+      
+      console.log('Container dimensions after styling:', container.offsetWidth, 'x', container.offsetHeight);
+      
+      // Check if this is a plain text file or FB2 file
+      console.log('Checking file type for plain text handling');
+      console.log('Book URL ends with .txt:', bookUrl.endsWith('.txt'));
+      console.log('Book URL ends with .fb2:', bookUrl.endsWith('.fb2'));
+      console.log('Full book URL:', bookUrl);
+      
+      // Check for FB2 files specifically
+      if (bookUrl.endsWith('.fb2')) {
+        console.log('FB2 file detected, using simple text display instead of Foliate.js');
+        await this.loadPlainText(bookUrl, container);
+        console.log('=== READER SERVICE INITIALIZATION END (FB2) ===');
+        return;
+      }
+      
+      // Check for plain text files
+      if (bookUrl.endsWith('.txt')) {
+        console.log('Plain text file detected, using simple text display instead of Foliate.js');
+        await this.loadPlainText(bookUrl, container);
+        console.log('=== READER SERVICE INITIALIZATION END (plain text) ===');
+        return;
+      }
+      
+      console.log('Non-text file detected, attempting to use Foliate.js');
+      
+      // Dynamically import Foliate.js to avoid SSR issues
+      console.log('Importing Foliate.js module...');
+      const foliateModule = await import('foliate-js/reader.js');
+      console.log('Foliate module imported successfully:', foliateModule);
+      const { Reader } = foliateModule;
+      
+      this.container = container;
+      
+      // Clear previous content
+      console.log('Clearing container content');
+      this.container.innerHTML = '';
+      
+      // Initialize the reader
+      console.log('Creating new Reader instance with container and settings');
+      this.reader = new Reader(this.container, this.settings);
+      console.log('Reader instance created:', this.reader);
+      
+      // Attach event listeners before loading the book
+      console.log('Setting up event listeners');
+      this.setupEventListeners();
+      console.log('Event listeners set up');
+      
+      // Load the book and wait for it to be ready
+      console.log('Loading book...');
+      await this.loadBook(bookUrl);
+      console.log('=== READER SERVICE INITIALIZATION END (Foliate.js) ===');
     } catch (error) {
       console.error('Error initializing reader:', error);
       this.emit('error', error);
@@ -453,11 +314,61 @@ export class ReaderService {
   }
   
   /**
-   * Set up event listeners for Foliate.js events (legacy method - now uses safe version)
+   * Set up event listeners for Foliate.js events
    */
   private setupEventListeners(): void {
-    // Delegate to the safe version
-    this.setupEventListenersSafe();
+    if (!this.reader) return;
+    
+    console.log('Setting up event listeners for reader:', this.reader);
+    console.log('Reader prototype:', Object.getPrototypeOf(this.reader));
+    console.log('Reader methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.reader)));
+    
+    // Listen for when the book is ready
+    if (this.reader.on) {
+      console.log('Using .on() method for bookready event');
+      this.reader.on('bookready', () => {
+        console.log('Book ready event triggered');
+        this.emit('ready');
+      });
+    } else if (this.reader.addEventListener) {
+      console.log('Using .addEventListener() method for bookready event');
+      this.reader.addEventListener('bookready', () => {
+        console.log('Book ready event triggered');
+        this.emit('ready');
+      });
+    } else {
+      console.warn('Reader does not have on() or addEventListener() method');
+    }
+    
+    // Listen for location changes
+    if (this.reader.on) {
+      console.log('Using .on() method for relocate event');
+      this.reader.on('relocate', (location: any) => {
+        console.log('Relocate event triggered:', location);
+        this.emit('relocate', location);
+      });
+    } else if (this.reader.addEventListener) {
+      console.log('Using .addEventListener() method for relocate event');
+      this.reader.addEventListener('relocate', (event: any) => {
+        console.log('Relocate event triggered:', event.detail);
+        this.emit('relocate', event.detail);
+      });
+    }
+    
+    // Listen for errors
+    if (this.reader.on) {
+      console.log('Using .on() method for error event');
+      this.reader.on('error', (error: any) => {
+        console.log('Error event triggered:', error);
+        this.emit('error', error);
+      });
+    } else if (this.reader.addEventListener) {
+      console.log('Using .addEventListener() method for error event');
+      this.reader.addEventListener('error', (event: any) => {
+        console.log('Error event triggered:', event.detail);
+        this.emit('error', event.detail);
+      });
+    }
   }
   
   /**
@@ -638,7 +549,7 @@ export class ReaderService {
                   resolveWithCleanup();
                 }, 100);
               },
-              (error: any) => {
+              (error) => {
                 console.error('Load promise rejected:', error);
                 onErrorWithCleanup(error);
               }
@@ -938,63 +849,17 @@ export class ReaderService {
    * Destroy the reader instance to free resources
    */
   destroy(): void {
-    console.log('=== DESTROYING READER SERVICE ===');
-    
-    try {
-      // Clean up reader event listeners first
-      if (this.reader) {
-        try {
-          console.log('Cleaning up reader event listeners');
-          // Attempt to clean up common event listeners
-          if (this.reader.off) {
-            // We don't know what specific listeners were added, 
-            // but we can try to remove common ones
-            console.log('Using .off() method for cleanup');
-            // Note: Without knowing the exact listeners, we can't remove them specifically
-          } else if (this.reader.removeEventListener) {
-            console.log('Using .removeEventListener() method for cleanup');
-            // Same limitation - we don't know what was added
-          }
-          
-          // Destroy the reader instance
-          console.log('Destroying reader instance');
-          if (this.reader.destroy) {
-            this.reader.destroy();
-          }
-        } catch (error) {
-          console.warn('Error during reader cleanup:', error);
-        } finally {
-          this.reader = null;
-        }
-      }
-      
-      // Clean up container
-      if (this.container) {
-        try {
-          console.log('Cleaning up container');
-          this.container.innerHTML = '';
-        } catch (error) {
-          console.warn('Error clearing container content:', error);
-        } finally {
-          this.container = null;
-        }
-      }
-      
-      // Clean up text content element
-      this.textContentElement = null;
-      
-      // Clear event listeners
-      this.eventListeners.clear();
-      
-      console.log('=== READER SERVICE DESTROYED SUCCESSFULLY ===');
-    } catch (error) {
-      console.error('Error during destruction:', error);
-      // Even if there's an error, try to clean up what we can
+    if (this.reader) {
+      this.reader.destroy?.();
       this.reader = null;
-      this.container = null;
-      this.textContentElement = null;
-      this.eventListeners.clear();
     }
+    
+    if (this.container) {
+      this.container.innerHTML = '';
+      this.container = null;
+    }
+    
+    this.textContentElement = null;
   }
 }
 
