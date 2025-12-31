@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
+  const distPath = path.resolve(__dirname, "../dist/public");
   if (!fs.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`,
@@ -17,7 +17,7 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
   
   // Serve uploaded files
-  const uploadsPath = path.resolve(__dirname, "../uploads");
+  const uploadsPath = path.resolve(__dirname, "../../uploads");
   if (fs.existsSync(uploadsPath)) {
     app.use('/uploads', express.static(uploadsPath));
   }
