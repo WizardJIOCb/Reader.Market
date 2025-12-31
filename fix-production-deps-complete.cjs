@@ -14,7 +14,8 @@ const buildDependencies = [
     'esbuild',
     'vite',
     'tsx',
-    '@vitejs/plugin-react'
+    '@vitejs/plugin-react',
+    '@tailwindcss/vite'
 ];
 
 // Move each required dependency from devDependencies to dependencies
