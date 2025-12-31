@@ -1,4 +1,4 @@
-# Ollama-Reader
+# Reader.Market
 
 A sophisticated ebook reader application that combines modern web technologies with AI-powered analysis capabilities. The application allows users to upload, read, organize, and analyze ebooks with the help of Ollama AI integration.
 
