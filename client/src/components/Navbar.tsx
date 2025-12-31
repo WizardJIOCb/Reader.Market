@@ -13,7 +13,7 @@ export function Navbar() {
       <nav className="bg-background border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/" className="text-xl font-bold">
-            NeuroReader
+            Reader.Market
           </Link>
           <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
         </div>
@@ -26,13 +26,13 @@ export function Navbar() {
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">
           <BookOpen className="w-6 h-6" />
-          NeuroReader
+          Reader.Market
         </Link>
         
         <div className="flex items-center gap-4">
           {user ? (
             <div className="flex items-center gap-4">
-              <Link href="/" className="text-sm hover:text-primary transition-colors cursor-pointer">
+              <Link href="/home" className="text-sm hover:text-primary transition-colors cursor-pointer">
                 Главная
               </Link>
               <Link href="/search" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
@@ -45,6 +45,9 @@ export function Navbar() {
               <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
                 <User className="w-4 h-4" />
                 <span>Профиль ({user.username})</span>
+              </Link>
+              <Link href="/" className="text-sm hover:text-primary transition-colors cursor-pointer">
+                О проекте
               </Link>
             </div>
           ) : (
