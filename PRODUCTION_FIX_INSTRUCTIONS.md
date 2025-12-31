@@ -9,14 +9,14 @@ This document provides instructions to fix the dependency issue on the productio
 ## Steps to Fix
 
 ### 1. Copy the fix script to the production server
-First, copy the `fix-production-deps.js` script to your production server in the `/var/www/reader.market` directory.
+First, copy the `fix-production-deps.cjs` script to your production server in the `/var/www/reader.market` directory.
 
 ### 2. Run the fix script on the production server
 On your production server, execute the following commands:
 
 ```bash
 cd /var/www/reader.market
-node fix-production-deps.js
+node fix-production-deps.cjs
 ```
 
 This script will automatically move `esbuild`, `vite`, and `tsx` from `devDependencies` to `dependencies` in your `package.json` file.
