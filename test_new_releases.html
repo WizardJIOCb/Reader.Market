@@ -14,7 +14,7 @@
             
             try {
                 // First, login to get a token
-                const loginResponse = await fetch('http://localhost:5001/api/auth/login', {
+                const loginResponse = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -35,7 +35,7 @@
                 resultDiv.innerHTML += `<p>Login successful. Token: ${token.substring(0, 20)}...</p>`;
                 
                 // Now test the new releases endpoint
-                const newReleasesResponse = await fetch('http://localhost:5001/api/books/new-releases', {
+                const newReleasesResponse = await fetch('/api/books/new-releases', {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -74,7 +74,7 @@
             
             try {
                 // First, login to get a token
-                const loginResponse = await fetch('http://localhost:5001/api/auth/login', {
+                const loginResponse = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -95,7 +95,7 @@
                 resultDiv.innerHTML += `<p>Login successful. Token: ${token.substring(0, 20)}...</p>`;
                 
                 // Now test the new releases endpoint
-                const newReleasesResponse = await fetch('http://localhost:5001/api/books/new-releases', {
+                const newReleasesResponse = await fetch('/api/books/new-releases', {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`

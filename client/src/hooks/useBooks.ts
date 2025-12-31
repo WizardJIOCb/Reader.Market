@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { booksApi } from '@/lib/api';
 
 export interface Book {
   id: string;
@@ -47,7 +48,7 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('http://localhost:5001/api/books/by-ids', {
+      const response = await fetch('/api/books/by-ids', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,7 +82,7 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('http://localhost:5001/api/books/popular', {
+      const response = await fetch('/api/books/popular', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -113,7 +114,7 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`http://localhost:5001/api/books/genre/${encodeURIComponent(genre)}`, {
+      const response = await fetch(`/api/books/genre/${encodeURIComponent(genre)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -145,7 +146,7 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('http://localhost:5001/api/books/recently-reviewed', {
+      const response = await fetch('/api/books/recently-reviewed', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -177,7 +178,7 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('http://localhost:5001/api/books/currently-reading', {
+      const response = await fetch('/api/books/currently-reading', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -209,7 +210,7 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('http://localhost:5001/api/books/new-releases', {
+      const response = await fetch('/api/books/new-releases', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -265,7 +266,7 @@ export function useBook(bookId: string | undefined): UseBookReturn {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`http://localhost:5001/api/books/${bookId}`, {
+      const response = await fetch(`/api/books/${bookId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

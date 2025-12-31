@@ -1,5 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const API_BASE_URL = '';
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -29,7 +31,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    // Ensure the URL is relative by joining query key parts and making it relative
+    const path = queryKey.filter(part => part !== '').join('/');
+    const relativeUrl = `${API_BASE_URL}/${path}`;
+    const res = await fetch(relativeUrl, {
       credentials: "include",
     });
 

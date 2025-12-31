@@ -46,7 +46,7 @@ export function useShelves() {
         return;
       }
       
-      const response = await fetch('http://localhost:5001/api/shelves', {
+      const response = await fetch('/api/shelves', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -83,7 +83,7 @@ export function useShelves() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('http://localhost:5001/api/shelves', {
+      const response = await fetch('/api/shelves', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +122,7 @@ export function useShelves() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`http://localhost:5001/api/shelves/${id}`, {
+      const response = await fetch(`/api/shelves/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -164,7 +164,7 @@ export function useShelves() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`http://localhost:5001/api/shelves/${id}`, {
+      const response = await fetch(`/api/shelves/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -201,7 +201,7 @@ export function useShelves() {
       console.log(`Adding book ${bookId} to shelf ${shelfId}`);
       console.log(`Using auth token: ${token.substring(0, 10)}...`);
       
-      const response = await fetch(`http://localhost:5001/api/shelves/${shelfId}/books/${bookId}`, {
+      const response = await fetch(`/api/shelves/${shelfId}/books/${bookId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -248,7 +248,7 @@ export function useShelves() {
       console.log(`Removing book ${bookId} from shelf ${shelfId}`);
       console.log(`Using auth token: ${token.substring(0, 10)}...`);
       
-      const response = await fetch(`http://localhost:5001/api/shelves/${shelfId}/books/${bookId}`, {
+      const response = await fetch(`/api/shelves/${shelfId}/books/${bookId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

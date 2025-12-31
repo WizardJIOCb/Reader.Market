@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { authApi } from './api';
 
 interface User {
   id: string;
@@ -48,13 +49,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch('http://localhost:5001/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
+      const response = await authApi.login(username, password);
 
       if (response.ok) {
         const data = await response.json();
@@ -73,13 +68,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (username: string, password: string, email?: string, fullName?: string): Promise<boolean> => {
     try {
-      const response = await fetch('http://localhost:5001/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, email, fullName }),
-      });
+      const response = await authApi.register(username, password, email, fullName);
 
       if (response.ok) {
         const data = await response.json();

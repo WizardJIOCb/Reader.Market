@@ -1,5 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Review } from '@/hooks/useBooks';
+import { Book, UseBookReturn } from '@/hooks/useBooks';
+
+// Define Review interface locally since it's not properly exported
+interface Review {
+  id: string;
+  bookId: string;
+  author: string;
+  content: string;
+  rating: number;
+  createdAt: string;
+  reactions: {
+    emoji: string;
+    count: number;
+    userReacted: boolean;
+  }[];
+  userId: string;
+}
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,7 +52,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
         setLoading(true);
         
         // Fetch all reviews
-        const response = await fetch(`http://localhost:5001/api/books/${bookId}/reviews`, {
+        const response = await fetch(`/api/books/${bookId}/reviews`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           }
@@ -144,7 +160,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     if (!newReviewContent.trim() || !user || newRating < 1 || newRating > 10) return;
     
     try {
-      const response = await fetch(`http://localhost:5001/api/books/${bookId}/reviews`, {
+      const response = await fetch(`/api/books/${bookId}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -210,7 +226,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     const updatedReviews = reviews.map(review => {
       if (review.id !== reviewId) return review;
 
-      const existingReactionIndex = review.reactions.findIndex(r => r.emoji === emoji);
+      const existingReactionIndex = review.reactions.findIndex((r: { emoji: string }) => r.emoji === emoji);
       let newReactions = [...review.reactions];
 
       if (existingReactionIndex >= 0) {
@@ -243,7 +259,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     // Also update userReview if this is the user's review
     if (userReview && userReview.id === reviewId) {
       const updatedUserReview = { ...userReview };
-      const existingReactionIndex = updatedUserReview.reactions.findIndex(r => r.emoji === emoji);
+      const existingReactionIndex = updatedUserReview.reactions.findIndex((r: { emoji: string }) => r.emoji === emoji);
       let newReactions = [...updatedUserReview.reactions];
 
       if (existingReactionIndex >= 0) {
@@ -277,7 +293,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     
     // Now refetch the reviews to get accurate data from the server
     try {
-      const response = await fetch(`http://localhost:5001/api/books/${bookId}/reviews`, {
+      const response = await fetch(`/api/books/${bookId}/reviews`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
@@ -340,7 +356,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     }
     
     try {
-      const response = await fetch(`http://localhost:5001/api/reviews/${reviewId}`, {
+      const response = await fetch(`/api/reviews/${reviewId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
