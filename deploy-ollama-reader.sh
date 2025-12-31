@@ -674,8 +674,8 @@ else
 fi
 
 # 12. Copy current project files (simulating the clone process)
-log "Copying project files..."
-rsync -av --exclude 'node_modules' --exclude 'dist' --exclude '.git' /c/Projects/Ollama-Reader/ $APP_DIR/
+#log "Copying project files..."
+#rsync -av --exclude 'node_modules' --exclude 'dist' --exclude '.git' /c/Projects/Ollama-Reader/ $APP_DIR/
 
 # 13. Install project dependencies
 log "Installing project dependencies..."
