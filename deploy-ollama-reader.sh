@@ -59,10 +59,10 @@ wait_for_service() {
 }
 
 # Check if running as root
-if [[ $EUID -eq 0 ]]; then
-    log "This script should not be run as root. Please run as a regular user with sudo access."
-    exit 1
-fi
+#if [[ $EUID -eq 0 ]]; then
+#    log "This script should not be run as root. Please run as a regular user with sudo access."
+#    exit 1
+#fi
 
 # Check if sudo is available
 if ! command_exists sudo; then
@@ -565,10 +565,10 @@ wait_for_service() {
 }
 
 # Check if running as root
-if [[ $EUID -eq 0 ]]; then
-    log "This script should not be run as root. Please run as a regular user with sudo access."
-    exit 1
-fi
+#if [[ $EUID -eq 0 ]]; then
+#    log "This script should not be run as root. Please run as a regular user with sudo access."
+#    exit 1
+#fi
 
 # Check if sudo is available
 if ! command_exists sudo; then
