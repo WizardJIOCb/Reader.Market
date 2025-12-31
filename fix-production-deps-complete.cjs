@@ -15,7 +15,10 @@ const buildDependencies = [
     'vite',
     'tsx',
     '@vitejs/plugin-react',
-    '@tailwindcss/vite'
+    '@tailwindcss/vite',
+    '@replit/vite-plugin-runtime-error-modal',
+    '@replit/vite-plugin-cartographer',
+    '@replit/vite-plugin-dev-banner'
 ];
 
 // Move each required dependency from devDependencies to dependencies
