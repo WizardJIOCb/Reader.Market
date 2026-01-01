@@ -7,20 +7,16 @@ import { Ollama } from "ollama";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
-
-// Get __dirname equivalent for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Initialize Ollama client
 const ollama = new Ollama({ host: process.env.OLLAMA_HOST || 'http://localhost:11434' });
 
 // Configure multer for file uploads
+// Use a relative path approach that works after bundling
 const storageEngine = multer.diskStorage({
   destination: (req, file, cb) => {
     // Create uploads directory if it doesn't exist
-    const uploadDir = path.join(__dirname, '../uploads');
+    const uploadDir = path.join(process.cwd(), 'uploads');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -66,7 +62,7 @@ const upload = multer({
     if (allowedBookTypes.includes(file.mimetype) || allowedImageTypes.includes(file.mimetype) || isFB2File) {
       cb(null, true);
     } else {
-      cb(new Error('Unsupported file type'), false);
+      cb(null, false);
     }
   }
 });
@@ -215,7 +211,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to login" });
     }
   });
-  
+
   // Get current user profile
   app.get("/api/profile", authenticateToken, async (req, res) => {
     console.log("Profile endpoint called");
@@ -233,7 +229,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get profile" });
     }
   });
-  
+
   // Shelf endpoints
   // Get all shelves for the current user
   app.get("/api/shelves", authenticateToken, async (req, res) => {
@@ -247,7 +243,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get shelves" });
     }
   });
-  
+
   // Get books by IDs
   app.post("/api/books/by-ids", authenticateToken, async (req, res) => {
     console.log("Get books by IDs endpoint called");
@@ -264,7 +260,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get books" });
     }
   });
-  
+
   // Get popular books (sorted by rating)
   app.get("/api/books/popular", authenticateToken, async (req, res) => {
     console.log("Get popular books endpoint called");
@@ -276,7 +272,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get popular books" });
     }
   });
-  
+
   // Get books by genre
   app.get("/api/books/genre/:genre", authenticateToken, async (req, res) => {
     console.log("Get books by genre endpoint called");
@@ -289,7 +285,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get books by genre" });
     }
   });
-  
+
   // Get recently reviewed books
   app.get("/api/books/recently-reviewed", authenticateToken, async (req, res) => {
     console.log("Get recently reviewed books endpoint called");
@@ -301,7 +297,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get recently reviewed books" });
     }
   });
-  
+
   // Get user's currently reading books
   app.get("/api/books/currently-reading", authenticateToken, async (req, res) => {
     console.log("Get user's currently reading books endpoint called");
@@ -314,7 +310,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get user's currently reading books" });
     }
   });
-  
+
   // Get new releases
   app.get("/api/books/new-releases", authenticateToken, async (req, res) => {
     console.log("Get new releases endpoint called");
@@ -327,7 +323,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get new releases" });
     }
   });
-  
+
   // Search books
   app.get("/api/books/search", authenticateToken, async (req, res) => {
     console.log("Search books endpoint called");
@@ -353,7 +349,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to search books" });
     }
   });
-  
+
   // Get a single book by ID
   app.get("/api/books/:id", authenticateToken, async (req, res) => {
     console.log("Get book by ID endpoint called");
@@ -407,7 +403,7 @@ export async function registerRoutes(
         description: description || '',
         genre: genre || '',
         publishedYear: year ? parseInt(year) : null,
-        userId, // Add userId to track who uploaded the book
+        userId, // Add userId to track who uploaded the user
         uploadedAt: new Date(), // Set upload time to current time
         publishedAt: publishedAt ? new Date(publishedAt) : (year ? new Date(`${year}-01-01`) : null) // Set publication date
       };
@@ -416,7 +412,7 @@ export async function registerRoutes(
       if (req.files && (req.files as any).bookFile) {
         const bookFile = (req.files as any).bookFile[0];
         // Store only the relative path from the uploads directory
-        bookData.filePath = bookFile.path.replace(/^.*[\\\/]uploads[\\\/]/, 'uploads/');
+        bookData.filePath = bookFile.path.replace(/^.*[\\\/](uploads[\\\/].*)$/, '$1');
         bookData.fileSize = bookFile.size;
         bookData.fileType = bookFile.mimetype;
       }
@@ -425,7 +421,7 @@ export async function registerRoutes(
       if (req.files && (req.files as any).coverImage) {
         const coverImage = (req.files as any).coverImage[0];
         // Store only the relative path from the uploads directory
-        bookData.coverImageUrl = coverImage.path.replace(/^.*[\\\/]uploads[\\\/]/, 'uploads/');
+        bookData.coverImageUrl = coverImage.path.replace(/^.*[\\\/](uploads[\\\/].*)$/, '$1');
       }
       
       const book = await storage.createBook(bookData);
@@ -455,9 +451,7 @@ export async function registerRoutes(
       res.status(500).json({ error: error.message || "Failed to upload book" });
     }
   });
-  
 
-  
   // Create a new shelf
   app.post("/api/shelves", authenticateToken, async (req, res) => {
     console.log("Create shelf endpoint called");
@@ -476,7 +470,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to create shelf" });
     }
   });
-  
+
   // Update a shelf
   app.put("/api/shelves/:id", authenticateToken, async (req, res) => {
     console.log("Update shelf endpoint called");
@@ -492,7 +486,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to update shelf" });
     }
   });
-  
+
   // Delete a shelf
   app.delete("/api/shelves/:id", authenticateToken, async (req, res) => {
     console.log("Delete shelf endpoint called");
@@ -507,7 +501,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to delete shelf" });
     }
   });
-  
+
   // Add a book to a shelf
   app.post("/api/shelves/:id/books/:bookId", authenticateToken, async (req, res) => {
     console.log("Add book to shelf endpoint called");
@@ -544,7 +538,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to add book to shelf" });
     }
   });
-  
+
   // Remove a book from a shelf
   app.delete("/api/shelves/:id/books/:bookId", authenticateToken, async (req, res) => {
     console.log("Remove book from shelf endpoint called");
@@ -581,7 +575,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to remove book from shelf" });
     }
   });
-  
+
   // Delete a book
   app.delete("/api/books/:id", authenticateToken, async (req, res) => {
     console.log("Delete book endpoint called");
@@ -609,7 +603,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to delete book" });
     }
   });
-  
+
   // Comments endpoints
   // Create a comment
   app.post("/api/books/:bookId/comments", authenticateToken, async (req, res) => {
@@ -635,7 +629,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to create comment" });
     }
   });
-  
+
   // Get comments for a book
   app.get("/api/books/:bookId/comments", authenticateToken, async (req, res) => {
     console.log("Get comments endpoint called");
@@ -696,7 +690,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get comments" });
     }
   });
-  
+
   // Delete a comment
   app.delete("/api/comments/:id", authenticateToken, async (req, res) => {
     console.log("Delete comment endpoint called");
@@ -716,7 +710,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to delete comment" });
     }
   });
-  
+
   // Reviews endpoints
   // Create a review
   app.post("/api/books/:bookId/reviews", authenticateToken, async (req, res) => {
@@ -757,7 +751,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to create review" });
     }
   });
-  
+
   // Get user's review for a book
   app.get("/api/books/:bookId/my-review", authenticateToken, async (req, res) => {
     console.log("Get user's review endpoint called");
@@ -812,7 +806,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get user's review" });
     }
   });
-  
+
   // Get reviews for a book
   app.get("/api/books/:bookId/reviews", authenticateToken, async (req, res) => {
     console.log("Get reviews endpoint called");
@@ -873,7 +867,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get reviews" });
     }
   });
-  
+
   // Delete a review
   app.delete("/api/reviews/:id", authenticateToken, async (req, res) => {
     console.log("Delete review endpoint called");
@@ -893,7 +887,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to delete review" });
     }
   });
-  
+
   // Reactions endpoints
   // Create/toggle a reaction
   app.post("/api/reactions", authenticateToken, async (req, res) => {
@@ -931,11 +925,8 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to create reaction" });
     }
   });
-  
+
   console.log("API routes registered successfully");
-  
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
 
   return httpServer;
 }
