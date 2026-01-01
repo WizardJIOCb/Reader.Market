@@ -88,7 +88,7 @@ export default function SearchPage() {
           throw new Error('No authentication token found');
         }
         
-        const response = await fetch('http://localhost:5001/api/books/search', {
+        const response = await fetch('/api/books/search', {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -138,7 +138,7 @@ export default function SearchPage() {
       }
       
       // Make a server-side search request to the backend service
-      const response = await fetch(`http://localhost:5001/api/books/search?query=${encodeURIComponent(query)}`, {
+      const response = await fetch(`/api/books/search?query=${encodeURIComponent(query)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -264,8 +264,8 @@ export default function SearchPage() {
                   // Convert book data to match BookCard expectations
                   const bookData = {
                     ...book,
-                    coverColor: '', // Not used since we have coverImageUrl
-                    coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl,
+                    coverColor: '', // Not used since we have coverImage
+                    coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl,
                     genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                   };
                   

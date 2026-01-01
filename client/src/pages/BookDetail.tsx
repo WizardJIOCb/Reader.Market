@@ -44,9 +44,14 @@ interface Book {
   genre?: string;
   publishedYear?: number;
   rating?: number;
+  commentCount?: number;
+  reviewCount?: number;
   userId: string; // Added userId field
   createdAt: string;
   updatedAt: string;
+  uploadedAt?: string;
+  publishedAt?: string;
+  lastActivityDate?: string;
 }
 
 // Define comment and review interfaces
@@ -57,6 +62,7 @@ interface Comment {
   content: string;
   createdAt: string;
   reactions: Reaction[];
+  userId?: string;
 }
 
 interface Review {
@@ -67,6 +73,7 @@ interface Review {
   rating: number;
   createdAt: string;
   reactions: Reaction[];
+  userId?: string;
 }
 
 interface Reaction {
@@ -591,7 +598,7 @@ export default function BookDetail() {
             <div className="w-full md:w-64 h-96 relative">
               {book.coverImageUrl ? (
                 <img 
-                  src={book.coverImageUrl.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl} 
+                  src={book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl} 
                   alt={book.title} 
                   className="w-full h-full object-cover"
                 />

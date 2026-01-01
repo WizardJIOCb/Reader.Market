@@ -9,6 +9,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { dataCache } from '@/lib/dataCache';
+import { booksApi } from '@/lib/api';
 import { Upload, BookOpen, FileText } from 'lucide-react';
 
 export default function AddBook() {
@@ -107,13 +108,7 @@ export default function AddBook() {
         requestData.append('coverImage', coverImage);
       }
       
-      const response = await fetch('http://localhost:5001/api/books/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: requestData
-      });
+      const response = await booksApi.uploadBook(requestData);
       
       if (!response.ok) {
         let errorMessage = 'Failed to upload book';

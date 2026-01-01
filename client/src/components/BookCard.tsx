@@ -55,20 +55,24 @@ export const BookCard: React.FC<BookCardProps> = ({
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300 p-2">
       <div className="relative">
-        {book.coverImageUrl ? (
+        {(book.coverImage || book.coverImageUrl) ? (
           <img 
-            src={book.coverImageUrl.startsWith('http') ? book.coverImageUrl : `http://localhost:5001/${book.coverImageUrl}`} 
+            src={
+              ((book.coverImage || book.coverImageUrl)?.startsWith('http') 
+                ? (book.coverImage || book.coverImageUrl)
+                : `/${(book.coverImage || book.coverImageUrl)?.replace(/^\//, '')}`)
+            } 
             alt={book.title}
             className="w-full rounded-t-lg object-cover aspect-[2/3]"
             onError={(e) => {
-              console.error('Failed to load cover image:', book.coverImageUrl);
+              console.error('Failed to load cover image:', book.coverImage || book.coverImageUrl);
               // Fallback to default image if the cover image fails to load
               const target = e.target as HTMLImageElement;
               target.style.display = 'none'; // Hide the broken image
               target.onerror = null; // Prevent infinite loop
             }}
             onLoad={(e) => {
-              console.log('Cover image loaded successfully:', book.coverImageUrl);
+              console.log('Cover image loaded successfully:', book.coverImage || book.coverImageUrl);
             }}
           />
         ) : (

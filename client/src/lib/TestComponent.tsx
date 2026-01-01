@@ -16,7 +16,7 @@ export function TestComponent() {
     
     try {
       // Test with the FB2 file we know exists
-      const testData = await loadFB2File('http://localhost:5001/uploads/bookFile-1766339282563-965612108.fb2');
+      const testData = await loadFB2File('/uploads/bookFile-1766339282563-965612108.fb2');
       setResult(testData);
       
       // Test pagination with sample content

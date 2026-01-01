@@ -79,7 +79,7 @@ export default function Shelves() {
           throw new Error('No authentication token found');
         }
         
-        const response = await fetch(`http://localhost:5001/api/books/search?query=${encodeURIComponent(searchQuery)}`, {
+        const response = await fetch(`/api/books/search?query=${encodeURIComponent(searchQuery)}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -365,7 +365,7 @@ export default function Shelves() {
                       title: book.title,
                       author: book.author,
                       description: book.description,
-                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl,
+                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl,
                       rating: book.rating,
                       commentCount: book.commentCount,
                       reviewCount: book.reviewCount,
@@ -386,10 +386,13 @@ export default function Shelves() {
                             bookId={book.id}
                             shelves={shelves.map(s => ({
                               id: s.id,
+                              userId: s.userId,
                               name: s.name,
                               description: s.description,
+                              color: s.color,
                               bookIds: s.bookIds || [],
-                              color: s.color
+                              createdAt: s.createdAt,
+                              updatedAt: s.updatedAt
                             }))}
                             onToggleShelf={handleToggleShelf}
                             trigger={
@@ -451,7 +454,7 @@ export default function Shelves() {
                     // Convert book data to match BookCard expectations
                     const bookData = {
                       ...book,
-                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl,
+                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl,
                       genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                     };
                     
@@ -466,10 +469,13 @@ export default function Shelves() {
                             bookId={book.id}
                             shelves={shelves.map(s => ({
                               id: s.id,
+                              userId: s.userId,
                               name: s.name,
                               description: s.description,
+                              color: s.color,
                               bookIds: s.bookIds || [],
-                              color: s.color
+                              createdAt: s.createdAt,
+                              updatedAt: s.updatedAt
                             }))}
                             onToggleShelf={handleToggleShelf}
                             trigger={
@@ -545,7 +551,7 @@ export default function Shelves() {
                       title: book.title,
                       author: book.author,
                       description: book.description,
-                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl, // Pass the cover image URL
+                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl, // Pass the cover image URL
                       rating: book.rating,
                       commentCount: book.commentCount,
                       reviewCount: book.reviewCount,
@@ -569,10 +575,13 @@ export default function Shelves() {
                             bookId={book.id} // Pass the original ID
                             shelves={shelves.map(s => ({
                               id: s.id,
+                              userId: s.userId,
                               name: s.name,
                               description: s.description,
+                              color: s.color,
                               bookIds: s.bookIds || [],
-                              color: s.color
+                              createdAt: s.createdAt,
+                              updatedAt: s.updatedAt
                             }))}
                             onToggleShelf={handleToggleShelf}
                             trigger={

@@ -11,6 +11,7 @@ import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
+import { booksApi } from '@/lib/api';
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -59,7 +60,7 @@ export default function Reader() {
   useEffect(() => {
     if (book && book.filePath) {
       // For FB2 files, we don't need to encode slashes as they should be preserved
-      const url = `http://localhost:5001/${book.filePath}`;
+      const url = `/${book.filePath}`;
       console.log('Setting bookUrl to:', url);
       setBookUrl(url);
     } else {
@@ -91,11 +92,7 @@ export default function Reader() {
         }
         
         // Fetch book data
-        const bookResponse = await fetch(`http://localhost:5001/api/books/${bookId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        const bookResponse = await booksApi.getBookById(bookId);
         
         if (!bookResponse.ok) {
           throw new Error('Failed to fetch book data');

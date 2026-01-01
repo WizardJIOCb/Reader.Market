@@ -24,7 +24,7 @@ jest.mock('foliate-js/reader.js', () => {
 describe('EnhancedBookReader', () => {
   const defaultProps = {
     bookId: '1',
-    bookUrl: 'http://localhost:5001/books/test.epub',
+    bookUrl: '/books/test.epub',
     fileType: 'epub',
     hasPrev: false,
     hasNext: true,

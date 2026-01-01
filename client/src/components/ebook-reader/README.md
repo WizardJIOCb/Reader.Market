@@ -46,7 +46,7 @@ function ReaderPage() {
   return (
     <EnhancedBookReader
       bookId="123"
-      bookUrl="http://localhost:5001/books/sample.epub"
+      bookUrl="/books/sample.epub"
       fileType="epub"
       onProgressUpdate={(progress) => console.log('Progress:', progress)}
       onBookmarkAdded={(bookmark) => console.log('Bookmark added:', bookmark)}

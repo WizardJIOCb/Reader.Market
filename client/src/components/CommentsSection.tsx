@@ -42,7 +42,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     const fetchComments = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`http://localhost:5001/api/books/${bookId}/comments`, {
+        const response = await fetch(`/api/books/${bookId}/comments`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           }
@@ -117,7 +117,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     if (!newComment.trim() || !user) return;
     
     try {
-      const response = await fetch(`http://localhost:5001/api/books/${bookId}/comments`, {
+      const response = await fetch(`/api/books/${bookId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,7 +204,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     
     // Now refetch the comments to get accurate data from the server
     try {
-      const response = await fetch(`http://localhost:5001/api/books/${bookId}/comments`, {
+      const response = await fetch(`/api/books/${bookId}/comments`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
@@ -228,7 +228,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     if (!user) return;
     
     try {
-      const response = await fetch(`http://localhost:5001/api/comments/${commentId}`, {
+      const response = await fetch(`/api/comments/${commentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`

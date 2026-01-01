@@ -18,7 +18,7 @@ async function testFoliateLoading() {
     console.log('Reader created:', reader);
     
     // Try to load a simple text file
-    const testUrl = 'http://localhost:5001/uploads/bookFile-1765972806296-831009501.txt';
+    const testUrl = '/uploads/bookFile-1765972806296-831009501.txt';
     console.log('Attempting to load test file:', testUrl);
     
     // Add event listeners

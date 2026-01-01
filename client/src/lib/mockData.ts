@@ -7,23 +7,33 @@ export interface Chapter {
 }
 
 export interface Book {
-  id: number;
+  id: number | string;
   title: string;
   author: string;
-  coverColor: string;
-  chapters: Chapter[];
+  coverColor?: string;
+  chapters?: Chapter[];
   description?: string;
   coverImage?: string;
+  coverImageUrl?: string; // For API responses
+  filePath?: string;
+  fileSize?: number;
+  fileType?: string;
+  genre: string | string[]; // Can be string (from API) or array (from mock)
+  publishedYear?: number;
   rating?: number;
+  commentCount?: number;
+  reviewCount?: number;
   readTime?: string;
-  genre: string[];
   style?: string;
   tags?: string[];
   year?: number;
   // Date fields for book display
   uploadedAt?: string; // ISO date string
   publishedAt?: string; // ISO date string
+  lastActivityDate?: string;
   createdAt?: string;   // ISO date string (fallback)
+  updatedAt?: string;
+  userId?: string;
 }
 
 export interface Bookmark {
@@ -40,6 +50,9 @@ export interface Shelf {
   description?: string;
   bookIds: string[];
   color?: string;
+  userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Reaction {
@@ -55,6 +68,7 @@ export interface Comment {
   content: string;
   createdAt: string; // ISO date string
   reactions: Reaction[];
+  userId?: string;
 }
 
 export interface Review {
