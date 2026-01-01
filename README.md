@@ -1,5 +1,20 @@
 # Reader.Market
 
+## Landing Page Functionality
+
+The Reader.Market application features a new redesigned landing page at the root path (https://reader.market/) with the following features:
+
+- Clear explanation that users upload their own books (not a bookstore)
+- Highlights AI-powered features (summaries, insights, recommendations)
+- Focus on helping users understand and remember their books
+- SEO-optimized with proper meta tags and static rendering
+
+### Routes
+
+- `/` - New main landing page with AI-focused messaging
+- `/landing` - Old landing page preserved for continued access
+- `/early` or `/?early=1` - Early adopter version with alternative messaging
+
 A sophisticated ebook reader application that combines modern web technologies with AI-powered analysis capabilities. The application allows users to upload, read, organize, and analyze ebooks with the help of Ollama AI integration!
 
 ## Table of Contents

@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Library from "@/pages/Library";
 import AboutPage from "@/pages/AboutPage";
+import LandingPage from "@/pages/LandingPage";
+import OldLandingPage from "@/pages/OldLandingPage";
 import Reader from "@/pages/Reader";
 import Shelves from "@/pages/Shelves";
 import Profile from "@/pages/Profile";
@@ -19,7 +21,9 @@ import { Navbar } from "@/components/Navbar";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={AboutPage} />
+      <Route path="/" component={LandingPage} />
+      <Route path="/early" component={LandingPage} />
+      <Route path="/landing" component={OldLandingPage} />
       <Route path="/home" component={Library} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
