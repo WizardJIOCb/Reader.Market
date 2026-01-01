@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'wouter';
 import { mockUser } from '@/lib/mockData';
 import { 
@@ -29,12 +29,79 @@ export default function Library() {
   const { user } = useAuth();
   const { data, loading, error, refresh } = useMainPageData();
   const [searchQuery, setSearchQuery] = useState('');
+  // Filters State
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [yearRange, setYearRange] = useState<[number, number]>([1800, new Date().getFullYear()]);
 
   const handleSearch = (query: string) => {
     // In a real app, this would navigate to search results
     console.log('Searching for:', query);
     setSearchQuery(query);
   };
+
+  // Toggle genre selection
+  const toggleGenre = (genre: string) => {
+    setSelectedGenres(prev => 
+      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
+    );
+  };
+
+  // Toggle style selection
+  const toggleStyle = (style: string) => {
+    setSelectedStyles(prev => 
+      prev.includes(style) ? prev.filter(s => s !== style) : [...prev, style]
+    );
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSelectedGenres([]);
+    setSelectedStyles([]);
+    setYearRange([1800, new Date().getFullYear()]);
+  };
+
+  // Filter books based on selected filters
+  const filterBooks = (books: any[]) => {
+    return books.filter(book => {
+      // Genre Filter
+      if (selectedGenres.length > 0) {
+        if (!book.genre) return false;
+        const bookGenres = book.genre.split(',').map((g: string) => g.trim());
+        const hasGenre = selectedGenres.some((g: string) => bookGenres.includes(g));
+        if (!hasGenre) return false;
+      }
+
+      // Style Filter (not implemented in our schema)
+      if (selectedStyles.length > 0) {
+        return false; // No style field in our database
+      }
+
+      // Year Filter
+      if (book.publishedYear && (book.publishedYear < yearRange[0] || book.publishedYear > yearRange[1])) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
+  // Filter all book collections
+  const filteredPopularBooks = useMemo(() => filterBooks(data.popularBooks), [data.popularBooks, selectedGenres, selectedStyles, yearRange]);
+  const filteredRecentlyReviewedBooks = useMemo(() => filterBooks(data.recentlyReviewedBooks), [data.recentlyReviewedBooks, selectedGenres, selectedStyles, yearRange]);
+  const filteredNewReleases = useMemo(() => filterBooks(data.newReleases), [data.newReleases, selectedGenres, selectedStyles, yearRange]);
+  const filteredCurrentUserBooks = useMemo(() => filterBooks(data.currentUserBooks), [data.currentUserBooks, selectedGenres, selectedStyles, yearRange]);
+  
+  // Get all unique genres from all book collections for the filter options
+  const allGenres = useMemo(() => {
+    const genres = new Set<string>();
+    [...data.popularBooks, ...data.recentlyReviewedBooks, ...data.newReleases, ...data.currentUserBooks].forEach(book => {
+      if (book.genre) {
+        book.genre.split(',').forEach((g: string) => genres.add(g.trim()));
+      }
+    });
+    return Array.from(genres);
+  }, [data.popularBooks, data.recentlyReviewedBooks, data.newReleases, data.currentUserBooks]);
 
   if (loading) {
     return (
@@ -68,9 +135,23 @@ export default function Library() {
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <PageHeader title="Библиотека" />
         
-        {/* Search Bar */}
-        <div className="mb-12">
-          <SearchBar onSearch={handleSearch} />
+        {/* Search Bar with Filters */}
+        <div className="mb-8">
+          <div className="flex flex-col gap-4">
+            <SearchBar 
+              onSearch={handleSearch}
+              showFilters={false}
+              allGenres={allGenres}
+              allStyles={[]}
+              selectedGenres={selectedGenres}
+              selectedStyles={selectedStyles}
+              yearRange={yearRange}
+              onGenreChange={setSelectedGenres}
+              onStyleChange={setSelectedStyles}
+              onYearRangeChange={setYearRange}
+              onFiltersClear={clearFilters}
+            />
+          </div>
         </div>
 
         {/* Popular Books Section */}
@@ -85,16 +166,24 @@ export default function Library() {
             </Link>
           </div>
           
-          {data.popularBooks.length > 0 ? (
+          {filteredPopularBooks.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
-              {data.popularBooks.map((book) => {
+              {filteredPopularBooks.map((book) => {
                 // Find reading progress for this book
                 const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
+                
+                // Convert book data to match BookCard expectations
+                const bookData = {
+                  ...book,
+                  coverColor: '', // Not used since we have coverImage
+                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                };
                 
                 return (
                   <BookCard 
                     key={book.id} 
-                    book={book} 
+                    book={bookData} 
                     variant="detailed"
                     readingProgress={readingProgress}
                   />
@@ -104,7 +193,11 @@ export default function Library() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Пока нет популярных книг</p>
+              {data.popularBooks.length > 0 ? (
+                <p>Нет популярных книг по заданным фильтрам</p>
+              ) : (
+                <p>Пока нет популярных книг</p>
+              )}
             </div>
           )}
         </section>
@@ -126,10 +219,18 @@ export default function Library() {
                       // Find reading progress for this book
                       const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
                       
+                      // Convert book data to match BookCard expectations
+                      const bookData = {
+                        ...book,
+                        coverColor: '', // Not used since we have coverImage
+                        coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                        genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                      };
+                      
                       return (
                         <BookCard 
                           key={book.id} 
-                          book={book} 
+                          book={bookData} 
                           variant="standard"
                           readingProgress={readingProgress}
                         />
@@ -159,16 +260,24 @@ export default function Library() {
             </Link>
           </div>
           
-          {data.recentlyReviewedBooks.length > 0 ? (
+          {filteredRecentlyReviewedBooks.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
-              {data.recentlyReviewedBooks.map((book) => {
+              {filteredRecentlyReviewedBooks.map((book) => {
                 // Find reading progress for this book
                 const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
+                
+                // Convert book data to match BookCard expectations
+                const bookData = {
+                  ...book,
+                  coverColor: '', // Not used since we have coverImage
+                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                };
                 
                 return (
                   <BookCard 
                     key={book.id} 
-                    book={book} 
+                    book={bookData} 
                     variant="detailed"
                     readingProgress={readingProgress}
                   />
@@ -178,7 +287,11 @@ export default function Library() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Award className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Пока нет новых обзоров</p>
+              {data.recentlyReviewedBooks.length > 0 ? (
+                <p>Нет книг с новыми обзорами по заданным фильтрам</p>
+              ) : (
+                <p>Пока нет новых обзоров</p>
+              )}
             </div>
           )}
         </section>
@@ -195,16 +308,24 @@ export default function Library() {
             </Link>
           </div>
           
-          {data.newReleases.length > 0 ? (
+          {filteredNewReleases.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
-              {data.newReleases.map((book) => {
+              {filteredNewReleases.map((book) => {
                 // Find reading progress for this book
                 const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
+                
+                // Convert book data to match BookCard expectations
+                const bookData = {
+                  ...book,
+                  coverColor: '', // Not used since we have coverImage
+                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                };
                 
                 return (
                   <BookCard 
                     key={book.id} 
-                    book={book} 
+                    book={bookData} 
                     variant="detailed"
                     readingProgress={readingProgress}
                   />
@@ -214,7 +335,11 @@ export default function Library() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <LibraryIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Пока нет новинок</p>
+              {data.newReleases.length > 0 ? (
+                <p>Нет новинок по заданным фильтрам</p>
+              ) : (
+                <p>Пока нет новинок</p>
+              )}
             </div>
           )}
         </section>
@@ -227,16 +352,24 @@ export default function Library() {
               Мои книги
             </h2>
             
-            {data.currentUserBooks && data.currentUserBooks.length > 0 ? (
+            {filteredCurrentUserBooks && filteredCurrentUserBooks.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
-                {data.currentUserBooks.map((book) => {
+                {filteredCurrentUserBooks.map((book) => {
                   // Find reading progress for this book
                   const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
+                  
+                  // Convert book data to match BookCard expectations
+                  const bookData = {
+                    ...book,
+                    coverColor: '', // Not used since we have coverImage
+                    coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                    genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                  };
                   
                   return (
                     <BookCard 
                       key={book.id} 
-                      book={book} 
+                      book={bookData} 
                       variant="detailed"
                       readingProgress={readingProgress}
                     />
@@ -246,9 +379,15 @@ export default function Library() {
             ) : (
               <Card className="p-8 text-center">
                 <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">У вас нет активных книг</h3>
+                <h3 className="text-lg font-medium mb-2">
+                  {data.currentUserBooks && data.currentUserBooks.length > 0 ? 
+                    'Нет книг по заданным фильтрам' : 
+                    'У вас нет активных книг'}
+                </h3>
                 <p className="text-muted-foreground mb-4">
-                  Начните читать книгу, и она появится здесь с прогрессом чтения.
+                  {data.currentUserBooks && data.currentUserBooks.length > 0 ? 
+                    'Попробуйте изменить параметры фильтрации.' : 
+                    'Начните читать книгу, и она появится здесь с прогрессом чтения.'}
                 </p>
                 <Link href="/search">
                   <Button>Найти книгу</Button>

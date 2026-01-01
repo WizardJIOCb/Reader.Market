@@ -8,20 +8,6 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
-import { Separator } from '@/components/ui/separator';
 import { SearchBar } from '@/components/SearchBar';
 import { BookCard } from '@/components/BookCard';
 import { PageHeader } from '@/components/PageHeader';
@@ -65,7 +51,7 @@ export default function SearchPage() {
   // Filters State
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [yearRange, setYearRange] = useState<[number, number]>([1950, 2025]);
+  const [yearRange, setYearRange] = useState<[number, number]>([1800, new Date().getFullYear()]);
 
   // Check for query parameter in URL when component mounts
   useEffect(() => {
@@ -204,7 +190,7 @@ export default function SearchPage() {
   const clearFilters = () => {
     setSelectedGenres([]);
     setSelectedStyles([]);
-    setYearRange([1950, 2025]);
+    setYearRange([1800, new Date().getFullYear()]);
     setSearchQuery('');
     
     // Reset URL
@@ -230,10 +216,23 @@ export default function SearchPage() {
         <PageHeader title="Глобальный Поиск" />
         
         <div className="mb-8">
-          <SearchBar 
-            initialQuery={searchQuery}
-            onSearch={handleSearch}
-          />
+          <div className="flex flex-col gap-4">
+            <SearchBar 
+              initialQuery={searchQuery}
+              onSearch={handleSearch}
+              showFilters={false}
+              allGenres={allGenres}
+              allStyles={allStyles}
+              selectedGenres={selectedGenres}
+              selectedStyles={selectedStyles}
+              yearRange={yearRange}
+              onGenreChange={setSelectedGenres}
+              onStyleChange={setSelectedStyles}
+              onYearRangeChange={setYearRange}
+              onFiltersClear={clearFilters}
+            />
+
+          </div>
         </div>
 
         {/* Results */}
