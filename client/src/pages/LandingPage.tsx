@@ -233,6 +233,24 @@ const LandingPage = () => {
                 <p className="text-muted-foreground">Designed specifically for content that requires comprehension and analysis.</p>
               </CardContent>
             </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Live Discussions & Community</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Join live discussions about books with other readers and share insights in real-time.</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Book Ratings & Reviews</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Rate books you've read and access community ratings to discover quality content.</p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
