@@ -191,9 +191,10 @@ export class DBStorage implements IStorage {
       let result;
       if (query) {
         // First, perform a search based on the query across multiple fields, sorted by rating (descending, nulls last)
-        const searchPattern = '%' + query.toLowerCase() + '%';
+        // Use explicit collation to ensure Cyrillic characters are handled properly
+        const searchPattern = '%' + query + '%';
         result = await db.select().from(books).where(
-          sql`(LOWER(title) ILIKE ${searchPattern} OR LOWER(author) ILIKE ${searchPattern} OR LOWER(description) ILIKE ${searchPattern} OR LOWER(genre) ILIKE ${searchPattern})`
+          sql`(LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
         ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
         
         // Additionally, for books with TXT files, search within the content
@@ -260,9 +261,10 @@ export class DBStorage implements IStorage {
       
       // Fetch the books again with updated ratings
       if (query) {
-        const searchPattern = '%' + query.toLowerCase() + '%';
+        const searchPattern = '%' + query + '%';
+        // Use explicit collation to ensure Cyrillic characters are handled properly
         result = await db.select().from(books).where(
-          sql`(LOWER(title) ILIKE ${searchPattern} OR LOWER(author) ILIKE ${searchPattern} OR LOWER(description) ILIKE ${searchPattern} OR LOWER(genre) ILIKE ${searchPattern})`
+          sql`(LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
         ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       } else {
         // Return all books if no query, sorted by rating (descending, nulls last)
