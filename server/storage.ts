@@ -192,7 +192,9 @@ export class DBStorage implements IStorage {
       if (query) {
         // First, perform a search based on the query across multiple fields, sorted by rating (descending, nulls last)
         // Use explicit collation to ensure Cyrillic characters are handled properly
-        const searchPattern = '%' + query + '%';
+        // Properly escape special characters for Cyrillic text
+        const escapedQuery = query.replace(/[%_]/g, '\$&');
+        const searchPattern = '%' + escapedQuery + '%';
         result = await db.select().from(books).where(
           sql`(LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
         ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
@@ -261,8 +263,10 @@ export class DBStorage implements IStorage {
       
       // Fetch the books again with updated ratings
       if (query) {
-        const searchPattern = '%' + query + '%';
         // Use explicit collation to ensure Cyrillic characters are handled properly
+        // Properly escape special characters for Cyrillic text
+        const escapedQuery = query.replace(/[%_]/g, '\$&');
+        const searchPattern = '%' + escapedQuery + '%';
         result = await db.select().from(books).where(
           sql`(LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
         ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
