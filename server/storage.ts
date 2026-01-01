@@ -201,54 +201,59 @@ export class DBStorage implements IStorage {
         
         // Additionally, for books with TXT files, search within the content
         // Get all books to check their file types
-        const allBooks = await db.select().from(books);
-        
-        // For TXT files, we'll search the content
-        const fs = await import('fs');
-        const path = await import('path');
-        const { fileURLToPath } = await import('url');
-        
-        // Get __dirname equivalent for ES modules
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = path.dirname(__filename);
-        
         const contentMatches: any[] = [];
         
-        for (const book of allBooks) {
-          // Check if this book has a TXT file
-          if (book.filePath && book.filePath.endsWith('.txt')) {
-            try {
-              // Construct the full file path - handle both relative and absolute paths
-              let fullPath;
-              if (path.isAbsolute(book.filePath)) {
-                fullPath = book.filePath;
-              } else {
-                // For relative paths, construct from the project root
-                fullPath = path.join(__dirname, '../../..', book.filePath);
-              }
-              
-              // Check if file exists
-              if (fs.existsSync(fullPath)) {
-                // Read file content
-                const content = fs.readFileSync(fullPath, 'utf8');
+        try {
+          const allBooks = await db.select().from(books);
+          
+          // For TXT files, we'll search the content
+          const fs = await import('fs');
+          const path = await import('path');
+          const { fileURLToPath } = await import('url');
+          
+          // Get __dirname equivalent for ES modules
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = path.dirname(__filename);
+          
+          for (const book of allBooks) {
+            // Check if this book has a TXT file
+            if (book.filePath && book.filePath.endsWith('.txt')) {
+              try {
+                // Construct the full file path - handle both relative and absolute paths
+                let fullPath;
+                if (path.isAbsolute(book.filePath)) {
+                  fullPath = book.filePath;
+                } else {
+                  // For relative paths, construct from the project root
+                  fullPath = path.join(__dirname, '../../..', book.filePath);
+                }
                 
-                // Check if query is in content
-                if (content.toLowerCase().includes(query.toLowerCase())) {
-                  // Check if this book is not already in the results
-                  const alreadyIncluded = result.some((r: any) => r.id === book.id);
-                  if (!alreadyIncluded) {
-                    contentMatches.push(book);
+                // Check if file exists
+                if (fs.existsSync(fullPath)) {
+                  // Read file content
+                  const content = fs.readFileSync(fullPath, 'utf8');
+                  
+                  // Check if query is in content
+                  if (content.toLowerCase().includes(query.toLowerCase())) {
+                    // Check if this book is not already in the results
+                    const alreadyIncluded = result.some((r: any) => r.id === book.id);
+                    if (!alreadyIncluded) {
+                      contentMatches.push(book);
+                    }
                   }
                 }
+              } catch (fileError) {
+                console.warn(`Could not read file for book ${book.id}:`, fileError);
               }
-            } catch (fileError) {
-              console.warn(`Could not read file for book ${book.id}:`, fileError);
             }
           }
+          
+          // Combine field matches with content matches
+          result = [...result, ...contentMatches];
+        } catch (contentSearchError) {
+          console.warn('Content search failed, proceeding with metadata search only:', contentSearchError);
+          // If content search fails (e.g., due to path resolution issues), continue with just metadata search
         }
-        
-        // Combine field matches with content matches
-        result = [...result, ...contentMatches];
       } else {
         // Return all books if no query, sorted by rating (descending, nulls last)
         result = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
