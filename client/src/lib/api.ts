@@ -4,10 +4,17 @@ const API_BASE_URL = '';
 
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
+  
+  // Get auth token from localStorage
+  const token = localStorage.getItem('authToken');
+  
   return fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      // Only set Content-Type to application/json if it's not a FormData request
+      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      // Add Authorization header if token exists
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
