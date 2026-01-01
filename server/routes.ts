@@ -7,11 +7,6 @@ import { Ollama } from "ollama";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
-
-// Get __dirname equivalent for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Initialize Ollama client
 const ollama = new Ollama({ host: process.env.OLLAMA_HOST || 'http://localhost:11434' });
@@ -66,7 +61,7 @@ const upload = multer({
     if (allowedBookTypes.includes(file.mimetype) || allowedImageTypes.includes(file.mimetype) || isFB2File) {
       cb(null, true);
     } else {
-      cb(new Error('Unsupported file type'), false);
+      cb(null, false);
     }
   }
 });
@@ -416,7 +411,7 @@ export async function registerRoutes(
       if (req.files && (req.files as any).bookFile) {
         const bookFile = (req.files as any).bookFile[0];
         // Store only the relative path from the uploads directory
-        bookData.filePath = bookFile.path.replace(/^.*[\\\/]uploads[\\\/]/, 'uploads/');
+        bookData.filePath = bookFile.path.replace(/^.*[\\\/](uploads[\\\/].*)$/, '$1');
         bookData.fileSize = bookFile.size;
         bookData.fileType = bookFile.mimetype;
       }
@@ -425,7 +420,7 @@ export async function registerRoutes(
       if (req.files && (req.files as any).coverImage) {
         const coverImage = (req.files as any).coverImage[0];
         // Store only the relative path from the uploads directory
-        bookData.coverImageUrl = coverImage.path.replace(/^.*[\\\/]uploads[\\\/]/, 'uploads/');
+        bookData.coverImageUrl = coverImage.path.replace(/^.*[\\\/](uploads[\\\/].*)$/, '$1');
       }
       
       const book = await storage.createBook(bookData);
