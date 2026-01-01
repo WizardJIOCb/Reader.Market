@@ -28,13 +28,20 @@ declare module "http" {
   }
 }
 
-app.use(
+// JSON middleware with exclusion for file upload endpoints
+app.use((req, res, next) => {
+  // Skip JSON parsing for file upload endpoints
+  if (req.path === '/api/books/upload' && req.method === 'POST') {
+    return next();
+  }
+  
+  // For all other routes, use JSON middleware
   express.json({
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
-  }),
-);
+  })(req, res, next);
+});
 
 app.use(express.urlencoded({ extended: false }));
 
