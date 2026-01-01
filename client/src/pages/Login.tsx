@@ -19,7 +19,7 @@ export default function Login() {
     
     const result = await login(username, password);
     if (result.success) {
-      navigate('/');
+      navigate('/home');
     } else {
       setError(result.message || 'Invalid username or password');
     }

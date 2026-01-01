@@ -27,7 +27,7 @@ export default function Register() {
 
     const result = await register(username, password, email, fullName);
     if (result.success) {
-      navigate('/');
+      navigate('/home');
     } else {
       setError(result.message || 'Registration failed. Please try again.');
     }
