@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'wouter';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Search, BookOpen, User, Menu } from 'lucide-react';
+import { Search, User, Menu } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileMenu } from '@/components/MobileMenu';
@@ -15,7 +15,8 @@ export function Navbar() {
     return (
       <nav className="bg-background border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="text-xl font-bold">
+          <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">
+            <img src="/favicon.png" alt="Reader.Market Logo" className="w-6 h-6" />
             Reader.Market
           </Link>
           <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
@@ -28,7 +29,7 @@ export function Navbar() {
     <nav className="bg-background border-b">
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">
-          <BookOpen className="w-6 h-6" />
+          <img src="/favicon.png" alt="Reader.Market Logo" className="w-6 h-6" />
           Reader.Market
         </Link>
         
