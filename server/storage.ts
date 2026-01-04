@@ -1921,31 +1921,23 @@ export class DBStorage implements IStorage {
   
   async incrementBookViewCount(bookId: string, viewType: string): Promise<any> {
     try {
-      // First try to update existing record
-      const result = await db.update(bookViewStatistics)
-        .set({ 
-          viewCount: sql`view_count + 1`,
-          lastViewedAt: new Date(),
-          updatedAt: new Date()
+      // Use upsert to atomically increment the view count
+      const result = await db.insert(bookViewStatistics)
+        .values({ 
+          bookId, 
+          viewType, 
+          viewCount: 1,
+          lastViewedAt: new Date()
         })
-        .where(and(
-          eq(bookViewStatistics.bookId, bookId),
-          eq(bookViewStatistics.viewType, viewType)
-        ))
+        .onConflictDoUpdate({
+          target: [bookViewStatistics.bookId, bookViewStatistics.viewType],
+          set: {
+            viewCount: sql`${bookViewStatistics.viewCount} + 1`,
+            lastViewedAt: new Date(),
+            updatedAt: new Date()
+          }
+        })
         .returning();
-      
-      // If no rows were updated, insert a new record
-      if (result.length === 0) {
-        const insertResult = await db.insert(bookViewStatistics)
-          .values({ 
-            bookId, 
-            viewType, 
-            viewCount: 1,
-            lastViewedAt: new Date()
-          })
-          .returning();
-        return insertResult[0];
-      }
       
       return result[0];
     } catch (error) {

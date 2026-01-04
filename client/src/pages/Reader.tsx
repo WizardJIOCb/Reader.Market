@@ -75,6 +75,15 @@ export default function Reader() {
     console.log('Book URL updated:', bookUrl);
   }, [bookUrl]);
   
+  // Ref to track if reader open has already been tracked for current book
+  const readerOpenTrackedRef = useRef<Set<string>>(new Set());
+  
+  // Ref to track if a fetch is currently in progress for a book
+  const readerFetchInProgressRef = useRef<Set<string>>(new Set());
+  
+  // Ref to track the previous bookId to know when it changes
+  const prevBookIdRef = useRef<string | null>(null);
+  
   // Update toast ref when toast changes
   useEffect(() => {
     toastRef.current = toast;
@@ -82,8 +91,23 @@ export default function Reader() {
   
   // Fetch book data
   useEffect(() => {
+    // Check if the bookId has changed and reset tracking if it has
+    if (prevBookIdRef.current !== bookId) {
+      // New book is being accessed, reset tracking for the new book
+      readerOpenTrackedRef.current.delete(bookId);
+      prevBookIdRef.current = bookId;
+    }
+    
     const fetchBook = async () => {
       if (!bookId) return;
+      
+      // Prevent duplicate fetches for the same book
+      if (readerFetchInProgressRef.current.has(bookId)) {
+        return; // Already fetching this book, skip
+      }
+      
+      // Mark that we're now fetching this book
+      readerFetchInProgressRef.current.add(bookId);
       
       try {
         setLoading(true);
@@ -104,22 +128,25 @@ export default function Reader() {
         console.log('Book data received:', bookData);
         setBook(bookData);
         
-        // Track reader open (when user opens book in reader)
-        try {
-          const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ viewType: 'reader_open' }),
-          });
-          
-          if (!trackResponse.ok) {
-            console.error('Failed to track reader open:', await trackResponse.json());
+        // Track reader open (when user opens book in reader) only if not already tracked
+        if (!readerOpenTrackedRef.current.has(bookId)) {
+          readerOpenTrackedRef.current.add(bookId);
+          try {
+            const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ viewType: 'reader_open' }),
+            });
+            
+            if (!trackResponse.ok) {
+              console.error('Failed to track reader open:', await trackResponse.json());
+            }
+          } catch (trackErr) {
+            console.error('Error tracking reader open:', trackErr);
           }
-        } catch (trackErr) {
-          console.error('Error tracking reader open:', trackErr);
         }
       } catch (err) {
         console.error('Error fetching book:', err);
@@ -130,11 +157,18 @@ export default function Reader() {
           variant: "destructive",
         });
       } finally {
+        // Remove from in-progress tracking after completion
+        readerFetchInProgressRef.current.delete(bookId);
         setLoading(false);
       }
     };
     
     fetchBook();
+    
+    // Cleanup function to remove book from in-progress tracking when component unmounts or bookId changes
+    return () => {
+      readerFetchInProgressRef.current.delete(bookId);
+    };
   }, [bookId]);
   
   const handleNext = async () => {

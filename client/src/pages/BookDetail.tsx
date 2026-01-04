@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRoute, Link } from 'wouter';
 import * as MockData from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
@@ -85,6 +85,17 @@ interface Reaction {
 }
 
 export default function BookDetail() {
+  // Format dates for display
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+  
   const [match, params] = useRoute('/book/:bookId');
   const bookId = params?.bookId || '';
   const { toast } = useToast();
@@ -106,88 +117,195 @@ export default function BookDetail() {
   const [newReview, setNewReview] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   
+  // Function to fetch comments and reviews
+  const fetchCommentsAndReviews = async () => {
+    if (!bookId) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      // Fetch comments
+      const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (commentsResponse.ok) {
+        const commentsData = await commentsResponse.json();
+        setBookComments(commentsData);
+      }
+      
+      // Fetch reviews
+      const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (reviewsResponse.ok) {
+        const reviewsData = await reviewsResponse.json();
+        setBookReviews(reviewsData);
+      }
+    } catch (err) {
+      console.error('Error fetching comments and reviews:', err);
+    }
+  };
+  
+  // Function to fetch comments and reviews with a flag to prevent duplicate calls
+  const fetchCommentsAndReviewsWithTracking = useRef(false);
+  
+  const fetchCommentsAndReviewsOnce = async () => {
+    if (fetchCommentsAndReviewsWithTracking.current) {
+      return; // Already fetching, prevent duplicate calls
+    }
+    
+    fetchCommentsAndReviewsWithTracking.current = true;
+    try {
+      await fetchCommentsAndReviews();
+    } finally {
+      fetchCommentsAndReviewsWithTracking.current = false;
+    }
+  };
+  
+
+  // Ref for stable toast function reference
+  const toastRef = useRef(toast);
+  
+  // Ref to track if view has already been tracked for current book
+  const viewTrackedRef = useRef<Set<string>>(new Set());
+  
+  // Ref to track if data is currently being fetched for this book
+  const isFetchingRef = useRef<Set<string>>(new Set());
+  
+  // Update toast ref when toast changes
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+  
   // Fetch book data and comments/reviews
   useEffect(() => {
     const fetchBookData = async () => {
       if (!bookId) return;
       
+      // Prevent duplicate fetches for the same book
+      if (isFetchingRef.current.has(bookId)) {
+        return; // Already fetching this book, skip
+      }
+      
+      // Mark that we're now fetching this book
+      isFetchingRef.current.add(bookId);
+      
       try {
-        setLoading(true);
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          throw new Error('No authentication token found');
+        // Skip tracking if already tracked for this bookId to prevent double counting in React Strict Mode
+        if (viewTrackedRef.current.has(bookId)) {
+          // Just fetch the data without tracking
+          try {
+            setLoading(true);
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+              throw new Error('No authentication token found');
+            }
+            
+            // Fetch book data
+            const bookResponse = await fetch(`/api/books/${bookId}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+            
+            if (!bookResponse.ok) {
+              throw new Error('Failed to fetch book data');
+            }
+            
+            const bookData = await bookResponse.json();
+            setBook(bookData);
+            
+            // Fetch comments and reviews in a single call
+            await fetchCommentsAndReviews();
+          } catch (err) {
+            console.error('Error fetching book data:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load book');
+            toastRef.current({
+              title: "Ошибка",
+              description: "Не удалось загрузить данные книги",
+              variant: "destructive",
+            });
+          } finally {
+            setLoading(false);
+            // Remove from fetching set when complete
+            isFetchingRef.current.delete(bookId);
+          }
+          return;
         }
         
-        // Fetch book data
-        const bookResponse = await fetch(`/api/books/${bookId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (!bookResponse.ok) {
-          throw new Error('Failed to fetch book data');
-        }
-        
-        const bookData = await bookResponse.json();
-        setBook(bookData);
-        
-        // Fetch comments
-        const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json();
-          setBookComments(commentsData);
-        }
-        
-        // Fetch reviews
-        const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (reviewsResponse.ok) {
-          const reviewsData = await reviewsResponse.json();
-          setBookReviews(reviewsData);
-        }
-        
-        // Track card view (where reviews and comments are shown)
         try {
-          const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {
-            method: 'POST',
+          setLoading(true);
+          const token = localStorage.getItem('authToken');
+          if (!token) {
+            throw new Error('No authentication token found');
+          }
+          
+          // Fetch book data
+          const bookResponse = await fetch(`/api/books/${bookId}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ viewType: 'card_view' }),
           });
           
-          if (!trackResponse.ok) {
-            console.error('Failed to track book view:', await trackResponse.json());
+          if (!bookResponse.ok) {
+            throw new Error('Failed to fetch book data');
           }
-        } catch (trackErr) {
-          console.error('Error tracking book view:', trackErr);
+          
+          const bookData = await bookResponse.json();
+          setBook(bookData);
+          
+          // Fetch comments and reviews in a single call
+          await fetchCommentsAndReviews();
+          
+          // Track card view (where reviews and comments are shown)
+          // Mark as tracked to prevent double counting in React Strict Mode
+          viewTrackedRef.current.add(bookId);
+          try {
+            const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ viewType: 'card_view' }),
+            });
+            
+            if (!trackResponse.ok) {
+              console.error('Failed to track book view:', await trackResponse.json());
+            }
+          } catch (trackErr) {
+            console.error('Error tracking book view:', trackErr);
+          }
+        } catch (err) {
+          console.error('Error fetching book data:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load book');
+          toastRef.current({
+            title: "Ошибка",
+            description: "Не удалось загрузить данные книги",
+            variant: "destructive",
+          });
+        } finally {
+          setLoading(false);
+          // Remove from fetching set when complete
+          isFetchingRef.current.delete(bookId);
         }
-      } catch (err) {
-        console.error('Error fetching book data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load book');
-        toast({
-          title: "Ошибка",
-          description: "Не удалось загрузить данные книги",
-          variant: "destructive",
-        });
       } finally {
-        setLoading(false);
+        // Ensure we always remove from fetching set
+        isFetchingRef.current.delete(bookId);
       }
     };
     
     fetchBookData();
-  }, [bookId, toast]);
+  }, [bookId]);
   
   const handleAddComment = async () => {
     if (newComment.trim() && book) {
@@ -394,32 +512,7 @@ export default function BookDetail() {
       
       if (response.ok) {
         // Refresh comments and reviews to get updated reactions
-        const token = localStorage.getItem('authToken');
-        if (!token) return;
-        
-        // Fetch comments
-        const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json();
-          setBookComments(commentsData);
-        }
-        
-        // Fetch reviews
-        const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (reviewsResponse.ok) {
-          const reviewsData = await reviewsResponse.json();
-          setBookReviews(reviewsData);
-        }
+        await fetchCommentsAndReviewsOnce();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add reaction');
@@ -455,32 +548,7 @@ export default function BookDetail() {
       
       if (response.ok) {
         // Refresh comments and reviews to get updated reactions
-        const token = localStorage.getItem('authToken');
-        if (!token) return;
-        
-        // Fetch comments
-        const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json();
-          setBookComments(commentsData);
-        }
-        
-        // Fetch reviews
-        const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (reviewsResponse.ok) {
-          const reviewsData = await reviewsResponse.json();
-          setBookReviews(reviewsData);
-        }
+        await fetchCommentsAndReviewsOnce();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add reaction');
@@ -614,19 +682,57 @@ export default function BookDetail() {
         {/* Book Card - Matching the design from library */}
         <Card className="overflow-hidden mb-8">
           <div className="flex flex-col md:flex-row">
-            {/* Book Cover */}
-            <div className="w-full md:w-64 h-96 relative">
-              {book.coverImageUrl ? (
-                <img 
-                  src={book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl} 
-                  alt={book.title} 
-                  className="w-full h-full object-cover"
+            {/* Book Cover and Buttons Column */}
+            <div className="w-full md:w-64 flex flex-col">
+              {/* Book Cover */}
+              <div className="h-96 relative flex-shrink-0">
+                {book.coverImageUrl ? (
+                  <img 
+                    src={book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl} 
+                    alt={book.title} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className={`w-full h-full bg-gray-200 dark:bg-gray-700 relative flex items-center justify-center`}>
+                    <BookOpen className="w-16 h-16 text-white/30" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Buttons positioned under the cover image */}
+              <div className="p-4 flex flex-col gap-3">
+                <Link href={`/read/${book.id}/1`}>
+                  <Button className="gap-2 w-full">
+                    <Play className="w-4 h-4" />
+                    Читать сейчас
+                  </Button>
+                </Link>
+                
+                <AddToShelfDialog 
+                  bookId={book.id}
+                  shelves={shelves}
+                  onToggleShelf={handleToggleShelf}
+                  trigger={
+                    <Button variant="outline" className="gap-2 w-full">
+                      <Plus className="w-4 h-4" />
+                      В мои полки
+                    </Button>
+                  }
                 />
-              ) : (
-                <div className={`w-full h-full bg-gray-200 dark:bg-gray-700 relative flex items-center justify-center`}>
-                  <BookOpen className="w-16 h-16 text-white/30" />
-                </div>
-              )}
+                
+                {/* Delete button - only show if the current user is the uploader */}
+                {book.userId === user?.id && (
+                  <Button 
+                    variant="destructive" 
+                    className="gap-2 w-full"
+                    onClick={handleDeleteBook}
+                    disabled={isDeleting}
+                  >
+                    <Trash className="w-4 h-4" />
+                    {isDeleting ? 'Удаление...' : 'Удалить'}
+                  </Button>
+                )}
+              </div>
             </div>
             
             {/* Book Info */}
@@ -666,39 +772,44 @@ export default function BookDetail() {
                 </p>
               </CardContent>
               
-              <CardFooter className="p-6 pt-0 flex flex-wrap gap-3">
-                <Link href={`/read/${book.id}/1`}>
-                  <Button className="gap-2">
-                    <Play className="w-4 h-4" />
-                    Читать сейчас
-                  </Button>
-                </Link>
-                
-                <AddToShelfDialog 
-                  bookId={book.id}
-                  shelves={shelves}
-                  onToggleShelf={handleToggleShelf}
-                  trigger={
-                    <Button variant="outline" className="gap-2">
-                      <Plus className="w-4 h-4" />
-                      В мои полки
-                    </Button>
-                  }
-                />
-                
-                {/* Delete button - only show if the current user is the uploader */}
-                {book.userId === user?.id && (
-                  <Button 
-                    variant="destructive" 
-                    className="gap-2"
-                    onClick={handleDeleteBook}
-                    disabled={isDeleting}
-                  >
-                    <Trash className="w-4 h-4" />
-                    {isDeleting ? 'Удаление...' : 'Удалить'}
-                  </Button>
-                )}
-              </CardFooter>
+              {/* Book statistics */}
+              <CardContent className="px-6 pt-0 pb-2">
+                <div className="space-y-1 mb-4">
+                  {book.publishedAt && (
+                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      <span>Опубликовано: {book.publishedAt ? formatDate(book.publishedAt) : ''}</span>
+                    </div>
+                  )}
+                  
+                  {book.uploadedAt && (
+                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                      <Clock className="w-3 h-3 mr-1" />
+                      <span>Добавлено: {book.uploadedAt ? formatDate(book.uploadedAt) : ''}</span>
+                    </div>
+                  )}
+                  
+                  {book.cardViewCount !== undefined && (
+                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                      <span>👁️ {book.cardViewCount} просмотров карточки</span>
+                    </div>
+                  )}
+                  
+                  {book.readerOpenCount !== undefined && (
+                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                      <span>📖 {book.readerOpenCount} открытий в читалке</span>
+                    </div>
+                  )}
+                  
+                  {book.lastActivityDate && (
+                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                      <span>Последняя активность: {book.lastActivityDate ? formatDate(book.lastActivityDate) : ''}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+              
+
             </div>
           </div>
         </Card>
