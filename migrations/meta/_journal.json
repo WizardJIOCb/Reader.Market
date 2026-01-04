@@ -22,6 +22,20 @@
       "when": 1766239820189,
       "tag": "0002_update_book_rating_precision",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1767339783803,
+      "tag": "0003_add-messages-and-conversations",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1767339783804,
+      "tag": "0004_add-book-view-statistics",
+      "breakpoints": true
     }
   ]
 }

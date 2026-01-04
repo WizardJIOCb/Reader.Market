@@ -229,6 +229,87 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get profile" });
     }
   });
+  
+  // Get specific user profile by ID
+  app.get("/api/profile/:userId", authenticateToken, async (req, res) => {
+    console.log("Get specific user profile endpoint called");
+    try {
+      const { userId: targetUserId } = req.params;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const user = await storage.getUser(targetUserId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Return user profile without sensitive information
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Get specific user profile error:", error);
+      res.status(500).json({ error: "Failed to get user profile" });
+    }
+  });
+  
+  // Update current user profile
+  app.put("/api/profile", authenticateToken, async (req, res) => {
+    console.log("Update profile endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { fullName, bio, avatarUrl } = req.body;
+      
+      // Only allow updating specific profile fields
+      const updateData: any = {};
+      if (fullName !== undefined) updateData.fullName = fullName;
+      if (bio !== undefined) updateData.bio = bio;
+      if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, updateData);
+      
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+  
+  // Get user statistics
+  app.get("/api/users/:userId/statistics", authenticateToken, async (req, res) => {
+    console.log("Get user statistics endpoint called");
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Verify user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const stats = await storage.getUserStatistics(userId);
+      
+      // Return default stats if user doesn't have statistics yet
+      res.json(stats || {
+        totalBooksRead: 0,
+        totalWordsRead: 0,
+        totalLettersRead: 0
+      });
+    } catch (error) {
+      console.error("Get user statistics error:", error);
+      res.status(500).json({ error: "Failed to get user statistics" });
+    }
+  });
 
   // Shelf endpoints
   // Get all shelves for the current user
@@ -243,7 +324,55 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get shelves" });
     }
   });
-
+  
+  // Get shelves for a specific user (for profile viewing)
+  app.get("/api/users/:userId/shelves", authenticateToken, async (req, res) => {
+    console.log("Get user shelves endpoint called");
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Verify user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const shelves = await storage.getShelves(userId);
+      res.json(shelves);
+    } catch (error) {
+      console.error("Get user shelves error:", error);
+      res.status(500).json({ error: "Failed to get user shelves" });
+    }
+  });
+  
+  // Get shelves for a specific user (alternative endpoint)
+  app.get("/api/shelves/user/:userId", authenticateToken, async (req, res) => {
+    console.log("Get user shelves endpoint called");
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Verify user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User ID not found" });
+      }
+      
+      const shelves = await storage.getShelves(userId);
+      res.json(shelves);
+    } catch (error) {
+      console.error("Get user shelves error:", error);
+      res.status(500).json({ error: "Failed to get user shelves" });
+    }
+  });
+  
   // Get books by IDs
   app.post("/api/books/by-ids", authenticateToken, async (req, res) => {
     console.log("Get books by IDs endpoint called");
@@ -350,6 +479,49 @@ export async function registerRoutes(
     }
   });
 
+  // Track book view when user visits book detail page
+  app.post("/api/books/:id/track-view", authenticateToken, async (req, res) => {
+    console.log("Track book view endpoint called");
+    try {
+      const { id } = req.params;
+      const { viewType } = req.body;
+      
+      if (!id) {
+        return res.status(400).json({ error: "Book ID is required" });
+      }
+      
+      if (!viewType || !['card_view', 'reader_open'].includes(viewType)) {
+        return res.status(400).json({ error: "Valid viewType is required (card_view or reader_open)" });
+      }
+      
+      await storage.incrementBookViewCount(id, viewType);
+      
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error tracking book view:", error);
+      res.status(500).json({ error: "Failed to track book view" });
+    }
+  });
+  
+  // Get book view statistics
+  app.get("/api/books/:id/stats", authenticateToken, async (req, res) => {
+    console.log("Get book stats endpoint called");
+    try {
+      const { id } = req.params;
+      
+      if (!id) {
+        return res.status(400).json({ error: "Book ID is required" });
+      }
+      
+      const stats = await storage.getBookViewStats(id);
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting book stats:", error);
+      res.status(500).json({ error: "Failed to get book stats" });
+    }
+  });
+  
   // Get a single book by ID
   app.get("/api/books/:id", authenticateToken, async (req, res) => {
     console.log("Get book by ID endpoint called");
@@ -925,7 +1097,130 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to create reaction" });
     }
   });
-
+  
+  // Messaging endpoints
+  // Send a new message
+  app.post("/api/messages", authenticateToken, async (req, res) => {
+    console.log("Send message endpoint called");
+    try {
+      const senderId = (req as any).user.userId;
+      const { recipientId, content } = req.body;
+      
+      if (!recipientId || !content) {
+        return res.status(400).json({ error: "Recipient ID and content are required" });
+      }
+      
+      // Check if recipient exists
+      const recipient = await storage.getUser(recipientId);
+      if (!recipient) {
+        return res.status(404).json({ error: "Recipient not found" });
+      }
+      
+      // Prevent user from messaging themselves
+      if (senderId === recipientId) {
+        return res.status(400).json({ error: "Cannot send message to yourself" });
+      }
+      
+      // Create the message
+      const messageData = {
+        senderId,
+        recipientId,
+        content,
+      };
+      
+      const message = await storage.createMessage(messageData);
+      
+      // Update or create conversation record
+      // Check if a conversation already exists between these users
+      // For simplicity, we'll update the last message in the conversation
+      // In a more complex implementation, we'd have a conversation table
+      
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Send message error:", error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+  
+  // Get messages with a specific user
+  app.get("/api/messages/:userId", authenticateToken, async (req, res) => {
+    console.log("Get messages endpoint called");
+    try {
+      const currentUserId = (req as any).user.userId;
+      const { userId: otherUserId } = req.params;
+      
+      if (!otherUserId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Check if the other user exists
+      const otherUser = await storage.getUser(otherUserId);
+      if (!otherUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Get messages between these users
+      const messages = await storage.getMessagesBetweenUsers(currentUserId, otherUserId);
+      
+      res.json(messages);
+    } catch (error) {
+      console.error("Get messages error:", error);
+      res.status(500).json({ error: "Failed to get messages" });
+    }
+  });
+  
+  // Get conversations for current user
+  app.get("/api/conversations", authenticateToken, async (req, res) => {
+    console.log("Get conversations endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      
+      const conversations = await storage.getConversationsForUser(userId);
+      
+      res.json(conversations);
+    } catch (error) {
+      console.error("Get conversations error:", error);
+      res.status(500).json({ error: "Failed to get conversations" });
+    }
+  });
+  
+  // Mark message as read
+  app.put("/api/messages/:messageId/read", authenticateToken, async (req, res) => {
+    console.log("Mark message as read endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { messageId } = req.params;
+      
+      if (!messageId) {
+        return res.status(400).json({ error: "Message ID is required" });
+      }
+      
+      // Check if the message exists and belongs to the user (as recipient)
+      // For now, we'll just mark the message as read
+      await storage.markMessageAsRead(messageId);
+      
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Mark message as read error:", error);
+      res.status(500).json({ error: "Failed to mark message as read" });
+    }
+  });
+  
+  // Get unread messages count
+  app.get("/api/messages/unread-count", authenticateToken, async (req, res) => {
+    console.log("Get unread messages count endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      
+      const count = await storage.getUnreadMessagesCount(userId);
+      
+      res.json({ count });
+    } catch (error) {
+      console.error("Get unread count error:", error);
+      res.status(500).json({ error: "Failed to get unread messages count" });
+    }
+  });
+  
   console.log("API routes registered successfully");
 
   return httpServer;

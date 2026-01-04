@@ -46,6 +46,8 @@ interface Book {
   rating?: number;
   commentCount?: number;
   reviewCount?: number;
+  cardViewCount?: number;
+  readerOpenCount?: number;
   userId: string; // Added userId field
   createdAt: string;
   updatedAt: string;
@@ -152,6 +154,24 @@ export default function BookDetail() {
         if (reviewsResponse.ok) {
           const reviewsData = await reviewsResponse.json();
           setBookReviews(reviewsData);
+        }
+        
+        // Track card view (where reviews and comments are shown)
+        try {
+          const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ viewType: 'card_view' }),
+          });
+          
+          if (!trackResponse.ok) {
+            console.error('Failed to track book view:', await trackResponse.json());
+          }
+        } catch (trackErr) {
+          console.error('Error tracking book view:', trackErr);
         }
       } catch (err) {
         console.error('Error fetching book data:', err);

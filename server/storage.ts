@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics } from "@shared/schema";
 import { eq, and, inArray, desc, sql } from "drizzle-orm/sql";
 
 // Database connection
@@ -87,6 +87,17 @@ export interface IStorage {
   getReactions(commentOrReviewId: string, isComment: boolean): Promise<any[]>;
   getReactionsForItems(itemIds: string[], isComment: boolean): Promise<any[]>;
   deleteReaction(id: string, userId: string): Promise<boolean>;
+  
+  // Book view statistics operations
+  incrementBookViewCount(bookId: string, viewType: string): Promise<any>;
+  getBookViewStats(bookId: string): Promise<any>;
+  
+  // Messaging operations
+  createMessage(messageData: any): Promise<any>;
+  getMessagesBetweenUsers(senderId: string, recipientId: string): Promise<any[]>;
+  getConversationsForUser(userId: string): Promise<any[]>;
+  markMessageAsRead(messageId: string): Promise<void>;
+  getUnreadMessagesCount(userId: string): Promise<number>;
 }
 
 export class DBStorage implements IStorage {
@@ -162,6 +173,9 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${result[0].id}
         ) AS activity`);
         
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(id);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...result[0],
@@ -172,9 +186,11 @@ export class DBStorage implements IStorage {
           publishedAt: result[0].publishedAt ? result[0].publishedAt.toISOString() : null,
           createdAt: result[0].createdAt.toISOString(),
           updatedAt: result[0].updatedAt.toISOString(),
-          commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count),
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
         };
         console.log(`Formatted book ${id}:`, formattedBook);
         return formattedBook;
@@ -295,6 +311,9 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${book.id}
         ) AS activity`);
         
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(book.id);
+        
         // Format dates for the frontend
         return {
           ...book,
@@ -305,22 +324,20 @@ export class DBStorage implements IStorage {
           publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
           createdAt: book.createdAt.toISOString(),
           updatedAt: book.updatedAt.toISOString(),
-          commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count),
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
         };
       }));
       
       // Sort the books in JavaScript to ensure proper ordering
       // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
       const sortedBooks = [...resultWithCounts].sort((a, b) => {
-        // Determine if each book has a valid rating
-        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
-        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
-        
         // Convert ratings to numbers for comparison
-        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
-        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        const ratingANum = a.rating ? Number(a.rating) : 0;
+        const ratingBNum = b.rating ? Number(b.rating) : 0;
         
         // First sort by rating (descending)
         if (ratingBNum !== ratingANum) {
@@ -329,10 +346,10 @@ export class DBStorage implements IStorage {
         
         // If ratings are equal, sort by total engagement (reviews + comments) (descending)
         // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
-        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
-        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
-        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
+        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
+        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
+        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
         
         const totalEngagementA = reviewCountA + commentCountA;
         const totalEngagementB = reviewCountB + commentCountB;
@@ -486,24 +503,25 @@ export class DBStorage implements IStorage {
           updatedAt: book.updatedAt.toISOString()
         };
         
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(book.id);
+        
         return {
           ...formattedBook,
-          commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count),
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
         };
       }));
       
       // Sort the books in JavaScript to ensure proper ordering
       // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
       const sortedBooks = [...resultWithCounts].sort((a, b) => {
-        // Determine if each book has a valid rating
-        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
-        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
-        
         // Convert ratings to numbers for comparison
-        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
-        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        const ratingANum = a.rating ? Number(a.rating) : 0;
+        const ratingBNum = b.rating ? Number(b.rating) : 0;
         
         // First sort by rating (descending)
         if (ratingBNum !== ratingANum) {
@@ -512,10 +530,10 @@ export class DBStorage implements IStorage {
         
         // If ratings are equal, sort by total engagement (reviews + comments) (descending)
         // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
-        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
-        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
-        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
+        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
+        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
+        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
         
         const totalEngagementA = reviewCountA + commentCountA;
         const totalEngagementB = reviewCountB + commentCountB;
@@ -588,24 +606,25 @@ export class DBStorage implements IStorage {
           updatedAt: book.updatedAt.toISOString()
         };
         
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(book.id);
+        
         return {
           ...formattedBook,
-          commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count),
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
         };
       }));
       
       // Sort the books in JavaScript to ensure proper ordering
       // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
       const sortedBooks = [...resultWithCounts].sort((a, b) => {
-        // Determine if each book has a valid rating
-        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
-        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
-        
         // Convert ratings to numbers for comparison
-        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
-        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        const ratingANum = a.rating ? Number(a.rating) : 0;
+        const ratingBNum = b.rating ? Number(b.rating) : 0;
         
         // First sort by rating (descending)
         if (ratingBNum !== ratingANum) {
@@ -614,10 +633,10 @@ export class DBStorage implements IStorage {
         
         // If ratings are equal, sort by total engagement (reviews + comments) (descending)
         // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
-        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
-        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
-        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
+        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
+        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
+        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
         
         const totalEngagementA = reviewCountA + commentCountA;
         const totalEngagementB = reviewCountB + commentCountB;
@@ -689,24 +708,25 @@ export class DBStorage implements IStorage {
           updatedAt: book.updatedAt.toISOString()
         };
         
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(book.id);
+        
         return {
           ...formattedBook,
-          commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count),
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
         };
       }));
       
       // Sort the books in JavaScript to ensure proper ordering
       // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
       const sortedBooks = [...resultWithCounts].sort((a, b) => {
-        // Determine if each book has a valid rating
-        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
-        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
-        
         // Convert ratings to numbers for comparison
-        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
-        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        const ratingANum = a.rating ? Number(a.rating) : 0;
+        const ratingBNum = b.rating ? Number(b.rating) : 0;
         
         // First sort by rating (descending)
         if (ratingBNum !== ratingANum) {
@@ -715,10 +735,10 @@ export class DBStorage implements IStorage {
         
         // If ratings are equal, sort by total engagement (reviews + comments) (descending)
         // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
-        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
-        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
-        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
+        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
+        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
+        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
         
         const totalEngagementA = reviewCountA + commentCountA;
         const totalEngagementB = reviewCountB + commentCountB;
@@ -759,7 +779,8 @@ export class DBStorage implements IStorage {
       .limit(20);
       
       // Get unique book IDs
-      const bookIds = [...new Set(recentReviews.map(review => review.bookId))];
+      const bookIdsSet = new Set(recentReviews.map(review => review.bookId));
+      const bookIds = Array.from(bookIdsSet);
       
       if (bookIds.length === 0) {
         return [];
@@ -811,24 +832,25 @@ export class DBStorage implements IStorage {
           updatedAt: book.updatedAt.toISOString()
         };
         
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(book.id);
+        
         return {
           ...formattedBook,
-          commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count),
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
         };
       }));
       
       // Sort the books in JavaScript to ensure proper ordering
       // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
       const sortedBooks = [...result].sort((a, b) => {
-        // Determine if each book has a valid rating
-        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
-        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
-        
         // Convert ratings to numbers for comparison
-        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
-        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        const ratingANum = a.rating ? Number(a.rating) : 0;
+        const ratingBNum = b.rating ? Number(b.rating) : 0;
         
         // First sort by rating (descending)
         if (ratingBNum !== ratingANum) {
@@ -837,10 +859,10 @@ export class DBStorage implements IStorage {
         
         // If ratings are equal, sort by total engagement (reviews + comments) (descending)
         // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
-        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
-        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
-        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
+        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
+        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
+        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
         
         const totalEngagementA = reviewCountA + commentCountA;
         const totalEngagementB = reviewCountB + commentCountB;
@@ -928,24 +950,25 @@ export class DBStorage implements IStorage {
           updatedAt: book.updatedAt.toISOString()
         };
         
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(book.id);
+        
         return {
           ...formattedBook,
-          commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count),
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
         };
       }));
       
       // Sort the books in JavaScript to ensure proper ordering
       // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
       const sortedBooks = [...result].sort((a, b) => {
-        // Determine if each book has a valid rating
-        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
-        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
-        
         // Convert ratings to numbers for comparison
-        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
-        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        const ratingANum = a.rating ? Number(a.rating) : 0;
+        const ratingBNum = b.rating ? Number(b.rating) : 0;
         
         // First sort by rating (descending)
         if (ratingBNum !== ratingANum) {
@@ -954,10 +977,10 @@ export class DBStorage implements IStorage {
         
         // If ratings are equal, sort by total engagement (reviews + comments) (descending)
         // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
-        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
-        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
-        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
+        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
+        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
+        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
         
         const totalEngagementA = reviewCountA + commentCountA;
         const totalEngagementB = reviewCountB + commentCountB;
@@ -1031,24 +1054,25 @@ export class DBStorage implements IStorage {
           updatedAt: book.updatedAt.toISOString()
         };
         
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(book.id);
+        
         return {
           ...formattedBook,
-          commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count),
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
         };
       }));
       
       // Sort the books in JavaScript to ensure proper ordering
       // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
       const sortedBooks = [...result].sort((a, b) => {
-        // Determine if each book has a valid rating
-        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
-        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
-        
         // Convert ratings to numbers for comparison
-        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
-        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        const ratingANum = a.rating ? Number(a.rating) : 0;
+        const ratingBNum = b.rating ? Number(b.rating) : 0;
         
         // First sort by rating (descending)
         if (ratingBNum !== ratingANum) {
@@ -1057,10 +1081,10 @@ export class DBStorage implements IStorage {
         
         // If ratings are equal, sort by total engagement (reviews + comments) (descending)
         // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
-        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
-        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
-        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
+        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
+        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
+        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
         
         const totalEngagementA = reviewCountA + commentCountA;
         const totalEngagementB = reviewCountB + commentCountB;
@@ -1500,7 +1524,7 @@ export class DBStorage implements IStorage {
         // Ensure the rating is properly formatted for the database
         const formattedRating = Math.round(averageRating * 10) / 10; // Round to 1 decimal place
         await db.update(books)
-          .set({ rating: formattedRating })
+          .set({ rating: sql`${formattedRating}` })
           .where(eq(books.id, bookId));
           
         console.log(`Updated book ${bookId} rating to ${formattedRating}`);
@@ -1715,6 +1739,235 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error deleting reaction:", error);
       throw error;
+    }
+  }
+  
+  async createMessage(messageData: any): Promise<any> {
+    try {
+      // Insert the message
+      const result = await db.insert(messages).values(messageData).returning();
+      
+      // Get the inserted message with sender and recipient information
+      const fullMessage = await db.select({
+        id: messages.id,
+        senderId: messages.senderId,
+        recipientId: messages.recipientId,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        updatedAt: messages.updatedAt,
+        readStatus: messages.readStatus,
+        senderUsername: users.username,
+        senderFullName: users.fullName,
+      })
+      .from(messages)
+      .leftJoin(users, eq(messages.senderId, users.id))
+      .where(eq(messages.id, result[0].id));
+      
+      return fullMessage[0];
+    } catch (error) {
+      console.error("Error creating message:", error);
+      throw error;
+    }
+  }
+  
+  async getMessagesBetweenUsers(senderId: string, recipientId: string): Promise<any[]> {
+    try {
+      // Get messages between these two users (both directions)
+      const result = await db.select({
+        id: messages.id,
+        senderId: messages.senderId,
+        recipientId: messages.recipientId,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        updatedAt: messages.updatedAt,
+        readStatus: messages.readStatus,
+        senderUsername: users.username,
+        senderFullName: users.fullName,
+      })
+      .from(messages)
+      .leftJoin(users, eq(messages.senderId, users.id))
+      .where(
+        sql`${messages.senderId} IN (${senderId}, ${recipientId}) AND ${messages.recipientId} IN (${senderId}, ${recipientId})`
+      )
+      .orderBy(messages.createdAt);
+      
+      // Format the messages
+      return result.map(message => ({
+        id: message.id,
+        senderId: message.senderId,
+        recipientId: message.recipientId,
+        content: message.content,
+        createdAt: message.createdAt.toISOString(),
+        updatedAt: message.updatedAt.toISOString(),
+        readStatus: message.readStatus,
+        sender: message.senderFullName || message.senderUsername || 'Anonymous'
+      }));
+    } catch (error) {
+      console.error("Error getting messages between users:", error);
+      return [];
+    }
+  }
+  
+  async getConversationsForUser(userId: string): Promise<any[]> {
+    try {
+      // Get all conversations where the user is either user1 or user2
+      const result = await db.select({
+        id: conversations.id,
+        user1Id: conversations.user1Id,
+        user2Id: conversations.user2Id,
+        lastMessageId: conversations.lastMessageId,
+        createdAt: conversations.createdAt,
+        updatedAt: conversations.updatedAt,
+        // Get information about the other user in the conversation
+        otherUserId: sql<string>`CASE WHEN ${conversations.user1Id} = ${userId} THEN ${conversations.user2Id} ELSE ${conversations.user1Id} END`,
+        otherUsername: sql<string>`CASE WHEN ${conversations.user1Id} = ${userId} THEN user2.username ELSE user1.username END`,
+        otherFullName: sql<string>`CASE WHEN ${conversations.user1Id} = ${userId} THEN user2.full_name ELSE user1.full_name END`,
+        // Get the last message content and time
+        lastMessageContent: messages.content,
+        lastMessageCreatedAt: messages.createdAt,
+        lastMessageSenderId: messages.senderId,
+      })
+      .from(conversations)
+      .leftJoin(users, sql`${users.id} IN (${conversations.user1Id}, ${conversations.user2Id})`)
+      .leftJoin(users as any, eq((users as any).id, conversations.user1Id), 'user1')
+      .leftJoin(users as any, eq((users as any).id, conversations.user2Id), 'user2')
+      .leftJoin(messages, eq(messages.id, conversations.lastMessageId))
+      .where(
+        sql`${conversations.user1Id} = ${userId} OR ${conversations.user2Id} = ${userId}`
+      )
+      .orderBy(sql`${conversations.updatedAt} DESC`);
+      
+      // Simplified approach to get conversations
+      // First get all messages where user is sender or recipient
+      const allMessages = await db.select({
+        id: messages.id,
+        senderId: messages.senderId,
+        recipientId: messages.recipientId,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        updatedAt: messages.updatedAt,
+        readStatus: messages.readStatus,
+      })
+      .from(messages)
+      .where(
+        sql`${messages.senderId} = ${userId} OR ${messages.recipientId} = ${userId}`
+      )
+      .orderBy(messages.createdAt.desc());
+      
+      // Group messages by the other participant
+      const conversationsMap: { [key: string]: any } = {};
+      
+      for (const msg of allMessages) {
+        const otherUserId = msg.senderId === userId ? msg.recipientId : msg.senderId;
+        
+        if (!conversationsMap[otherUserId]) {
+          // Get the other user's information
+          const otherUser = await db.select({
+            id: users.id,
+            username: users.username,
+            fullName: users.fullName,
+            avatarUrl: users.avatarUrl,
+          }).from(users).where(eq(users.id, otherUserId));
+          
+          conversationsMap[otherUserId] = {
+            userId: otherUser[0].id,
+            username: otherUser[0].username,
+            fullName: otherUser[0].fullName,
+            avatarUrl: otherUser[0].avatarUrl,
+            lastMessage: {
+              id: msg.id,
+              content: msg.content,
+              createdAt: msg.createdAt.toISOString(),
+              isOwnMessage: msg.senderId === userId,
+            },
+            unreadCount: 0, // We'll calculate this separately
+          };
+        }
+      }
+      
+      // Calculate unread counts for each conversation
+      for (const otherUserId in conversationsMap) {
+        const unreadCount = await db.execute(sql`SELECT COUNT(*) as count FROM messages WHERE sender_id != ${userId} AND recipient_id = ${userId} AND read_status = false`);
+        conversationsMap[otherUserId].unreadCount = parseInt(unreadCount.rows[0].count);
+      }
+      
+      return Object.values(conversationsMap);
+    } catch (error) {
+      console.error("Error getting conversations for user:", error);
+      return [];
+    }
+  }
+  
+  async markMessageAsRead(messageId: string): Promise<void> {
+    try {
+      await db.update(messages)
+        .set({ readStatus: true, updatedAt: new Date() })
+        .where(eq(messages.id, messageId));
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      throw error;
+    }
+  }
+  
+  async getUnreadMessagesCount(userId: string): Promise<number> {
+    try {
+      const result = await db.execute(sql`SELECT COUNT(*) as count FROM messages WHERE recipient_id = ${userId} AND read_status = false`);
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      console.error("Error getting unread messages count:", error);
+      return 0;
+    }
+  }
+  
+  async incrementBookViewCount(bookId: string, viewType: string): Promise<any> {
+    try {
+      // First try to update existing record
+      const result = await db.update(bookViewStatistics)
+        .set({ 
+          viewCount: sql`view_count + 1`,
+          lastViewedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(bookViewStatistics.bookId, bookId),
+          eq(bookViewStatistics.viewType, viewType)
+        ))
+        .returning();
+      
+      // If no rows were updated, insert a new record
+      if (result.length === 0) {
+        const insertResult = await db.insert(bookViewStatistics)
+          .values({ 
+            bookId, 
+            viewType, 
+            viewCount: 1,
+            lastViewedAt: new Date()
+          })
+          .returning();
+        return insertResult[0];
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error incrementing book view count:", error);
+      throw error;
+    }
+  }
+  
+  async getBookViewStats(bookId: string): Promise<any> {
+    try {
+      const results = await db.select().from(bookViewStatistics).where(eq(bookViewStatistics.bookId, bookId));
+      
+      // Organize the stats by view type
+      const stats: any = {};
+      results.forEach(row => {
+        stats[row.viewType] = row.viewCount;
+      });
+      
+      return stats;
+    } catch (error) {
+      console.error("Error getting book view stats:", error);
+      return {};
     }
   }
 }

@@ -369,6 +369,8 @@ export default function Shelves() {
                       rating: book.rating,
                       commentCount: book.commentCount,
                       reviewCount: book.reviewCount,
+                      cardViewCount: book.cardViewCount,
+                      readerOpenCount: book.readerOpenCount,
                       genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [],
                       year: book.publishedYear,
                       uploadedAt: book.uploadedAt,
@@ -456,6 +458,8 @@ export default function Shelves() {
                       ...book,
                       coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl,
                       genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                      cardViewCount: book.cardViewCount,
+                      readerOpenCount: book.readerOpenCount,
                     };
                     
                     return (
@@ -555,6 +559,8 @@ export default function Shelves() {
                       rating: book.rating,
                       commentCount: book.commentCount,
                       reviewCount: book.reviewCount,
+                      cardViewCount: book.cardViewCount,
+                      readerOpenCount: book.readerOpenCount,
                       genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [], // Split genre string into array
                       year: book.publishedYear,
                       uploadedAt: book.uploadedAt, // Add upload date
