@@ -47,6 +47,11 @@ export const booksApi = {
     method: 'POST',
     body: formData,
   }),
+  trackBookView: (bookId: string, viewType: 'card_view' | 'reader_open') => apiCall(`/api/books/${bookId}/track-view`, {
+    method: 'POST',
+    body: JSON.stringify({ viewType }),
+  }),
+  getBookStats: (bookId: string) => apiCall(`/api/books/${bookId}/stats`),
 };
 
 export const shelvesApi = {

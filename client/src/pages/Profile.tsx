@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRoute, Link } from 'wouter';
-import { mockUser, mockOtherUser, mockBooks, mockShelves, Shelf } from '@/lib/mockData';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,46 +24,348 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+interface User {
+  id: string;
+  username: string;
+  email?: string;
+  fullName?: string;
+  bio?: string;
+  avatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  coverImageUrl?: string;
+  description?: string;
+  genre: string | string[]; // Required to match BookCard expectation
+  publishedYear?: number;
+  rating?: number;
+  commentCount: number;
+  reviewCount: number;
+  lastActivityDate?: string;
+  uploadedAt?: string;
+  publishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  userId?: string;
+}
+
+interface ReadingProgress {
+  bookId: string;
+  percentage: number;
+  wordsRead: number;
+  lettersRead: number;
+  lastReadAt: Date;
+  currentPage: number;
+  totalPages: number;
+}
+
+interface ProfileShelf {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  bookIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  books?: Book[];
+}
+
+interface UserProfile {
+  id: string;
+  name: string;
+  username: string;
+  bio: string;
+  avatar: string;
+  stats: {
+    booksRead: number;
+    wordsRead: number;
+    lettersRead: number;
+  };
+  shelves: (ProfileShelf & { books?: Book[] })[];
+  recentlyReadIds: string[];
+  readingProgress?: ReadingProgress[];
+}
+
 export default function Profile() {
   const [match, params] = useRoute('/profile/:userId');
   const { toast } = useToast();
   const { user: currentUser } = useAuth(); // Get current authenticated user
-  const userId = params?.userId || 'user1'; // Default to logged-in user if no param
+  const userId = params?.userId;
   
-  // Determine if viewing own profile using real authentication
-  const isOwnProfile = currentUser?.id === userId;
-  // For mock data, still use the existing logic but with real user detection
-  const user = isOwnProfile ? mockUser : mockOtherUser;
-  
-  // Local state for shelves to support adding books
-  const [myShelves, setMyShelves] = useState<Shelf[]>(mockShelves);
-
-  const handleToggleShelf = (bookId: number, shelfId: string, isAdded: boolean) => {
-    setMyShelves(myShelves.map(shelf => {
-      if (shelf.id === shelfId) {
-        if (isAdded) {
-          return { ...shelf, bookIds: [...shelf.bookIds, bookId] };
-        } else {
-          return { ...shelf, bookIds: shelf.bookIds.filter(id => id !== bookId) };
-        }
-      }
-      return shelf;
-    }));
-    
-    toast({
-      title: isAdded ? "Книга добавлена" : "Книга убрана",
-      description: isAdded ? "Книга успешно добавлена на полку" : "Книга убрана с полки",
-    });
-  };
-
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const handleSendMessage = () => {
-    toast({
-      title: "Сообщение отправлено",
-      description: `Ваше сообщение для ${user.name} успешно отправлено.`,
-    });
-    setMessage('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editBio, setEditBio] = useState('');
+  const [editFullName, setEditFullName] = useState('');
+
+  // Determine if viewing own profile
+  const isOwnProfile = currentUser?.id === userId;
+
+  const handleSendMessage = async () => {
+    if (!profile) return;
+    
+    try {
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({
+          recipientId: profile.id,
+          content: message
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send message');
+      }
+      
+      toast({
+        title: "Сообщение отправлено",
+        description: `Ваше сообщение для ${profile.name} успешно отправлено.`,
+      });
+      setMessage('');
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : 'Не удалось отправить сообщение',
+        variant: "destructive"
+      });
+    }
   };
+
+  const handleEditProfile = () => {
+    if (!profile) return;
+    setIsEditing(true);
+    setEditBio(profile.bio);
+    setEditFullName(profile.name);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+    
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({
+          bio: editBio,
+          fullName: editFullName
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update profile');
+      }
+      
+      const updatedProfile = await response.json();
+      setProfile({
+        ...profile,
+        bio: updatedProfile.bio || '',
+        name: updatedProfile.fullName || updatedProfile.username
+      });
+      setIsEditing(false);
+      toast({
+        title: "Профиль обновлен",
+        description: "Ваш профиль успешно обновлен."
+      });
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : 'Не удалось обновить профиль',
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    if (profile) {
+      setEditBio(profile.bio);
+      setEditFullName(profile.name);
+    }
+  };
+
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!userId) return;
+      
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/profile/${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch profile');
+        }
+        
+        const userData = await response.json();
+        
+        // Format the user data to match the expected structure
+        // Fetch user's shelves based on whether it's the current user or another user
+        let shelves = [];
+        if (isOwnProfile) {
+          // Fetch current user's shelves
+          const shelvesResponse = await fetch(`/api/shelves`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+          
+          if (shelvesResponse.ok) {
+            shelves = await shelvesResponse.json();
+          }
+        } else {
+          // Fetch other user's shelves
+          const userShelvesResponse = await fetch(`/api/shelves/user/${userId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+          
+          if (userShelvesResponse.ok) {
+            shelves = await userShelvesResponse.json();
+          }
+        }
+        
+        // Fetch books for each shelf
+        const shelvesWithBooks = await Promise.all(
+          shelves.map(async (shelf: ProfileShelf) => {
+            if (shelf.bookIds && shelf.bookIds.length > 0) {
+              try {
+                const booksResponse = await fetch('/api/books/by-ids', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                  },
+                  body: JSON.stringify({ bookIds: shelf.bookIds })
+                });
+                
+                if (booksResponse.ok) {
+                  const books = await booksResponse.json();
+                  // Ensure books have proper genre field to match BookCard expectations
+                  const formattedBooks = books.map((book: any) => ({
+                    ...book,
+                    genre: book.genre !== undefined ? book.genre : ''
+                  }));
+                  return {
+                    ...shelf,
+                    books: formattedBooks
+                  };
+                }
+              } catch (error) {
+                console.error('Error fetching books for shelf:', error);
+              }
+            }
+            return {
+              ...shelf,
+              books: []
+            };
+          })
+        );
+        
+        // Fetch user's reading statistics
+        let userStats = {
+          booksRead: 0,
+          wordsRead: 0,
+          lettersRead: 0
+        };
+        
+        try {
+          const statsResponse = await fetch(`/api/users/${userData.id}/statistics`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+          
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            userStats = {
+              booksRead: statsData.totalBooksRead || 0,
+              wordsRead: statsData.totalWordsRead || 0,
+              lettersRead: statsData.totalLettersRead || 0
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching user statistics:', error);
+          // Use default values if stats fetch fails
+        }
+        
+        // Fetch recently read books
+        let recentlyReadIds: string[] = [];
+        
+        try {
+          const recentlyReadResponse = await fetch(`/api/books/currently-reading`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+          
+          if (recentlyReadResponse.ok) {
+            const recentlyReadBooks = await recentlyReadResponse.json();
+            recentlyReadIds = recentlyReadBooks.slice(0, 5).map((book: any) => book.id);
+          }
+        } catch (error) {
+          console.error('Error fetching recently read books:', error);
+          // Use empty array if fetch fails
+        }
+        
+        // Format the user data to match the expected structure
+        const formattedProfile: UserProfile = {
+          id: userData.id,
+          name: userData.fullName || userData.username,
+          username: userData.username,
+          bio: userData.bio || '',
+          avatar: userData.avatarUrl || '',
+          stats: userStats,
+          shelves: shelvesWithBooks,
+          recentlyReadIds: recentlyReadIds,
+          // For now, we're not fetching reading progress, so we'll leave it empty
+          readingProgress: []
+        };
+        
+        setProfile(formattedProfile);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load profile');
+        toast({
+          title: "Ошибка",
+          description: "Не удалось загрузить профиль пользователя",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, [userId, toast]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-background">Загрузка...</div>;
+  }
+
+  if (error || !profile) {
+    return <div className="min-h-screen flex items-center justify-center bg-background text-red-500">{error || "Профиль не найден"}</div>;
+  }
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('ru-RU').format(num);
@@ -78,8 +379,8 @@ export default function Profile() {
           <div></div> {/* Empty div for spacing */}
           {isOwnProfile && (
             <div className="flex gap-2">
-              <Button variant="ghost" size="icon">
-                <Settings className="w-5 h-5" />
+              <Button variant="outline" size="sm" onClick={handleEditProfile}>
+                Редактировать профиль
               </Button>
               <LogoutButton />
             </div>
@@ -91,7 +392,7 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex flex-col items-start">
               <Avatar className="w-32 h-32 border-4 border-background shadow-xl flex-shrink-0">
-                <AvatarImage src={user.avatar} />
+                <AvatarImage src={profile.avatar} />
                 <AvatarFallback className="bg-muted flex items-center justify-center">
                   <User className="w-16 h-16 text-muted-foreground" />
                 </AvatarFallback>
@@ -101,8 +402,8 @@ export default function Profile() {
             <div className="flex-1 space-y-4 w-full">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <h1 className="text-3xl font-serif font-bold">{user.name}</h1>
-                  <p className="text-muted-foreground font-medium">{user.username}</p>
+                  <h1 className="text-3xl font-serif font-bold">{profile.name}</h1>
+                  <p className="text-muted-foreground font-medium">{profile.username}</p>
                   {!isOwnProfile && (
                     <Dialog>
                       <DialogTrigger asChild>
@@ -112,7 +413,7 @@ export default function Profile() {
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>Написать сообщение {user.name}</DialogTitle>
+                          <DialogTitle>Написать сообщение {profile.name}</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 pt-4">
                           <Textarea 
@@ -144,10 +445,41 @@ export default function Profile() {
           
           {/* Bio with HTML rendering - full width below avatar and user info */}
           <div className="mt-6">
-            <div 
-              className="prose prose-sm dark:prose-invert text-foreground/90 leading-relaxed bg-muted/30 p-6 rounded-lg border w-full"
-              dangerouslySetInnerHTML={{ __html: user.bio.replace(/\n/g, '<br/>') }}
-            />
+            {isEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Полное имя</label>
+                  <input
+                    type="text"
+                    value={editFullName}
+                    onChange={(e) => setEditFullName(e.target.value)}
+                    className="w-full p-2 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">О себе</label>
+                  <textarea
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value)}
+                    className="w-full p-2 border rounded-md min-h-[120px]"
+                    placeholder="Расскажите о себе..."
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={handleCancelEdit}>
+                    Отмена
+                  </Button>
+                  <Button onClick={handleSaveProfile}>
+                    Сохранить
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div 
+                className="prose prose-sm dark:prose-invert text-foreground/90 leading-relaxed bg-muted/30 p-6 rounded-lg border w-full"
+                dangerouslySetInnerHTML={{ __html: profile.bio.replace(/\n/g, '<br/>') }}
+              />
+            )}
           </div>
         </div>
 
@@ -158,7 +490,7 @@ export default function Profile() {
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold font-serif">{formatNumber(user.stats.booksRead)}</p>
+              <p className="text-2xl font-bold font-serif">{formatNumber(profile.stats.booksRead)}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Книг прочитано</p>
             </div>
           </div>
@@ -168,7 +500,7 @@ export default function Profile() {
               <AlignLeft className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold font-serif">{formatNumber(user.stats.wordsRead)}</p>
+              <p className="text-2xl font-bold font-serif">{formatNumber(profile.stats.wordsRead)}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Слов прочитано</p>
             </div>
           </div>
@@ -178,7 +510,7 @@ export default function Profile() {
               <Type className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold font-serif">{formatNumber(user.stats.lettersRead)}</p>
+              <p className="text-2xl font-bold font-serif">{formatNumber(profile.stats.lettersRead)}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Букв прочитано</p>
             </div>
           </div>
@@ -191,22 +523,32 @@ export default function Profile() {
             Недавно читал
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {user.recentlyReadIds.map(bookId => {
-              const book = mockBooks.find(b => b.id === bookId);
-              if (!book) return null;
-              
-              // Find reading progress for this book
-              const progress = user.readingProgress?.find(p => p.bookId === bookId) || undefined;
-              
-              return (
-                <BookCard 
-                  key={book.id} 
-                  book={book} 
-                  variant="detailed"
-                  readingProgress={progress}
-                />
-              );
-            })}
+            {profile.recentlyReadIds.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Нет недавно прочитанных книг</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {profile.recentlyReadIds.map((bookId: string) => {
+                  // Find the book in the shelves
+                  let book = null;
+                  for (const shelf of profile.shelves) {
+                    if (shelf.books) {
+                      book = shelf.books.find(b => b.id === bookId);
+                      if (book) break;
+                    }
+                  }
+                  
+                  if (!book) return null;
+                  
+                  return (
+                    <BookCard 
+                      key={book.id} 
+                      book={book} 
+                      variant="detailed"
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
 
@@ -217,31 +559,26 @@ export default function Profile() {
             Книжные полки
           </h2>
           <div className="space-y-8">
-            {user.shelves.map((shelf) => (
+            {profile.shelves.map((shelf: ProfileShelf) => (
               <div key={shelf.id} className="bg-card/50 border rounded-xl p-6">
                 <div className="flex items-baseline justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-serif text-lg font-bold">{shelf.title}</h3>
+                    <h3 className="font-serif text-lg font-bold">{shelf.name}</h3>
                     <Badge variant="secondary" className="rounded-full">{shelf.bookIds.length}</Badge>
                   </div>
                 </div>
-
+            
                 {shelf.bookIds.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Полка пуста</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {shelf.bookIds.map(bookId => {
-                      const book = mockBooks.find(b => b.id === bookId);
-                      if (!book) return null;
-                                    
-                      return (
-                        <BookCard 
-                          key={book.id} 
-                          book={book} 
-                          variant="shelf"
-                        />
-                      );
-                    })}
+                    {shelf.books?.map((book: Book) => (
+                      <BookCard 
+                        key={book.id} 
+                        book={book} 
+                        variant="detailed"
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -274,23 +611,23 @@ function ClockIcon({ className }: { className?: string }) {
 }
 
 function LibraryIcon({ className }: { className?: string }) {
-   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="m16 6 4 14" />
-      <path d="M12 6v14" />
-      <path d="M8 8v12" />
-      <path d="M4 4v16" />
-    </svg>
-   )
+ return (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="m16 6 4 14" />
+    <path d="M12 6v14" />
+    <path d="M8 8v12" />
+    <path d="M4 4v16" />
+  </svg>
+ )
 }

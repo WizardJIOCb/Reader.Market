@@ -16,6 +16,8 @@ export interface Book {
   rating?: number;
   commentCount?: number;
   reviewCount?: number;
+  cardViewCount?: number;
+  readerOpenCount?: number;
   lastActivityDate?: string;
   createdAt: string;
   updatedAt: string;

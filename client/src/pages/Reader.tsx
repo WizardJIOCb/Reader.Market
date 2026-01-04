@@ -28,6 +28,8 @@ interface Book {
   rating?: number;
   createdAt: string;
   updatedAt: string;
+  cardViewCount?: number;
+  readerOpenCount?: number;
 }
 
 export default function Reader() {
@@ -101,6 +103,24 @@ export default function Reader() {
         const bookData = await bookResponse.json();
         console.log('Book data received:', bookData);
         setBook(bookData);
+        
+        // Track reader open (when user opens book in reader)
+        try {
+          const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ viewType: 'reader_open' }),
+          });
+          
+          if (!trackResponse.ok) {
+            console.error('Failed to track reader open:', await trackResponse.json());
+          }
+        } catch (trackErr) {
+          console.error('Error tracking reader open:', trackErr);
+        }
       } catch (err) {
         console.error('Error fetching book:', err);
         setError(err instanceof Error ? err.message : 'Failed to load book');

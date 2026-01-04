@@ -141,3 +141,38 @@ export const reactions = pgTable("reactions", {
   emoji: text("emoji").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Table for private messages
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  senderId: varchar("sender_id").notNull().references(() => users.id),
+  recipientId: varchar("recipient_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  readStatus: boolean("read_status").default(false),
+});
+
+// Table for conversations
+export const conversations = pgTable("conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  user1Id: varchar("user1_id").notNull().references(() => users.id),
+  user2Id: varchar("user2_id").notNull().references(() => users.id),
+  lastMessageId: varchar("last_message_id").references(() => messages.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for book view statistics
+export const bookViewStatistics = pgTable("book_view_statistics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookId: varchar("book_id").notNull().references(() => books.id),
+  viewType: text("view_type").notNull(), // 'card_view' or 'reader_open'
+  viewCount: integer("view_count").notNull().default(0),
+  lastViewedAt: timestamp("last_viewed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Create unique constraint for conversations to prevent duplicate user pairs
+// Note: We'll handle this in the migration file
