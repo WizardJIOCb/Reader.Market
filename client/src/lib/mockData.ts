@@ -23,6 +23,7 @@ export interface Book {
   rating?: number;
   commentCount?: number;
   reviewCount?: number;
+  shelfCount?: number;
   cardViewCount?: number;
   readerOpenCount?: number;
   readTime?: string;

@@ -176,6 +176,9 @@ export class DBStorage implements IStorage {
         // Get book view statistics
         const viewStats = await this.getBookViewStats(id);
         
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${result[0].id}`);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...result[0],
@@ -188,6 +191,7 @@ export class DBStorage implements IStorage {
           updatedAt: result[0].updatedAt.toISOString(),
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: parseInt(shelfCountResult.rows[0].count as string),
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
@@ -1828,9 +1832,9 @@ export class DBStorage implements IStorage {
         lastMessageSenderId: messages.senderId,
       })
       .from(conversations)
-      .leftJoin(users, sql`${users.id} IN (${conversations.user1Id}, ${conversations.user2Id})`)
-      .leftJoin(users as any, eq((users as any).id, conversations.user1Id), 'user1')
-      .leftJoin(users as any, eq((users as any).id, conversations.user2Id), 'user2')
+      .leftJoin(users as any, sql`${(users as any).id} IN (${conversations.user1Id}, ${conversations.user2Id})`)
+      .leftJoin(users as any, eq((users as any).id, conversations.user1Id))
+      .leftJoin(users as any, eq((users as any).id, conversations.user2Id))
       .leftJoin(messages, eq(messages.id, conversations.lastMessageId))
       .where(
         sql`${conversations.user1Id} = ${userId} OR ${conversations.user2Id} = ${userId}`
@@ -1852,7 +1856,7 @@ export class DBStorage implements IStorage {
       .where(
         sql`${messages.senderId} = ${userId} OR ${messages.recipientId} = ${userId}`
       )
-      .orderBy(messages.createdAt.desc());
+      .orderBy(desc(messages.createdAt));
       
       // Group messages by the other participant
       const conversationsMap: { [key: string]: any } = {};
@@ -1888,7 +1892,7 @@ export class DBStorage implements IStorage {
       // Calculate unread counts for each conversation
       for (const otherUserId in conversationsMap) {
         const unreadCount = await db.execute(sql`SELECT COUNT(*) as count FROM messages WHERE sender_id != ${userId} AND recipient_id = ${userId} AND read_status = false`);
-        conversationsMap[otherUserId].unreadCount = parseInt(unreadCount.rows[0].count);
+        conversationsMap[otherUserId].unreadCount = parseInt(unreadCount.rows[0].count as string);
       }
       
       return Object.values(conversationsMap);
@@ -1912,7 +1916,7 @@ export class DBStorage implements IStorage {
   async getUnreadMessagesCount(userId: string): Promise<number> {
     try {
       const result = await db.execute(sql`SELECT COUNT(*) as count FROM messages WHERE recipient_id = ${userId} AND read_status = false`);
-      return parseInt(result.rows[0].count);
+      return parseInt(result.rows[0].count as string);
     } catch (error) {
       console.error("Error getting unread messages count:", error);
       return 0;

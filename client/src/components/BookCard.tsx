@@ -163,8 +163,13 @@ export const BookCard: React.FC<BookCardProps> = ({
           )}
           
           {/* Book statistics */}
-          {(book.cardViewCount !== undefined || book.readerOpenCount !== undefined) && (
+          {(book.shelfCount !== undefined || book.cardViewCount !== undefined || book.readerOpenCount !== undefined) && (
             <>
+              {book.shelfCount !== undefined && (
+                <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                  <span>📚 {book.shelfCount} раз добавили на полки</span>
+                </div>
+              )}
               {book.cardViewCount !== undefined && (
                 <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
                   <span>👁️ {book.cardViewCount} просмотров карточки</span>

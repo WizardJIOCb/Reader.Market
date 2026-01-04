@@ -46,6 +46,7 @@ interface Book {
   rating?: number;
   commentCount?: number;
   reviewCount?: number;
+  shelfCount?: number;
   cardViewCount?: number;
   readerOpenCount?: number;
   userId: string; // Added userId field
@@ -786,6 +787,12 @@ export default function BookDetail() {
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
                       <Clock className="w-3 h-3 mr-1" />
                       <span>Добавлено: {book.uploadedAt ? formatDate(book.uploadedAt) : ''}</span>
+                    </div>
+                  )}
+                  
+                  {book.shelfCount !== undefined && (
+                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                      <span>📚 {book.shelfCount} раз добавили на полки</span>
                     </div>
                   )}
                   
