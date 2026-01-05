@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   fullName: text("full_name"),
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
+  accessLevel: text("access_level").default('user'), // 'admin', 'moder', 'user'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -170,6 +171,18 @@ export const bookViewStatistics = pgTable("book_view_statistics", {
   viewType: text("view_type").notNull(), // 'card_view' or 'reader_open'
   viewCount: integer("view_count").notNull().default(0),
   lastViewedAt: timestamp("last_viewed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for news articles
+export const news = pgTable("news", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  authorId: varchar("author_id").notNull().references(() => users.id),
+  published: boolean("published").default(false),
+  publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

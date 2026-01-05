@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news } from "@shared/schema";
 import { eq, and, inArray, desc, sql } from "drizzle-orm/sql";
 
 // Database connection
@@ -74,13 +74,17 @@ export interface IStorage {
   // Comment operations
   createComment(commentData: any): Promise<any>;
   getComments(bookId: string): Promise<any[]>;
-  deleteComment(id: string, userId: string): Promise<boolean>;
+  getAllComments(): Promise<any[]>;
+  updateComment(id: string, commentData: any): Promise<any>;
+  deleteComment(id: string, userId: string | null): Promise<boolean>;
   
   // Review operations
   createReview(reviewData: any): Promise<any>;
   getReviews(bookId: string): Promise<any[]>;
+  getAllReviews(): Promise<any[]>;
   getUserReview(userId: string, bookId: string): Promise<any | undefined>;
-  deleteReview(id: string, userId: string): Promise<boolean>;
+  updateReview(id: string, reviewData: any): Promise<any>;
+  deleteReview(id: string, userId: string | null): Promise<boolean>;
   
   // Reaction operations
   createReaction(reactionData: any): Promise<any>;
@@ -98,6 +102,20 @@ export interface IStorage {
   getConversationsForUser(userId: string): Promise<any[]>;
   markMessageAsRead(messageId: string): Promise<void>;
   getUnreadMessagesCount(userId: string): Promise<number>;
+  
+  // News operations
+  createNews(newsData: any): Promise<any>;
+  getNews(id: string): Promise<any | undefined>;
+  getPublishedNews(): Promise<any[]>;
+  getAllNews(): Promise<any[]>;
+  updateNews(id: string, newsData: any): Promise<any>;
+  deleteNews(id: string): Promise<void>;
+  updateAccessLevel(userId: string, accessLevel: string): Promise<User>;
+  getUsersWithStats(limit: number, offset: number): Promise<any[]>;
+  getRecentActivity(limit: number): Promise<any[]>;
+  getNewsCountSince(date: Date): Promise<number>;
+  getCommentsCountSince(date: Date): Promise<number>;
+  getReviewsCountSince(date: Date): Promise<number>;
 }
 
 export class DBStorage implements IStorage {
@@ -1507,12 +1525,51 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async deleteComment(id: string, userId: string): Promise<boolean> {
+  async getAllComments(): Promise<any[]> {
     try {
-      // First check if the comment belongs to the user
+      // Get all comments with user information
+      const result = await db.select({
+        id: comments.id,
+        userId: comments.userId,
+        bookId: comments.bookId,
+        content: comments.content,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .orderBy(desc(comments.createdAt));
+      
+      // Format the response to match what the frontend expects
+      return result.map(comment => ({
+        id: comment.id,
+        userId: comment.userId,
+        bookId: comment.bookId,
+        content: comment.content,
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
+        author: comment.fullName || comment.username || 'Anonymous',
+        reactions: []
+      }));
+    } catch (error) {
+      console.error("Error getting all comments:", error);
+      return [];
+    }
+  }
+
+  async deleteComment(id: string, userId: string | null): Promise<boolean> {
+    try {
       const comment = await db.select().from(comments).where(eq(comments.id, id));
-      if (!comment.length || comment[0].userId !== userId) {
-        return false; // Comment not found or doesn't belong to user
+      if (!comment.length) {
+        return false; // Comment not found
+      }
+      
+      // If userId is provided, verify it belongs to the user (for regular users)
+      // If userId is null, allow deletion (for admin/moderators)
+      if (userId !== null && comment[0].userId !== userId) {
+        return false; // Not the owner and not an admin action
       }
       
       // Delete associated reactions first
@@ -1523,6 +1580,50 @@ export class DBStorage implements IStorage {
       return true;
     } catch (error) {
       console.error("Error deleting comment:", error);
+      throw error;
+    }
+  }
+
+  async updateComment(id: string, commentData: any): Promise<any> {
+    try {
+      // Update the comment
+      const updateResult = await db.update(comments)
+        .set({ ...commentData, updatedAt: new Date() })
+        .where(eq(comments.id, id))
+        .returning();
+      
+      if (updateResult.length === 0) {
+        return null; // Comment not found
+      }
+      
+      // Get the updated comment with user information
+      const result = await db.select({
+        id: comments.id,
+        userId: comments.userId,
+        bookId: comments.bookId,
+        content: comments.content,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.id, updateResult[0].id));
+      
+      // Format the response to match what the frontend expects
+      const comment = result[0];
+      return {
+        id: comment.id,
+        userId: comment.userId,
+        bookId: comment.bookId,
+        content: comment.content,
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
+        author: comment.fullName || comment.username || 'Anonymous'
+      };
+    } catch (error) {
+      console.error("Error updating comment:", error);
       throw error;
     }
   }
@@ -1646,6 +1747,42 @@ export class DBStorage implements IStorage {
     }
   }
 
+  async getAllReviews(): Promise<any[]> {
+    try {
+      // Get all reviews with user information
+      const result = await db.select({
+        id: reviews.id,
+        userId: reviews.userId,
+        bookId: reviews.bookId,
+        rating: reviews.rating,
+        content: reviews.content,
+        createdAt: reviews.createdAt,
+        updatedAt: reviews.updatedAt,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(reviews)
+      .leftJoin(users, eq(reviews.userId, users.id))
+      .orderBy(desc(reviews.createdAt));
+      
+      // Format the response to match what the frontend expects
+      return result.map(review => ({
+        id: review.id,
+        userId: review.userId,
+        bookId: review.bookId,
+        rating: review.rating,
+        content: review.content,
+        createdAt: review.createdAt.toISOString(),
+        updatedAt: review.updatedAt.toISOString(),
+        author: review.fullName || review.username || 'Anonymous',
+        reactions: []
+      }));
+    } catch (error) {
+      console.error("Error getting all reviews:", error);
+      return [];
+    }
+  }
+
   async getUserReview(userId: string, bookId: string): Promise<any | undefined> {
     try {
       const result = await db.select().from(reviews).where(
@@ -1666,12 +1803,17 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async deleteReview(id: string, userId: string): Promise<boolean> {
+  async deleteReview(id: string, userId: string | null): Promise<boolean> {
     try {
-      // First check if the review belongs to the user
       const review = await db.select().from(reviews).where(eq(reviews.id, id));
-      if (!review.length || review[0].userId !== userId) {
-        return false; // Review not found or doesn't belong to user
+      if (!review.length) {
+        return false; // Review not found
+      }
+      
+      // If userId is provided, verify it belongs to the user (for regular users)
+      // If userId is null, allow deletion (for admin/moderators)
+      if (userId !== null && review[0].userId !== userId) {
+        return false; // Not the owner and not an admin action
       }
       
       const bookId = review[0].bookId;
@@ -1688,6 +1830,63 @@ export class DBStorage implements IStorage {
       return true;
     } catch (error) {
       console.error("Error deleting review:", error);
+      throw error;
+    }
+  }
+
+  async updateReview(id: string, reviewData: any): Promise<any> {
+    try {
+      // Get the current review to access the bookId before update
+      const currentReview = await db.select().from(reviews).where(eq(reviews.id, id));
+      if (currentReview.length === 0) {
+        return null; // Review not found
+      }
+      
+      const bookId = currentReview[0].bookId;
+      
+      // Update the review
+      const updateResult = await db.update(reviews)
+        .set({ ...reviewData, updatedAt: new Date() })
+        .where(eq(reviews.id, id))
+        .returning();
+      
+      if (updateResult.length === 0) {
+        return null; // Review not found
+      }
+      
+      // Get the updated review with user information
+      const result = await db.select({
+        id: reviews.id,
+        userId: reviews.userId,
+        bookId: reviews.bookId,
+        rating: reviews.rating,
+        content: reviews.content,
+        createdAt: reviews.createdAt,
+        updatedAt: reviews.updatedAt,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(reviews)
+      .leftJoin(users, eq(reviews.userId, users.id))
+      .where(eq(reviews.id, updateResult[0].id));
+      
+      // Recalculate and update the book's average rating
+      await this.updateBookAverageRating(bookId);
+      
+      // Format the response to match what the frontend expects
+      const review = result[0];
+      return {
+        id: review.id,
+        userId: review.userId,
+        bookId: review.bookId,
+        rating: review.rating,
+        content: review.content,
+        createdAt: review.createdAt.toISOString(),
+        updatedAt: review.updatedAt.toISOString(),
+        author: review.fullName || review.username || 'Anonymous'
+      };
+    } catch (error) {
+      console.error("Error updating review:", error);
       throw error;
     }
   }
@@ -2027,6 +2226,356 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting book view stats:", error);
       return {};
+    }
+  }
+  
+  async getNewsCountSince(date: Date): Promise<number> {
+    try {
+      // Ensure we're using UTC timestamp for comparison
+      const result = await db.execute(sql`SELECT COUNT(*) as count FROM news WHERE created_at >= ${date.toISOString()}`);
+      return parseInt(result.rows[0].count as string) || 0;
+    } catch (error) {
+      console.error("Error getting news count since date:", error);
+      return 0;
+    }
+  }
+  
+  async getCommentsCountSince(date: Date): Promise<number> {
+    try {
+      // Ensure we're using UTC timestamp for comparison
+      const result = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE created_at >= ${date.toISOString()}`);
+      return parseInt(result.rows[0].count as string) || 0;
+    } catch (error) {
+      console.error("Error getting comments count since date:", error);
+      return 0;
+    }
+  }
+  
+  async getReviewsCountSince(date: Date): Promise<number> {
+    try {
+      // Ensure we're using UTC timestamp for comparison
+      const result = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE created_at >= ${date.toISOString()}`);
+      return parseInt(result.rows[0].count as string) || 0;
+    } catch (error) {
+      console.error("Error getting reviews count since date:", error);
+      return 0;
+    }
+  }
+  
+  async createNews(newsData: any): Promise<any> {
+    try {
+      // Insert the news item
+      const result = await db.insert(news).values(newsData).returning();
+      
+      // Get the news with author information
+      const newsWithAuthor = await db.select({
+        id: news.id,
+        title: news.title,
+        content: news.content,
+        authorId: news.authorId,
+        published: news.published,
+        publishedAt: news.publishedAt,
+        createdAt: news.createdAt,
+        updatedAt: news.updatedAt,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(news)
+      .leftJoin(users, eq(news.authorId, users.id))
+      .where(eq(news.id, result[0].id));
+      
+      const newsItem = newsWithAuthor[0];
+      return {
+        id: newsItem.id,
+        title: newsItem.title,
+        content: newsItem.content,
+        authorId: newsItem.authorId,
+        published: newsItem.published,
+        publishedAt: newsItem.publishedAt?.toISOString() || null,
+        createdAt: newsItem.createdAt.toISOString(),
+        updatedAt: newsItem.updatedAt.toISOString(),
+        author: newsItem.fullName || newsItem.username || 'Anonymous'
+      };
+    } catch (error) {
+      console.error("Error creating news:", error);
+      throw error;
+    }
+  }
+  
+  async getNews(id: string): Promise<any | undefined> {
+    try {
+      const result = await db.select().from(news).where(eq(news.id, id));
+      
+      if (result.length === 0) {
+        return undefined;
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error getting news:", error);
+      return undefined;
+    }
+  }
+  
+  async getPublishedNews(): Promise<any[]> {
+    try {
+      // Get published news ordered by creation date (newest first)
+      const result = await db.select({
+        id: news.id,
+        title: news.title,
+        content: news.content,
+        authorId: news.authorId,
+        published: news.published,
+        publishedAt: news.publishedAt,
+        createdAt: news.createdAt,
+        updatedAt: news.updatedAt,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(news)
+      .leftJoin(users, eq(news.authorId, users.id))
+      .where(eq(news.published, true))
+      .orderBy(desc(news.createdAt));
+      
+      // Format the response
+      return result.map(item => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        authorId: item.authorId,
+        published: item.published,
+        publishedAt: item.publishedAt?.toISOString() || null,
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+        author: item.fullName || item.username || 'Anonymous'
+      }));
+    } catch (error) {
+      console.error("Error getting published news:", error);
+      return [];
+    }
+  }
+  
+  async getAllNews(): Promise<any[]> {
+    try {
+      // Get all news ordered by creation date (newest first)
+      const result = await db.select({
+        id: news.id,
+        title: news.title,
+        content: news.content,
+        authorId: news.authorId,
+        published: news.published,
+        publishedAt: news.publishedAt,
+        createdAt: news.createdAt,
+        updatedAt: news.updatedAt,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(news)
+      .leftJoin(users, eq(news.authorId, users.id))
+      .orderBy(desc(news.createdAt));
+        
+      // Format the response
+      return result.map(item => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        authorId: item.authorId,
+        published: item.published,
+        publishedAt: item.publishedAt?.toISOString() || null,
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+        author: item.fullName || item.username || 'Anonymous'
+      }));
+    } catch (error) {
+      console.error("Error getting all news:", error);
+      return [];
+    }
+  }
+  
+  async updateNews(id: string, newsData: any): Promise<any> {
+    try {
+      const result = await db.update(news)
+        .set({ ...newsData, updatedAt: new Date() })
+        .where(eq(news.id, id))
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error updating news:", error);
+      throw error;
+    }
+  }
+  
+  async deleteNews(id: string): Promise<void> {
+    try {
+      await db.delete(news).where(eq(news.id, id));
+    } catch (error) {
+      console.error("Error deleting news:", error);
+      throw error;
+    }
+  }
+  
+  async updateAccessLevel(userId: string, accessLevel: string): Promise<User> {
+    try {
+      const result = await db.update(users)
+        .set({ accessLevel, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('User not found');
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error updating access level:", error);
+      throw error;
+    }
+  }
+  
+  async getUsersWithStats(limit: number, offset: number): Promise<any[]> {
+    try {
+      // Get users with basic information
+      const usersResult = await db.select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        accessLevel: users.accessLevel,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .orderBy(desc(users.createdAt))
+      .limit(limit)
+      .offset(offset);
+      
+      // For each user, get their statistics
+      const usersWithStats = await Promise.all(usersResult.map(async (user) => {
+        // Get last login date from the most recent activity
+        const lastLoginResult = await db.execute(sql`
+          SELECT MAX(created_at) as last_login 
+          FROM (
+            SELECT created_at FROM comments WHERE user_id = ${user.id}
+            UNION ALL
+            SELECT created_at FROM reviews WHERE user_id = ${user.id}
+            UNION ALL
+            SELECT created_at FROM messages WHERE sender_id = ${user.id}
+            UNION ALL
+            SELECT created_at FROM news WHERE author_id = ${user.id}
+          ) AS activity
+        `);
+        
+        const lastLogin = lastLoginResult.rows[0].last_login ? new Date(lastLoginResult.rows[0].last_login as string) : null;
+        
+        // Count shelves for the user
+        const shelvesResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelves WHERE user_id = ${user.id}`);
+        const shelvesCount = parseInt(shelvesResult.rows[0].count as string);
+        
+        // Count books on shelves for the user
+        const booksOnShelvesResult = await db.execute(sql`
+          SELECT COUNT(*) as count 
+          FROM shelf_books 
+          WHERE shelf_id IN (
+            SELECT id FROM shelves WHERE user_id = ${user.id}
+          )
+        `);
+        const booksOnShelvesCount = parseInt(booksOnShelvesResult.rows[0].count as string);
+        
+        // Count comments for the user
+        const commentsResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE user_id = ${user.id}`);
+        const commentsCount = parseInt(commentsResult.rows[0].count as string);
+        
+        // Count reviews for the user
+        const reviewsResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE user_id = ${user.id}`);
+        const reviewsCount = parseInt(reviewsResult.rows[0].count as string);
+        
+        return {
+          ...user,
+          lastLogin: lastLogin ? lastLogin.toISOString() : null,
+          shelvesCount,
+          booksOnShelvesCount,
+          commentsCount,
+          reviewsCount,
+        };
+      }));
+      
+      return usersWithStats;
+    } catch (error) {
+      console.error("Error getting users with stats:", error);
+      throw error;
+    }
+  }
+  
+  async getRecentActivity(limit: number = 10): Promise<any[]> {
+    try {
+      // Get recent comments and reviews together, ordered by creation date
+      const recentComments = await db.select({
+        id: comments.id,
+        type: sql`'comment'`.as('type'),
+        content: comments.content,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        userId: comments.userId,
+        bookId: comments.bookId,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .orderBy(desc(comments.createdAt))
+      .limit(limit);
+      
+      const recentReviews = await db.select({
+        id: reviews.id,
+        type: sql`'review'`.as('type'),
+        content: reviews.content,
+        createdAt: reviews.createdAt,
+        updatedAt: reviews.updatedAt,
+        userId: reviews.userId,
+        bookId: reviews.bookId,
+        rating: reviews.rating,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(reviews)
+      .leftJoin(users, eq(reviews.userId, users.id))
+      .orderBy(desc(reviews.createdAt))
+      .limit(limit);
+      
+      // Combine and sort both arrays by creation date
+      const allActivity = [
+        ...recentComments.map(comment => ({
+          id: comment.id,
+          type: comment.type,
+          content: comment.content,
+          createdAt: comment.createdAt.toISOString(),
+          updatedAt: comment.updatedAt.toISOString(),
+          userId: comment.userId,
+          bookId: comment.bookId,
+          author: comment.fullName || comment.username || 'Anonymous',
+          rating: null // Comments don't have ratings
+        })),
+        ...recentReviews.map(review => ({
+          id: review.id,
+          type: review.type,
+          content: review.content,
+          createdAt: review.createdAt.toISOString(),
+          updatedAt: review.updatedAt.toISOString(),
+          userId: review.userId,
+          bookId: review.bookId,
+          author: review.fullName || review.username || 'Anonymous',
+          rating: review.rating
+        }))
+      ];
+      
+      // Sort by creation date (newest first)
+      allActivity.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // Return only the requested limit
+      return allActivity.slice(0, limit);
+    } catch (error) {
+      console.error("Error getting recent activity:", error);
+      return [];
     }
   }
 }

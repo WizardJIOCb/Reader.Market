@@ -1,12 +1,16 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { sql } from "drizzle-orm/sql";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Ollama } from "ollama";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+
+// Import db from storage module
+import { db } from './storage';
 
 // Initialize Ollama client
 const ollama = new Ollama({ host: process.env.OLLAMA_HOST || 'http://localhost:11434' });
@@ -109,6 +113,28 @@ const authenticateToken = async (req: Request, res: Response, next: Function) =>
   } catch (err) {
     console.error("Token verification error:", err);
     return res.status(403).json({ error: "Invalid token" });
+  }
+};
+
+// Middleware to check if user has admin or moder access level
+const requireAdminOrModerator = async (req: Request, res: Response, next: Function) => {
+  const userId = (req as any).user.userId;
+  
+  try {
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Check if user has admin or moder access level
+    if (user.accessLevel !== 'admin' && user.accessLevel !== 'moder') {
+      return res.status(403).json({ error: "Access denied: Admin or moderator privileges required" });
+    }
+    
+    next();
+  } catch (error) {
+    console.error("Admin access check error:", error);
+    return res.status(500).json({ error: "Failed to verify admin access" });
   }
 };
 
@@ -310,7 +336,239 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get user statistics" });
     }
   });
-
+  
+  // News endpoints
+  // Get published news
+  app.get("/api/news", async (req, res) => {
+    console.log("Get published news endpoint called");
+    try {
+      const newsItems = await storage.getPublishedNews();
+      res.json(newsItems);
+    } catch (error) {
+      console.error("Get published news error:", error);
+      res.status(500).json({ error: "Failed to get published news" });
+    }
+  });
+  
+  // Get specific news item
+  app.get("/api/news/:id", authenticateToken, async (req, res) => {
+    console.log("Get news by ID endpoint called");
+    try {
+      const { id } = req.params;
+      const newsItem = await storage.getNews(id);
+      
+      if (!newsItem) {
+        return res.status(404).json({ error: "News item not found" });
+      }
+      
+      res.json(newsItem);
+    } catch (error) {
+      console.error("Get news by ID error:", error);
+      res.status(500).json({ error: "Failed to get news item" });
+    }
+  });
+  
+  // Admin: Create news
+  app.post("/api/admin/news", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Create news endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { title, content, published } = req.body;
+      
+      if (!title || !content) {
+        return res.status(400).json({ error: "Title and content are required" });
+      }
+      
+      const newsData = {
+        title,
+        content,
+        authorId: userId,
+        published: published || false,
+        publishedAt: published ? new Date() : null
+      };
+      
+      const newsItem = await storage.createNews(newsData);
+      res.status(201).json(newsItem);
+    } catch (error) {
+      console.error("Create news error:", error);
+      res.status(500).json({ error: "Failed to create news" });
+    }
+  });
+  
+  // Admin: Update news
+  app.put("/api/admin/news/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Update news endpoint called");
+    try {
+      const { id } = req.params;
+      const { title, content, published } = req.body;
+      
+      const existingNews = await storage.getNews(id);
+      if (!existingNews) {
+        return res.status(404).json({ error: "News item not found" });
+      }
+      
+      const newsData = {
+        title: title !== undefined ? title : existingNews.title,
+        content: content !== undefined ? content : existingNews.content,
+        published: published !== undefined ? published : existingNews.published,
+        publishedAt: published ? new Date() : existingNews.publishedAt
+      };
+      
+      const updatedNews = await storage.updateNews(id, newsData);
+      res.json(updatedNews);
+    } catch (error) {
+      console.error("Update news error:", error);
+      res.status(500).json({ error: "Failed to update news" });
+    }
+  });
+  
+  // Admin: Delete news
+  app.delete("/api/admin/news/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Delete news endpoint called");
+    try {
+      const { id } = req.params;
+      
+      const existingNews = await storage.getNews(id);
+      if (!existingNews) {
+        return res.status(404).json({ error: "News item not found" });
+      }
+      
+      await storage.deleteNews(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete news error:", error);
+      res.status(500).json({ error: "Failed to delete news" });
+    }
+  });
+  
+  // Admin: Get all news (for admin panel)
+  app.get("/api/admin/news", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get all news for admin endpoint called");
+    try {
+      // Get all news items (published and unpublished)
+      const allNews = await storage.getAllNews();
+      
+      res.json(allNews);
+    } catch (error) {
+      console.error("Get all news for admin error:", error);
+      res.status(500).json({ error: "Failed to get news items" });
+    }
+  });
+  
+  // Admin: Update user access level
+  app.put("/api/admin/users/:userId/access-level", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Update user access level endpoint called");
+    try {
+      const { userId } = req.params;
+      const { accessLevel } = req.body;
+      
+      if (!accessLevel || !['admin', 'moder', 'user'].includes(accessLevel)) {
+        return res.status(400).json({ error: "Valid access level is required (admin, moder, or user)" });
+      }
+      
+      const updatedUser = await storage.updateAccessLevel(userId, accessLevel);
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Update user access level error:", error);
+      res.status(500).json({ error: "Failed to update user access level" });
+    }
+  });
+  
+  // Admin: Update any comment
+  app.put("/api/admin/comments/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Admin update comment endpoint called");
+    try {
+      const { id } = req.params;
+      const { content } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+      
+      // Admins can update any comment
+      const updatedComment = await storage.updateComment(id, { content });
+      
+      res.json(updatedComment);
+    } catch (error) {
+      console.error("Admin update comment error:", error);
+      res.status(500).json({ error: "Failed to update comment" });
+    }
+  });
+  
+  // Admin: Update any review
+  app.put("/api/admin/reviews/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Admin update review endpoint called");
+    try {
+      const { id } = req.params;
+      const { content, rating } = req.body;
+      
+      if (!content && rating === undefined) {
+        return res.status(400).json({ error: "Either content or rating is required" });
+      }
+      
+      // Admins can update any review
+      const updatedReview = await storage.updateReview(id, { content, rating });
+      
+      res.json(updatedReview);
+    } catch (error) {
+      console.error("Admin update review error:", error);
+      res.status(500).json({ error: "Failed to update review" });
+    }
+  });
+  
+  // Admin: Get pending comments
+  app.get("/api/admin/comments/pending", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get pending comments endpoint called");
+    try {
+      const allComments = await storage.getAllComments();
+      
+      res.json(allComments);
+    } catch (error) {
+      console.error("Get pending comments error:", error);
+      res.status(500).json({ error: "Failed to get pending comments" });
+    }
+  });
+  
+  // Admin: Get pending reviews
+  app.get("/api/admin/reviews/pending", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get pending reviews endpoint called");
+    try {
+      const allReviews = await storage.getAllReviews();
+      
+      res.json(allReviews);
+    } catch (error) {
+      console.error("Get pending reviews error:", error);
+      res.status(500).json({ error: "Failed to get pending reviews" });
+    }
+  });
+  
+  // Admin: Get recent activity
+  app.get("/api/admin/recent-activity", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get recent activity endpoint called");
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const activity = await storage.getRecentActivity(limit);
+      
+      // Get book titles for each activity item
+      const activityWithBooks = await Promise.all(activity.map(async (item) => {
+        const book = await storage.getBook(item.bookId);
+        return {
+          ...item,
+          bookTitle: book ? book.title : 'Unknown Book',
+          bookAuthor: book ? book.author : 'Unknown Author'
+        };
+      }));
+      
+      res.json(activityWithBooks);
+    } catch (error) {
+      console.error("Get recent activity error:", error);
+      res.status(500).json({ error: "Failed to get recent activity" });
+    }
+  });
+  
   // Shelf endpoints
   // Get all shelves for the current user
   app.get("/api/shelves", authenticateToken, async (req, res) => {
@@ -863,7 +1121,27 @@ export async function registerRoutes(
     }
   });
 
-  // Delete a comment
+  // Admin: Delete any comment
+  app.delete("/api/admin/comments/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Admin delete comment endpoint called");
+    try {
+      const { id } = req.params;
+      
+      // Admins can delete any comment
+      const success = await storage.deleteComment(id, null);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Admin delete comment error:", error);
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+  
+  // Delete a comment (user can delete their own)
   app.delete("/api/comments/:id", authenticateToken, async (req, res) => {
     console.log("Delete comment endpoint called");
     try {
@@ -1040,7 +1318,27 @@ export async function registerRoutes(
     }
   });
 
-  // Delete a review
+  // Admin: Delete any review
+  app.delete("/api/admin/reviews/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Admin delete review endpoint called");
+    try {
+      const { id } = req.params;
+      
+      // Admins can delete any review
+      const success = await storage.deleteReview(id, null);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Review not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Admin delete review error:", error);
+      res.status(500).json({ error: "Failed to delete review" });
+    }
+  });
+  
+  // Delete a review (user can delete their own)
   app.delete("/api/reviews/:id", authenticateToken, async (req, res) => {
     console.log("Delete review endpoint called");
     try {
@@ -1218,6 +1516,154 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get unread count error:", error);
       res.status(500).json({ error: "Failed to get unread messages count" });
+    }
+  });
+  
+  // Admin: Get dashboard statistics
+  app.get("/api/admin/dashboard-stats", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get dashboard stats endpoint called");
+    try {
+      // Calculate statistics for news from last month
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      
+      // Calculate statistics for comments and reviews from today
+      // We need to get the start of the current day in UTC to match the database timezone
+      const today = new Date();
+      const startOfToday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
+      
+      // For database queries, we need to ensure we're comparing the same timezone
+      // The database stores timestamps in UTC, so we need to make sure our comparison date is also in UTC
+      
+      // Get news count from last month
+      const newsFromLastMonth = await storage.getNewsCountSince(oneMonthAgo);
+      
+      // Get comments count from today
+      const commentsFromToday = await storage.getCommentsCountSince(startOfToday);
+      
+      // Get reviews count from today
+      const reviewsFromToday = await storage.getReviewsCountSince(startOfToday);
+      
+      res.json({
+        newsChange: newsFromLastMonth,
+        commentsChange: commentsFromToday,
+        reviewsChange: reviewsFromToday
+      });
+    } catch (error) {
+      console.error("Get dashboard stats error:", error);
+      res.status(500).json({ error: "Failed to get dashboard statistics" });
+    }
+  });
+  
+  // Admin: Get all users with statistics
+  app.get("/api/admin/users", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get users with stats endpoint called");
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = (page - 1) * limit;
+      
+      const users = await storage.getUsersWithStats(limit, offset);
+      
+      // Get total count for pagination
+      const totalCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+      const totalCount = parseInt(totalCountResult.rows[0].count as string);
+      
+      res.json({
+        users,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          pages: Math.ceil(totalCount / limit)
+        }
+      });
+    } catch (error) {
+      console.error("Get users with stats error:", error);
+      res.status(500).json({ error: "Failed to get users with statistics" });
+    }
+  });
+  
+  // Admin: Change user password
+  app.put("/api/admin/users/:userId/password", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Change user password endpoint called");
+    try {
+      const { userId } = req.params;
+      const { newPassword } = req.body;
+      
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters long" });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      // Update user with new password
+      const updatedUser = await storage.updateUser(userId, { password: hashedPassword });
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Change user password error:", error);
+      res.status(500).json({ error: "Failed to change user password" });
+    }
+  });
+  
+  // Admin: Generate impersonation token
+  app.post("/api/admin/users/:userId/impersonate", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Generate impersonation token endpoint called");
+    try {
+      const { userId } = req.params;
+      
+      // Check if the target user exists
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Generate a temporary token for the target user
+      const impersonationToken = jwt.sign({ 
+        userId: targetUser.id,
+        impersonatedBy: (req as any).user.userId,
+        impersonatedAt: new Date().toISOString()
+      }, process.env.JWT_SECRET || "default_secret", {
+        expiresIn: "1h" // Token expires in 1 hour
+      });
+      
+      res.json({
+        token: impersonationToken,
+        user: {
+          id: targetUser.id,
+          username: targetUser.username,
+          fullName: targetUser.fullName
+        }
+      });
+    } catch (error) {
+      console.error("Generate impersonation token error:", error);
+      res.status(500).json({ error: "Failed to generate impersonation token" });
+    }
+  });
+  
+  // Admin: Change user access level
+  app.put("/api/admin/users/:userId/access-level", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Change user access level endpoint called");
+    try {
+      const { userId } = req.params;
+      const { accessLevel } = req.body;
+      
+      // Validate access level
+      if (!['user', 'moder', 'admin'].includes(accessLevel)) {
+        return res.status(400).json({ error: "Invalid access level" });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, { accessLevel });
+      
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Change user access level error:", error);
+      res.status(500).json({ error: "Failed to change user access level" });
     }
   });
   

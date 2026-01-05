@@ -16,6 +16,8 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import BookDetail from "@/pages/BookDetail";
 import AddBook from "@/pages/AddBook";
+import AdminDashboard from "@/components/AdminDashboard";
+import UserManagement from "@/pages/UserManagement";
 import { Navbar } from "@/components/Navbar";
 
 function Router() {
@@ -33,6 +35,8 @@ function Router() {
       <Route path="/book/:bookId" component={BookDetail} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
       <Route path="/profile/:userId?" component={Profile} />
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/users" component={UserManagement} />
       <Route component={NotFound} />
     </Switch>
   );
