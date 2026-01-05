@@ -88,6 +88,14 @@ export const reviewsApi = {
   deleteReview: (reviewId: string) => apiCall(`/api/reviews/${reviewId}`, {
     method: 'DELETE',
   }),
+  // Admin-specific endpoints
+  adminUpdateReview: (reviewId: string, reviewData: any) => apiCall(`/api/admin/reviews/${reviewId}`, {
+    method: 'PUT',
+    body: JSON.stringify(reviewData),
+  }),
+  adminDeleteReview: (reviewId: string) => apiCall(`/api/admin/reviews/${reviewId}`, {
+    method: 'DELETE',
+  }),
 };
 
 export const commentsApi = {
@@ -101,6 +109,14 @@ export const commentsApi = {
     body: JSON.stringify(commentData),
   }),
   deleteComment: (commentId: string) => apiCall(`/api/comments/${commentId}`, {
+    method: 'DELETE',
+  }),
+  // Admin-specific endpoints
+  adminUpdateComment: (commentId: string, commentData: any) => apiCall(`/api/admin/comments/${commentId}`, {
+    method: 'PUT',
+    body: JSON.stringify(commentData),
+  }),
+  adminDeleteComment: (commentId: string) => apiCall(`/api/admin/comments/${commentId}`, {
     method: 'DELETE',
   }),
 };

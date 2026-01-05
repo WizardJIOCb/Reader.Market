@@ -8,6 +8,7 @@ interface User {
   fullName?: string;
   bio?: string;
   avatarUrl?: string;
+  accessLevel?: string;
 }
 
 interface AuthContextType {

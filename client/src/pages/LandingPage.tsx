@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
+import NewsBlock from '@/components/NewsBlock';
 import { 
   BookOpen, 
   Brain, 
@@ -96,6 +97,9 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      {/* News Section */}
+      <NewsBlock />
 
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 bg-muted/30">
