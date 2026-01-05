@@ -17,7 +17,7 @@ import {
 import { useAuth } from '@/lib/auth';
 
 const AdminDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [dashboardStats, setDashboardStats] = useState({
     totalNews: 0,
@@ -27,6 +27,7 @@ const AdminDashboard: React.FC = () => {
     commentsChange: 0,
     reviewsChange: 0,
   });
+  const [accessChecked, setAccessChecked] = useState(false);
   interface ActivityItem {
     id: string;
     type: 'comment' | 'review';
@@ -143,6 +144,16 @@ const AdminDashboard: React.FC = () => {
   const handleLogout = () => {
     logout();
   };
+  
+  // Refresh user data on component mount to ensure we have the latest access level
+  useEffect(() => {
+    const refreshUserData = async () => {
+      await refreshUser();
+      setAccessChecked(true);
+    };
+    
+    refreshUserData();
+  }, []); // Empty dependency array to run only once on mount
   
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -299,11 +310,23 @@ const AdminDashboard: React.FC = () => {
     fetchDashboardData();
   }, [activeTab]);
 
-  // Check if user has admin or moderator access
+  // Check if access has been verified
   const isAdmin = user?.accessLevel === 'admin';
   const isModerator = user?.accessLevel === 'moder';
   const hasAccess = isAdmin || isModerator;
 
+  if (!accessChecked) {
+    // Still checking access
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Checking access...</h2>
+          <p className="text-muted-foreground">Verifying your admin privileges</p>
+        </div>
+      </div>
+    );
+  }
+  
   if (!hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">

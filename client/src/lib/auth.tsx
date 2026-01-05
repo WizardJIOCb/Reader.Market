@@ -17,6 +17,7 @@ interface AuthContextType {
   register: (username: string, password: string, email?: string, fullName?: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   isLoading: boolean;
+  refreshUser: () => Promise<User | null>;
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -96,12 +97,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('userData');
   };
 
+  const refreshUser = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setUser(null);
+        return null;
+      }
+      
+      const response = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        localStorage.setItem('userData', JSON.stringify(userData));
+        return userData;
+      } else {
+        // If token is invalid, log the user out
+        logout();
+        return null;
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+      return null;
+    }
+  };
+
   const value: AuthContextType = {
     user,
     login,
     register,
     logout,
-    isLoading
+    isLoading,
+    refreshUser
   };
 
   return React.createElement(
