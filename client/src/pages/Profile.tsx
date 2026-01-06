@@ -326,6 +326,26 @@ export default function Profile() {
     }
   };
 
+  const handleShareProfile = async () => {
+    if (!profile) return;
+    
+    try {
+      const profileUrl = `${window.location.origin}/profile/${profile.id}`;
+      await navigator.clipboard.writeText(profileUrl);
+      
+      toast({
+        title: "Ссылка скопирована",
+        description: "Ссылка на профиль скопирована в буфер обмена"
+      });
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : 'Не удалось скопировать ссылку',
+        variant: "destructive"
+      });
+    }
+  };
+
 
   // Fetch profile data
   useEffect(() => {
@@ -502,8 +522,7 @@ export default function Profile() {
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header Navigation */}
-        <header className="flex justify-between items-center mb-8">
-          <div></div> {/* Empty div for spacing */}
+        <header className="flex items-center mb-8">
           {isOwnProfile && (
             <div className="flex gap-2">
               <input
@@ -523,20 +542,12 @@ export default function Profile() {
                 <Camera className="w-4 h-4" />
                 {avatarUploading ? 'Загрузка...' : profile.avatar ? 'Изменить аватар' : 'Добавить аватар'}
               </Button>
-              {profile.avatar && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAvatarDelete}
-                  disabled={avatarUploading}
-                  className="gap-2"
-                >
-                  <X className="w-4 h-4" />
-                  Удалить аватар
-                </Button>
-              )}
               <Button variant="outline" size="sm" onClick={handleEditProfile}>
                 Редактировать профиль
+              </Button>
+              <Button variant="outline" size="sm" className="gap-2 cursor-pointer" onClick={handleShareProfile}>
+                <Share2 className="w-4 h-4" />
+                Поделиться профилем
               </Button>
               <LogoutButton />
             </div>
@@ -586,57 +597,50 @@ export default function Profile() {
                     </Dialog>
                   )}
                 </div>
-                
-                <div className="flex gap-2 w-full sm:w-auto">
-                  {isOwnProfile && (
-                    <Button variant="outline" className="flex-1 sm:flex-none gap-2 cursor-pointer">
-                      <Share2 className="w-4 h-4" />
-                      Поделиться профилем
-                    </Button>
-                  )}
-                </div>
               </div>
             </div>
           </div>
           
           {/* Bio with HTML rendering - full width below avatar and user info */}
-          <div className="mt-6">
-            {isEditing ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Полное имя</label>
-                  <input
-                    type="text"
-                    value={editFullName}
-                    onChange={(e) => setEditFullName(e.target.value)}
-                    className="w-full p-2 border rounded-md"
-                  />
+          {(isEditing || profile.bio.trim()) && (
+            <div className="mt-6">
+              {isEditing ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Полное имя</label>
+                    <input
+                      type="text"
+                      value={editFullName}
+                      onChange={(e) => setEditFullName(e.target.value)}
+                      className="w-full p-2 border rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">О себе</label>
+                    <textarea
+                      value={editBio}
+                      onChange={(e) => setEditBio(e.target.value)}
+                      className="w-full p-2 border rounded-md min-h-[120px]"
+                      placeholder="Расскажите о себе..."
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={handleCancelEdit}>
+                      Отмена
+                    </Button>
+                    <Button onClick={handleSaveProfile}>
+                      Сохранить
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">О себе</label>
-                  <textarea
-                    value={editBio}
-                    onChange={(e) => setEditBio(e.target.value)}
-                    className="w-full p-2 border rounded-md min-h-[120px]"
-                    placeholder="Расскажите о себе..."
-                  />
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={handleCancelEdit}>
-                    Отмена
-                  </Button>
-                  <Button onClick={handleSaveProfile}>
-                    Сохранить
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div 
-                className="prose prose-sm dark:prose-invert text-foreground/90 leading-relaxed bg-muted/30 p-6 rounded-lg border w-full"
-                dangerouslySetInnerHTML={{ __html: profile.bio.replace(/\n/g, '<br/>') }}
-              />
-            )}
-          </div>
+              ) : (
+                <div 
+                  className="prose prose-sm dark:prose-invert text-foreground/90 leading-relaxed bg-muted/30 p-6 rounded-lg border w-full"
+                  dangerouslySetInnerHTML={{ __html: profile.bio.replace(/\n/g, '<br/>') }}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -727,7 +731,7 @@ export default function Profile() {
                 {shelf.bookIds.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Полка пуста</p>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {shelf.books?.map((book: Book) => (
                       <BookCard 
                         key={book.id} 
