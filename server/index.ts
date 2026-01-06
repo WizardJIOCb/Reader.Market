@@ -11,7 +11,14 @@ const httpServer = createServer(app);
 // Add CORS middleware
 app.use((req, res, next) => {
   console.log(`CORS middleware: ${req.method} ${req.path}`);
-  res.header('Access-Control-Allow-Origin', '*');
+  // Allow requests from Vite dev server (3001) and any other origin
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   
@@ -31,7 +38,9 @@ declare module "http" {
 // JSON middleware with exclusion for file upload endpoints
 app.use((req, res, next) => {
   // Skip JSON parsing for file upload endpoints
-  if (req.path === '/api/books/upload' && req.method === 'POST') {
+  if ((req.path === '/api/books/upload' && req.method === 'POST') ||
+      (req.path === '/api/profile/avatar' && req.method === 'POST')) {
+    console.log(`Skipping JSON parsing for file upload: ${req.method} ${req.path}`);
     return next();
   }
   

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRoute, Link } from 'wouter';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,9 @@ import {
   ArrowLeft,
   Mail,
   MoreVertical,
-  User
+  User,
+  Camera,
+  X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -104,6 +106,8 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editBio, setEditBio] = useState('');
   const [editFullName, setEditFullName] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Determine if viewing own profile
   const isOwnProfile = currentUser?.id === userId;
@@ -196,6 +200,129 @@ export default function Profile() {
     if (profile) {
       setEditBio(profile.bio);
       setEditFullName(profile.name);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Ошибка",
+        description: "Пожалуйста, загрузите изображение в формате JPEG, PNG, GIF или WebP",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Ошибка",
+        description: "Размер файла не должен превышать 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setAvatarUploading(true);
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      // Use direct backend URL in development to bypass Vite proxy for file uploads
+      // Vite proxy doesn't handle multipart/form-data well
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:5001/api/profile/avatar'
+        : '/api/profile/avatar';
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload avatar');
+      }
+
+      const updatedUser = await response.json();
+      
+      // Update profile with new avatar
+      if (profile) {
+        setProfile({
+          ...profile,
+          avatar: updatedUser.avatarUrl || ''
+        });
+      }
+
+      toast({
+        title: "Аватар обновлен",
+        description: "Ваш аватар успешно загружен"
+      });
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : 'Не удалось загрузить аватар',
+        variant: "destructive"
+      });
+    } finally {
+      setAvatarUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleAvatarDelete = async () => {
+    if (!profile?.avatar) return;
+
+    try {
+      setAvatarUploading(true);
+
+      // Use direct backend URL in development to bypass Vite proxy
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:5001/api/profile/avatar'
+        : '/api/profile/avatar';
+
+      const response = await fetch(apiUrl, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete avatar');
+      }
+
+      // Update profile to remove avatar
+      setProfile({
+        ...profile,
+        avatar: ''
+      });
+
+      toast({
+        title: "Аватар удален",
+        description: "Ваш аватар успешно удален"
+      });
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : 'Не удалось удалить аватар',
+        variant: "destructive"
+      });
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -379,6 +506,35 @@ export default function Profile() {
           <div></div> {/* Empty div for spacing */}
           {isOwnProfile && (
             <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="gap-2"
+              >
+                <Camera className="w-4 h-4" />
+                {avatarUploading ? 'Загрузка...' : profile.avatar ? 'Изменить аватар' : 'Добавить аватар'}
+              </Button>
+              {profile.avatar && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAvatarDelete}
+                  disabled={avatarUploading}
+                  className="gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Удалить аватар
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={handleEditProfile}>
                 Редактировать профиль
               </Button>
@@ -390,9 +546,9 @@ export default function Profile() {
         {/* Profile Header */}
         <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex flex-col items-start">
+            <div className="flex flex-col items-start relative group">
               <Avatar className="w-32 h-32 border-4 border-background shadow-xl flex-shrink-0">
-                <AvatarImage src={profile.avatar} />
+                <AvatarImage src={profile.avatar} alt={profile.name} />
                 <AvatarFallback className="bg-muted flex items-center justify-center">
                   <User className="w-16 h-16 text-muted-foreground" />
                 </AvatarFallback>

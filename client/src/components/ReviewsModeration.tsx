@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { User } from 'lucide-react';
 import { apiCall, reviewsApi } from '@/lib/api';
 
 interface Review {
   id: string;
   content: string;
   author: string;
+  userId?: string;
+  avatarUrl?: string | null;
   rating: number;
   bookId: string;
   bookTitle?: string;
@@ -142,21 +146,41 @@ const ReviewsModeration: React.FC = () => {
               {reviews.map((review) => (
                 <div key={review.id} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center">
-                        <span className="font-medium">{review.author}</span>
-                        <span className="mx-2 text-muted-foreground">•</span>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(review.createdAt).toLocaleDateString()}
-                        </span>
-                        <span className="mx-2 text-muted-foreground">•</span>
-                        <span className="text-sm font-medium text-yellow-600">
-                          Rating: {review.rating}/10
-                        </span>
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        Book: <span className="font-medium">{review.bookTitle || 'Unknown Book'}</span>
-                      </div>
+                    <div className="flex items-start gap-3 flex-1">
+                      <Avatar className="w-8 h-8 flex-shrink-0">
+                        {review.avatarUrl ? (
+                          <AvatarImage src={review.avatarUrl} alt={review.author} />
+                        ) : null}
+                        <AvatarFallback>
+                          <User className="w-4 h-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center">
+                          {review.userId ? (
+                            <a
+                              href={`/profile/${review.userId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {review.author}
+                            </a>
+                          ) : (
+                            <span className="font-medium">{review.author}</span>
+                          )}
+                          <span className="mx-2 text-muted-foreground">•</span>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(review.createdAt).toLocaleDateString()}
+                          </span>
+                          <span className="mx-2 text-muted-foreground">•</span>
+                          <span className="text-sm font-medium text-yellow-600">
+                            Rating: {review.rating}/10
+                          </span>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Book: <span className="font-medium">{review.bookTitle || 'Unknown Book'}</span>
+                        </div>
                       {editingReview && editingReview.id === review.id ? (
                         <div className="mt-2">
                           <div className="mb-2">
@@ -221,6 +245,7 @@ const ReviewsModeration: React.FC = () => {
                           </div>
                         </div>
                       )}
+                      </div>
                     </div>
                   </div>
                 </div>

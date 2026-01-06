@@ -67,6 +67,7 @@ interface Comment {
   createdAt: string;
   reactions: Reaction[];
   userId?: string;
+  avatarUrl?: string | null;
 }
 
 interface Review {
@@ -78,6 +79,7 @@ interface Review {
   createdAt: string;
   reactions: Reaction[];
   userId?: string;
+  avatarUrl?: string | null;
 }
 
 interface Reaction {
@@ -891,13 +893,27 @@ export default function BookDetail() {
                   <div key={comment.id} className="border-b pb-6 last:border-0 last:pb-0">
                     <div className="flex items-start gap-3">
                       <Avatar className="w-10 h-10">
+                        {comment.avatarUrl ? (
+                          <AvatarImage src={comment.avatarUrl} alt={comment.author} />
+                        ) : null}
                         <AvatarFallback>
                           <User className="w-5 h-5" />
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-sm">{comment.author}</p>
+                          {comment.userId ? (
+                            <a
+                              href={`/profile/${comment.userId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-sm text-primary hover:underline"
+                            >
+                              {comment.author}
+                            </a>
+                          ) : (
+                            <p className="font-medium text-sm">{comment.author}</p>
+                          )}
                           {user?.id && (((comment.userId === user.id) ||
                             (comment.author && user.fullName && comment.author.includes(user.fullName)) ||
                             (comment.author && user.username && comment.author.includes(user.username))) ||
@@ -1022,13 +1038,27 @@ export default function BookDetail() {
                           <div key={review.id} className="border-b pb-6 last:border-0 last:pb-0">
                             <div className="flex items-start gap-3">
                               <Avatar className="w-10 h-10">
+                                {review.avatarUrl ? (
+                                  <AvatarImage src={review.avatarUrl} alt={review.author} />
+                                ) : null}
                                 <AvatarFallback>
                                   <User className="w-5 h-5" />
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <p className="font-medium text-sm">{review.author}</p>
+                                  {review.userId ? (
+                                    <a
+                                      href={`/profile/${review.userId}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="font-medium text-sm text-primary hover:underline"
+                                    >
+                                      {review.author}
+                                    </a>
+                                  ) : (
+                                    <p className="font-medium text-sm">{review.author}</p>
+                                  )}
                                   <div className="flex items-center gap-1">
                                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                                     <span className="text-sm font-medium">{review.rating}/10</span>

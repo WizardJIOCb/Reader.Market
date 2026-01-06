@@ -71,6 +71,48 @@ const upload = multer({
   }
 });
 
+// Configure multer specifically for avatar uploads
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Create avatars directory if it doesn't exist
+    const avatarDir = path.join(process.cwd(), 'uploads', 'avatars');
+    if (!fs.existsSync(avatarDir)) {
+      fs.mkdirSync(avatarDir, { recursive: true });
+    }
+    cb(null, avatarDir);
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename: userId-timestamp.ext
+    const userId = (req as any).user?.userId || 'unknown';
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    cb(null, `${userId}-${timestamp}${ext}`);
+  }
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit for avatars
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedImageTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ];
+    
+    if (allowedImageTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      const error = new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.');
+      (error as any).code = 'INVALID_FILE_TYPE';
+      cb(error);
+    }
+  }
+});
+
 // Helper function to generate JWT token
 const generateToken = (userId: string) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET || "default_secret", {
@@ -304,6 +346,122 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Update profile error:", error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+  
+  // Upload user avatar
+  app.post("/api/profile/avatar", authenticateToken, (req, res, next) => {
+    console.log("Avatar upload middleware - starting multer");
+    avatarUpload.single('avatar')(req, res, (err) => {
+      if (err) {
+        console.error("Multer error:", err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File size exceeds 5MB limit' });
+        }
+        if (err.code === 'INVALID_FILE_TYPE') {
+          return res.status(400).json({ error: err.message });
+        }
+        return res.status(400).json({ error: 'File upload failed: ' + err.message });
+      }
+      console.log("Multer processing complete, file:", req.file);
+      next();
+    });
+  }, async (req, res) => {
+    console.log("Upload avatar endpoint called");
+    console.log("Request headers:", req.headers);
+    console.log("Request file:", req.file);
+    
+    try {
+      const userId = (req as any).user.userId;
+      
+      if (!req.file) {
+        console.error("No file uploaded in request");
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      console.log("File uploaded successfully:", req.file.filename);
+      
+      // Get current user to check for old avatar
+      const user = await storage.getUser(userId);
+      if (!user) {
+        console.error("User not found:", userId);
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Delete old avatar file if it exists
+      if (user.avatarUrl) {
+        const oldAvatarPath = path.join(process.cwd(), user.avatarUrl);
+        if (fs.existsSync(oldAvatarPath)) {
+          try {
+            fs.unlinkSync(oldAvatarPath);
+            console.log("Old avatar deleted:", oldAvatarPath);
+          } catch (err) {
+            console.error("Error deleting old avatar:", err);
+            // Continue even if old file deletion fails
+          }
+        }
+      }
+      
+      // Generate relative URL path for the avatar
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      console.log("Updating user with avatar URL:", avatarUrl);
+      
+      // Update user with new avatar URL
+      const updatedUser = await storage.updateUser(userId, { avatarUrl });
+      
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      console.log("Avatar upload successful, returning user data");
+      return res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Upload avatar error:", error);
+      
+      // Clean up uploaded file if database update fails
+      if (req.file && req.file.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (err) {
+          console.error("Error cleaning up uploaded file:", err);
+        }
+      }
+      
+      return res.status(500).json({ error: "Failed to upload avatar" });
+    }
+  });
+  
+  // Delete user avatar
+  app.delete("/api/profile/avatar", authenticateToken, async (req, res) => {
+    console.log("Delete avatar endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      
+      // Get current user to check for avatar
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Delete avatar file if it exists
+      if (user.avatarUrl) {
+        const avatarPath = path.join(process.cwd(), user.avatarUrl);
+        if (fs.existsSync(avatarPath)) {
+          try {
+            fs.unlinkSync(avatarPath);
+            console.log("Avatar deleted:", avatarPath);
+          } catch (err) {
+            console.error("Error deleting avatar file:", err);
+            // Continue even if file deletion fails
+          }
+        }
+      }
+      
+      // Update user to remove avatar URL
+      const updatedUser = await storage.updateUser(userId, { avatarUrl: null });
+      
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Delete avatar error:", error);
+      res.status(500).json({ error: "Failed to delete avatar" });
     }
   });
   
@@ -1581,13 +1739,59 @@ export async function registerRoutes(
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const search = req.query.search as string || '';
       const offset = (page - 1) * limit;
       
-      const users = await storage.getUsersWithStats(limit, offset);
+      let users;
+      let totalCount;
       
-      // Get total count for pagination
-      const totalCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
-      const totalCount = parseInt(totalCountResult.rows[0].count as string);
+      if (search) {
+        // Search users by username, full name, or email
+        const searchPattern = `%${search}%`;
+        const usersResult = await db.execute(sql`
+          SELECT 
+            u.id,
+            u.username,
+            u.full_name as "fullName",
+            u.email,
+            u.access_level as "accessLevel",
+            u.created_at as "createdAt",
+            u.updated_at as "lastLogin",
+            COUNT(DISTINCT s.id) as "shelvesCount",
+            COUNT(DISTINCT sb.book_id) as "booksOnShelvesCount",
+            COUNT(DISTINCT c.id) as "commentsCount",
+            COUNT(DISTINCT r.id) as "reviewsCount"
+          FROM users u
+          LEFT JOIN shelves s ON u.id = s.user_id
+          LEFT JOIN shelf_books sb ON s.id = sb.shelf_id
+          LEFT JOIN comments c ON u.id = c.user_id
+          LEFT JOIN reviews r ON u.id = r.user_id
+          WHERE 
+            LOWER(u.username) LIKE LOWER(${searchPattern}) OR
+            LOWER(u.full_name) LIKE LOWER(${searchPattern}) OR
+            LOWER(u.email) LIKE LOWER(${searchPattern})
+          GROUP BY u.id
+          ORDER BY u.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `);
+        
+        users = usersResult.rows;
+        
+        const countResult = await db.execute(sql`
+          SELECT COUNT(*) as count FROM users
+          WHERE 
+            LOWER(username) LIKE LOWER(${searchPattern}) OR
+            LOWER(full_name) LIKE LOWER(${searchPattern}) OR
+            LOWER(email) LIKE LOWER(${searchPattern})
+        `);
+        totalCount = parseInt(countResult.rows[0].count as string);
+      } else {
+        users = await storage.getUsersWithStats(limit, offset);
+        
+        // Get total count for pagination
+        const totalCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+        totalCount = parseInt(totalCountResult.rows[0].count as string);
+      }
       
       res.json({
         users,
@@ -1601,6 +1805,31 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get users with stats error:", error);
       res.status(500).json({ error: "Failed to get users with statistics" });
+    }
+  });
+  
+  // Admin: Update user
+  app.put("/api/admin/users/:userId", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Update user endpoint called");
+    try {
+      const { userId } = req.params;
+      const { username, fullName, email, bio } = req.body;
+      
+      // Build update object
+      const updateData: any = {};
+      if (username) updateData.username = username;
+      if (fullName !== undefined) updateData.fullName = fullName;
+      if (email !== undefined) updateData.email = email;
+      if (bio !== undefined) updateData.bio = bio;
+      
+      const updatedUser = await storage.updateUser(userId, updateData);
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({ error: "Failed to update user" });
     }
   });
   
@@ -1685,6 +1914,190 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Change user access level error:", error);
       res.status(500).json({ error: "Failed to change user access level" });
+    }
+  });
+  
+  // Admin: Get all books with pagination and search
+  app.get("/api/admin/books", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get all books (admin) endpoint called");
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string || '';
+      const sortBy = req.query.sortBy as string || 'uploadedAt';
+      const sortOrder = req.query.sortOrder as string || 'desc';
+      const offset = (page - 1) * limit;
+      
+      const { books, total } = await storage.getAllBooksWithUploader(limit, offset, search, sortBy, sortOrder);
+      
+      res.json({
+        books,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      });
+    } catch (error) {
+      console.error("Get all books (admin) error:", error);
+      res.status(500).json({ error: "Failed to get books" });
+    }
+  });
+  
+  // Admin: Update book
+  app.put("/api/admin/books/:id", authenticateToken, requireAdminOrModerator, (req, res, next) => {
+    upload.fields([{ name: 'coverImage', maxCount: 1 }, { name: 'bookFile', maxCount: 1 }])(req, res, (err) => {
+      if (err) {
+        console.error("Multer error:", err);
+        if (err.message === 'Unexpected field') {
+          return res.status(400).json({ error: `Unexpected file field. Only 'coverImage' and 'bookFile' are allowed.` });
+        }
+        return res.status(400).json({ error: err.message || 'File upload error' });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    console.log("Update book (admin) endpoint called");
+    console.log("Request files:", req.files);
+    console.log("Request body:", req.body);
+    try {
+      const { id } = req.params;
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      
+      // Check if book exists
+      const book = await storage.getBook(id);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Prepare update data
+      const updateData: any = {};
+      
+      if (req.body.title) updateData.title = req.body.title;
+      if (req.body.author) updateData.author = req.body.author;
+      if (req.body.description !== undefined) updateData.description = req.body.description;
+      if (req.body.genre !== undefined) updateData.genre = req.body.genre;
+      if (req.body.publishedYear) updateData.publishedYear = parseInt(req.body.publishedYear);
+      if (req.body.publishedAt) updateData.publishedAt = new Date(req.body.publishedAt);
+      
+      // Handle cover image update
+      if (files && files.coverImage && files.coverImage[0]) {
+        // Delete old cover image if it exists
+        if (book.coverImageUrl) {
+          const oldCoverPath = path.join(process.cwd(), book.coverImageUrl);
+          if (fs.existsSync(oldCoverPath)) {
+            try {
+              fs.unlinkSync(oldCoverPath);
+            } catch (error) {
+              console.error("Error deleting old cover image:", error);
+              // Don't fail the update if old image deletion fails
+            }
+          }
+        }
+        
+        // Save new cover image path
+        updateData.coverImageUrl = '/uploads/' + files.coverImage[0].filename;
+      }
+      
+      // Handle book file update
+      if (files && files.bookFile && files.bookFile[0]) {
+        const bookFile = files.bookFile[0];
+        
+        // Delete old book file if it exists
+        if (book.filePath) {
+          const oldBookPath = path.join(process.cwd(), book.filePath);
+          if (fs.existsSync(oldBookPath)) {
+            try {
+              fs.unlinkSync(oldBookPath);
+            } catch (error) {
+              console.error("Error deleting old book file:", error);
+              // Don't fail the update if old file deletion fails
+            }
+          }
+        }
+        
+        // Save new book file path and metadata
+        updateData.filePath = '/uploads/' + bookFile.filename;
+        updateData.fileSize = bookFile.size;
+        updateData.fileType = bookFile.mimetype;
+      }
+      
+      // Validate required fields if provided
+      if (updateData.title && !updateData.title.trim()) {
+        return res.status(400).json({ error: "Title cannot be empty" });
+      }
+      if (updateData.author && !updateData.author.trim()) {
+        return res.status(400).json({ error: "Author cannot be empty" });
+      }
+      if (updateData.publishedYear) {
+        const currentYear = new Date().getFullYear();
+        if (updateData.publishedYear < 1000 || updateData.publishedYear > currentYear) {
+          return res.status(400).json({ error: `Year must be between 1000 and ${currentYear}` });
+        }
+      }
+      
+      const updatedBook = await storage.updateBookAdmin(id, updateData);
+      
+      if (!updatedBook) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      res.json(updatedBook);
+    } catch (error) {
+      console.error("Update book (admin) error:", error);
+      res.status(500).json({ error: "Failed to update book" });
+    }
+  });
+  
+  // Admin: Delete book
+  app.delete("/api/admin/books/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Delete book (admin) endpoint called");
+    try {
+      const { id } = req.params;
+      
+      // Get book details before deletion for file cleanup
+      const book = await storage.getBook(id);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Delete the book and all related data from database
+      const success = await storage.deleteBookAdmin(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Delete physical files
+      if (book.filePath) {
+        const bookFilePath = path.join(process.cwd(), book.filePath);
+        if (fs.existsSync(bookFilePath)) {
+          try {
+            fs.unlinkSync(bookFilePath);
+          } catch (error) {
+            console.error("Error deleting book file:", error);
+            // Don't fail if file deletion fails
+          }
+        }
+      }
+      
+      if (book.coverImageUrl) {
+        const coverPath = path.join(process.cwd(), book.coverImageUrl);
+        if (fs.existsSync(coverPath)) {
+          try {
+            fs.unlinkSync(coverPath);
+          } catch (error) {
+            console.error("Error deleting cover image:", error);
+            // Don't fail if file deletion fails
+          }
+        }
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete book (admin) error:", error);
+      res.status(500).json({ error: "Failed to delete book" });
     }
   });
   

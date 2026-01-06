@@ -24,6 +24,7 @@ interface Comment {
   createdAt: string;
   reactions: Reaction[];
   userId?: string; // Add userId to determine ownership
+  avatarUrl?: string | null; // Add avatarUrl for displaying user avatar
 }
 
 interface CommentsProps {
@@ -257,6 +258,9 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     <div className="space-y-8">
       <div className="flex gap-4">
         <Avatar>
+          {user?.avatarUrl ? (
+            <AvatarImage src={user.avatarUrl} alt={user.fullName || user.username} />
+          ) : null}
           <AvatarFallback>Вы</AvatarFallback>
         </Avatar>
         <div className="flex-1 space-y-2">
@@ -288,11 +292,25 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
           comments.map((comment) => (
             <div key={comment.id} className="flex gap-4 group animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Avatar className="w-10 h-10 border">
+                {comment.avatarUrl ? (
+                  <AvatarImage src={comment.avatarUrl} alt={comment.author} />
+                ) : null}
                 <AvatarFallback>{comment.author[0]}</AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold text-sm">{comment.author}</span>
+                  {comment.userId ? (
+                    <a
+                      href={`/profile/${comment.userId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-sm text-primary hover:underline"
+                    >
+                      {comment.author}
+                    </a>
+                  ) : (
+                    <span className="font-semibold text-sm">{comment.author}</span>
+                  )}
                   {user && comment.userId === user.id && (
                     <button 
                       onClick={() => handleDeleteComment(comment.id)}

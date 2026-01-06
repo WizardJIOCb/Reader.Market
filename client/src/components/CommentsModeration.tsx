@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { User } from 'lucide-react';
 import { apiCall, commentsApi } from '@/lib/api';
 
 interface Comment {
   id: string;
   content: string;
   author: string;
+  userId?: string;
+  avatarUrl?: string | null;
   bookId: string;
   bookTitle?: string;
   createdAt: string;
@@ -141,17 +145,37 @@ const CommentsModeration: React.FC = () => {
               {comments.map((comment) => (
                 <div key={comment.id} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center">
-                        <span className="font-medium">{comment.author}</span>
-                        <span className="mx-2 text-muted-foreground">•</span>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(comment.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        Book: <span className="font-medium">{comment.bookTitle || 'Unknown Book'}</span>
-                      </div>
+                    <div className="flex items-start gap-3 flex-1">
+                      <Avatar className="w-8 h-8 flex-shrink-0">
+                        {comment.avatarUrl ? (
+                          <AvatarImage src={comment.avatarUrl} alt={comment.author} />
+                        ) : null}
+                        <AvatarFallback>
+                          <User className="w-4 h-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center">
+                          {comment.userId ? (
+                            <a
+                              href={`/profile/${comment.userId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {comment.author}
+                            </a>
+                          ) : (
+                            <span className="font-medium">{comment.author}</span>
+                          )}
+                          <span className="mx-2 text-muted-foreground">•</span>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(comment.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Book: <span className="font-medium">{comment.bookTitle || 'Unknown Book'}</span>
+                        </div>
                       {editingComment && editingComment.id === comment.id ? (
                         <div className="mt-2">
                           <textarea
@@ -205,6 +229,7 @@ const CommentsModeration: React.FC = () => {
                           </div>
                         </div>
                       )}
+                      </div>
                     </div>
                   </div>
                 </div>

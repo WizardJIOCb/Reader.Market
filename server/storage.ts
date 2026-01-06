@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news } from "@shared/schema";
-import { eq, and, inArray, desc, sql } from "drizzle-orm/sql";
+import { eq, and, inArray, desc, asc, sql } from "drizzle-orm";
 
 // Database connection
 console.log("Connecting to database with URL:", process.env.DATABASE_URL);
@@ -117,6 +117,11 @@ export interface IStorage {
   getNewsCountSince(date: Date): Promise<number>;
   getCommentsCountSince(date: Date): Promise<number>;
   getReviewsCountSince(date: Date): Promise<number>;
+  
+  // Admin book operations
+  getAllBooksWithUploader(limit: number, offset: number, search?: string, sortBy?: string, sortOrder?: string): Promise<{books: any[], total: number}>;
+  updateBookAdmin(id: string, bookData: any): Promise<any>;
+  deleteBookAdmin(id: string): Promise<boolean>;
 }
 
 export class DBStorage implements IStorage {
@@ -1502,7 +1507,8 @@ export class DBStorage implements IStorage {
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(comments)
       .leftJoin(users, eq(comments.userId, users.id))
@@ -1518,6 +1524,7 @@ export class DBStorage implements IStorage {
         createdAt: comment.createdAt.toISOString(),
         updatedAt: comment.updatedAt.toISOString(),
         author: comment.fullName || comment.username || 'Anonymous',
+        avatarUrl: comment.avatarUrl || null,
         reactions: []
       }));
     } catch (error) {
@@ -1537,7 +1544,8 @@ export class DBStorage implements IStorage {
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(comments)
       .leftJoin(users, eq(comments.userId, users.id))
@@ -1552,6 +1560,7 @@ export class DBStorage implements IStorage {
         createdAt: comment.createdAt.toISOString(),
         updatedAt: comment.updatedAt.toISOString(),
         author: comment.fullName || comment.username || 'Anonymous',
+        avatarUrl: comment.avatarUrl || null,
         reactions: []
       }));
     } catch (error) {
@@ -1723,7 +1732,8 @@ export class DBStorage implements IStorage {
         createdAt: reviews.createdAt,
         updatedAt: reviews.updatedAt,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(reviews)
       .leftJoin(users, eq(reviews.userId, users.id))
@@ -1740,6 +1750,7 @@ export class DBStorage implements IStorage {
         createdAt: review.createdAt.toISOString(),
         updatedAt: review.updatedAt.toISOString(),
         author: review.fullName || review.username || 'Anonymous',
+        avatarUrl: review.avatarUrl || null,
         reactions: []
       }));
     } catch (error) {
@@ -1760,7 +1771,8 @@ export class DBStorage implements IStorage {
         createdAt: reviews.createdAt,
         updatedAt: reviews.updatedAt,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(reviews)
       .leftJoin(users, eq(reviews.userId, users.id))
@@ -1776,6 +1788,7 @@ export class DBStorage implements IStorage {
         createdAt: review.createdAt.toISOString(),
         updatedAt: review.updatedAt.toISOString(),
         author: review.fullName || review.username || 'Anonymous',
+        avatarUrl: review.avatarUrl || null,
         reactions: []
       }));
     } catch (error) {
@@ -2354,7 +2367,8 @@ export class DBStorage implements IStorage {
         createdAt: news.createdAt,
         updatedAt: news.updatedAt,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(news)
       .leftJoin(users, eq(news.authorId, users.id))
@@ -2371,7 +2385,8 @@ export class DBStorage implements IStorage {
         publishedAt: item.publishedAt?.toISOString() || null,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
-        author: item.fullName || item.username || 'Anonymous'
+        author: item.fullName || item.username || 'Anonymous',
+        avatarUrl: item.avatarUrl || null
       }));
     } catch (error) {
       console.error("Error getting published news:", error);
@@ -2392,7 +2407,8 @@ export class DBStorage implements IStorage {
         createdAt: news.createdAt,
         updatedAt: news.updatedAt,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(news)
       .leftJoin(users, eq(news.authorId, users.id))
@@ -2408,7 +2424,8 @@ export class DBStorage implements IStorage {
         publishedAt: item.publishedAt?.toISOString() || null,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
-        author: item.fullName || item.username || 'Anonymous'
+        author: item.fullName || item.username || 'Anonymous',
+        avatarUrl: item.avatarUrl || null
       }));
     } catch (error) {
       console.error("Error getting all news:", error);
@@ -2465,6 +2482,7 @@ export class DBStorage implements IStorage {
         username: users.username,
         fullName: users.fullName,
         email: users.email,
+        avatarUrl: users.avatarUrl,
         accessLevel: users.accessLevel,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
@@ -2543,7 +2561,8 @@ export class DBStorage implements IStorage {
         userId: comments.userId,
         bookId: comments.bookId,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(comments)
       .leftJoin(users, eq(comments.userId, users.id))
@@ -2560,7 +2579,8 @@ export class DBStorage implements IStorage {
         bookId: reviews.bookId,
         rating: reviews.rating,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(reviews)
       .leftJoin(users, eq(reviews.userId, users.id))
@@ -2578,6 +2598,7 @@ export class DBStorage implements IStorage {
           userId: comment.userId,
           bookId: comment.bookId,
           author: comment.fullName || comment.username || 'Anonymous',
+          avatarUrl: comment.avatarUrl || null,
           rating: null // Comments don't have ratings
         })),
         ...recentReviews.map(review => ({
@@ -2589,6 +2610,7 @@ export class DBStorage implements IStorage {
           userId: review.userId,
           bookId: review.bookId,
           author: review.fullName || review.username || 'Anonymous',
+          avatarUrl: review.avatarUrl || null,
           rating: review.rating
         }))
       ];
@@ -2601,6 +2623,170 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting recent activity:", error);
       return [];
+    }
+  }
+
+  // Admin book operations
+  async getAllBooksWithUploader(limit: number, offset: number, search?: string, sortBy?: string, sortOrder?: string): Promise<{books: any[], total: number}> {
+    try {
+      let query = db
+        .select({
+          id: books.id,
+          title: books.title,
+          author: books.author,
+          description: books.description,
+          coverImageUrl: books.coverImageUrl,
+          filePath: books.filePath,
+          fileSize: books.fileSize,
+          fileType: books.fileType,
+          genre: books.genre,
+          publishedYear: books.publishedYear,
+          rating: books.rating,
+          userId: books.userId,
+          uploaderUsername: users.username,
+          uploaderFullName: users.fullName,
+          uploadedAt: books.uploadedAt,
+          publishedAt: books.publishedAt,
+          createdAt: books.createdAt,
+          updatedAt: books.updatedAt
+        })
+        .from(books)
+        .leftJoin(users, eq(books.userId, users.id));
+
+      // Apply search filter if provided
+      if (search && search.trim()) {
+        const searchPattern = `%${search.trim()}%`;
+        query = query.where(
+          sql`LOWER(${books.title}) LIKE LOWER(${searchPattern}) 
+           OR LOWER(${books.author}) LIKE LOWER(${searchPattern}) 
+           OR LOWER(${books.genre}) LIKE LOWER(${searchPattern})`
+        ) as any;
+      }
+
+      // Get total count
+      const countQuery = search && search.trim() 
+        ? db.select({ count: sql<number>`count(*)` })
+            .from(books)
+            .where(
+              sql`LOWER(${books.title}) LIKE LOWER(${'%' + search.trim() + '%'}) 
+               OR LOWER(${books.author}) LIKE LOWER(${'%' + search.trim() + '%'}) 
+               OR LOWER(${books.genre}) LIKE LOWER(${'%' + search.trim() + '%'})`
+            )
+        : db.select({ count: sql<number>`count(*)` }).from(books);
+      
+      const totalResult = await countQuery;
+      const total = Number(totalResult[0]?.count || 0);
+
+      // Apply sorting
+      const sortColumn = sortBy === 'title' ? books.title 
+                       : sortBy === 'rating' ? books.rating 
+                       : books.uploadedAt;
+      const sortDirection = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+      
+      query = query.orderBy(sortDirection) as any;
+
+      // Apply pagination
+      const result = await query.limit(limit).offset(offset);
+
+      // Format the results
+      const formattedBooks = result.map(book => ({
+        ...book,
+        rating: book.rating !== null && book.rating !== undefined ? 
+          (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+          null,
+        uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+        publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+        createdAt: book.createdAt.toISOString(),
+        updatedAt: book.updatedAt.toISOString()
+      }));
+
+      return {
+        books: formattedBooks,
+        total
+      };
+    } catch (error) {
+      console.error("Error getting all books with uploader:", error);
+      throw error;
+    }
+  }
+
+  async updateBookAdmin(id: string, bookData: any): Promise<any> {
+    try {
+      const updateData: any = {
+        ...bookData,
+        updatedAt: new Date()
+      };
+
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
+      const result = await db.update(books)
+        .set(updateData)
+        .where(eq(books.id, id))
+        .returning();
+
+      if (result.length === 0) {
+        return null;
+      }
+
+      return result[0];
+    } catch (error) {
+      console.error("Error updating book (admin):", error);
+      throw error;
+    }
+  }
+
+  async deleteBookAdmin(id: string): Promise<boolean> {
+    try {
+      // Delete in the correct order to respect foreign key constraints
+      
+      // 1. Delete reactions on comments and reviews for this book
+      const bookComments = await db.select({ id: comments.id }).from(comments).where(eq(comments.bookId, id));
+      const bookReviews = await db.select({ id: reviews.id }).from(reviews).where(eq(reviews.bookId, id));
+      
+      const commentIds = bookComments.map(c => c.id);
+      const reviewIds = bookReviews.map(r => r.id);
+      
+      if (commentIds.length > 0) {
+        await db.delete(reactions).where(sql`${reactions.commentId} IN (${sql.join(commentIds.map(id => sql`${id}`), sql`, `)})`);
+      }
+      
+      if (reviewIds.length > 0) {
+        await db.delete(reactions).where(sql`${reactions.reviewId} IN (${sql.join(reviewIds.map(id => sql`${id}`), sql`, `)})`);
+      }
+
+      // 2. Delete comments
+      await db.delete(comments).where(eq(comments.bookId, id));
+
+      // 3. Delete reviews
+      await db.delete(reviews).where(eq(reviews.bookId, id));
+
+      // 4. Delete bookmarks
+      await db.delete(bookmarks).where(eq(bookmarks.bookId, id));
+
+      // 5. Delete reading statistics
+      await db.delete(readingStatistics).where(eq(readingStatistics.bookId, id));
+
+      // 6. Delete reading progress
+      await db.delete(readingProgress).where(eq(readingProgress.bookId, id));
+
+      // 7. Delete book view statistics
+      await db.delete(bookViewStatistics).where(eq(bookViewStatistics.bookId, id));
+
+      // 8. Delete shelf associations
+      await db.delete(shelfBooks).where(eq(shelfBooks.bookId, id));
+
+      // 9. Finally delete the book itself
+      const result = await db.delete(books).where(eq(books.id, id)).returning();
+
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting book (admin):", error);
+      throw error;
     }
   }
 }

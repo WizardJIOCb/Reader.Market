@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { User } from 'lucide-react';
 import { apiCall } from '@/lib/api';
 
 interface NewsItem {
@@ -7,6 +9,8 @@ interface NewsItem {
   title: string;
   content: string;
   author: string;
+  authorId: string;
+  avatarUrl?: string | null;
   createdAt: string;
   publishedAt: string | null;
 }
@@ -90,10 +94,29 @@ const NewsBlock: React.FC = () => {
               <Card key={newsItem.id}>
                 <CardHeader>
                   <CardTitle>{newsItem.title}</CardTitle>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <span>By {newsItem.author}</span>
-                    <span className="mx-2">•</span>
-                    <span>{new Date(newsItem.createdAt).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <Avatar className="w-8 h-8">
+                      {newsItem.avatarUrl ? (
+                        <AvatarImage src={newsItem.avatarUrl} alt={newsItem.author} />
+                      ) : null}
+                      <AvatarFallback>
+                        <User className="w-4 h-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex items-center">
+                      <span>By{' '}
+                        <a 
+                          href={`/profile/${newsItem.authorId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {newsItem.author}
+                        </a>
+                      </span>
+                      <span className="mx-2">•</span>
+                      <span>{new Date(newsItem.createdAt).toLocaleDateString()}</span>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>

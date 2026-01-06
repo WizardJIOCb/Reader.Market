@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
+import SearchInput from '../components/SearchInput';
 import { 
   Table, 
   TableBody, 
@@ -23,6 +26,7 @@ import {
   Dialog, 
   DialogContent, 
   DialogDescription, 
+  DialogFooter,
   DialogHeader, 
   DialogTitle, 
   DialogTrigger 
@@ -38,12 +42,14 @@ import {
   AlertDialogTitle 
 } from '../components/ui/alert-dialog';
 import { useToast } from '../hooks/use-toast';
+import { Edit, User } from 'lucide-react';
 
 interface User {
   id: string;
   username: string;
   fullName: string;
   email: string | null;
+  avatarUrl?: string | null;
   accessLevel: string;
   createdAt: string;
   lastLogin: string | null;
@@ -72,21 +78,46 @@ const UserManagement: React.FC = () => {
     pages: 1
   });
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [openChangePassword, setOpenChangePassword] = useState(false);
   const [openImpersonate, setOpenImpersonate] = useState(false);
   const [openChangeAccessLevel, setOpenChangeAccessLevel] = useState(false);
+  const [openEditUser, setOpenEditUser] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    username: '',
+    fullName: '',
+    email: '',
+    bio: ''
+  });
   const [newAccessLevel, setNewAccessLevel] = useState('');
   const [impersonationToken, setImpersonationToken] = useState('');
   const [impersonationUser, setImpersonationUser] = useState<User | null>(null);
   const { toast } = useToast();
 
-  const fetchUsers = async (page: number = 1) => {
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const fetchUsers = useCallback(async (page: number = 1, searchTerm: string = '') => {
     try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/users?page=${page}&limit=${pagination.limit}`, {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: pagination.limit.toString()
+      });
+      
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
+      
+      const response = await fetch(`/api/admin/users?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
@@ -100,6 +131,7 @@ const UserManagement: React.FC = () => {
       const data: UserWithStats = await response.json();
       setUsers(data.users);
       setPagination(data.pagination);
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -107,18 +139,54 @@ const UserManagement: React.FC = () => {
         description: "Failed to fetch users. Please try again.",
         variant: "destructive"
       });
-    } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.limit, toast]);
 
   useEffect(() => {
-    fetchUsers();
-  }, []); // Fetch users on component mount
+    fetchUsers(1, debouncedSearch);
+  }, [debouncedSearch, fetchUsers]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= pagination.pages) {
-      fetchUsers(newPage);
+      fetchUsers(newPage, debouncedSearch);
+    }
+  };
+
+  const handleEditUser = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editFormData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user');
+      }
+
+      toast({
+        title: "Success",
+        description: "User updated successfully"
+      });
+
+      setOpenEditUser(false);
+      setSelectedUser(null);
+      
+      // Refresh the user list
+      fetchUsers(pagination.page, debouncedSearch);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -239,7 +307,7 @@ const UserManagement: React.FC = () => {
       setSelectedUser(null);
       
       // Refresh the user list
-      fetchUsers(pagination.page);
+      fetchUsers(pagination.page, debouncedSearch);
     } catch (error) {
       console.error('Error changing access level:', error);
       toast({
@@ -266,7 +334,9 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  if (loading) {
+  const isInitialLoad = loading && users.length === 0;
+  
+  if (isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-lg">Loading users...</div>
@@ -279,11 +349,32 @@ const UserManagement: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>User Management</CardTitle>
+          <div className="flex items-center gap-4 mt-4">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by login, name, or email..."
+            />
+            {debouncedSearch && (
+              <Button
+                variant="outline"
+                onClick={() => setSearch('')}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          {debouncedSearch && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Search results for: "{debouncedSearch}"
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Avatar</TableHead>
                 <TableHead>Login</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
@@ -300,7 +391,26 @@ const UserManagement: React.FC = () => {
             <TableBody>
               {users.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell>
+                    <Avatar className="w-8 h-8">
+                      {user.avatarUrl ? (
+                        <AvatarImage src={user.avatarUrl} alt={user.username} />
+                      ) : null}
+                      <AvatarFallback>
+                        <User className="w-4 h-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <a
+                      href={`/profile/${user.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {user.username}
+                    </a>
+                  </TableCell>
                   <TableCell>{user.fullName || 'N/A'}</TableCell>
                   <TableCell>{user.email || 'N/A'}</TableCell>
                   <TableCell>
@@ -316,6 +426,23 @@ const UserManagement: React.FC = () => {
                   <TableCell>{user.reviewsCount}</TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setEditFormData({
+                            username: user.username,
+                            fullName: user.fullName || '',
+                            email: user.email || '',
+                            bio: ''
+                          });
+                          setOpenEditUser(true);
+                        }}
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -501,6 +628,71 @@ const UserManagement: React.FC = () => {
               Update Access Level
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={openEditUser} onOpenChange={setOpenEditUser}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User: {selectedUser?.username}</DialogTitle>
+            <DialogDescription>
+              Update user information.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-username">Login (Username)</Label>
+              <Input
+                id="edit-username"
+                value={editFormData.username}
+                onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value })}
+                placeholder="Username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-fullName">Full Name</Label>
+              <Input
+                id="edit-fullName"
+                value={editFormData.fullName}
+                onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
+                placeholder="Full Name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editFormData.email}
+                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                placeholder="Email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-bio">Bio</Label>
+              <Input
+                id="edit-bio"
+                value={editFormData.bio}
+                onChange={(e) => setEditFormData({ ...editFormData, bio: e.target.value })}
+                placeholder="Bio (optional)"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setOpenEditUser(false);
+                setSelectedUser(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleEditUser}>
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

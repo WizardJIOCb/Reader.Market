@@ -2,17 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import NewsManagement from '@/components/NewsManagement';
 import CommentsModeration from '@/components/CommentsModeration';
 import ReviewsModeration from '@/components/ReviewsModeration';
 import UserManagement from '@/pages/UserManagement';
+import BooksManagement from '@/components/BooksManagement';
 import { 
   LayoutDashboard, 
   Newspaper, 
   MessageSquare, 
   Star,
   Users,
-  LogOut 
+  BookOpen,
+  LogOut,
+  User
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
@@ -34,6 +38,7 @@ const AdminDashboard: React.FC = () => {
     content: string;
     author: string;
     userId: string;
+    avatarUrl?: string | null;
     createdAt: string;
     bookTitle: string;
     bookId: string;
@@ -350,6 +355,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'news', label: 'News Management', icon: Newspaper },
     { id: 'comments', label: 'Comments', icon: MessageSquare },
     { id: 'reviews', label: 'Reviews', icon: Star },
+    { id: 'books', label: 'Books', icon: BookOpen },
     ...(isAdmin ? [{ id: 'users', label: 'User Management', icon: Users }] : []),
   ];
 
@@ -461,21 +467,31 @@ const AdminDashboard: React.FC = () => {
                       <div className="space-y-4">
                         {recentActivity.map((activity) => (
                           <div key={activity.id} className="border-b pb-3 last:border-0 last:pb-0">
-                            <div className="flex justify-between">
-                              <div>
-                                <span className="font-medium">
-                                  {activity.type === 'comment' ? 'Comment' : 'Review'}
-                                </span>
-                                <span className="text-muted-foreground ml-2">
-                                  by <a 
-                                    href={`/profile/${activity.userId}`}
-                                    className="text-primary hover:underline"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {activity.author}
-                                  </a>
-                                </span>
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-start gap-2">
+                                <Avatar className="w-6 h-6 flex-shrink-0">
+                                  {activity.avatarUrl ? (
+                                    <AvatarImage src={activity.avatarUrl} alt={activity.author} />
+                                  ) : null}
+                                  <AvatarFallback>
+                                    <User className="w-3 h-3" />
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <span className="font-medium">
+                                    {activity.type === 'comment' ? 'Comment' : 'Review'}
+                                  </span>
+                                  <span className="text-muted-foreground ml-2">
+                                    by <a 
+                                      href={`/profile/${activity.userId}`}
+                                      className="text-primary hover:underline"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      {activity.author}
+                                    </a>
+                                  </span>
+                                </div>
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 {new Date(activity.createdAt).toLocaleString()}
@@ -591,6 +607,10 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'reviews' && (
               <ReviewsModeration />
+            )}
+
+            {activeTab === 'books' && (
+              <BooksManagement />
             )}
 
             {activeTab === 'users' && isAdmin && (

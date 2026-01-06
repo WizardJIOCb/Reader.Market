@@ -147,3 +147,32 @@ export const messagesApi = {
     method: 'DELETE',
   }),
 };
+
+export const adminBooksApi = {
+  getAllBooks: (params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  } = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    
+    const queryString = queryParams.toString();
+    return apiCall(`/api/admin/books${queryString ? '?' + queryString : ''}`);
+  },
+  
+  updateBook: (bookId: string, bookData: FormData) => apiCall(`/api/admin/books/${bookId}`, {
+    method: 'PUT',
+    body: bookData,
+  }),
+  
+  deleteBook: (bookId: string) => apiCall(`/api/admin/books/${bookId}`, {
+    method: 'DELETE',
+  }),
+};

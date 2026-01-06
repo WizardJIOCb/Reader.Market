@@ -15,8 +15,9 @@ interface Review {
     userReacted: boolean;
   }[];
   userId: string;
+  avatarUrl?: string | null; // Add avatarUrl for displaying user avatar
 }
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ReactionBar } from '@/components/ReactionBar';
@@ -416,10 +417,24 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
               <div className="flex justify-between items-start">
                 <div className="flex gap-3 items-center">
                   <Avatar className="w-10 h-10">
+                    {userReview.avatarUrl ? (
+                      <AvatarImage src={userReview.avatarUrl} alt={userReview.author} />
+                    ) : null}
                     <AvatarFallback>{userReview.author[0]}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h4 className="font-semibold text-sm">{userReview.author}</h4>
+                    {userReview.userId ? (
+                      <a
+                        href={`/profile/${userReview.userId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-sm text-primary hover:underline"
+                      >
+                        {userReview.author}
+                      </a>
+                    ) : (
+                      <h4 className="font-semibold text-sm">{userReview.author}</h4>
+                    )}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -523,10 +538,24 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3 items-center">
                     <Avatar className="w-10 h-10">
+                      {review.avatarUrl ? (
+                        <AvatarImage src={review.avatarUrl} alt={review.author} />
+                      ) : null}
                       <AvatarFallback>{review.author[0]}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h4 className="font-semibold text-sm">{review.author}</h4>
+                      {review.userId ? (
+                        <a
+                          href={`/profile/${review.userId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-sm text-primary hover:underline"
+                        >
+                          {review.author}
+                        </a>
+                      ) : (
+                        <h4 className="font-semibold text-sm">{review.author}</h4>
+                      )}
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>

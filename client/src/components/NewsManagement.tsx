@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { User } from 'lucide-react';
 import { apiCall } from '@/lib/api';
 
 interface NewsItem {
@@ -12,6 +14,8 @@ interface NewsItem {
   title: string;
   content: string;
   author: string;
+  authorId: string;
+  avatarUrl?: string | null;
   published: boolean;
   createdAt: string;
   publishedAt: string | null;
@@ -206,15 +210,37 @@ const NewsManagement: React.FC = () => {
               {newsItems.map((newsItem) => (
                 <div key={newsItem.id} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-lg">{newsItem.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        By {newsItem.author} • {new Date(newsItem.createdAt).toLocaleDateString()}
-                      </p>
-                      <div className="flex items-center mt-2">
-                        <span className={`text-xs px-2 py-1 rounded-full ${newsItem.published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                          {newsItem.published ? 'Published' : 'Draft'}
-                        </span>
+                    <div className="flex items-start gap-3 flex-1">
+                      <Avatar className="w-8 h-8 flex-shrink-0">
+                        {newsItem.avatarUrl ? (
+                          <AvatarImage src={newsItem.avatarUrl} alt={newsItem.author} />
+                        ) : null}
+                        <AvatarFallback>
+                          <User className="w-4 h-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">{newsItem.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          By{' '}
+                          <a 
+                            href={`/profile/${newsItem.authorId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {newsItem.author}
+                          </a>
+                          {' '}• {new Date(newsItem.createdAt).toLocaleDateString()}
+                        </p>
+                        <div className="flex items-center mt-2">
+                          <span className={`text-xs px-2 py-1 rounded-full ${newsItem.published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {newsItem.published ? 'Published' : 'Draft'}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-muted-foreground line-clamp-2">
+                          {newsItem.content.substring(0, 150)}{newsItem.content.length > 150 ? '...' : ''}
+                        </p>
                       </div>
                     </div>
                     <div className="flex space-x-2">
@@ -234,9 +260,6 @@ const NewsManagement: React.FC = () => {
                       </Button>
                     </div>
                   </div>
-                  <p className="mt-2 text-muted-foreground line-clamp-2">
-                    {newsItem.content.substring(0, 150)}{newsItem.content.length > 150 ? '...' : ''}
-                  </p>
                 </div>
               ))}
             </div>

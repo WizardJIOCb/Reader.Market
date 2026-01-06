@@ -55,6 +55,11 @@ export default defineConfig({
         target: 'http://localhost:5001',
         changeOrigin: true,
         secure: false,
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Vite proxy request:', req.method, req.url);
+          });
+        }
       },
       '/uploads': {
         target: 'http://localhost:5001',
