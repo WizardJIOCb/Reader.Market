@@ -30,17 +30,10 @@ export default function Library() {
   const { user } = useAuth();
   const { t } = useTranslation(['home', 'common']);
   const { data, loading, error, refresh } = useMainPageData();
-  const [searchQuery, setSearchQuery] = useState('');
   // Filters State
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [yearRange, setYearRange] = useState<[number, number]>([1800, new Date().getFullYear()]);
-
-  const handleSearch = (query: string) => {
-    // In a real app, this would navigate to search results
-    console.log('Searching for:', query);
-    setSearchQuery(query);
-  };
 
   // Toggle genre selection
   const toggleGenre = (genre: string) => {
@@ -141,7 +134,6 @@ export default function Library() {
         <div className="mb-8">
           <div className="flex flex-col gap-4">
             <SearchBar 
-              onSearch={handleSearch}
               showFilters={false}
               allGenres={allGenres}
               allStyles={[]}
