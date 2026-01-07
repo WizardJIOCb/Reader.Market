@@ -116,20 +116,50 @@ export default function Profile() {
 
   // Determine if viewing own profile
   const isOwnProfile = currentUser?.id === userId;
+  
+  // Sync selectedLanguage with current user's language preference
+  useEffect(() => {
+    if (currentUser?.language) {
+      console.log('Profile: Syncing selectedLanguage with currentUser.language:', currentUser.language);
+      setSelectedLanguage(currentUser.language);
+      // Also ensure i18n is in sync
+      if (i18n.language !== currentUser.language) {
+        console.log('Profile: i18n language mismatch, updating from', i18n.language, 'to', currentUser.language);
+        i18n.changeLanguage(currentUser.language);
+      }
+    } else {
+      // If user has no language preference, sync with current i18n language
+      console.log('Profile: No user language preference, using i18n language:', i18n.language);
+      setSelectedLanguage(i18n.language);
+    }
+  }, [currentUser, i18n]);
 
   const handleLanguageChange = async (newLanguage: string) => {
     try {
+      console.log('Language change requested:', newLanguage);
+      console.log('Current i18n language:', i18n.language);
+      
       setSelectedLanguage(newLanguage);
       
-      // Update UI language immediately
+      // Update UI language immediately and wait for it to complete
+      // This also updates localStorage 'i18nextLng' automatically
       await i18n.changeLanguage(newLanguage);
+      console.log('i18n language changed to:', i18n.language);
+      console.log('localStorage i18nextLng:', localStorage.getItem('i18nextLng'));
+      
+      // Force a small delay to ensure all components have time to re-render
+      // This helps with components that might be slow to subscribe to language changes
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // If user is authenticated, save to backend
-      if (isOwnProfile && profile) {
+      if (isOwnProfile && currentUser) {
         // Use direct backend URL in development to bypass Vite proxy
+        // Per project standards for PUT/POST/DELETE requests
         const apiUrl = import.meta.env.DEV 
           ? 'http://localhost:5001/api/profile/language'
           : '/api/profile/language';
+        
+        console.log('Saving language to backend:', apiUrl);
         
         const response = await fetch(apiUrl, {
           method: 'PUT',
@@ -140,33 +170,58 @@ export default function Profile() {
           body: JSON.stringify({ language: newLanguage })
         });
         
+        console.log('Backend response status:', response.status);
+        console.log('Backend response headers:', response.headers.get('content-type'));
+        
+        // Check response content type to detect HTML responses
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('Received non-JSON response:', contentType);
+          throw new Error('Server returned HTML instead of JSON. Please try again.');
+        }
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('Backend response data:', data);
+          
           // Update local storage with new user data
           localStorage.setItem('userData', JSON.stringify(data.user));
           
-          // Refresh user in auth context
+          // Update current user in auth context without calling refreshUser
+          // to avoid potential race conditions
           if (refreshUser) {
             await refreshUser();
           }
+          
+          // Ensure i18nextLng is in sync with user preference
+          // This is critical for page reloads
+          localStorage.setItem('i18nextLng', newLanguage);
+          console.log('Synchronized i18nextLng with user preference:', newLanguage);
           
           toast({
             title: t('notifications:success.languageUpdated'),
             description: t('notifications:success.languageDescription'),
           });
         } else {
-          throw new Error('Failed to update language preference');
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Backend error:', errorData);
+          throw new Error(errorData.error || 'Failed to update language preference');
         }
+      } else {
+        console.log('Not saving to backend - not own profile or not authenticated');
       }
     } catch (error) {
       console.error('Language update error:', error);
       toast({
         title: t('notifications:error.title'),
-        description: t('notifications:error.updateFailed'),
+        description: error instanceof Error ? error.message : t('notifications:error.updateFailed'),
         variant: "destructive"
       });
       // Revert language on error
-      setSelectedLanguage(i18n.language);
+      const previousLanguage = i18n.language;
+      console.log('Reverting to previous language:', previousLanguage);
+      await i18n.changeLanguage(previousLanguage);
+      setSelectedLanguage(previousLanguage);
     }
   };
 
