@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Send, User, MessageCircle, Users, Plus, Hash, Settings, X as XIcon } from 'lucide-react';
+import { Search, Send, User, MessageCircle, Users, Plus, Hash, Settings, X as XIcon, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { joinConversation, leaveConversation, onSocketEvent, startTyping, stopTyping, joinChannel, leaveChannel } from '@/lib/socket';
 import { GroupCreationDialog } from '@/components/GroupCreationDialog';
 import { GroupSettingsPanel } from '@/components/GroupSettingsPanel';
+import { GroupMembersModal } from '@/components/GroupMembersModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 
 interface Conversation {
   id: string;
@@ -66,6 +67,7 @@ interface Message {
 export default function Messages() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [location] = useLocation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -83,6 +85,8 @@ export default function Messages() {
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
   const [userGroupRole, setUserGroupRole] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'private' | 'groups'>('private');
+  const [deepLinkProcessed, setDeepLinkProcessed] = useState(false);
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -97,13 +101,145 @@ export default function Messages() {
     fetchGroups();
   }, []);
 
+  // Deep link processing - handle URL parameters
+  useEffect(() => {
+    const processDeepLink = async () => {
+      // Only process once and after data is loaded
+      if (deepLinkProcessed || loading) return;
+      
+      const params = new URLSearchParams(window.location.search);
+      const userId = params.get('user');
+      const groupId = params.get('group');
+      const channelId = params.get('channel');
+      
+      // If no params, mark as processed and return
+      if (!userId && !groupId) {
+        setDeepLinkProcessed(true);
+        return;
+      }
+      
+      try {
+        // Handle user deep link (private conversation)
+        if (userId) {
+          console.log('Processing deep link for user:', userId);
+          setActiveTab('private');
+          
+          // Wait for conversations to load
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check if conversation exists
+          const existingConv = conversations.find(
+            conv => conv.otherUser?.id === userId
+          );
+          
+          if (existingConv) {
+            console.log('Found existing conversation');
+            setSelectedConversation(existingConv);
+          } else {
+            // Create new conversation
+            console.log('Creating new conversation');
+            await startConversation(userId);
+          }
+          
+          setDeepLinkProcessed(true);
+        }
+        
+        // Handle group deep link
+        else if (groupId) {
+          console.log('Processing deep link for group:', groupId);
+          setActiveTab('groups');
+          
+          // Wait for groups to load
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check if user is member
+          const existingGroup = groups.find(g => g.id === groupId);
+          
+          if (existingGroup) {
+            const fullGroupDetails = await fetchGroupDetails(groupId);
+            if (fullGroupDetails) {
+              setSelectedGroup(fullGroupDetails);
+              
+              // If channel is specified, select it after channels load
+              if (channelId) {
+                setTimeout(() => {
+                  const channel = channels.find(c => c.id === channelId);
+                  if (channel) {
+                    setSelectedChannel(channel);
+                  }
+                }, 1000);
+              }
+            }
+          } else {
+            // Try to join the group if it's public
+            const joined = await joinGroup(groupId);
+            if (joined) {
+              const fullGroupDetails = await fetchGroupDetails(groupId);
+              if (fullGroupDetails) {
+                setSelectedGroup(fullGroupDetails);
+              }
+            } else {
+              toast({
+                title: "Access Denied",
+                description: "You don't have access to this group",
+                variant: "destructive"
+              });
+            }
+          }
+          
+          setDeepLinkProcessed(true);
+        }
+      } catch (error) {
+        console.error('Deep link processing error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to open the conversation",
+          variant: "destructive"
+        });
+        setDeepLinkProcessed(true);
+      }
+    };
+    
+    processDeepLink();
+  }, [location, conversations, groups, channels, loading, deepLinkProcessed]);
+
   // Global WebSocket listener for updating conversation list when new messages arrive
   useEffect(() => {
     console.log('Setting up global message listener for conversation list updates');
     
     const cleanupGlobalMessage = onSocketEvent('message:new', (data) => {
       console.log('Global message listener: new message received', data);
-      // Update conversation list to show new last message
+      
+      // Optimistically update conversation list
+      if (data.conversationId && data.message) {
+        setConversations(prevConvs => {
+          // Find the conversation
+          const convIndex = prevConvs.findIndex(c => c.id === data.conversationId);
+          
+          if (convIndex >= 0) {
+            // Update existing conversation
+            const updatedConvs = [...prevConvs];
+            updatedConvs[convIndex] = {
+              ...updatedConvs[convIndex],
+              lastMessage: {
+                content: data.message.content,
+                createdAt: data.message.createdAt
+              },
+              updatedAt: data.message.createdAt
+            };
+            
+            // Move to top by sorting by updatedAt
+            return updatedConvs.sort((a, b) => 
+              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            );
+          }
+          
+          // If conversation not found in list, fetch full list
+          return prevConvs;
+        });
+      }
+      
+      // Also fetch to ensure consistency
       fetchConversations();
     });
     
@@ -953,25 +1089,42 @@ export default function Messages() {
         {selectedConversation ? (
           <>
             {/* Private Chat Header */}
-            <div className="p-4 border-b flex items-center gap-3">
-              <Avatar>
-                <AvatarImage src={selectedConversation.otherUser?.avatarUrl || undefined} />
-                <AvatarFallback>
-                  <User className="w-4 h-4" />
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <Link 
-                  href={`/profile/${selectedConversation.otherUser?.id}`} 
-                  target="_blank"
-                  className="font-medium hover:underline cursor-pointer"
-                >
-                  {selectedConversation.otherUser?.fullName || selectedConversation.otherUser?.username}
-                </Link>
-                <p className="text-sm text-muted-foreground">
-                  @{selectedConversation.otherUser?.username}
-                </p>
+            <div className="p-4 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar>
+                  <AvatarImage src={selectedConversation.otherUser?.avatarUrl || undefined} />
+                  <AvatarFallback>
+                    <User className="w-4 h-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <Link 
+                    href={`/profile/${selectedConversation.otherUser?.id}`} 
+                    target="_blank"
+                    className="font-medium hover:underline cursor-pointer"
+                  >
+                    {selectedConversation.otherUser?.fullName || selectedConversation.otherUser?.username}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">
+                    @{selectedConversation.otherUser?.username}
+                  </p>
+                </div>
               </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  const shareUrl = `${window.location.origin}/messages?user=${selectedConversation.otherUser?.id}`;
+                  navigator.clipboard.writeText(shareUrl);
+                  toast({
+                    title: "Link copied!",
+                    description: "Conversation link copied to clipboard"
+                  });
+                }}
+                title="Share conversation link"
+              >
+                <Share2 className="w-5 h-5" />
+              </Button>
             </div>
 
             {/* Private Messages */}
@@ -1067,10 +1220,22 @@ export default function Messages() {
                       {selectedGroup.description}
                     </p>
                   )}
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {selectedGroup.privacy === 'private' ? 'Приватная группа' : 'Публичная группа'}
-                    {selectedGroup.memberCount && ` • ${selectedGroup.memberCount} участников`}
-                  </p>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    <span>{selectedGroup.privacy === 'private' ? 'Приватная группа' : 'Публичная группа'}</span>
+                    {selectedGroup.memberCount && (
+                      <>
+                        <span> • </span>
+                        <span
+                          className="hover:underline cursor-pointer inline-flex items-center gap-1"
+                          onClick={() => setMemberModalOpen(true)}
+                          title="View all members"
+                        >
+                          <Users className="w-3 h-3" />
+                          {selectedGroup.memberCount} участников
+                        </span>
+                      </>
+                    )}
+                  </div>
                   {selectedGroup.books && selectedGroup.books.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {selectedGroup.books.map((book) => (
@@ -1087,19 +1252,36 @@ export default function Messages() {
                     </div>
                   )}
                 </div>
-                {(userGroupRole === 'administrator' || userGroupRole === 'moderator') && (
+                <div className="flex gap-1">
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={() => {
-                      console.log('Settings button clicked, userGroupRole:', userGroupRole);
-                      setGroupSettingsOpen(true);
+                      const shareUrl = `${window.location.origin}/messages?group=${selectedGroup.id}`;
+                      navigator.clipboard.writeText(shareUrl);
+                      toast({
+                        title: "Link copied!",
+                        description: "Group link copied to clipboard"
+                      });
                     }}
-                    title="Настройки группы"
+                    title="Share group link"
                   >
-                    <Settings className="w-5 h-5" />
+                    <Share2 className="w-5 h-5" />
                   </Button>
-                )}
+                  {(userGroupRole === 'administrator' || userGroupRole === 'moderator') && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        console.log('Settings button clicked, userGroupRole:', userGroupRole);
+                        setGroupSettingsOpen(true);
+                      }}
+                      title="Настройки группы"
+                    >
+                      <Settings className="w-5 h-5" />
+                    </Button>
+                  )}
+                </div>
               </div>
               
               {/* Channel Tabs */}
@@ -1290,6 +1472,29 @@ export default function Messages() {
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Group Members Modal */}
+      {selectedGroup && (
+        <GroupMembersModal
+          groupId={selectedGroup.id}
+          isOpen={memberModalOpen}
+          onClose={() => setMemberModalOpen(false)}
+          userRole={userGroupRole as 'administrator' | 'moderator' | 'member'}
+          onMemberUpdate={() => {
+            // Refresh group data after member changes
+            fetchGroups();
+            if (selectedGroup) {
+              fetch(`/api/groups/${selectedGroup.id}`, {
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                }
+              }).then(res => res.json()).then(updatedGroup => {
+                setSelectedGroup(updatedGroup);
+              }).catch(err => console.error('Failed to refresh group:', err));
+            }
+          }}
+        />
+      )}
     </>
   );
 }

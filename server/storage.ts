@@ -3126,8 +3126,9 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async updateGroupMemberRole(groupId: string, userId: string, role: string): Promise<void> {
+  async updateGroupMemberRole(groupId: string, userId: string, role: string): Promise<any | null> {
     try {
+      // Update the role
       await db.update(groupMembers)
         .set({ role })
         .where(
@@ -3136,6 +3137,27 @@ export class DBStorage implements IStorage {
             eq(groupMembers.userId, userId)
           )
         );
+      
+      // Fetch and return the updated member with user info
+      const result = await db.select({
+        id: groupMembers.id,
+        userId: groupMembers.userId,
+        role: groupMembers.role,
+        joinedAt: groupMembers.joinedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+      })
+        .from(groupMembers)
+        .leftJoin(users, eq(groupMembers.userId, users.id))
+        .where(
+          and(
+            eq(groupMembers.groupId, groupId),
+            eq(groupMembers.userId, userId)
+          )
+        );
+      
+      return result[0] || null;
     } catch (error) {
       console.error("Error updating group member role:", error);
       throw error;

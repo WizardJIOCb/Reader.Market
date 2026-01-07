@@ -572,7 +572,7 @@ export default function Profile() {
                   <h1 className="text-3xl font-serif font-bold">{profile.name}</h1>
                   <p className="text-muted-foreground font-medium">{profile.username}</p>
                   {!isOwnProfile && (
-                    <Link href="/messages" className="cursor-pointer">
+                    <Link href={`/messages?user=${profile.id}`} className="cursor-pointer">
                       <Button variant="ghost" size="icon" className="-ml-2 mt-1 p-1">
                         <Mail className="w-5 h-5" />
                       </Button>

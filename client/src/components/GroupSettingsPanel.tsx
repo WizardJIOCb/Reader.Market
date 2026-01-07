@@ -100,7 +100,8 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, onClose, onC
       });
       if (response.ok) {
         const data = await response.json();
-        setMembers(data);
+        // Handle both old array format and new paginated format
+        setMembers(Array.isArray(data) ? data : (data.members || []));
       }
     } catch (error) {
       console.error('Failed to fetch members:', error);
@@ -172,7 +173,7 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, onClose, onC
       if (response.ok) {
         const data = await response.json();
         // Filter out users who are already members
-        const memberIds = members.map((m) => m.userId);
+        const memberIds = Array.isArray(members) ? members.map((m) => m.userId) : [];
         setSearchResults(data.filter((u: any) => !memberIds.includes(u.id)));
       }
     } catch (error) {
@@ -216,7 +217,7 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, onClose, onC
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('authToken')}`,
         },
-        body: JSON.stringify({ userId, role: 'member' }),
+        body: JSON.stringify({ userId }),
       });
 
       if (response.ok) {
@@ -309,11 +310,21 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, onClose, onC
       });
 
       if (response.ok) {
+        const data = await response.json();
         toast({
           title: 'Успех',
           description: 'Роль участника обновлена',
         });
-        fetchMembers();
+        
+        // Update local state with returned member data
+        if (data.member) {
+          setMembers(prevMembers =>
+            prevMembers.map(m => m.id === memberId ? data.member : m)
+          );
+        } else {
+          // Fallback to full refresh if member data not returned
+          fetchMembers();
+        }
       } else {
         const error = await response.json();
         toast({

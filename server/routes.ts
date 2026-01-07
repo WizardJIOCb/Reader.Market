@@ -2702,18 +2702,44 @@ export async function registerRoutes(
     const { groupId } = req.params;
     const { userId: newMemberId } = req.body;
     
+    console.log('Add member request:', { groupId, requesterId: userId, newMemberId, body: req.body });
+    
     try {
-      // Check if requester is admin or moderator
-      const role = await storage.getGroupMemberRole(groupId, userId);
-      if (role !== 'administrator' && role !== 'moderator') {
-        return res.status(403).json({ error: "Only administrators and moderators can add members" });
+      // Validate input
+      if (!newMemberId) {
+        console.log('Validation failed: No userId provided');
+        return res.status(400).json({ error: "Не указан ID пользователя" });
       }
       
+      // Check if requester is admin or moderator
+      const role = await storage.getGroupMemberRole(groupId, userId);
+      console.log('Requester role:', role);
+      if (role !== 'administrator' && role !== 'moderator') {
+        console.log('Permission denied: role is', role);
+        return res.status(403).json({ error: "Недостаточно прав для добавления участников" });
+      }
+      
+      // Check if user is already a member
+      const isMember = await storage.isGroupMember(groupId, newMemberId);
+      console.log('Is already member:', isMember);
+      if (isMember) {
+        return res.status(400).json({ error: "Пользователь уже в группе" });
+      }
+      
+      // Check if user exists
+      const userExists = await storage.getUser(newMemberId);
+      console.log('User exists:', !!userExists);
+      if (!userExists) {
+        return res.status(404).json({ error: "Пользователь не найден" });
+      }
+      
+      console.log('Adding member to group...');
       await storage.addGroupMember(groupId, newMemberId, 'member', userId);
+      console.log('Member added successfully');
       res.status(201).json({ success: true });
     } catch (error) {
       console.error("Add group member error:", error);
-      res.status(500).json({ error: "Failed to add member" });
+      res.status(500).json({ error: "Не удалось добавить участника" });
     }
   });
   
@@ -2768,8 +2794,21 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid role" });
       }
       
-      await storage.updateGroupMemberRole(groupId, memberId, role);
-      res.json({ success: true });
+      // Get the member's userId from memberId
+      const members = await storage.getGroupMembers(groupId);
+      const targetMember = members.find(m => m.id === memberId);
+      
+      if (!targetMember) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      const updatedMember = await storage.updateGroupMemberRole(groupId, targetMember.userId, role);
+      
+      if (!updatedMember) {
+        return res.status(500).json({ error: "Failed to update role" });
+      }
+      
+      res.json({ success: true, member: updatedMember });
     } catch (error) {
       console.error("Update member role error:", error);
       res.status(500).json({ error: "Failed to update role" });
@@ -2780,6 +2819,9 @@ export async function registerRoutes(
   app.get("/api/groups/:groupId/members", authenticateToken, async (req, res) => {
     const userId = (req as any).user.userId;
     const { groupId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const search = (req.query.search as string) || '';
     
     try {
       // Check if user has access
@@ -2790,8 +2832,34 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied" });
       }
       
-      const members = await storage.getGroupMembers(groupId);
-      res.json(members);
+      let members = await storage.getGroupMembers(groupId);
+      
+      // Apply search filter if provided
+      if (search) {
+        const searchLower = search.toLowerCase();
+        members = members.filter(m => 
+          m.username?.toLowerCase().includes(searchLower) ||
+          m.fullName?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      // Calculate pagination
+      const total = members.length;
+      const totalPages = Math.ceil(total / limit);
+      const offset = (page - 1) * limit;
+      
+      // Slice for current page
+      const paginatedMembers = members.slice(offset, offset + limit);
+      
+      res.json({
+        members: paginatedMembers,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages
+        }
+      });
     } catch (error) {
       console.error("Get group members error:", error);
       res.status(500).json({ error: "Failed to retrieve members" });
