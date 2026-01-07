@@ -42,12 +42,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
+        
         // Set language from user preference if available
         if (parsedUser.language) {
+          console.log('AuthProvider: Setting language from user data:', parsedUser.language);
           i18n.changeLanguage(parsedUser.language);
+          // Ensure i18nextLng is in sync with user preference
+          localStorage.setItem('i18nextLng', parsedUser.language);
+        } else {
+          // If user has no language preference, use i18n's detected language
+          const detectedLanguage = i18n.language || 'en';
+          console.log('AuthProvider: No user language preference, using detected:', detectedLanguage);
         }
       } catch (e) {
         // If there's an error parsing, remove the invalid data
+        console.error('AuthProvider: Error parsing user data:', e);
         localStorage.removeItem('authToken');
         localStorage.removeItem('userData');
       }
@@ -122,6 +131,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userData = await response.json();
         setUser(userData);
         localStorage.setItem('userData', JSON.stringify(userData));
+        
+        // Sync language with user preference
+        if (userData.language) {
+          console.log('refreshUser: Syncing language from backend:', userData.language);
+          await i18n.changeLanguage(userData.language);
+          localStorage.setItem('i18nextLng', userData.language);
+        }
+        
         return userData;
       } else {
         // If token is invalid, log the user out
