@@ -1,0 +1,27 @@
+{
+  "success": {
+    "profileUpdated": "Профиль обновлен",
+    "profileDescription": "Ваш профиль успешно обновлен",
+    "messageSent": "Сообщение отправлено",
+    "messageDescription": "Ваше сообщение успешно отправлено",
+    "avatarUpdated": "Аватар обновлен",
+    "avatarDescription": "Ваш аватар успешно загружен",
+    "avatarDeleted": "Аватар удален",
+    "avatarDeletedDescription": "Ваш аватар успешно удален",
+    "linkCopied": "Ссылка скопирована",
+    "linkDescription": "Ссылка на профиль скопирована в буфер обмена",
+    "languageUpdated": "Язык обновлен",
+    "languageDescription": "Настройка языка сохранена"
+  },
+  "error": {
+    "title": "Ошибка",
+    "loadFailed": "Не удалось загрузить",
+    "updateFailed": "Не удалось обновить",
+    "uploadFailed": "Не удалось загрузить",
+    "sendFailed": "Не удалось отправить сообщение",
+    "copyFailed": "Не удалось скопировать ссылку",
+    "invalidImageFormat": "Пожалуйста, загрузите изображение в формате JPEG, PNG, GIF или WebP",
+    "fileTooLarge": "Размер файла не должен превышать 5MB",
+    "profileLoadFailed": "Не удалось загрузить профиль пользователя"
+  }
+}

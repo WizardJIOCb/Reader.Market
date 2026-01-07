@@ -12,6 +12,7 @@ export const users = pgTable("users", {
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
   accessLevel: text("access_level").default('user'), // 'admin', 'moder', 'user'
+  language: varchar("language", { length: 10 }).default('en'), // User's preferred language
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -23,6 +24,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   fullName: true,
   bio: true,
   avatarUrl: true,
+  language: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

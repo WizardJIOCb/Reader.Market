@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
+import { useTranslation } from 'react-i18next';
 import NewsBlock from '@/components/NewsBlock';
 import { 
   BookOpen, 
@@ -18,6 +19,7 @@ const LandingPage = () => {
   const { user } = useAuth();
   const [location] = useLocation();
   const [isEarlyAdopter, setIsEarlyAdopter] = useState(false);
+  const { t } = useTranslation(['landing', 'common']);
   
   useEffect(() => {
     const urlParams = new URLSearchParams(location.split('?')[1]);
@@ -37,31 +39,31 @@ const LandingPage = () => {
   const features = [
     {
       icon: <FileText className="w-8 h-8" />,
-      title: "Concise Chapter Summaries",
-      description: "Get AI-generated summaries of each chapter to quickly grasp key concepts."
+      title: t('landing:feature1Title'),
+      description: t('landing:feature1Description')
     },
     {
       icon: <Brain className="w-8 h-8" />,
-      title: "Key Ideas & Insights",
-      description: "Extract important concepts and insights from your books automatically."
+      title: t('landing:feature2Title'),
+      description: t('landing:feature2Description')
     },
     {
       icon: <Zap className="w-8 h-8" />,
-      title: "Understand Complex Books Faster",
-      description: "AI assistance helps you comprehend difficult material more efficiently."
+      title: t('landing:feature3Title'),
+      description: t('landing:feature3Description')
     },
     {
       icon: <BookOpen className="w-8 h-8" />,
-      title: "Personalized Recommendations",
-      description: "Receive book suggestions based on your reading history and preferences."
+      title: t('landing:feature4Title'),
+      description: t('landing:feature4Description')
     }
   ];
 
   const targetAudience = [
-    "Non-fiction readers",
-    "Students and lifelong learners",
-    "Professionals who read to grow",
-    "People who want to remember what they read"
+    t('landing:audience1'),
+    t('landing:audience2'),
+    t('landing:audience3'),
+    t('landing:audience4')
   ];
 
   return (
@@ -70,17 +72,17 @@ const LandingPage = () => {
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4 text-center max-w-4xl">
           <h1 className="text-4xl md:text-6xl font-bold mb-6 font-serif">
-            {isEarlyAdopter ? 'An AI reading tool for people who care about understanding books' : 'AI-Powered Reading Experience'}
+            {isEarlyAdopter ? t('landing:heroTitleEarly') : t('landing:heroTitle')}
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto">
             {isEarlyAdopter 
-              ? 'Early-stage AI-powered reader. Upload your books, explore summaries and insights, and help shape the future of smart reading.'
-              : 'Enhance your reading journey with intelligent summaries, insights, and personalized recommendations powered by advanced AI technology.'}
+              ? t('landing:heroDescriptionEarly')
+              : t('landing:heroDescription')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">
               <Button size="lg" className="px-8 py-6 text-lg">
-                {isEarlyAdopter ? 'Join early access' : 'Get started — free'}
+                {isEarlyAdopter ? t('landing:joinEarlyAccess') : t('landing:getStarted')}
               </Button>
             </Link>
             <a href="#how-it-works" onClick={(e) => {
@@ -91,7 +93,7 @@ const LandingPage = () => {
               }
             }}>
               <Button size="lg" variant="outline" className="px-8 py-6 text-lg">
-                See how it works
+                {t('landing:seeHowItWorks')}
               </Button>
             </a>
           </div>
@@ -105,9 +107,9 @@ const LandingPage = () => {
       <section id="how-it-works" className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">How It Works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('landing:howItWorksTitle')}</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Four simple steps to enhance your reading experience
+              {t('landing:howItWorksSubtitle')}
             </p>
           </div>
           
@@ -117,10 +119,10 @@ const LandingPage = () => {
                 <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
                   <Brain className="w-8 h-8" />
                 </div>
-                <CardTitle className="text-xl">Read with AI assistance</CardTitle>
+                <CardTitle className="text-xl">{t('landing:step1Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Get summaries, key ideas, and explanations as you read.</p>
+                <p className="text-muted-foreground">{t('landing:step1Description')}</p>
               </CardContent>
             </Card>
             
@@ -129,10 +131,10 @@ const LandingPage = () => {
                 <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
                   <Search className="w-8 h-8" />
                 </div>
-                <CardTitle className="text-xl">Search available books</CardTitle>
+                <CardTitle className="text-xl">{t('landing:step2Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Find books already in our community library.</p>
+                <p className="text-muted-foreground">{t('landing:step2Description')}</p>
               </CardContent>
             </Card>
             
@@ -141,10 +143,10 @@ const LandingPage = () => {
                 <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
                   <BookOpen className="w-8 h-8" />
                 </div>
-                <CardTitle className="text-xl">Upload your book</CardTitle>
+                <CardTitle className="text-xl">{t('landing:step3Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Add your own books to your personal library (multiple formats supported).</p>
+                <p className="text-muted-foreground">{t('landing:step3Description')}</p>
               </CardContent>
             </Card>
             
@@ -153,10 +155,10 @@ const LandingPage = () => {
                 <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
                   <Zap className="w-8 h-8" />
                 </div>
-                <CardTitle className="text-xl">Remember more & discover next reads</CardTitle>
+                <CardTitle className="text-xl">{t('landing:step4Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Save insights and get recommendations based on what you actually read.</p>
+                <p className="text-muted-foreground">{t('landing:step4Description')}</p>
               </CardContent>
             </Card>
           </div>
@@ -167,9 +169,9 @@ const LandingPage = () => {
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">What AI Helps You Do</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('landing:aiHelpsTitle')}</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Powerful AI features to enhance your reading experience
+              {t('landing:aiHelpsSubtitle')}
             </p>
           </div>
           
@@ -195,64 +197,64 @@ const LandingPage = () => {
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Why Reader.market</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('landing:whyReaderMarketTitle')}</h2>
             <p className="text-xl text-muted-foreground">
-              Built specifically for understanding and retention
+              {t('landing:whyReaderMarketSubtitle')}
             </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Card>
               <CardHeader>
-                <CardTitle>Built for understanding, not just reading pages</CardTitle>
+                <CardTitle>{t('landing:benefit1Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Focus on comprehension and retention rather than just completing books.</p>
+                <p className="text-muted-foreground">{t('landing:benefit1Description')}</p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader>
-                <CardTitle>Your personal library</CardTitle>
+                <CardTitle>{t('landing:benefit2Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Upload, manage and analyze your own books, shelves, articles, etc</p>
+                <p className="text-muted-foreground">{t('landing:benefit2Description')}</p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader>
-                <CardTitle>Privacy-first, fast AI processing</CardTitle>
+                <CardTitle>{t('landing:benefit3Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Your books are processed securely with respect for your privacy.</p>
+                <p className="text-muted-foreground">{t('landing:benefit3Description')}</p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader>
-                <CardTitle>Ideal for non-fiction and deep reading</CardTitle>
+                <CardTitle>{t('landing:benefit4Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Designed specifically for content that requires comprehension and analysis.</p>
+                <p className="text-muted-foreground">{t('landing:benefit4Description')}</p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader>
-                <CardTitle>Live Discussions & Community</CardTitle>
+                <CardTitle>{t('landing:benefit5Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Join live discussions about books with other readers and share insights in real-time.</p>
+                <p className="text-muted-foreground">{t('landing:benefit5Description')}</p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader>
-                <CardTitle>Book Ratings & Reviews</CardTitle>
+                <CardTitle>{t('landing:benefit6Title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Rate books you've read and access community ratings to discover quality content.</p>
+                <p className="text-muted-foreground">{t('landing:benefit6Description')}</p>
               </CardContent>
             </Card>
           </div>
@@ -263,9 +265,9 @@ const LandingPage = () => {
       <section className="py-20">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Who It Is For</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('landing:whoIsItForTitle')}</h2>
             <p className="text-xl text-muted-foreground">
-              Perfect for readers who want to maximize their learning
+              {t('landing:whoIsItForSubtitle')}
             </p>
           </div>
           
@@ -285,10 +287,10 @@ const LandingPage = () => {
       {/* Format Support Section */}
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4 text-center max-w-3xl">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Formats & Roadmap</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('landing:formatsTitle')}</h2>
           
           <div className="mb-8">
-            <h3 className="text-2xl font-semibold mb-4">Currently Supported</h3>
+            <h3 className="text-2xl font-semibold mb-4">{t('landing:currentlySupported')}</h3>
             <div className="flex flex-wrap justify-center gap-4">
               <div className="bg-primary/10 px-6 py-3 rounded-lg">
                 <span className="text-lg font-medium">PDF</span>
@@ -312,7 +314,7 @@ const LandingPage = () => {
           </div>
           
           <div>
-            <h3 className="text-2xl font-semibold mb-4">Coming Soon</h3>
+            <h3 className="text-2xl font-semibold mb-4">{t('landing:comingSoon')}</h3>
             <div className="flex flex-wrap justify-center gap-4">
               <div className="bg-muted px-6 py-3 rounded-lg">
                 <span className="text-lg font-medium">MOBI</span>
@@ -332,7 +334,7 @@ const LandingPage = () => {
             <CardContent className="text-center">
               <GraduationCap className="w-12 h-12 mx-auto mb-4 text-primary" />
               <p className="text-xl text-muted-foreground">
-                Reader.market is an early-stage product. We actively develop it and shape new features based on user feedback.
+                {t('landing:transparencyMessage')}
               </p>
             </CardContent>
           </Card>
@@ -342,20 +344,20 @@ const LandingPage = () => {
       {/* Final CTA Section */}
       <section className="py-20 bg-primary text-primary-foreground">
         <div className="container mx-auto px-4 max-w-4xl text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6 font-serif">{isEarlyAdopter ? 'Join our early adopter community. Transform your reading with AI.' : 'Start reading smarter. Turn books into knowledge with AI.'}</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 font-serif">{isEarlyAdopter ? t('landing:ctaTitleEarly') : t('landing:ctaTitle')}</h2>
           <p className="text-xl mb-8 max-w-2xl mx-auto">
-            Join thousands of readers who are already enjoying AI-enhanced book experiences
+            {t('landing:ctaSubtitle')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">
               <Button size="lg" variant="secondary" className="px-8 py-6 text-lg">
-                {isEarlyAdopter ? 'Join early access' : 'Get started — free'}
+                {isEarlyAdopter ? t('landing:joinEarlyAccess') : t('landing:getStarted')}
               </Button>
             </Link>
             {user && (
               <Link href="/home">
                 <Button size="lg" variant="outline" className="px-8 py-6 text-lg text-primary-foreground border-primary-foreground hover:bg-primary-foreground/10">
-                  Browse Books
+                  {t('landing:browseBooks')}
                 </Button>
               </Link>
             )}

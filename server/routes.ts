@@ -458,6 +458,35 @@ export async function registerRoutes(
     }
   });
   
+  // Update user language preference
+  app.put("/api/profile/language", authenticateToken, async (req, res) => {
+    console.log("========================================");
+    console.log("Update language preference endpoint called");
+    console.log("Method:", req.method);
+    console.log("Path:", req.path);
+    console.log("Body:", req.body);
+    console.log("========================================");
+    try {
+      const userId = (req as any).user.userId;
+      const { language } = req.body;
+      
+      // Validate language code
+      const supportedLanguages = ['en', 'ru'];
+      if (!language || !supportedLanguages.includes(language)) {
+        return res.status(400).json({ error: "Invalid language code. Supported languages: en, ru" });
+      }
+      
+      // Update user language preference
+      const updatedUser = await storage.updateUser(userId, { language });
+      
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json({ success: true, language: updatedUser.language, user: userWithoutPassword });
+    } catch (error) {
+      console.error("Update language preference error:", error);
+      res.status(500).json({ error: "Failed to update language preference" });
+    }
+  });
+  
   // Upload user avatar
   app.post("/api/profile/avatar", authenticateToken, (req, res, next) => {
     console.log("Avatar upload middleware - starting multer");

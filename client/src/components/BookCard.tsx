@@ -15,6 +15,7 @@ import {
   Activity
 } from 'lucide-react';
 import { Link } from 'wouter';
+import { useTranslation } from 'react-i18next';
 
 interface BookCardProps {
   book: Book;
@@ -34,6 +35,7 @@ export const BookCard: React.FC<BookCardProps> = ({
   readingProgress,
   addToShelfButton
 }) => {
+  const { t } = useTranslation(['books']);
   // Format dates for display
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '';
@@ -91,7 +93,7 @@ export const BookCard: React.FC<BookCardProps> = ({
         ) : (
           <div className="absolute top-2 right-2 bg-gray-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm">
             <Star className="w-3 h-3 fill-current" />
-            Нет рейтинга
+            {t('books:noRating')}
           </div>
         )}
       </div>
@@ -134,21 +136,21 @@ export const BookCard: React.FC<BookCardProps> = ({
           {(book.rating !== undefined && book.rating !== null) && (
             <div className="flex items-center text-xs font-bold text-yellow-600">
               <Star className="w-3 h-3 mr-1 fill-current" />
-              <span>Рейтинг: {book.rating.toFixed(1)}</span>
+              <span>{t('books:rating')}: {book.rating.toFixed(1)}</span>
             </div>
           )}
           
           {publishedAt && (
             <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
               <Calendar className="w-3 h-3 mr-1" />
-              <span>Опубликовано: {formatDate(publishedAt)}</span>
+              <span>{t('books:published')}: {formatDate(publishedAt)}</span>
             </div>
           )}
           
           {uploadedAt && (
             <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
               <Clock className="w-3 h-3 mr-1" />
-              <span>Добавлено: {formatDate(uploadedAt)}</span>
+              <span>{t('books:added')}: {formatDate(uploadedAt)}</span>
             </div>
           )}
           
@@ -157,9 +159,9 @@ export const BookCard: React.FC<BookCardProps> = ({
             <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
               <MessageSquare className="w-3 h-3 mr-1" />
               <span>
-                {book.reviewCount !== undefined && `${book.reviewCount} обзоров`}
+                {book.reviewCount !== undefined && `${book.reviewCount} ${t('books:reviews')}`}
                 {book.reviewCount !== undefined && book.commentCount !== undefined && ', '}
-                {book.commentCount !== undefined && `${book.commentCount} комментариев`}
+                {book.commentCount !== undefined && `${book.commentCount} ${t('books:comments')}`}
               </span>
             </div>
           )}
@@ -170,17 +172,17 @@ export const BookCard: React.FC<BookCardProps> = ({
               {typeof book.shelfCount === 'number' && (
                 <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
                   <Bookmark className="w-3 h-3 mr-1" />
-                  <span>Добавили на полку: {book.shelfCount}</span>
+                  <span>{t('books:addedToShelf')}: {book.shelfCount}</span>
                 </div>
               )}
               {book.cardViewCount !== undefined && (
                 <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
-                  <span>👁️ {book.cardViewCount} просмотров карточки</span>
+                  <span>👁️ {book.cardViewCount} {t('books:cardViews')}</span>
                 </div>
               )}
               {book.readerOpenCount !== undefined && (
                 <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
-                  <span>📖 {book.readerOpenCount} открытий в читалке</span>
+                  <span>📖 {book.readerOpenCount} {t('books:readerOpens')}</span>
                 </div>
               )}
             </>
@@ -190,7 +192,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           {book.lastActivityDate && (
             <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
               <Activity className="w-3 h-3 mr-1" />
-              <span>Последняя активность: {formatDate(book.lastActivityDate)}</span>
+              <span>{t('books:lastActivity')}: {formatDate(book.lastActivityDate)}</span>
             </div>
           )}
         </div>
@@ -216,12 +218,12 @@ export const BookCard: React.FC<BookCardProps> = ({
         <div className="flex gap-2 w-full">
           <Button variant="outline" size="sm" className="flex-1" asChild>
             <Link href={`/read/${book.id}/1`}>
-              Читать
+              {t('books:read')}
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="flex-1" asChild>
             <Link href={`/book/${book.id}`}>
-              Подробнее
+              {t('books:moreDetails')}
             </Link>
           </Button>
         </div>

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { apiCall } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 interface NewsItem {
   id: string;
@@ -19,6 +20,7 @@ const NewsBlock: React.FC = () => {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation(['common']);
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -45,13 +47,13 @@ const NewsBlock: React.FC = () => {
       <section className="py-20 bg-muted">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Latest News</h2>
-            <p className="text-xl text-muted-foreground">Stay updated with our latest announcements</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('common:latestNews')}</h2>
+            <p className="text-xl text-muted-foreground">{t('common:stayUpdated')}</p>
           </div>
           <div className="max-w-4xl mx-auto">
             <Card>
               <CardContent className="p-6 text-center">
-                Loading news...
+                {t('common:loadingNews')}
               </CardContent>
             </Card>
           </div>
@@ -65,8 +67,8 @@ const NewsBlock: React.FC = () => {
       <section className="py-20 bg-muted">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Latest News</h2>
-            <p className="text-xl text-muted-foreground">Stay updated with our latest announcements</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('common:latestNews')}</h2>
+            <p className="text-xl text-muted-foreground">{t('common:stayUpdated')}</p>
           </div>
           <div className="max-w-4xl mx-auto">
             <Card>
@@ -84,8 +86,8 @@ const NewsBlock: React.FC = () => {
     <section className="py-20 bg-muted">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Latest News</h2>
-          <p className="text-xl text-muted-foreground">Stay updated with our latest announcements</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('common:latestNews')}</h2>
+          <p className="text-xl text-muted-foreground">{t('common:stayUpdated')}</p>
         </div>
         
         <div className="max-w-4xl mx-auto space-y-6">
@@ -104,7 +106,7 @@ const NewsBlock: React.FC = () => {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex items-center">
-                      <span>By{' '}
+                      <span>{t('common:by')}{' '}
                         <a 
                           href={`/profile/${newsItem.authorId}`}
                           target="_blank"
@@ -127,7 +129,7 @@ const NewsBlock: React.FC = () => {
           ) : (
             <Card>
               <CardContent className="p-8 text-center">
-                <p className="text-muted-foreground">No news items available at the moment.</p>
+                <p className="text-muted-foreground">{t('common:noNews')}</p>
               </CardContent>
             </Card>
           )}

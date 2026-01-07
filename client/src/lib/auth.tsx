@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { authApi } from './api';
+import { useTranslation } from 'react-i18next';
 
 interface User {
   id: string;
@@ -9,6 +10,7 @@ interface User {
   bio?: string;
   avatarUrl?: string;
   accessLevel?: string;
+  language?: string;
 }
 
 interface AuthContextType {
@@ -29,6 +31,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = React.useState<User | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const { i18n } = useTranslation();
 
   // Check if user is already logged in (from localStorage)
   React.useEffect(() => {
@@ -39,6 +42,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
+        // Set language from user preference if available
+        if (parsedUser.language) {
+          i18n.changeLanguage(parsedUser.language);
+        }
       } catch (e) {
         // If there's an error parsing, remove the invalid data
         localStorage.removeItem('authToken');
@@ -47,7 +54,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     
     setIsLoading(false);
-  }, []);
+  }, [i18n]);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {

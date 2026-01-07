@@ -13,9 +13,11 @@ import {
   SheetOverlay,
 } from '@/components/ui/sheet';
 import { Menu, BookOpen, Search, User, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function MobileMenu() {
   const { user, isLoading } = useAuth();
+  const { t } = useTranslation(['navigation', 'common']);
 
   if (isLoading) {
     return (
@@ -30,7 +32,7 @@ export function MobileMenu() {
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="text-foreground">
           <Menu className="h-6 w-6" />
-          <span className="sr-only">Открыть меню</span>
+          <span className="sr-only">{t('navigation:openMenu')}</span>
         </Button>
       </SheetTrigger>
       <SheetPortal>
@@ -45,7 +47,7 @@ export function MobileMenu() {
           <SheetClose asChild>
             <Button variant="ghost" size="icon" className="text-foreground -mt-1">
               <X className="h-6 w-6" />
-              <span className="sr-only">Закрыть меню</span>
+              <span className="sr-only">{t('navigation:closeMenu')}</span>
             </Button>
           </SheetClose>
         </div>
@@ -58,7 +60,7 @@ export function MobileMenu() {
                   className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
                 >
                   <BookOpen className="w-4 h-4" />
-                  Главная
+                  {t('navigation:home')}
                 </Link>
               </SheetClose>
               <SheetClose asChild>
@@ -67,7 +69,7 @@ export function MobileMenu() {
                   className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
                 >
                   <Search className="w-4 h-4" />
-                  Поиск
+                  {t('navigation:search')}
                 </Link>
               </SheetClose>
               <SheetClose asChild>
@@ -76,7 +78,7 @@ export function MobileMenu() {
                   className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
                 >
                   <BookOpen className="w-4 h-4" />
-                  Мои полки
+                  {t('navigation:shelves')}
                 </Link>
               </SheetClose>
               <SheetClose asChild>
@@ -85,7 +87,7 @@ export function MobileMenu() {
                   className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
                 >
                   <BookOpen className="w-4 h-4" />
-                  О проекте
+                  {t('navigation:about')}
                 </Link>
               </SheetClose>
               <SheetClose asChild>
@@ -94,7 +96,7 @@ export function MobileMenu() {
                   className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
                 >
                   <User className="w-4 h-4" />
-                  Профиль ({user.username})
+                  {t('navigation:profile')} ({user.username})
                 </Link>
               </SheetClose>
             </>
@@ -103,14 +105,14 @@ export function MobileMenu() {
               <SheetClose asChild>
                 <Button variant="outline" asChild className="w-full justify-start">
                   <Link href="/login" className="cursor-pointer">
-                    Login
+                    {t('common:login')}
                   </Link>
                 </Button>
               </SheetClose>
               <SheetClose asChild>
                 <Button asChild className="w-full justify-start">
                   <Link href="/register" className="cursor-pointer">
-                    Register
+                    {t('common:register')}
                   </Link>
                 </Button>
               </SheetClose>

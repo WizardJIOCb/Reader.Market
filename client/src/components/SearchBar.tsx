@@ -3,6 +3,7 @@ import { Search, X, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useLocation } from 'wouter';
+import { useTranslation } from 'react-i18next';
 import {
   Sheet,
   SheetContent,
@@ -45,6 +46,7 @@ export function SearchBar({
 }: SearchBarProps) {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [, navigate] = useLocation();
+  const { t } = useTranslation(['search']);
   
   // State for filter sheet
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
@@ -111,7 +113,7 @@ export function SearchBar({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Название, автор, жанр или тег..." 
+            placeholder={t('search:searchPlaceholder')}
             className="pl-9 h-12 bg-muted/30 border-muted focus-visible:ring-1 text-lg"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -137,28 +139,28 @@ export function SearchBar({
           onClick={handleFilterClick}
         >
           <SlidersHorizontal className="w-4 h-4" />
-          <span className="hidden sm:inline">Фильтры</span>
+          <span className="hidden sm:inline">{t('search:filters')}</span>
         </Button>
         
         <Button 
           type="submit" 
           className="h-12 px-6"
         >
-          Найти
+          {t('search:find')}
         </Button>
       </form>
       
       <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
         <SheetContent className="w-[320px] sm:w-[400px] overflow-y-auto">
           <SheetHeader className="mb-6">
-            <SheetTitle className="font-serif text-2xl">Фильтры</SheetTitle>
+            <SheetTitle className="font-serif text-2xl">{t('search:filters')}</SheetTitle>
           </SheetHeader>
           
           <div className="space-y-8 pb-12">
             {/* Genres */}
             <div className="space-y-4">
               <h3 className="font-medium flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
-                Жанры
+                {t('search:genres')}
               </h3>
               <div className="flex flex-wrap gap-2">
                 {allGenres.map((genre) => (
@@ -178,7 +180,7 @@ export function SearchBar({
             {/* Styles */}
             <div className="space-y-4">
               <h3 className="font-medium flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
-                Стилистика
+                {t('search:styles')}
               </h3>
               <div className="flex flex-wrap gap-2">
                 {allStyles.map((style) => (
@@ -199,7 +201,7 @@ export function SearchBar({
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-medium flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
-                  Год издания
+                  {t('search:publicationYear')}
                 </h3>
                 <span className="text-sm font-mono text-muted-foreground">
                   {yearRange[0]} - {yearRange[1]}
@@ -226,7 +228,7 @@ export function SearchBar({
               onClick={handleFiltersClear}
               type="button"
             >
-              Сбросить все фильтры
+              {t('search:clearAllFilters')}
             </Button>
           </div>
         </SheetContent>

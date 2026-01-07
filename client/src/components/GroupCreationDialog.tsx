@@ -21,6 +21,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from 'react-i18next';
 
 interface Book {
   id: string;
@@ -40,6 +41,7 @@ export function GroupCreationDialog({
   onGroupCreated,
 }: GroupCreationDialogProps) {
   const { toast } = useToast();
+  const { t } = useTranslation(['messages']);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [privacy, setPrivacy] = useState<'public' | 'private'>('public');
@@ -84,8 +86,8 @@ export function GroupCreationDialog({
   const handleCreate = async () => {
     if (!name.trim()) {
       toast({
-        title: 'Ошибка',
-        description: 'Название группы обязательно',
+        title: t('messages:error'),
+        description: t('messages:groupNameRequired'),
         variant: 'destructive',
       });
       return;
@@ -110,8 +112,8 @@ export function GroupCreationDialog({
       if (response.ok) {
         const group = await response.json();
         toast({
-          title: 'Успех',
-          description: 'Группа успешно создана',
+          title: t('messages:success'),
+          description: t('messages:groupCreatedSuccess'),
         });
         onOpenChange(false);
         onGroupCreated?.(group.id);
@@ -123,15 +125,15 @@ export function GroupCreationDialog({
       } else {
         const error = await response.json();
         toast({
-          title: 'Ошибка',
-          description: error.error || 'Не удалось создать группу',
+          title: t('messages:error'),
+          description: error.error || t('messages:failedToCreateGroup'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: 'Ошибка',
-        description: 'Не удалось создать группу',
+        title: t('messages:error'),
+        description: t('messages:failedToCreateGroup'),
         variant: 'destructive',
       });
     } finally {
@@ -143,33 +145,33 @@ export function GroupCreationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Создать группу</DialogTitle>
+          <DialogTitle>{t('messages:createGroupTitle')}</DialogTitle>
           <DialogDescription>
-            Создайте группу для обсуждения книг и общения с другими читателями
+            {t('messages:createGroupDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Group Name */}
           <div className="space-y-2">
-            <Label htmlFor="name">Название группы *</Label>
+            <Label htmlFor="name">{t('messages:groupNameLabel')}</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Введите название группы"
+              placeholder={t('messages:groupNamePlaceholder')}
               maxLength={100}
             />
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Описание</Label>
+            <Label htmlFor="description">{t('messages:descriptionLabel')}</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Опишите цель и тематику группы"
+              placeholder={t('messages:descriptionPlaceholder')}
               rows={3}
               maxLength={500}
             />
@@ -177,21 +179,21 @@ export function GroupCreationDialog({
 
           {/* Privacy */}
           <div className="space-y-2">
-            <Label htmlFor="privacy">Приватность</Label>
+            <Label htmlFor="privacy">{t('messages:privacyLabel')}</Label>
             <Select value={privacy} onValueChange={(value: 'public' | 'private') => setPrivacy(value)}>
               <SelectTrigger id="privacy">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="public">Публичная - любой может найти и присоединиться</SelectItem>
-                <SelectItem value="private">Приватная - только по приглашению</SelectItem>
+                <SelectItem value="public">{t('messages:publicOption')}</SelectItem>
+                <SelectItem value="private">{t('messages:privateOption')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Book Association */}
           <div className="space-y-2">
-            <Label htmlFor="books">Связанные книги (необязательно)</Label>
+            <Label htmlFor="books">{t('messages:relatedBooksLabel')}</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -201,7 +203,7 @@ export function GroupCreationDialog({
                   setBookSearch(e.target.value);
                   searchBooks(e.target.value);
                 }}
-                placeholder="Поиск книг для добавления в группу"
+                placeholder={t('messages:searchBooksPlaceholder')}
                 className="pl-10"
               />
             </div>
@@ -239,10 +241,10 @@ export function GroupCreationDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
-            Отмена
+            {t('messages:cancel')}
           </Button>
           <Button onClick={handleCreate} disabled={creating || !name.trim()}>
-            {creating ? 'Создание...' : 'Создать группу'}
+            {creating ? `${t('messages:create')}...` : t('messages:create')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -14,6 +14,7 @@ import { GroupSettingsPanel } from '@/components/GroupSettingsPanel';
 import { GroupMembersModal } from '@/components/GroupMembersModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Link, useLocation } from 'wouter';
+import { useTranslation } from 'react-i18next';
 
 interface Conversation {
   id: string;
@@ -68,6 +69,7 @@ export default function Messages() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [location] = useLocation();
+  const { t } = useTranslation(['messages']);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -576,8 +578,8 @@ export default function Messages() {
         const error = await response.json();
         console.error('Failed to join group, status:', response.status, 'error:', error);
         toast({
-          title: "Ошибка",
-          description: error.error || "Не удалось присоединиться к группе",
+          title: t('messages:error'),
+          description: error.error || t('messages:failedToJoinGroup'),
           variant: "destructive"
         });
         return false;
@@ -585,8 +587,8 @@ export default function Messages() {
     } catch (error) {
       console.error('Join group exception:', error);
       toast({
-        title: "Ошибка",
-        description: "Не удалось присоединиться к группе",
+        title: t('messages:error'),
+        description: t('messages:failedToJoinGroup'),
         variant: "destructive"
       });
       return false;
@@ -645,23 +647,23 @@ export default function Messages() {
         // Remove message from local state
         setMessages(prev => prev.filter(msg => msg.id !== messageId));
         toast({
-          title: "Сообщение удалено",
-          description: "Сообщение успешно удалено"
+          title: t('messages:messageDeleted'),
+          description: t('messages:messageDeletedSuccess')
         });
       } else {
         const error = await response.json();
         console.error('Delete failed:', error);
         toast({
-          title: "Ошибка",
-          description: error.error || "Не удалось удалить сообщение",
+          title: t('messages:error'),
+          description: error.error || t('messages:failedToDeleteMessage'),
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Delete message exception:', error);
       toast({
-        title: "Ошибка",
-        description: "Не удалось удалить сообщение",
+        title: t('messages:error'),
+        description: t('messages:failedToDeleteMessage'),
         variant: "destructive"
       });
     }
@@ -732,16 +734,16 @@ export default function Messages() {
         const error = await response.json();
         console.error('Failed to create conversation:', error);
         toast({
-          title: "Ошибка",
-          description: error.error || "Не удалось создать диалог",
+          title: t('messages:error'),
+          description: error.error || t('messages:failedToCreateConversation'),
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Start conversation exception:', error);
       toast({
-        title: "Ошибка",
-        description: "Не удалось создать диалог",
+        title: t('messages:error'),
+        description: t('messages:failedToCreateConversation'),
         variant: "destructive"
       });
     }
@@ -763,8 +765,8 @@ export default function Messages() {
       if (!selectedConversation.otherUser?.id) {
         console.error('ERROR: No recipient ID in conversation!');
         toast({
-          title: "Ошибка",
-          description: "Не удалось определить получателя. Попробуйте выбрать диалог заново.",
+          title: t('messages:error'),
+          description: t('messages:failedToIdentifyRecipient'),
           variant: "destructive"
         });
         return;
@@ -918,11 +920,11 @@ export default function Messages() {
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="private" className="flex items-center gap-2">
                 <MessageCircle className="w-4 h-4" />
-                Личные
+                {t('messages:private')}
               </TabsTrigger>
               <TabsTrigger value="groups" className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                Группы
+                {t('messages:groups')}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -931,7 +933,7 @@ export default function Messages() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder={activeTab === 'private' ? 'Поиск пользователей...' : 'Поиск групп...'}
+                placeholder={activeTab === 'private' ? t('messages:searchUsers') : t('messages:searchGroups')}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -941,7 +943,7 @@ export default function Messages() {
               />
             </div>
             {activeTab === 'groups' && (
-              <Button size="icon" variant="outline" onClick={() => setGroupDialogOpen(true)} title="Создать группу">
+              <Button size="icon" variant="outline" onClick={() => setGroupDialogOpen(true)} title={t('messages:createGroup')}>
                 <Plus className="w-4 h-4" />
               </Button>
             )}
@@ -996,7 +998,7 @@ export default function Messages() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{group.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {group.privacy === 'private' ? 'Приватная' : 'Публичная'}
+                      {group.privacy === 'private' ? t('messages:privateGroup') : t('messages:publicGroup')}
                     </p>
                   </div>
                 </div>
@@ -1010,8 +1012,8 @@ export default function Messages() {
             conversations.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground">
                 <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Нет диалогов</p>
-                <p className="text-sm">Найдите пользователей для начала общения</p>
+                <p>{t('messages:noConversations')}</p>
+                <p className="text-sm">{t('messages:findUsersToChat')}</p>
               </div>
             ) : (
               conversations.map((conv) => (
@@ -1047,8 +1049,8 @@ export default function Messages() {
             groups.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground">
                 <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Нет групп</p>
-                <p className="text-sm">Создайте или найдите группу</p>
+                <p>{t('messages:noGroups')}</p>
+                <p className="text-sm">{t('messages:createOrFindGroup')}</p>
               </div>
             ) : (
               groups.map((group) => (
@@ -1072,8 +1074,8 @@ export default function Messages() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{group.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {group.privacy === 'private' ? 'Приватная' : 'Публичная'}
-                        {group.memberCount && ` • ${group.memberCount} участников`}
+                        {group.privacy === 'private' ? t('messages:privateGroup') : t('messages:publicGroup')}
+                        {group.memberCount && ` • ${group.memberCount} ${t('messages:members')}`}
                       </p>
                     </div>
                   </div>
@@ -1164,7 +1166,7 @@ export default function Messages() {
                             <button
                               onClick={() => deleteMessage(message.id)}
                               className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10"
-                              title="Удалить сообщение"
+                              title={t('messages:deleteMessage')}
                             >
                               <XIcon className="w-3 h-3" />
                             </button>
@@ -1184,7 +1186,7 @@ export default function Messages() {
               </div>
               {otherUserTyping && (
                 <div className="text-sm text-muted-foreground italic mt-2">
-                  {selectedConversation.otherUser?.fullName || selectedConversation.otherUser?.username} is typing...
+                  {selectedConversation.otherUser?.fullName || selectedConversation.otherUser?.username} {t('messages:typing')}
                 </div>
               )}
             </ScrollArea>
@@ -1193,7 +1195,7 @@ export default function Messages() {
             <div className="p-4 border-t">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Type a message..."
+                  placeholder={t('messages:typeMessage')}
                   value={newMessage}
                   onChange={handleInputChange}
                   onKeyPress={handleKeyPress}
@@ -1221,17 +1223,17 @@ export default function Messages() {
                     </p>
                   )}
                   <div className="text-sm text-muted-foreground mt-1">
-                    <span>{selectedGroup.privacy === 'private' ? 'Приватная группа' : 'Публичная группа'}</span>
+                    <span>{selectedGroup.privacy === 'private' ? t('messages:privateGroup') : t('messages:publicGroup')}</span>
                     {selectedGroup.memberCount && (
                       <>
                         <span> • </span>
                         <span
                           className="hover:underline cursor-pointer inline-flex items-center gap-1"
                           onClick={() => setMemberModalOpen(true)}
-                          title="View all members"
+                          title={t('messages:viewMembers')}
                         >
                           <Users className="w-3 h-3" />
-                          {selectedGroup.memberCount} участников
+                          {selectedGroup.memberCount} {t('messages:members')}
                         </span>
                       </>
                     )}
@@ -1276,7 +1278,7 @@ export default function Messages() {
                         console.log('Settings button clicked, userGroupRole:', userGroupRole);
                         setGroupSettingsOpen(true);
                       }}
-                      title="Настройки группы"
+                      title={t('messages:groupSettings')}
                     >
                       <Settings className="w-5 h-5" />
                     </Button>
@@ -1380,8 +1382,8 @@ export default function Messages() {
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
                 <div className="text-center">
                   <Hash className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Нет каналов</p>
-                  <p className="text-sm">Эта группа пока не имеет каналов</p>
+                  <p className="text-lg font-medium">{t('messages:noChannels')}</p>
+                  <p className="text-sm">{t('messages:noChannelsDescription')}</p>
                 </div>
               </div>
             )}
@@ -1390,8 +1392,8 @@ export default function Messages() {
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">Select a conversation</p>
-              <p className="text-sm">Choose a conversation from the list or search for users</p>
+              <p className="text-lg font-medium">{t('messages:selectConversation')}</p>
+              <p className="text-sm">{t('messages:selectConversationDescription')}</p>
             </div>
           </div>
         )}
@@ -1403,8 +1405,8 @@ export default function Messages() {
         onOpenChange={setGroupDialogOpen}
         onGroupCreated={(groupId) => {
           toast({
-            title: "Группа создана",
-            description: "Группа успешно создана. Вы можете пригласить участников."
+            title: t('messages:groupCreated'),
+            description: t('messages:groupCreatedDescription')
           });
           // Refresh groups list and switch to groups tab
           fetchGroups();
@@ -1415,7 +1417,7 @@ export default function Messages() {
       <Dialog open={groupSettingsOpen} onOpenChange={setGroupSettingsOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Настройки группы</DialogTitle>
+            <DialogTitle>{t('messages:groupSettings')}</DialogTitle>
           </DialogHeader>
           {selectedGroup && user && (
             <GroupSettingsPanel

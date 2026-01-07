@@ -1,0 +1,18 @@
+{
+  "login": "Login",
+  "register": "Register",
+  "logout": "Logout",
+  "loading": "Loading...",
+  "save": "Save",
+  "cancel": "Cancel",
+  "edit": "Edit",
+  "delete": "Delete",
+  "search": "Search",
+  "searchPlaceholder": "Search...",
+  "uploading": "Uploading...",
+  "latestNews": "Latest News",
+  "stayUpdated": "Stay updated with our latest announcements",
+  "loadingNews": "Loading news...",
+  "noNews": "No news items available at the moment.",
+  "by": "By"
+}

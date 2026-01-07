@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTranslation } from 'react-i18next';
 
 export default function Shelves() {
   const { user } = useAuth();
@@ -33,6 +34,7 @@ export default function Shelves() {
   const [isEditShelfOpen, setIsEditShelfOpen] = useState(false);
   const [shelfBooks, setShelfBooks] = useState<{[key: string]: any[]}>({});
   const { toast } = useToast();
+  const { t } = useTranslation(['shelves', 'notifications', 'common']);
 
   // Fetch books for all shelves
   useEffect(() => {
@@ -94,8 +96,8 @@ export default function Shelves() {
       } catch (err) {
         console.error('Global search error:', err);
         toast({
-          title: "Ошибка поиска",
-          description: "Не удалось выполнить глобальный поиск",
+          title: t('notifications:error.title'),
+          description: t('shelves:searchErrorDescription'),
           variant: "destructive",
         });
       } finally {
@@ -221,9 +223,9 @@ export default function Shelves() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title="Мои полки" />
+          <PageHeader title={t('shelves:title')} />
           <div className="flex justify-center items-center h-64">
-            <p>Загрузка полок...</p>
+            <p>{t('common:loading')}</p>
           </div>
         </div>
       </div>
@@ -234,16 +236,16 @@ export default function Shelves() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title="Мои полки" />
+          <PageHeader title={t('shelves:title')} />
           <div className="flex justify-center items-center h-64">
             <div className="text-center">
-              <p className="text-red-500 mb-4">Ошибка загрузки полок:</p>
+              <p className="text-red-500 mb-4">{t('notifications:error.loadFailed')}:</p>
               <p className="text-red-500 text-sm font-mono">{error}</p>
               <Button 
                 className="mt-4" 
                 onClick={() => window.location.reload()}
               >
-                Перезагрузить страницу
+                {t('common:reload', 'Reload')}
               </Button>
             </div>
           </div>
@@ -256,12 +258,12 @@ export default function Shelves() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title="Мои полки" />
+          <PageHeader title={t('shelves:title')} />
           <div className="flex justify-center items-center h-64">
             <div className="text-center">
-              <p className="text-muted-foreground mb-4">Для просмотра полок необходимо войти в систему</p>
+              <p className="text-muted-foreground mb-4">{t('common:loginRequired', 'Please login to view shelves')}</p>
               <Link href="/login">
-                <Button>Войти</Button>
+                <Button>{t('common:login')}</Button>
               </Link>
             </div>
           </div>
@@ -273,7 +275,7 @@ export default function Shelves() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <PageHeader title="Мои полки" />
+        <PageHeader title={t('shelves:title')} />
         
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2">
@@ -286,7 +288,7 @@ export default function Shelves() {
             <div className="relative w-full max-w-xs hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="Поиск книг..." 
+                placeholder={t('shelves:searchBooks')} 
                 className="pl-9 bg-muted/30 border-none focus-visible:ring-1"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -296,7 +298,7 @@ export default function Shelves() {
             <Link href="/add-book">
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Новая книга</span>
+                <span className="hidden sm:inline">{t('shelves:newBook')}</span>
               </Button>
             </Link>
             
@@ -304,23 +306,23 @@ export default function Shelves() {
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Новая полка</span>
+                  <span className="hidden sm:inline">{t('shelves:newShelf')}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Создать новую полку</DialogTitle>
+                  <DialogTitle>{t('shelves:createNewShelf')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleAddShelf} className="space-y-4 pt-4">
                   <Input 
-                    placeholder="Название полки (например: Фантастика)" 
+                    placeholder={t('shelves:shelfNamePlaceholder')}
                     value={newShelfName}
                     onChange={(e) => setNewShelfName(e.target.value)}
                     autoFocus
                   />
                   <div className="flex justify-end gap-2">
-                    <Button type="button" variant="ghost" onClick={() => setIsAddShelfOpen(false)}>Отмена</Button>
-                    <Button type="submit">Создать</Button>
+                    <Button type="button" variant="ghost" onClick={() => setIsAddShelfOpen(false)}>{t('shelves:cancel')}</Button>
+                    <Button type="submit">{t('shelves:create')}</Button>
                   </div>
                 </form>
               </DialogContent>
@@ -333,7 +335,7 @@ export default function Shelves() {
            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="Поиск книг..." 
+                placeholder={t('shelves:searchBooks')} 
                 className="pl-9 bg-muted/30 border-none"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -346,7 +348,7 @@ export default function Shelves() {
           <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
               <Search className="w-4 h-4" />
-              Глобальные результаты поиска
+              {t('shelves:globalSearchResults')}
             </h2>
             {isSearching ? (
               <div className="flex justify-center py-8">
@@ -404,7 +406,7 @@ export default function Shelves() {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
                                   <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
                                 </svg>
-                                <span className="truncate">Полки</span>
+                                <span className="truncate">{t('shelves:shelves')}</span>
                               </Button>
                             }
                           />
@@ -414,7 +416,7 @@ export default function Shelves() {
                   })
                 ) : (
                   <div className="col-span-full text-center py-12 text-muted-foreground">
-                    Ничего не найдено
+                    {t('search:noResults')}
                   </div>
                 )}
               </div>
@@ -427,7 +429,7 @@ export default function Shelves() {
           <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
               <BookIcon className="w-4 h-4" />
-              Книги на ваших полках
+              {t('shelves:booksOnYourShelves')}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {(() => {
@@ -491,7 +493,7 @@ export default function Shelves() {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
                                   <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
                                 </svg>
-                                <span className="truncate">Полки</span>
+                                <span className="truncate">{t('shelves:shelves')}</span>
                               </Button>
                             }
                           />
@@ -501,7 +503,7 @@ export default function Shelves() {
                   })
                 ) : (
                   <div className="col-span-full text-center py-12 text-muted-foreground">
-                    Нет совпадений на ваших полках
+                    {t('shelves:noMatches')}
                   </div>
                 );
               })()}
@@ -531,14 +533,14 @@ export default function Shelves() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => handleEditShelf({ id: shelf.id, name: shelf.name, description: shelf.description })}>
                         <Edit className="w-4 h-4 mr-2" />
-                        Редактировать
+                        {t('shelves:edit')}
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         className="text-destructive focus:text-destructive focus:bg-destructive/10" 
                         onClick={() => handleDeleteShelf(shelf.id, shelf.name)}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Удалить
+                        {t('shelves:delete')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -548,7 +550,7 @@ export default function Shelves() {
               {(shelf.bookIds || []).length === 0 ? (
                 <div className={`h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground gap-2 ${shelf.color} bg-opacity-20`}>
                   <BookIcon className="w-8 h-8 opacity-50" />
-                  <p>Полка пуста</p>
+                  <p>{t('shelves:shelfEmpty')}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -601,7 +603,7 @@ export default function Shelves() {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
                                   <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
                                 </svg>
-                                <span className="truncate">Полки</span>
+                                <span className="truncate">{t('shelves:shelves')}</span>
                               </Button>
                             }
                           />
@@ -620,18 +622,18 @@ export default function Shelves() {
       <Dialog open={isAddShelfOpen} onOpenChange={setIsAddShelfOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Создать новую полку</DialogTitle>
+            <DialogTitle>{t('shelves:createNewShelf')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddShelf} className="space-y-4 pt-4">
             <Input 
-              placeholder="Название полки (например: Фантастика)" 
+              placeholder={t('shelves:shelfNamePlaceholder')}
               value={newShelfName}
               onChange={(e) => setNewShelfName(e.target.value)}
               autoFocus
             />
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setIsAddShelfOpen(false)}>Отмена</Button>
-              <Button type="submit">Создать</Button>
+              <Button type="button" variant="ghost" onClick={() => setIsAddShelfOpen(false)}>{t('shelves:cancel')}</Button>
+              <Button type="submit">{t('shelves:create')}</Button>
             </div>
           </form>
         </DialogContent>
@@ -644,24 +646,24 @@ export default function Shelves() {
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Редактировать полку</DialogTitle>
+            <DialogTitle>{t('shelves:editShelf')}</DialogTitle>
           </DialogHeader>
           {editingShelf && (
             <form onSubmit={handleUpdateShelf} className="space-y-4 pt-4">
               <Input 
-                placeholder="Название полки" 
+                placeholder={t('shelves:shelfNamePlaceholder')}
                 value={editingShelf.name}
                 onChange={(e) => setEditingShelf({...editingShelf, name: e.target.value})}
                 autoFocus
               />
               <Input 
-                placeholder="Описание полки (необязательно)" 
+                placeholder={t('shelves:shelfDescriptionPlaceholder')}
                 value={editingShelf.description || ''}
                 onChange={(e) => setEditingShelf({...editingShelf, description: e.target.value})}
               />
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setIsEditShelfOpen(false)}>Отмена</Button>
-                <Button type="submit">Сохранить</Button>
+                <Button type="button" variant="ghost" onClick={() => setIsEditShelfOpen(false)}>{t('shelves:cancel')}</Button>
+                <Button type="submit">{t('shelves:save')}</Button>
               </div>
             </form>
           )}

@@ -1,0 +1,22 @@
+{
+  "title": "Мои полки",
+  "searchBooks": "Поиск книг...",
+  "newBook": "Новая книга",
+  "newShelf": "Новая полка",
+  "createNewShelf": "Создать новую полку",
+  "shelfNamePlaceholder": "Название полки (например: Фантастика)",
+  "cancel": "Отмена",
+  "create": "Создать",
+  "edit": "Редактировать",
+  "delete": "Удалить",
+  "editShelf": "Редактировать полку",
+  "shelfDescriptionPlaceholder": "Описание полки (необязательно)",
+  "save": "Сохранить",
+  "globalSearchResults": "Глобальные результаты поиска",
+  "booksOnYourShelves": "Книги на ваших полках",
+  "shelves": "Полки",
+  "shelfEmpty": "Полка пуста",
+  "noMatches": "Нет совпадений на ваших полках",
+  "searchError": "Ошибка поиска",
+  "searchErrorDescription": "Не удалось выполнить глобальный поиск"
+}

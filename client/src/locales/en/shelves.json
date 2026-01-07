@@ -1,0 +1,22 @@
+{
+  "title": "My Shelves",
+  "searchBooks": "Search books...",
+  "newBook": "New Book",
+  "newShelf": "New Shelf",
+  "createNewShelf": "Create New Shelf",
+  "shelfNamePlaceholder": "Shelf name (e.g., Science Fiction)",
+  "cancel": "Cancel",
+  "create": "Create",
+  "edit": "Edit",
+  "delete": "Delete",
+  "editShelf": "Edit Shelf",
+  "shelfDescriptionPlaceholder": "Shelf description (optional)",
+  "save": "Save",
+  "globalSearchResults": "Global Search Results",
+  "booksOnYourShelves": "Books on Your Shelves",
+  "shelves": "Shelves",
+  "shelfEmpty": "Shelf is empty",
+  "noMatches": "No matches on your shelves",
+  "searchError": "Search Error",
+  "searchErrorDescription": "Failed to perform global search"
+}

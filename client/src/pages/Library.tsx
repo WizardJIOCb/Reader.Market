@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'wouter';
 import { mockUser } from '@/lib/mockData';
+import { useTranslation } from 'react-i18next';
 import { 
   Search, 
   BookOpen, 
@@ -27,6 +28,7 @@ import { useMainPageData } from '@/hooks/useMainPageData';
 
 export default function Library() {
   const { user } = useAuth();
+  const { t } = useTranslation(['home', 'common']);
   const { data, loading, error, refresh } = useMainPageData();
   const [searchQuery, setSearchQuery] = useState('');
   // Filters State
@@ -107,7 +109,7 @@ export default function Library() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title="Библиотека" />
+          <PageHeader title={t('home:title')} />
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
@@ -120,10 +122,10 @@ export default function Library() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title="Библиотека" />
+          <PageHeader title={t('home:title')} />
           <div className="text-center py-12">
-            <div className="text-red-500 mb-4">Ошибка загрузки данных: {error}</div>
-            <Button onClick={refresh}>Повторить попытку</Button>
+            <div className="text-red-500 mb-4">{t('home:error')}: {error}</div>
+            <Button onClick={refresh}>{t('home:retry')}</Button>
           </div>
         </div>
       </div>
@@ -133,7 +135,7 @@ export default function Library() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <PageHeader title="Библиотека" />
+        <PageHeader title={t('home:title')} />
         
         {/* Search Bar with Filters */}
         <div className="mb-8">
@@ -159,10 +161,10 @@ export default function Library() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
               <TrendingUp className="w-6 h-6 text-primary" />
-              Популярные книги
+              {t('home:popularBooks')}
             </h2>
             <Link href="/search" className="text-sm text-primary hover:underline">
-              Все популярные
+              {t('home:allPopular')}
             </Link>
           </div>
           
@@ -194,9 +196,9 @@ export default function Library() {
             <div className="text-center py-8 text-muted-foreground">
               <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
               {data.popularBooks.length > 0 ? (
-                <p>Нет популярных книг по заданным фильтрам</p>
+                <p>{t('home:noPopularBooksFiltered')}</p>
               ) : (
-                <p>Пока нет популярных книг</p>
+                <p>{t('home:noPopularBooks')}</p>
               )}
             </div>
           )}
@@ -206,7 +208,7 @@ export default function Library() {
         <section className="mb-12">
           <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2">
             <Users className="w-6 h-6 text-primary" />
-            Книги по жанрам
+            {t('home:booksByGenre')}
           </h2>
                   
           {data.booksByGenre.length > 0 ? (
@@ -243,7 +245,7 @@ export default function Library() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Пока нет книг по жанрам</p>
+              <p>{t('home:noBooksByGenre')}</p>
             </div>
           )}
         </section>
@@ -253,10 +255,10 @@ export default function Library() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
               <Award className="w-6 h-6 text-primary" />
-              Новые обзоры
+              {t('home:recentlyReviewed')}
             </h2>
             <Link href="/search" className="text-sm text-primary hover:underline">
-              Все обзоры
+              {t('home:allReviewed')}
             </Link>
           </div>
           
@@ -288,9 +290,9 @@ export default function Library() {
             <div className="text-center py-8 text-muted-foreground">
               <Award className="w-12 h-12 mx-auto mb-4 opacity-50" />
               {data.recentlyReviewedBooks.length > 0 ? (
-                <p>Нет книг с новыми обзорами по заданным фильтрам</p>
+                <p>{t('home:noReviewedBooksFiltered')}</p>
               ) : (
-                <p>Пока нет новых обзоров</p>
+                <p>{t('home:noReviewedBooks')}</p>
               )}
             </div>
           )}
@@ -301,10 +303,10 @@ export default function Library() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
               <LibraryIcon className="w-6 h-6 text-primary" />
-              Новинки
+              {t('home:newReleases')}
             </h2>
             <Link href="/search" className="text-sm text-primary hover:underline">
-              Все новинки
+              {t('home:allNew')}
             </Link>
           </div>
           
@@ -336,9 +338,9 @@ export default function Library() {
             <div className="text-center py-8 text-muted-foreground">
               <LibraryIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
               {data.newReleases.length > 0 ? (
-                <p>Нет новинок по заданным фильтрам</p>
+                <p>{t('home:noNewReleasesFiltered')}</p>
               ) : (
-                <p>Пока нет новинок</p>
+                <p>{t('home:noNewReleases')}</p>
               )}
             </div>
           )}
@@ -349,7 +351,7 @@ export default function Library() {
           <section className="mb-12">
             <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2">
               <BookOpen className="w-6 h-6 text-primary" />
-              Мои книги
+              {t('home:myBooks')}
             </h2>
             
             {filteredCurrentUserBooks && filteredCurrentUserBooks.length > 0 ? (
@@ -381,16 +383,16 @@ export default function Library() {
                 <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">
                   {data.currentUserBooks && data.currentUserBooks.length > 0 ? 
-                    'Нет книг по заданным фильтрам' : 
-                    'У вас нет активных книг'}
+                    t('home:noBooksFiltered') : 
+                    t('home:noActiveBooks')}
                 </h3>
                 <p className="text-muted-foreground mb-4">
                   {data.currentUserBooks && data.currentUserBooks.length > 0 ? 
-                    'Попробуйте изменить параметры фильтрации.' : 
-                    'Начните читать книгу, и она появится здесь с прогрессом чтения.'}
+                    t('home:tryDifferentFilters') : 
+                    t('home:noBooksMessage')}
                 </p>
                 <Link href="/search">
-                  <Button>Найти книгу</Button>
+                  <Button>{t('home:findBook')}</Button>
                 </Link>
               </Card>
             )}

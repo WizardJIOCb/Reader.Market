@@ -1,0 +1,27 @@
+{
+  "editProfile": "Редактировать профиль",
+  "saveProfile": "Сохранить",
+  "cancel": "Отмена",
+  "uploadAvatar": "Добавить аватар",
+  "changeAvatar": "Изменить аватар",
+  "deleteAvatar": "Удалить аватар",
+  "shareProfile": "Поделиться профилем",
+  "fullName": "Полное имя",
+  "bio": "О себе",
+  "bioPlaceholder": "Расскажите о себе...",
+  "stats": {
+    "booksRead": "Книг прочитано",
+    "wordsRead": "Слов прочитано",
+    "lettersRead": "Букв прочитано"
+  },
+  "recentlyRead": "Недавно читал",
+  "shelves": "Книжные полки",
+  "emptyShelf": "Полка пуста",
+  "noRecentBooks": "Нет недавно прочитанных книг",
+  "loading": "Загрузка...",
+  "notFound": "Профиль не найден",
+  "languagePreference": "Язык интерфейса",
+  "languageDescription": "Выберите предпочитаемый язык интерфейса",
+  "english": "English",
+  "russian": "Русский"
+}

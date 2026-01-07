@@ -25,6 +25,9 @@ import {
   X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 interface User {
   id: string;
@@ -96,8 +99,10 @@ interface UserProfile {
 export default function Profile() {
   const [match, params] = useRoute('/profile/:userId');
   const { toast } = useToast();
-  const { user: currentUser } = useAuth(); // Get current authenticated user
+  const { user: currentUser, refreshUser } = useAuth(); // Get current authenticated user
   const userId = params?.userId;
+  const { t, i18n } = useTranslation(['profile', 'notifications', 'common']);
+  const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +116,59 @@ export default function Profile() {
 
   // Determine if viewing own profile
   const isOwnProfile = currentUser?.id === userId;
+
+  const handleLanguageChange = async (newLanguage: string) => {
+    try {
+      setSelectedLanguage(newLanguage);
+      
+      // Update UI language immediately
+      await i18n.changeLanguage(newLanguage);
+      
+      // If user is authenticated, save to backend
+      if (isOwnProfile && profile) {
+        // Use direct backend URL in development to bypass Vite proxy
+        const apiUrl = import.meta.env.DEV 
+          ? 'http://localhost:5001/api/profile/language'
+          : '/api/profile/language';
+        
+        const response = await fetch(apiUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          },
+          body: JSON.stringify({ language: newLanguage })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Update local storage with new user data
+          localStorage.setItem('userData', JSON.stringify(data.user));
+          
+          // Refresh user in auth context
+          if (refreshUser) {
+            await refreshUser();
+          }
+          
+          toast({
+            title: t('notifications:success.languageUpdated'),
+            description: t('notifications:success.languageDescription'),
+          });
+        } else {
+          throw new Error('Failed to update language preference');
+        }
+      }
+    } catch (error) {
+      console.error('Language update error:', error);
+      toast({
+        title: t('notifications:error.title'),
+        description: t('notifications:error.updateFailed'),
+        variant: "destructive"
+      });
+      // Revert language on error
+      setSelectedLanguage(i18n.language);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!profile) return;
@@ -134,14 +192,14 @@ export default function Profile() {
       }
       
       toast({
-        title: "Сообщение отправлено",
-        description: `Ваше сообщение для ${profile.name} успешно отправлено.`,
+        title: t('notifications:success.messageSent'),
+        description: t('notifications:success.messageDescription'),
       });
       setMessage('');
     } catch (err) {
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : 'Не удалось отправить сообщение',
+        title: t('notifications:error.title'),
+        description: err instanceof Error ? err.message : t('notifications:error.sendFailed'),
         variant: "destructive"
       });
     }
@@ -183,13 +241,13 @@ export default function Profile() {
       });
       setIsEditing(false);
       toast({
-        title: "Профиль обновлен",
-        description: "Ваш профиль успешно обновлен."
+        title: t('notifications:success.profileUpdated'),
+        description: t('notifications:success.profileDescription')
       });
     } catch (err) {
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : 'Не удалось обновить профиль',
+        title: t('notifications:error.title'),
+        description: err instanceof Error ? err.message : t('notifications:error.updateFailed'),
         variant: "destructive"
       });
     }
@@ -211,8 +269,8 @@ export default function Profile() {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       toast({
-        title: "Ошибка",
-        description: "Пожалуйста, загрузите изображение в формате JPEG, PNG, GIF или WebP",
+        title: t('notifications:error.title'),
+        description: t('notifications:error.invalidImageFormat'),
         variant: "destructive"
       });
       return;
@@ -221,8 +279,8 @@ export default function Profile() {
     // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast({
-        title: "Ошибка",
-        description: "Размер файла не должен превышать 5MB",
+        title: t('notifications:error.title'),
+        description: t('notifications:error.fileTooLarge'),
         variant: "destructive"
       });
       return;
@@ -264,13 +322,13 @@ export default function Profile() {
       }
 
       toast({
-        title: "Аватар обновлен",
-        description: "Ваш аватар успешно загружен"
+        title: t('notifications:success.avatarUpdated'),
+        description: t('notifications:success.avatarDescription')
       });
     } catch (err) {
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : 'Не удалось загрузить аватар',
+        title: t('notifications:error.title'),
+        description: err instanceof Error ? err.message : t('notifications:error.uploadFailed'),
         variant: "destructive"
       });
     } finally {
@@ -312,13 +370,13 @@ export default function Profile() {
       });
 
       toast({
-        title: "Аватар удален",
-        description: "Ваш аватар успешно удален"
+        title: t('notifications:success.avatarDeleted'),
+        description: t('notifications:success.avatarDeletedDescription')
       });
     } catch (err) {
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : 'Не удалось удалить аватар',
+        title: t('notifications:error.title'),
+        description: err instanceof Error ? err.message : t('notifications:error.updateFailed'),
         variant: "destructive"
       });
     } finally {
@@ -334,13 +392,13 @@ export default function Profile() {
       await navigator.clipboard.writeText(profileUrl);
       
       toast({
-        title: "Ссылка скопирована",
-        description: "Ссылка на профиль скопирована в буфер обмена"
+        title: t('notifications:success.linkCopied'),
+        description: t('notifications:success.linkDescription')
       });
     } catch (err) {
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : 'Не удалось скопировать ссылку',
+        title: t('notifications:error.title'),
+        description: err instanceof Error ? err.message : t('notifications:error.copyFailed'),
         variant: "destructive"
       });
     }
@@ -494,8 +552,8 @@ export default function Profile() {
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load profile');
         toast({
-          title: "Ошибка",
-          description: "Не удалось загрузить профиль пользователя",
+          title: t('notifications:error.title'),
+          description: t('notifications:error.profileLoadFailed'),
           variant: "destructive"
         });
       } finally {
@@ -507,11 +565,11 @@ export default function Profile() {
   }, [userId, toast]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-background">Загрузка...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-background">{t('profile:loading')}</div>;
   }
 
   if (error || !profile) {
-    return <div className="min-h-screen flex items-center justify-center bg-background text-red-500">{error || "Профиль не найден"}</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-background text-red-500">{error || t('profile:notFound')}</div>;
   }
 
   const formatNumber = (num: number) => {
@@ -540,14 +598,14 @@ export default function Profile() {
                 className="gap-2"
               >
                 <Camera className="w-4 h-4" />
-                {avatarUploading ? 'Загрузка...' : profile.avatar ? 'Изменить аватар' : 'Добавить аватар'}
+                {avatarUploading ? t('common:uploading') : profile.avatar ? t('profile:changeAvatar') : t('profile:uploadAvatar')}
               </Button>
               <Button variant="outline" size="sm" onClick={handleEditProfile}>
-                Редактировать профиль
+                {t('profile:editProfile')}
               </Button>
               <Button variant="outline" size="sm" className="gap-2 cursor-pointer" onClick={handleShareProfile}>
                 <Share2 className="w-4 h-4" />
-                Поделиться профилем
+                {t('profile:shareProfile')}
               </Button>
               <LogoutButton />
             </div>
@@ -589,7 +647,7 @@ export default function Profile() {
               {isEditing ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Полное имя</label>
+                    <label className="block text-sm font-medium mb-2">{t('profile:fullName')}</label>
                     <input
                       type="text"
                       value={editFullName}
@@ -598,20 +656,20 @@ export default function Profile() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">О себе</label>
+                    <label className="block text-sm font-medium mb-2">{t('profile:bio')}</label>
                     <textarea
                       value={editBio}
                       onChange={(e) => setEditBio(e.target.value)}
                       className="w-full p-2 border rounded-md min-h-[120px]"
-                      placeholder="Расскажите о себе..."
+                      placeholder={t('profile:bioPlaceholder')}
                     />
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button variant="outline" onClick={handleCancelEdit}>
-                      Отмена
+                      {t('profile:cancel')}
                     </Button>
                     <Button onClick={handleSaveProfile}>
-                      Сохранить
+                      {t('profile:saveProfile')}
                     </Button>
                   </div>
                 </div>
@@ -633,7 +691,7 @@ export default function Profile() {
             </div>
             <div>
               <p className="text-2xl font-bold font-serif">{formatNumber(profile.stats.booksRead)}</p>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Книг прочитано</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('profile:stats.booksRead')}</p>
             </div>
           </div>
           
@@ -643,7 +701,7 @@ export default function Profile() {
             </div>
             <div>
               <p className="text-2xl font-bold font-serif">{formatNumber(profile.stats.wordsRead)}</p>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Слов прочитано</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('profile:stats.wordsRead')}</p>
             </div>
           </div>
           
@@ -653,20 +711,45 @@ export default function Profile() {
             </div>
             <div>
               <p className="text-2xl font-bold font-serif">{formatNumber(profile.stats.lettersRead)}</p>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Букв прочитано</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('profile:stats.lettersRead')}</p>
             </div>
           </div>
         </div>
+
+        {/* Language Preference Section - Only for own profile */}
+        {isOwnProfile && (
+          <section className="mb-12">
+            <div className="bg-card border p-6 rounded-xl shadow-sm">
+              <h2 className="text-lg font-serif font-bold mb-2">{t('profile:languagePreference')}</h2>
+              <p className="text-sm text-muted-foreground mb-4">{t('profile:languageDescription')}</p>
+              
+              <RadioGroup value={selectedLanguage} onValueChange={handleLanguageChange}>
+                <div className="flex items-center space-x-2 mb-3">
+                  <RadioGroupItem value="en" id="lang-en" />
+                  <Label htmlFor="lang-en" className="cursor-pointer">
+                    {t('profile:english')}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="ru" id="lang-ru" />
+                  <Label htmlFor="lang-ru" className="cursor-pointer">
+                    {t('profile:russian')}
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </section>
+        )}
 
         {/* Recently Read */}
         <section className="mb-12">
           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
             <ClockIcon className="w-5 h-5 text-muted-foreground" />
-            Недавно читал
+            {t('profile:recentlyRead')}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {profile.recentlyReadIds.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Нет недавно прочитанных книг</p>
+              <p className="text-sm text-muted-foreground">{t('profile:noRecentBooks')}</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {profile.recentlyReadIds.map((bookId: string) => {
@@ -698,7 +781,7 @@ export default function Profile() {
         <section>
           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
             <LibraryIcon className="w-5 h-5 text-muted-foreground" />
-            Книжные полки
+            {t('profile:shelves')}
           </h2>
           <div className="space-y-8">
             {profile.shelves.map((shelf: ProfileShelf) => (
@@ -711,7 +794,7 @@ export default function Profile() {
                 </div>
             
                 {shelf.bookIds.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Полка пуста</p>
+                  <p className="text-sm text-muted-foreground">{t('profile:emptyShelf')}</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {shelf.books?.map((book: Book) => (

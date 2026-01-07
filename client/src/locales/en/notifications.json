@@ -1,0 +1,27 @@
+{
+  "success": {
+    "profileUpdated": "Profile Updated",
+    "profileDescription": "Your profile was successfully updated",
+    "messageSent": "Message Sent",
+    "messageDescription": "Your message was successfully sent",
+    "avatarUpdated": "Avatar Updated",
+    "avatarDescription": "Your avatar was successfully uploaded",
+    "avatarDeleted": "Avatar Deleted",
+    "avatarDeletedDescription": "Your avatar was successfully deleted",
+    "linkCopied": "Link Copied",
+    "linkDescription": "Profile link copied to clipboard",
+    "languageUpdated": "Language Updated",
+    "languageDescription": "Your language preference has been saved"
+  },
+  "error": {
+    "title": "Error",
+    "loadFailed": "Failed to load",
+    "updateFailed": "Failed to update",
+    "uploadFailed": "Failed to upload",
+    "sendFailed": "Failed to send message",
+    "copyFailed": "Failed to copy link",
+    "invalidImageFormat": "Please upload JPEG, PNG, GIF or WebP image",
+    "fileTooLarge": "File size must not exceed 5MB",
+    "profileLoadFailed": "Failed to load user profile"
+  }
+}

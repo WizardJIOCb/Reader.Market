@@ -1,0 +1,16 @@
+{
+  "title": "Global Search",
+  "allBooks": "All Books",
+  "booksFound": "Books found",
+  "noResults": "Nothing found",
+  "noResultsDescription": "Try changing your search query or reset filters",
+  "resetFilters": "Reset Filters",
+  "retry": "Retry",
+  "searchPlaceholder": "Title, author, genre or tag...",
+  "filters": "Filters",
+  "find": "Find",
+  "genres": "Genres",
+  "styles": "Styles",
+  "publicationYear": "Publication Year",
+  "clearAllFilters": "Clear all filters"
+}

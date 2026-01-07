@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTranslation } from 'react-i18next';
 
 interface Member {
   id: string;
@@ -63,6 +64,7 @@ interface GroupSettingsPanelProps {
 
 export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserId, onClose, onChannelsChange, onMembersChange, onGroupDeleted, onGroupUpdated }: GroupSettingsPanelProps) {
   const { toast } = useToast();
+  const { t } = useTranslation(['messages']);
   const [members, setMembers] = useState<Member[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [userSearch, setUserSearch] = useState('');
@@ -563,31 +565,31 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Settings className="w-5 h-5" />
-          Настройки группы
+          {t('messages:groupSettings')}
         </CardTitle>
-        <CardDescription>Управление участниками и каналами группы</CardDescription>
+        <CardDescription>{t('messages:groupSettingsDescription')}</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="members" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="members">
               <Users className="w-4 h-4 mr-2" />
-              Участники
+              {t('messages:members')}
             </TabsTrigger>
             <TabsTrigger value="channels">
               <Hash className="w-4 h-4 mr-2" />
-              Каналы
+              {t('messages:channels')}
             </TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="settings">
                 <Settings className="w-4 h-4 mr-2" />
-                Настройки
+                {t('messages:groupSettings')}
               </TabsTrigger>
             )}
             {isAdmin && (
               <TabsTrigger value="danger">
                 <Trash2 className="w-4 h-4 mr-2" />
-                Опасно
+                {t('messages:deleteGroupTitle')}
               </TabsTrigger>
             )}
           </TabsList>
@@ -595,10 +597,10 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
           <TabsContent value="members" className="space-y-4">
             {canManageMembers && (
               <div className="space-y-2">
-                <Label>Добавить участника</Label>
+                <Label>{t('messages:inviteMembers')}</Label>
                 <div className="relative">
                   <Input
-                    placeholder="Поиск пользователей..."
+                    placeholder={t('messages:searchUsers')}
                     value={userSearch}
                     onChange={(e) => {
                       setUserSearch(e.target.value);
@@ -630,7 +632,7 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
             )}
 
             <div className="space-y-2">
-              <Label>Участники группы ({members.length})</Label>
+              <Label>{t('messages:members')} ({members.length})</Label>
               <div className="space-y-2">
                 {members.map((member) => (
                   <Card key={member.id}>
@@ -659,9 +661,9 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="member">Участник</SelectItem>
-                                <SelectItem value="moderator">Модератор</SelectItem>
-                                {isAdmin && <SelectItem value="administrator">Админ</SelectItem>}
+                                <SelectItem value="member">{t('messages:member')}</SelectItem>
+                                <SelectItem value="moderator">{t('messages:moderator')}</SelectItem>
+                                {isAdmin && <SelectItem value="administrator">{t('messages:administrator')}</SelectItem>}
                               </SelectContent>
                             </Select>
                           )}
@@ -685,37 +687,37 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
             {canManageChannels && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Создать новый канал</CardTitle>
+                  <CardTitle className="text-base">{t('messages:addChannel')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="channelName">Название канала</Label>
+                    <Label htmlFor="channelName">{t('messages:channelNameLabel')}</Label>
                     <Input
                       id="channelName"
                       value={newChannelName}
                       onChange={(e) => setNewChannelName(e.target.value)}
-                      placeholder="общий, обсуждение, и т.д."
+                      placeholder={t('messages:channelNamePlaceholder')}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="channelDesc">Описание (необязательно)</Label>
+                    <Label htmlFor="channelDesc">{t('messages:channelDescriptionPlaceholder')}</Label>
                     <Input
                       id="channelDesc"
                       value={newChannelDesc}
                       onChange={(e) => setNewChannelDesc(e.target.value)}
-                      placeholder="Краткое описание канала"
+                      placeholder={t('messages:channelDescriptionPlaceholder')}
                     />
                   </div>
                   <Button onClick={createChannel} className="w-full">
                     <Plus className="w-4 h-4 mr-2" />
-                    Создать канал
+                    {t('messages:addChannel')}
                   </Button>
                 </CardContent>
               </Card>
             )}
 
             <div className="space-y-2">
-              <Label>Каналы группы ({channels.length})</Label>
+              <Label>{t('messages:channels')} ({channels.length})</Label>
               <div className="space-y-2">
                 {channels.map((channel) => (
                   <Card key={channel.id}>
@@ -749,35 +751,35 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
             <TabsContent value="settings" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Основная информация</CardTitle>
-                  <CardDescription>Редактирование названия, описания и связанных книг</CardDescription>
+                  <CardTitle className="text-base">{t('messages:groupInfoTitle')}</CardTitle>
+                  <CardDescription>{t('messages:groupInfoDescription')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="groupName">Название группы</Label>
+                    <Label htmlFor="groupName">{t('messages:groupNameLabel')}</Label>
                     <Input
                       id="groupName"
                       value={groupName}
                       onChange={(e) => setGroupName(e.target.value)}
-                      placeholder="Введите название группы"
+                      placeholder={t('messages:groupNamePlaceholder')}
                       maxLength={100}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="groupDescription">Описание группы</Label>
+                    <Label htmlFor="groupDescription">{t('messages:descriptionLabel')}</Label>
                     <Textarea
                       id="groupDescription"
                       value={groupDescription}
                       onChange={(e) => setGroupDescription(e.target.value)}
-                      placeholder="Опишите цель и тематику группы"
+                      placeholder={t('messages:descriptionPlaceholder')}
                       rows={3}
                       maxLength={500}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="groupBooks">Связанные книги</Label>
+                    <Label htmlFor="groupBooks">{t('messages:groupBooksLabel')}</Label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
@@ -787,7 +789,7 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
                           setBookSearch(e.target.value);
                           searchBooks(e.target.value);
                         }}
-                        placeholder="Поиск книг для добавления"
+                        placeholder={t('messages:searchToAddBooks')}
                         className="pl-10"
                       />
                     </div>
@@ -824,7 +826,7 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
 
                   <Button onClick={updateGroupInfo} className="w-full">
                     <BookOpen className="w-4 h-4 mr-2" />
-                    Сохранить изменения
+                    {t('messages:updateGroupInfo')}
                   </Button>
                 </CardContent>
               </Card>
@@ -835,9 +837,9 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
             <TabsContent value="danger" className="space-y-4">
               <Card className="border-destructive">
                 <CardHeader>
-                  <CardTitle className="text-base text-destructive">Удаление группы</CardTitle>
+                  <CardTitle className="text-base text-destructive">{t('messages:deleteGroupTitle')}</CardTitle>
                   <CardDescription>
-                    Это действие нельзя отменить. Все участники, каналы и сообщения будут удалены.
+                    {t('messages:confirmDeleteGroupDescription')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -847,7 +849,7 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
                     className="w-full"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Удалить группу навсегда
+                    {t('messages:deleteGroupButton')}
                   </Button>
                 </CardContent>
               </Card>
@@ -860,16 +862,15 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
       <AlertDialog open={!!memberToRemove} onOpenChange={() => setMemberToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить участника?</AlertDialogTitle>
+            <AlertDialogTitle>{t('messages:confirmRemoveMember')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить {memberToRemove?.fullName || memberToRemove?.username} из
-              группы? Это действие нельзя отменить.
+              {t('messages:confirmRemoveMemberDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t('messages:cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => memberToRemove && removeMember(memberToRemove.id)}>
-              Удалить
+              {t('messages:remove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -879,20 +880,18 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserI
       <AlertDialog open={deleteGroupDialogOpen} onOpenChange={setDeleteGroupDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive">Удалить группу?</AlertDialogTitle>
+            <AlertDialogTitle className="text-destructive">{t('messages:confirmDeleteGroup')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту группу навсегда? Это действие нельзя отменить.
-              <br /><br />
-              <strong>Все участники, каналы и сообщения будут удалены.</strong>
+              {t('messages:confirmDeleteGroupDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t('messages:cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={deleteGroup}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Да, удалить группу
+              {t('messages:delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

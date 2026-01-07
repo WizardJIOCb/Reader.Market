@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/PageHeader';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
+import { useTranslation } from 'react-i18next';
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -43,6 +44,7 @@ export default function SearchPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { t } = useTranslation(['search', 'notifications']);
   
   // State for books and loading
   const [books, setBooks] = useState<Book[]>([]);
@@ -141,8 +143,8 @@ export default function SearchPage() {
       console.error('Search error:', err);
       setError(err instanceof Error ? err.message : 'Search failed');
       toast({
-        title: "Ошибка поиска",
-        description: "Не удалось выполнить поиск",
+        title: t('notifications:error.title'),
+        description: t('notifications:error.loadFailed'),
         variant: "destructive",
       });
     } finally {
@@ -214,7 +216,7 @@ export default function SearchPage() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <PageHeader title="Глобальный Поиск" />
+        <PageHeader title={t('search:title')} />
         
         <div className="mb-8">
           <div className="flex flex-col gap-4">
@@ -241,8 +243,8 @@ export default function SearchPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted-foreground">
               {!searchQuery 
-                ? "Все книги" 
-                : `Найдено книг: ${filteredBooks.length}`}
+                ? t('search:allBooks')
+                : `${t('search:booksFound')}: ${filteredBooks.length}`}
             </h2>
           </div>
 
@@ -254,7 +256,7 @@ export default function SearchPage() {
             <div className="text-center py-12">
               <p className="text-destructive">{error}</p>
               <Button onClick={() => performSearch(searchQuery)} className="mt-4">
-                Повторить попытку
+                {t('search:retry')}
               </Button>
             </div>
           ) : (
@@ -282,12 +284,12 @@ export default function SearchPage() {
                   <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
                     <Search className="w-8 h-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-medium mb-2">Ничего не найдено</h3>
+                  <h3 className="text-lg font-medium mb-2">{t('search:noResults')}</h3>
                   <p className="text-muted-foreground max-w-sm">
-                    Попробуйте изменить поисковый запрос или сбросить фильтры
+                    {t('search:noResultsDescription')}
                   </p>
                   <Button variant="outline" className="mt-6" onClick={clearFilters}>
-                    Сбросить фильтры
+                    {t('search:resetFilters')}
                   </Button>
                 </div>
               )}

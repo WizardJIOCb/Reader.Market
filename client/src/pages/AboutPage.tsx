@@ -3,6 +3,7 @@ import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
+import { useTranslation } from 'react-i18next';
 import { 
   BookOpen, 
   Brain, 
@@ -16,37 +17,38 @@ import {
 
 const AboutPage = () => {
   const { user } = useAuth();
+  const { t } = useTranslation(['about', 'common']);
   
   const features = [
     {
       icon: <Brain className="w-8 h-8" />,
-      title: "AI-Powered Reading",
-      description: "Get intelligent summaries and insights from your books using advanced AI technology."
+      title: t('about:aiReading'),
+      description: t('about:aiReadingDesc')
     },
     {
       icon: <BookOpen className="w-8 h-8" />,
-      title: "Advanced Book Management",
-      description: "Organize your books into shelves with progress tracking and personalized recommendations."
+      title: t('about:bookManagement'),
+      description: t('about:bookManagementDesc')
     },
     {
       icon: <Zap className="w-8 h-8" />,
-      title: "Fast & Local",
-      description: "Enjoy fast processing with local AI deployment for privacy and performance."
+      title: t('about:fastLocal'),
+      description: t('about:fastLocalDesc')
     },
     {
       icon: <Globe className="w-8 h-8" />,
-      title: "Multiple Formats",
-      description: "Support for various book formats including FB2 and more coming soon."
+      title: t('about:multipleFormats'),
+      description: t('about:multipleFormatsDesc')
     },
     {
       icon: <MessageSquare className="w-8 h-8" />,
-      title: "Community Features",
-      description: "Share reviews, ratings, and discuss books with other readers."
+      title: t('about:community'),
+      description: t('about:communityDesc')
     },
     {
       icon: <Star className="w-8 h-8" />,
-      title: "Personalized Experience",
-      description: "Get book recommendations tailored to your reading preferences and history."
+      title: t('about:personalized'),
+      description: t('about:personalizedDesc')
     }
   ];
 
@@ -56,20 +58,20 @@ const AboutPage = () => {
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4 text-center max-w-4xl">
           <h1 className="text-4xl md:text-6xl font-bold mb-6 font-serif">
-            AI-Powered Book Reading Experience
+            {t('about:heroTitle')}
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Enhance your reading journey with intelligent summaries, insights, and personalized recommendations powered by advanced AI technology.
+            {t('about:heroDescription')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">
               <Button size="lg" className="px-8 py-6 text-lg">
-                Get Started - Free Registration
+                {t('about:getStarted')}
               </Button>
             </Link>
             <Link href="/login">
               <Button size="lg" variant="outline" className="px-8 py-6 text-lg">
-                Sign In
+                {t('about:signIn')}
               </Button>
             </Link>
           </div>
@@ -80,9 +82,9 @@ const AboutPage = () => {
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Powerful Features</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('about:featuresTitle')}</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Discover how AI enhances your reading experience
+              {t('about:featuresSubtitle')}
             </p>
           </div>
           
@@ -109,20 +111,20 @@ const AboutPage = () => {
         <div className="container mx-auto px-4 max-w-4xl">
           <Card className="bg-primary text-primary-foreground">
             <CardContent className="py-12 px-6 md:px-12 text-center">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Ready to Transform Your Reading Experience?</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('about:ctaTitle')}</h2>
               <p className="text-xl mb-8 max-w-2xl mx-auto">
-                Join thousands of readers who are already enjoying AI-enhanced book experiences
+                {t('about:ctaDescription')}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/register">
                   <Button size="lg" variant="secondary" className="px-8 py-6 text-lg">
-                    Create Free Account
+                    {t('about:createAccount')}
                   </Button>
                 </Link>
                 {user && (
                   <Link href="/home">
                     <Button size="lg" variant="outline" className="px-8 py-6 text-lg text-primary-foreground border-primary-foreground hover:bg-primary/10">
-                      Browse Books
+                      {t('about:browseBooks')}
                     </Button>
                   </Link>
                 )}
@@ -136,9 +138,9 @@ const AboutPage = () => {
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">Get in Touch</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('about:contactTitle')}</h2>
             <p className="text-xl text-muted-foreground">
-              Have questions or feedback? Reach out to us through any of these channels:
+              {t('about:contactSubtitle')}
             </p>
           </div>
           
@@ -148,9 +150,9 @@ const AboutPage = () => {
                 <i className="fas fa-envelope text-2xl mb-2"></i>
                 <span>Email</span>
               </a>
-              <a href="tel:+79264769929" className="social-link flex flex-col items-center justify-center p-4 bg-card rounded-lg border hover:bg-accent transition-colors w-32" title="Телефон">
+              <a href="tel:+79264769929" className="social-link flex flex-col items-center justify-center p-4 bg-card rounded-lg border hover:bg-accent transition-colors w-32" title={t('about:phone')}>
                 <i className="fas fa-phone text-2xl mb-2"></i>
-                <span>Телефон</span>
+                <span>{t('about:phone')}</span>
               </a>
               <a href="https://t.me/WizardJIOCb" target="_blank" className="social-link flex flex-col items-center justify-center p-4 bg-card rounded-lg border hover:bg-accent transition-colors w-32" title="Telegram" rel="noopener">
                 <i className="fab fa-telegram text-2xl mb-2"></i>

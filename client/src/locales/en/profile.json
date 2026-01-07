@@ -1,0 +1,27 @@
+{
+  "editProfile": "Edit Profile",
+  "saveProfile": "Save",
+  "cancel": "Cancel",
+  "uploadAvatar": "Upload Avatar",
+  "changeAvatar": "Change Avatar",
+  "deleteAvatar": "Delete Avatar",
+  "shareProfile": "Share Profile",
+  "fullName": "Full Name",
+  "bio": "About Me",
+  "bioPlaceholder": "Tell us about yourself...",
+  "stats": {
+    "booksRead": "Books Read",
+    "wordsRead": "Words Read",
+    "lettersRead": "Letters Read"
+  },
+  "recentlyRead": "Recently Read",
+  "shelves": "Bookshelves",
+  "emptyShelf": "Shelf is empty",
+  "noRecentBooks": "No recently read books",
+  "loading": "Loading...",
+  "notFound": "Profile not found",
+  "languagePreference": "Language Preference",
+  "languageDescription": "Choose your preferred language for the interface",
+  "english": "English",
+  "russian": "Русский"
+}

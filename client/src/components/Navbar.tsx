@@ -8,11 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileMenu } from '@/components/MobileMenu';
 import { onSocketEvent } from '@/lib/socket';
+import { useTranslation } from 'react-i18next';
 
 export function Navbar() {
   const { user, isLoading } = useAuth();
   const isMobile = useIsMobile();
   const [unreadCount, setUnreadCount] = useState(0);
+  const { t } = useTranslation(['navigation', 'common']);
 
   // Fetch unread message count
   useEffect(() => {
@@ -93,17 +95,17 @@ export function Navbar() {
             {user ? (
               <div className="flex items-center gap-4">
                 <Link href="/home" className="text-sm hover:text-primary transition-colors cursor-pointer">
-                  Главная
+                  {t('navigation:home')}
                 </Link>
                 <Link href="/search" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
                   <Search className="w-4 h-4" />
-                  <span className="hidden sm:inline">Поиск</span>
+                  <span className="hidden sm:inline">{t('navigation:search')}</span>
                 </Link>
                 <Link href="/shelves" className="text-sm hover:text-primary transition-colors cursor-pointer">
-                  Мои полки
+                  {t('navigation:shelves')}
                 </Link>
                 <Link href="/" className="text-sm hover:text-primary transition-colors cursor-pointer">
-                  О проекте
+                  {t('navigation:about')}
                 </Link>
                 <Link href="/messages" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer relative">
                   <div className="relative">
@@ -114,20 +116,20 @@ export function Navbar() {
                       </Badge>
                     )}
                   </div>
-                  <span className="hidden sm:inline">Сообщения</span>
+                  <span className="hidden sm:inline">{t('navigation:messages')}</span>
                 </Link>
                 <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
                   <User className="w-4 h-4" />
-                  <span>Профиль ({user.username})</span>
+                  <span>{t('navigation:profile')} ({user.username})</span>
                 </Link>
               </div>
             ) : (
               <div className="flex gap-2">
                 <Button variant="outline" asChild>
-                  <Link href="/login" className="cursor-pointer">Login</Link>
+                  <Link href="/login" className="cursor-pointer">{t('common:login')}</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/register" className="cursor-pointer">Register</Link>
+                  <Link href="/register" className="cursor-pointer">{t('common:register')}</Link>
                 </Button>
               </div>
             )}
