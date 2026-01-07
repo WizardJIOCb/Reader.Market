@@ -1417,11 +1417,12 @@ export default function Messages() {
           <DialogHeader>
             <DialogTitle>Настройки группы</DialogTitle>
           </DialogHeader>
-          {selectedGroup && (
+          {selectedGroup && user && (
             <GroupSettingsPanel
               groupId={selectedGroup.id}
               isAdmin={userGroupRole === 'administrator'}
               isModerator={userGroupRole === 'moderator'}
+              currentUserId={user.id}
               onClose={() => {
                 setGroupSettingsOpen(false);
                 // Refresh channels after settings change
@@ -1474,12 +1475,13 @@ export default function Messages() {
       </Dialog>
       
       {/* Group Members Modal */}
-      {selectedGroup && (
+      {selectedGroup && user && (
         <GroupMembersModal
           groupId={selectedGroup.id}
           isOpen={memberModalOpen}
           onClose={() => setMemberModalOpen(false)}
           userRole={userGroupRole as 'administrator' | 'moderator' | 'member'}
+          currentUserId={user.id}
           onMemberUpdate={() => {
             // Refresh group data after member changes
             fetchGroups();

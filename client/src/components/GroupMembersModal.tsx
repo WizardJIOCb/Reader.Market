@@ -38,10 +38,11 @@ interface GroupMembersModalProps {
   isOpen: boolean;
   onClose: () => void;
   userRole: 'administrator' | 'moderator' | 'member';
+  currentUserId: string;
   onMemberUpdate?: () => void;
 }
 
-export function GroupMembersModal({ groupId, isOpen, onClose, userRole, onMemberUpdate }: GroupMembersModalProps) {
+export function GroupMembersModal({ groupId, isOpen, onClose, userRole, currentUserId, onMemberUpdate }: GroupMembersModalProps) {
   const { toast } = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
@@ -411,7 +412,7 @@ export function GroupMembersModal({ groupId, isOpen, onClose, userRole, onMember
                       </div>
                     </div>
 
-                    {canManage && member.role !== 'administrator' && (
+                    {canManage && (member.role !== 'administrator' || member.userId !== currentUserId) && (
                       <div className="flex items-center gap-2">
                         {canChangeRoles && (
                           <Select

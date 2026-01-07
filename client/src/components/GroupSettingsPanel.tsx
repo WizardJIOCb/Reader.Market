@@ -53,6 +53,7 @@ interface GroupSettingsPanelProps {
   groupId: string;
   isAdmin: boolean;
   isModerator: boolean;
+  currentUserId: string;
   onClose?: () => void;
   onChannelsChange?: () => void;
   onMembersChange?: () => void;
@@ -60,7 +61,7 @@ interface GroupSettingsPanelProps {
   onGroupUpdated?: () => void;
 }
 
-export function GroupSettingsPanel({ groupId, isAdmin, isModerator, onClose, onChannelsChange, onMembersChange, onGroupDeleted, onGroupUpdated }: GroupSettingsPanelProps) {
+export function GroupSettingsPanel({ groupId, isAdmin, isModerator, currentUserId, onClose, onChannelsChange, onMembersChange, onGroupDeleted, onGroupUpdated }: GroupSettingsPanelProps) {
   const { toast } = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -647,7 +648,7 @@ export function GroupSettingsPanel({ groupId, isAdmin, isModerator, onClose, onC
                           <p className="text-sm text-muted-foreground">@{member.username}</p>
                         </div>
                       </div>
-                      {canManageMembers && member.role !== 'administrator' && (
+                      {canManageMembers && (member.role !== 'administrator' || member.userId !== currentUserId) && (
                         <div className="flex items-center gap-2">
                           {isAdmin && (
                             <Select
