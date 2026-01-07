@@ -247,12 +247,12 @@ export default function Messages() {
             );
           }
           
-          // If conversation not found in list, fetch full list
+          // If conversation not found in list, don't change state - let fetchConversations handle it
           return prevConvs;
         });
       }
       
-      // Also fetch to ensure consistency
+      // Always fetch to ensure consistency and handle new conversations
       fetchConversations();
     });
     
@@ -262,25 +262,165 @@ export default function Messages() {
     };
   }, [selectedConversation, user?.id]);
 
+  // Global WebSocket listener for notifications to update conversation list
+  useEffect(() => {
+    console.log('%c[NOTIFICATION LISTENER] Setting up global notification listener', 'color: purple; font-weight: bold');
+    
+    const cleanupNotification = onSocketEvent('notification:new', (data) => {
+      console.log('%c[NOTIFICATION LISTENER] 🔔 Notification received!', 'color: purple; font-weight: bold', data);
+      console.log('[NOTIFICATION LISTENER] Event data:', JSON.stringify(data, null, 2));
+      
+      if (data.type === 'new_message') {
+        console.log('%c[NOTIFICATION LISTENER] ✅ Type is new_message - will fetch conversations', 'color: green; font-weight: bold');
+        // Update conversation list to refresh unread counts
+        fetchConversations();
+        // Also update navbar counter
+        window.dispatchEvent(new CustomEvent('update-unread-count'));
+        
+        // If the message is for the currently open conversation, refresh messages
+        if (selectedConversation && data.conversationId === selectedConversation.id) {
+          console.log('%c[NOTIFICATION LISTENER] 🔄 Message is for current conversation, refreshing messages', 'color: blue; font-weight: bold');
+          fetchMessages(selectedConversation.id);
+        }
+      } else {
+        console.log('%c[NOTIFICATION LISTENER] ⚠️  Notification type is not new_message:', data.type, 'color: orange');
+      }
+    });
+    
+    console.log('%c[NOTIFICATION LISTENER] ✅ Listener registered successfully', 'color: green');
+    
+    return () => {
+      console.log('%c[NOTIFICATION LISTENER] Cleaning up listener', 'color: gray');
+      cleanupNotification();
+    };
+  }, [selectedConversation]);
+
+  // Global WebSocket listener for all message:new events (not just current conversation)
+  useEffect(() => {
+    console.log('%c[MESSAGE LISTENER] Setting up global message:new listener', 'color: teal; font-weight: bold');
+    
+    const cleanupMessage = onSocketEvent('message:new', (data) => {
+      console.log('%c[MESSAGE LISTENER] 📬 Message received', 'color: teal; font-weight: bold', data);
+      
+      // If message is for currently open conversation, add it to the message list
+      if (selectedConversation && data.conversationId === selectedConversation.id) {
+        console.log('%c[MESSAGE LISTENER] ✅ Message is for current conversation, adding to list', 'color: green; font-weight: bold');
+        setMessages((prev) => {
+          // Avoid duplicates
+          if (prev.some(msg => msg.id === data.message.id)) {
+            console.log('%c[MESSAGE LISTENER] ⚠️  Message already exists, skipping', 'color: orange');
+            return prev;
+          }
+          console.log('%c[MESSAGE LISTENER] ➕ Adding new message to list', 'color: green');
+          return [...prev, data.message];
+        });
+        
+        // Mark as read if user is recipient
+        if (data.message.senderId !== user?.id) {
+          console.log('%c[MESSAGE LISTENER] 👁️ Marking message as read', 'color: blue');
+          markMessageAsRead(data.message.id);
+        }
+        
+        // Update conversation list and unread count
+        fetchConversations();
+        window.dispatchEvent(new CustomEvent('update-unread-count'));
+      } else {
+        console.log('%c[MESSAGE LISTENER] 📁 Message is for different conversation, updating list only', 'color: gray');
+        // Just update the conversation list to show unread count
+        fetchConversations();
+      }
+    });
+    
+    console.log('%c[MESSAGE LISTENER] ✅ Global listener registered', 'color: green');
+    
+    return () => {
+      console.log('%c[MESSAGE LISTENER] Cleaning up global listener', 'color: gray');
+      cleanupMessage();
+    };
+  }, [selectedConversation, user?.id]);
+
+  // Global WebSocket listener for typing indicators (works for all conversations)
+  useEffect(() => {
+    console.log('%c[TYPING LISTENER] Setting up global typing listener', 'color: cyan; font-weight: bold');
+    
+    const cleanupTyping = onSocketEvent('user:typing', (data) => {
+      console.log('%c[TYPING LISTENER] ⌨️ Typing event received', 'color: cyan', data);
+      
+      // Only show typing indicator if it's for the current conversation and not from current user
+      if (selectedConversation && 
+          data.conversationId === selectedConversation.id && 
+          data.userId !== user?.id) {
+        console.log('%c[TYPING LISTENER] ✅ Showing typing indicator for current conversation', 'color: green');
+        setOtherUserTyping(data.typing);
+        
+        // Clear typing indicator after 3 seconds of no updates
+        if (data.typing) {
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+          typingTimeoutRef.current = setTimeout(() => {
+            console.log('%c[TYPING LISTENER] ⏰ Timeout: Clearing typing indicator', 'color: orange');
+            setOtherUserTyping(false);
+          }, 3000);
+        }
+      } else {
+        console.log('%c[TYPING LISTENER] 🚫 Ignoring typing event (different conversation or own typing)', 'color: gray');
+      }
+    });
+    
+    console.log('%c[TYPING LISTENER] ✅ Global listener registered', 'color: green');
+    
+    return () => {
+      console.log('%c[TYPING LISTENER] Cleaning up global listener', 'color: gray');
+      cleanupTyping();
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [selectedConversation, user?.id]);
+
   // Global WebSocket listener for group channel messages to update group unread counts
   useEffect(() => {
     console.log('Setting up global channel message listener for group list updates');
     
     const cleanupChannelMessage = onSocketEvent('channel:message:new', (data) => {
       console.log('Global channel message listener: new message received', data);
+      console.log('  - Message groupId:', data.groupId);
+      console.log('  - Message channelId:', data.channelId);
+      console.log('  - Currently selected group:', selectedGroup?.id);
+      console.log('  - Currently selected channel:', selectedChannel?.id);
       
-      // Fetch groups to update unread counts
-      // We could also do optimistic updates here, but fetching is more reliable
-      if (!selectedChannel || selectedChannel.id !== data.channelId) {
-        // Only fetch if we're not in that channel (otherwise unread count should be 0)
-        fetchGroups();
+      // Check if message is from a DIFFERENT group OR a different channel in the SAME group
+      const isDifferentGroup = !selectedGroup || selectedGroup.id !== data.groupId;
+      const isSameGroupDifferentChannel = selectedGroup?.id === data.groupId && 
+                                           selectedChannel?.id !== data.channelId;
+      
+      if (isDifferentGroup || isSameGroupDifferentChannel) {
+        // Increment unread count - user is NOT currently viewing this channel
+        console.log('%c[GLOBAL LISTENER] Message from unwatched channel, incrementing unread count', 'color: orange; font-weight: bold');
+        
+        setGroups(prev => prev.map(group => {
+          if (group.id === data.groupId) {
+            const newCount = (group.unreadCount || 0) + 1;
+            console.log(`%c[GLOBAL LISTENER] Incrementing ${group.name} unread: ${group.unreadCount} -> ${newCount}`, 'color: orange');
+            return { ...group, unreadCount: newCount };
+          }
+          return group;
+        }));
+        
+        // DON'T call fetchGroups() here - it would overwrite our optimistic update with backend's stale data
+        // The backend query has race conditions with timestamp-based tracking
+        // Rely on optimistic updates for accuracy
+        console.log('%c[GLOBAL LISTENER] ✅ Optimistic update complete (not fetching to avoid overwrite)', 'color: green');
+      } else {
+        console.log('%c[GLOBAL LISTENER] Message in currently viewed channel, not incrementing', 'color: gray');
       }
     });
     
     return () => {
       cleanupChannelMessage();
     };
-  }, [selectedChannel]);
+  }, [selectedChannel, selectedGroup]);
 
   // Clear search and selected items when switching tabs
   useEffect(() => {
@@ -304,48 +444,8 @@ export default function Messages() {
       // Join conversation room for real-time updates
       joinConversation(selectedConversation.id);
       
-      // Set up WebSocket event listeners
-      const cleanupNewMessage = onSocketEvent('message:new', (data) => {
-        if (data.conversationId === selectedConversation.id) {
-          setMessages((prev) => {
-            // Avoid duplicates
-            if (prev.some(msg => msg.id === data.message.id)) {
-              return prev;
-            }
-            return [...prev, data.message];
-          });
-          
-          // Mark new message as read immediately since chat is open
-          markMessageAsRead(data.message.id);
-          
-          // Update conversation list and unread count
-          fetchConversations();
-          window.dispatchEvent(new CustomEvent('update-unread-count'));
-        }
-      });
-      
-      const cleanupTyping = onSocketEvent('user:typing', (data) => {
-        if (data.conversationId === selectedConversation.id && data.userId !== user?.id) {
-          setOtherUserTyping(data.typing);
-          
-          // Clear typing indicator after 3 seconds of no updates
-          if (data.typing) {
-            if (typingTimeoutRef.current) {
-              clearTimeout(typingTimeoutRef.current);
-            }
-            typingTimeoutRef.current = setTimeout(() => {
-              setOtherUserTyping(false);
-            }, 3000);
-          }
-        }
-      });
-      
-      const cleanupNotification = onSocketEvent('notification:new', (data) => {
-        if (data.type === 'new_message') {
-          // Update unread count in navbar
-          window.dispatchEvent(new CustomEvent('update-unread-count'));
-        }
-      });
+      // Set up WebSocket event listeners for conversation-specific events
+      // Note: message:new and user:typing are handled by global listeners above
       
       const cleanupMessageDeleted = onSocketEvent('message:deleted', (data) => {
         if (data.conversationId === selectedConversation.id) {
@@ -356,13 +456,7 @@ export default function Messages() {
       // Cleanup on conversation change or unmount
       return () => {
         leaveConversation(selectedConversation.id);
-        cleanupNewMessage();
-        cleanupTyping();
-        cleanupNotification();
         cleanupMessageDeleted();
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
       };
     }
   }, [selectedConversation, user?.id]);
@@ -458,8 +552,14 @@ export default function Messages() {
         console.log('Number of conversations:', data.length);
         if (data.length > 0) {
           console.log('First conversation:', JSON.stringify(data[0], null, 2));
+          console.log('Unread counts per conversation:');
+          data.forEach((conv: any, i: number) => {
+            console.log(`  ${i + 1}. ${conv.otherUser?.username}: unreadCount = ${conv.unreadCount}`);
+          });
         }
+        console.log('🔄 Updating conversations state with', data.length, 'conversations');
         setConversations(data);
+        console.log('✅ setConversations called - React should re-render now');
       } else {
         const errorText = await response.text();
         console.error('Conversations fetch failed, status:', response.status, 'response:', errorText.substring(0, 200));
@@ -473,17 +573,22 @@ export default function Messages() {
 
   const fetchGroups = async () => {
     try {
-      console.log('Fetching groups...');
+      console.log('%c[FETCH GROUPS] Fetching groups...', 'color: blue');
       const response = await fetch('/api/groups', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
-      console.log('Groups response status:', response.status);
+      console.log('%c[FETCH GROUPS] Groups response status:', 'color: blue', response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log('Groups data received:', data);
+        console.log('%c[FETCH GROUPS] Groups data received:', 'color: blue', data);
+        console.log('%c[FETCH GROUPS] Detailed unread counts:', 'color: blue');
+        data.forEach((g: any) => {
+          console.log(`  - ${g.name}: unreadCount = ${g.unreadCount} (type: ${typeof g.unreadCount})`);
+        });
         setGroups(data);
+        console.log('%c[FETCH GROUPS] ✅ Groups state updated', 'color: green');
       }
     } catch (error) {
       console.error('Failed to fetch groups:', error);
@@ -537,7 +642,7 @@ export default function Messages() {
 
   const fetchChannelMessages = async (groupId: string, channelId: string) => {
     try {
-      console.log('Fetching messages for channel:', channelId);
+      console.log('%c[FETCH CHANNEL MESSAGES] 📨 Fetching messages for channel:', 'color: blue; font-weight: bold', channelId);
       const response = await fetch(`/api/groups/${groupId}/channels/${channelId}/messages`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -546,8 +651,51 @@ export default function Messages() {
       console.log('Channel messages response status:', response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log('Channel messages received:', data.length);
+        console.log('%c[FETCH CHANNEL MESSAGES] ✅ Messages received:', 'color: green', data.length, 'messages');
         setMessages(data.reverse()); // Reverse to show oldest first
+        
+        // Optimistically clear unread count for this group immediately
+        console.log('%c[FETCH CHANNEL MESSAGES] 🔄 Optimistically clearing unread count for group', 'color: purple');
+        setGroups(prev => prev.map(group => {
+          if (group.id === groupId) {
+            console.log(`%c[FETCH CHANNEL MESSAGES] Clearing unread count for ${group.name}: ${group.unreadCount} -> 0`, 'color: purple');
+            return { ...group, unreadCount: 0 };
+          }
+          return group;
+        }));
+        
+        // Mark channel as read immediately after viewing
+        console.log('%c[FETCH CHANNEL MESSAGES] 🔖 Marking channel as read...', 'color: purple; font-weight: bold');
+        try {
+          const markReadResponse = await fetch(`/api/groups/${groupId}/channels/${channelId}/mark-read`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+          if (markReadResponse.ok) {
+            console.log('%c[FETCH CHANNEL MESSAGES] ✅ Channel marked as read', 'color: green; font-weight: bold');
+          } else {
+            console.error('%c[FETCH CHANNEL MESSAGES] ❌ Mark-read failed:', 'color: red', markReadResponse.status);
+          }
+        } catch (markReadError) {
+          console.error('Failed to mark channel as read:', markReadError);
+        }
+        
+        console.log('%c[FETCH CHANNEL MESSAGES] 🔄 Refreshing group list to update unread counts...', 'color: orange; font-weight: bold');
+        
+        // Increased delay to 300ms to ensure backend DB commit completes
+        console.log('%c[FETCH CHANNEL MESSAGES] ⏱ Waiting 300ms for DB commit...', 'color: gray');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Update group list to refresh unread counts
+        // Now the badge should clear because we updated user's last activity timestamp
+        console.log('%c[FETCH CHANNEL MESSAGES] 🔄 Fetching groups now...', 'color: orange');
+        await fetchGroups();
+        console.log('%c[FETCH CHANNEL MESSAGES] ✅ Group list refreshed, badge should now be cleared', 'color: green; font-weight: bold');
+        
+        // Update unread count in navbar after viewing group messages
+        window.dispatchEvent(new CustomEvent('update-unread-count'));
       }
     } catch (error) {
       console.error('Failed to fetch channel messages:', error);
@@ -556,6 +704,7 @@ export default function Messages() {
 
   const fetchMessages = async (conversationId: string): Promise<void> => {
     try {
+      console.log('%c[FETCH MESSAGES] 📨 Fetching messages for conversation:', 'color: blue; font-weight: bold', conversationId);
       const response = await fetch(`/api/messages/conversation/${conversationId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -563,7 +712,18 @@ export default function Messages() {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('%c[FETCH MESSAGES] ✅ Messages received:', 'color: green', data.length, 'messages');
         setMessages(data.reverse()); // Reverse to show oldest first
+        
+        console.log('%c[FETCH MESSAGES] 🔄 Backend has marked messages as read, now refreshing conversation list...', 'color: orange; font-weight: bold');
+        
+        // Small delay to ensure database transaction has fully committed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Update conversation list to refresh unread counts
+        // This ensures the badge disappears when opening a conversation with unread messages
+        await fetchConversations();
+        console.log('%c[FETCH MESSAGES] ✅ Conversation list refreshed, badge should now be cleared', 'color: green; font-weight: bold');
         
         // Update unread count in navbar after viewing messages
         window.dispatchEvent(new CustomEvent('update-unread-count'));
@@ -575,12 +735,18 @@ export default function Messages() {
 
   const markMessageAsRead = async (messageId: string) => {
     try {
-      await fetch(`/api/messages/${messageId}/read`, {
+      const response = await fetch(`/api/messages/${messageId}/read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
+      
+      if (!response.ok) {
+        // Log error details but don't show to user (it's a background operation)
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.warn(`Failed to mark message ${messageId} as read:`, response.status, errorData);
+      }
     } catch (error) {
       console.error('Failed to mark message as read:', error);
     }
@@ -884,6 +1050,13 @@ export default function Messages() {
             return [...prev, message];
           });
           setNewMessage('');
+          
+          // Refresh group list to update unread counts after sending message
+          // Backend uses user's last sent message timestamp to calculate unread counts
+          console.log('%c[SEND MESSAGE] 🔄 Refreshing group list after sending...', 'color: orange; font-weight: bold');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          await fetchGroups();
+          console.log('%c[SEND MESSAGE] ✅ Group list refreshed', 'color: green; font-weight: bold');
         } else {
           const errorData = await response.json();
           console.error('Channel message send failed:', errorData);
@@ -1116,17 +1289,19 @@ export default function Messages() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Users className="w-5 h-5 text-primary" />
-                      </div>
-                      {group.unreadCount && group.unreadCount > 0 && (
+                      <Avatar>
+                        <AvatarFallback>
+                          <Users className="w-4 h-4 text-primary" />
+                        </AvatarFallback>
+                      </Avatar>
+                      {(typeof group.unreadCount === 'number' && group.unreadCount > 0) ? (
                         <div 
                           className="absolute -bottom-1 -left-1 h-5 min-w-[20px] px-1 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center border-2 border-background"
                           aria-label={`${group.unreadCount} ${group.unreadCount === 1 ? t('messages:unreadMessage') : t('messages:unreadMessages')}`}
                         >
                           {group.unreadCount > 99 ? '99+' : group.unreadCount}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{group.name}</p>
@@ -1179,9 +1354,16 @@ export default function Messages() {
                   >
                     {selectedConversation.otherUser?.fullName || selectedConversation.otherUser?.username}
                   </Link>
-                  <p className="text-sm text-muted-foreground">
-                    @{selectedConversation.otherUser?.username}
-                  </p>
+                  {otherUserTyping ? (
+                    <p className="text-sm text-muted-foreground italic flex items-center gap-1">
+                      <span className="animate-pulse">⌨️</span>
+                      {t('messages:typing')}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      @{selectedConversation.otherUser?.username}
+                    </p>
+                  )}
                 </div>
               </div>
               <Button
@@ -1256,11 +1438,6 @@ export default function Messages() {
                 })}
                 <div ref={messagesEndRef} />
               </div>
-              {otherUserTyping && (
-                <div className="text-sm text-muted-foreground italic mt-2">
-                  {selectedConversation.otherUser?.fullName || selectedConversation.otherUser?.username} {t('messages:typing')}
-                </div>
-              )}
             </ScrollArea>
 
             {/* Message Input */}

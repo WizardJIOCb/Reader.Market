@@ -223,10 +223,16 @@ export async function registerRoutes(
   // Handle WebSocket connections
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
-    console.log(`User ${userId} connected via WebSocket`);
+    console.log('\x1b[34m%s\x1b[0m', `[WEBSOCKET] 🔗 User ${userId} connected via WebSocket`);
     
     // Join user's personal room for notifications
-    socket.join(`user:${userId}`);
+    const personalRoom = `user:${userId}`;
+    socket.join(personalRoom);
+    console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined personal room: ${personalRoom}`);
+    
+    // Log all rooms this socket is in
+    const rooms = Array.from(socket.rooms);
+    console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] 📋 Socket rooms for user ${userId}: ${JSON.stringify(rooms)}`);
     
     // Handle joining conversation rooms
     socket.on('join:conversation', (conversationId: string) => {
@@ -2286,18 +2292,39 @@ export async function registerRoutes(
       // Broadcast new message via WebSocket
       const io = (app as any).io;
       if (io) {
+        console.log('\x1b[35m%s\x1b[0m', '[WEBSOCKET] 📡 Emitting WebSocket events for new message');
+        console.log('\x1b[35m%s\x1b[0m', `[WEBSOCKET] Sender: ${userId}, Recipient: ${recipientId}`);
+        console.log('\x1b[35m%s\x1b[0m', `[WEBSOCKET] Conversation ID: ${conversation.id}`);
+        
         // Send to conversation room
-        io.to(`conversation:${conversation.id}`).emit('message:new', {
+        const conversationRoom = `conversation:${conversation.id}`;
+        console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] Emitting 'message:new' to room: ${conversationRoom}`);
+        io.to(conversationRoom).emit('message:new', {
           message,
           conversationId: conversation.id
         });
         
         // Send notification to recipient's personal room
-        io.to(`user:${recipientId}`).emit('notification:new', {
+        const recipientRoom = `user:${recipientId}`;
+        console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Emitting 'notification:new' to room: ${recipientRoom}`);
+        const notificationData = {
           type: 'new_message',
           conversationId: conversation.id,
           senderId: userId
-        });
+        };
+        console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] Notification data: ${JSON.stringify(notificationData)}`);
+        io.to(recipientRoom).emit('notification:new', notificationData);
+        
+        // Check how many clients are in the recipient's room
+        const sockets = await io.in(recipientRoom).fetchSockets();
+        console.log('\x1b[33m%s\x1b[0m', `[WEBSOCKET] 👥 Number of clients in room '${recipientRoom}': ${sockets.length}`);
+        if (sockets.length === 0) {
+          console.log('\x1b[31m%s\x1b[0m', `[WEBSOCKET] ⚠️  WARNING: No clients connected to room '${recipientRoom}'!`);
+        } else {
+          console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Event sent to ${sockets.length} client(s)`);
+        }
+      } else {
+        console.log('\x1b[31m%s\x1b[0m', '[WEBSOCKET] ❌ ERROR: Socket.IO instance not found!');
       }
       
       res.status(201).json(message);
@@ -3025,6 +3052,36 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get channel messages error:", error);
       res.status(500).json({ error: "Failed to retrieve messages" });
+    }
+  });
+  
+  // Mark channel as read (update user's last activity timestamp in group)
+  app.put("/api/groups/:groupId/channels/:channelId/mark-read", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId, channelId } = req.params;
+    
+    try {
+      const isMember = await storage.isGroupMember(groupId, userId);
+      if (!isMember) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Insert a dummy "read marker" message to update user's last activity timestamp
+      // This allows the backend's existing unread count logic to work correctly
+      await storage.createMessage({
+        senderId: userId,
+        channelId,
+        content: `[SYSTEM: User viewed channel at ${new Date().toISOString()}]`,
+        readStatus: true,
+        deletedAt: new Date() // Immediately mark as deleted so it doesn't appear in chat
+      });
+      
+      console.log(`User ${userId} marked channel ${channelId} in group ${groupId} as read`);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Mark channel as read error:", error);
+      res.status(500).json({ error: "Failed to mark channel as read" });
     }
   });
   

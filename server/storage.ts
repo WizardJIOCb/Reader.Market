@@ -3073,8 +3073,7 @@ export class DBStorage implements IStorage {
                      FROM messages m2 
                      INNER JOIN channels c2 ON m2.channel_id = c2.id
                      WHERE c2.group_id = ${group.id} 
-                       AND m2.sender_id = ${userId}
-                       AND m2.deleted_at IS NULL),
+                       AND m2.sender_id = ${userId}),
                     ${group.createdAt}
                   )`
           );
@@ -3332,7 +3331,12 @@ export class DBStorage implements IStorage {
       })
         .from(messages)
         .leftJoin(users, eq(messages.senderId, users.id))
-        .where(eq(messages.channelId, channelId))
+        .where(
+          and(
+            eq(messages.channelId, channelId),
+            isNull(messages.deletedAt)
+          )
+        )
         .orderBy(desc(messages.createdAt))
         .limit(limit)
         .offset(offset);

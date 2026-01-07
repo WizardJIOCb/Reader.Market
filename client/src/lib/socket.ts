@@ -44,17 +44,24 @@ export function initializeSocket(token: string): Socket {
     reconnectionAttempts: 5,
   });
 
+  // Store in local variable for TypeScript
+  const socketInstance = socket;
+
   // Connection event handlers
-  socket.on('connect', () => {
-    console.log('WebSocket connected');
+  socketInstance.on('connect', () => {
+    console.log('%c[SOCKET.IO] ✅ WebSocket connected', 'color: green; font-weight: bold');
+    console.log('[SOCKET.IO] Socket ID:', socketInstance.id);
+    console.log('[SOCKET.IO] Connected to server, personal room should be auto-joined');
   });
 
-  socket.on('disconnect', (reason) => {
-    console.log('WebSocket disconnected:', reason);
+  socketInstance.on('disconnect', (reason) => {
+    console.log('%c[SOCKET.IO] ❌ WebSocket disconnected', 'color: red; font-weight: bold');
+    console.log('[SOCKET.IO] Reason:', reason);
   });
 
-  socket.on('connect_error', (error) => {
-    console.error('WebSocket connection error:', error);
+  socketInstance.on('connect_error', (error) => {
+    console.error('%c[SOCKET.IO] ⚠️  WebSocket connection error', 'color: orange; font-weight: bold');
+    console.error('[SOCKET.IO] Error details:', error);
   });
 
   return socket;
