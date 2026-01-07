@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news } from "@shared/schema";
-import { eq, and, inArray, desc, asc, sql } from "drizzle-orm";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications } from "@shared/schema";
+import { eq, and, inArray, desc, asc, sql, or, ilike, isNull } from "drizzle-orm";
 
 // Database connection
 console.log("Connecting to database with URL:", process.env.DATABASE_URL);
@@ -2140,6 +2140,9 @@ export class DBStorage implements IStorage {
       for (const msg of allMessages) {
         const otherUserId = msg.senderId === userId ? msg.recipientId : msg.senderId;
         
+        // Skip if otherUserId is null
+        if (!otherUserId) continue;
+        
         if (!conversationsMap[otherUserId]) {
           // Get the other user's information
           const otherUser = await db.select({
@@ -2786,6 +2789,663 @@ export class DBStorage implements IStorage {
       return result.length > 0;
     } catch (error) {
       console.error("Error deleting book (admin):", error);
+      throw error;
+    }
+  }
+
+  // New messaging system methods
+  async getConversation(id: string): Promise<any | undefined> {
+    try {
+      const result = await db.select().from(conversations).where(eq(conversations.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting conversation:", error);
+      return undefined;
+    }
+  }
+
+  async findConversationBetweenUsers(userId1: string, userId2: string): Promise<any | undefined> {
+    try {
+      const result = await db.select().from(conversations).where(
+        or(
+          and(eq(conversations.user1Id, userId1), eq(conversations.user2Id, userId2)),
+          and(eq(conversations.user1Id, userId2), eq(conversations.user2Id, userId1))
+        )
+      );
+      return result[0];
+    } catch (error) {
+      console.error("Error finding conversation between users:", error);
+      return undefined;
+    }
+  }
+
+  async createConversation(userId1: string, userId2: string): Promise<any> {
+    try {
+      const result = await db.insert(conversations).values({
+        user1Id: userId1,
+        user2Id: userId2,
+      }).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      throw error;
+    }
+  }
+
+  async updateConversationLastMessage(conversationId: string, messageId: string): Promise<void> {
+    try {
+      await db.update(conversations)
+        .set({ lastMessageId: messageId, updatedAt: new Date() })
+        .where(eq(conversations.id, conversationId));
+    } catch (error) {
+      console.error("Error updating conversation last message:", error);
+      throw error;
+    }
+  }
+
+  async getConversationMessages(conversationId: string, limit: number, offset: number): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: messages.id,
+        senderId: messages.senderId,
+        recipientId: messages.recipientId,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        readStatus: messages.readStatus,
+        senderUsername: users.username,
+        senderFullName: users.fullName,
+        senderAvatarUrl: users.avatarUrl,
+      })
+        .from(messages)
+        .leftJoin(users, eq(messages.senderId, users.id))
+        .where(eq(messages.conversationId, conversationId))
+        .orderBy(desc(messages.createdAt))
+        .limit(limit)
+        .offset(offset);
+      return result;
+    } catch (error) {
+      console.error("Error getting conversation messages:", error);
+      return [];
+    }
+  }
+
+  async markConversationMessagesAsRead(conversationId: string, userId: string): Promise<void> {
+    try {
+      await db.update(messages)
+        .set({ readStatus: true })
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            eq(messages.recipientId, userId),
+            eq(messages.readStatus, false)
+          )
+        );
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
+      throw error;
+    }
+  }
+
+  async getUnreadMessageCount(userId: string): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.recipientId, userId),
+            eq(messages.readStatus, false)
+          )
+        );
+      return Number(result[0]?.count || 0);
+    } catch (error) {
+      console.error("Error getting unread message count:", error);
+      return 0;
+    }
+  }
+
+  async getMessage(id: string): Promise<any | undefined> {
+    try {
+      const result = await db.select().from(messages).where(eq(messages.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting message:", error);
+      return undefined;
+    }
+  }
+
+  async getUserConversations(userId: string): Promise<any[]> {
+    console.log('[getUserConversations] Called with userId:', userId);
+    try {
+      // Use sql.raw for the query with manual parameter binding
+      const queryResult: any = await pool.query(
+        `SELECT id, user1_id as "user1Id", user2_id as "user2Id", 
+               last_message_id as "lastMessageId", created_at as "createdAt", 
+               updated_at as "updatedAt"
+        FROM conversations
+        WHERE user1_id = $1 OR user2_id = $1
+        ORDER BY updated_at DESC`,
+        [userId]
+      );
+      
+      const result = queryResult.rows as any[];
+
+      console.log('[getUserConversations] Raw query result:', result.length, 'conversations');
+      console.log('[getUserConversations] First conversation:', result[0]);
+
+      // Fetch other user info and last message for each conversation
+      const conversationsWithDetails = await Promise.all(
+        result.map(async (conv) => {
+          const otherUserId = conv.user1Id === userId ? conv.user2Id : conv.user1Id;
+          console.log('[getUserConversations] Fetching other user:', otherUserId);
+          const otherUser = await this.getUser(otherUserId);
+          console.log('[getUserConversations] Other user found:', otherUser?.username);
+          
+          let lastMessage = null;
+          if (conv.lastMessageId) {
+            lastMessage = await this.getMessage(conv.lastMessageId);
+          }
+
+          return {
+            ...conv,
+            otherUser: otherUser ? {
+              id: otherUser.id,
+              username: otherUser.username,
+              fullName: otherUser.fullName,
+              avatarUrl: otherUser.avatarUrl,
+            } : null,
+            lastMessage,
+          };
+        })
+      );
+
+      console.log('[getUserConversations] Returning', conversationsWithDetails.length, 'conversations with details');
+      return conversationsWithDetails;
+    } catch (error) {
+      console.error("Error getting user conversations:", error);
+      return [];
+    }
+  }
+
+  async searchUsers(query: string): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+      })
+        .from(users)
+        .where(
+          or(
+            ilike(users.username, `%${query}%`),
+            ilike(users.fullName, `%${query}%`)
+          )
+        )
+        .limit(20);
+      return result;
+    } catch (error) {
+      console.error("Error searching users:", error);
+      return [];
+    }
+  }
+
+  // Group operations
+  async createGroup(groupData: any): Promise<any> {
+    try {
+      const result = await db.insert(groups).values(groupData).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating group:", error);
+      throw error;
+    }
+  }
+
+  async getGroup(id: string): Promise<any | undefined> {
+    try {
+      const result = await db.select()
+        .from(groups)
+        .where(
+          and(
+            eq(groups.id, id),
+            isNull(groups.deletedAt)
+          )
+        );
+      return result[0];
+    } catch (error) {
+      console.error("Error getting group:", error);
+      return undefined;
+    }
+  }
+
+  async getUserGroups(userId: string): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: groups.id,
+        name: groups.name,
+        description: groups.description,
+        privacy: groups.privacy,
+        creatorId: groups.creatorId,
+        createdAt: groups.createdAt,
+        role: groupMembers.role,
+      })
+        .from(groupMembers)
+        .innerJoin(groups, eq(groupMembers.groupId, groups.id))
+        .where(
+          and(
+            eq(groupMembers.userId, userId),
+            isNull(groups.deletedAt)
+          )
+        );
+      
+      // Add member count for each group
+      const groupsWithCount = await Promise.all(
+        result.map(async (group) => {
+          const memberCountResult = await db.execute(
+            sql`SELECT COUNT(*) as count FROM group_members WHERE group_id = ${group.id}`
+          );
+          const memberCount = parseInt((memberCountResult.rows[0] as any).count) || 0;
+          return { ...group, memberCount };
+        })
+      );
+      
+      return groupsWithCount;
+    } catch (error) {
+      console.error("Error getting user groups:", error);
+      return [];
+    }
+  }
+
+  async searchGroups(query: string): Promise<any[]> {
+    try {
+      const result = await db.select()
+        .from(groups)
+        .where(
+          and(
+            eq(groups.privacy, 'public'),
+            isNull(groups.deletedAt),
+            or(
+              ilike(groups.name, `%${query}%`),
+              ilike(groups.description, `%${query}%`)
+            )
+          )
+        )
+        .limit(20);
+      return result;
+    } catch (error) {
+      console.error("Error searching groups:", error);
+      return [];
+    }
+  }
+
+  async updateGroup(id: string, groupData: any): Promise<any> {
+    try {
+      const result = await db.update(groups)
+        .set({ ...groupData, updatedAt: new Date() })
+        .where(eq(groups.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error updating group:", error);
+      throw error;
+    }
+  }
+
+  async deleteGroup(id: string): Promise<void> {
+    try {
+      await db.update(groups)
+        .set({ deletedAt: new Date() })
+        .where(eq(groups.id, id));
+    } catch (error) {
+      console.error("Error deleting group:", error);
+      throw error;
+    }
+  }
+
+  // Group membership operations
+  async addGroupMember(groupId: string, userId: string, role: string, invitedBy: string | null): Promise<void> {
+    try {
+      await db.insert(groupMembers).values({
+        groupId,
+        userId,
+        role,
+        invitedBy
+      });
+    } catch (error) {
+      console.error("Error adding group member:", error);
+      throw error;
+    }
+  }
+
+  async removeGroupMember(groupId: string, membershipId: string): Promise<void> {
+    try {
+      await db.delete(groupMembers)
+        .where(eq(groupMembers.id, membershipId));
+    } catch (error) {
+      console.error("Error removing group member:", error);
+      throw error;
+    }
+  }
+
+  async updateGroupMemberRole(groupId: string, userId: string, role: string): Promise<void> {
+    try {
+      await db.update(groupMembers)
+        .set({ role })
+        .where(
+          and(
+            eq(groupMembers.groupId, groupId),
+            eq(groupMembers.userId, userId)
+          )
+        );
+    } catch (error) {
+      console.error("Error updating group member role:", error);
+      throw error;
+    }
+  }
+
+  async getGroupMembers(groupId: string): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: groupMembers.id,
+        userId: groupMembers.userId,
+        role: groupMembers.role,
+        joinedAt: groupMembers.joinedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+      })
+        .from(groupMembers)
+        .leftJoin(users, eq(groupMembers.userId, users.id))
+        .where(eq(groupMembers.groupId, groupId));
+      return result;
+    } catch (error) {
+      console.error("Error getting group members:", error);
+      return [];
+    }
+  }
+
+  async isGroupMember(groupId: string, userId: string): Promise<boolean> {
+    try {
+      const result = await db.select()
+        .from(groupMembers)
+        .where(
+          and(
+            eq(groupMembers.groupId, groupId),
+            eq(groupMembers.userId, userId)
+          )
+        );
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error checking group membership:", error);
+      return false;
+    }
+  }
+
+  async getGroupMemberRole(groupId: string, userId: string): Promise<string | null> {
+    try {
+      const result = await db.select({ role: groupMembers.role })
+        .from(groupMembers)
+        .where(
+          and(
+            eq(groupMembers.groupId, groupId),
+            eq(groupMembers.userId, userId)
+          )
+        );
+      return result[0]?.role || null;
+    } catch (error) {
+      console.error("Error getting group member role:", error);
+      return null;
+    }
+  }
+
+  // Channel operations
+  async createChannel(channelData: any): Promise<any> {
+    try {
+      const result = await db.insert(channels).values(channelData).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating channel:", error);
+      throw error;
+    }
+  }
+
+  async getChannel(id: string): Promise<any | undefined> {
+    try {
+      const result = await db.select().from(channels).where(eq(channels.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting channel:", error);
+      return undefined;
+    }
+  }
+
+  async getGroupChannels(groupId: string): Promise<any[]> {
+    try {
+      const result = await db.select()
+        .from(channels)
+        .where(
+          and(
+            eq(channels.groupId, groupId),
+            isNull(channels.archivedAt)
+          )
+        )
+        .orderBy(asc(channels.displayOrder));
+      return result;
+    } catch (error) {
+      console.error("Error getting group channels:", error);
+      return [];
+    }
+  }
+
+  async updateChannel(id: string, channelData: any): Promise<any> {
+    try {
+      const result = await db.update(channels)
+        .set(channelData)
+        .where(eq(channels.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error updating channel:", error);
+      throw error;
+    }
+  }
+
+  async deleteChannel(id: string): Promise<void> {
+    try {
+      await db.update(channels)
+        .set({ archivedAt: new Date() })
+        .where(eq(channels.id, id));
+    } catch (error) {
+      console.error("Error deleting channel:", error);
+      throw error;
+    }
+  }
+
+  async getChannelMessages(channelId: string, limit: number, offset: number): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: messages.id,
+        senderId: messages.senderId,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        parentMessageId: messages.parentMessageId,
+        senderUsername: users.username,
+        senderFullName: users.fullName,
+        senderAvatarUrl: users.avatarUrl,
+      })
+        .from(messages)
+        .leftJoin(users, eq(messages.senderId, users.id))
+        .where(eq(messages.channelId, channelId))
+        .orderBy(desc(messages.createdAt))
+        .limit(limit)
+        .offset(offset);
+      return result;
+    } catch (error) {
+      console.error("Error getting channel messages:", error);
+      return [];
+    }
+  }
+
+  // Group-book associations
+  async addBookToGroup(groupId: string, bookId: string): Promise<void> {
+    try {
+      await db.insert(groupBooks).values({ groupId, bookId });
+    } catch (error) {
+      console.error("Error adding book to group:", error);
+      throw error;
+    }
+  }
+
+  async removeBookFromGroup(groupId: string, bookId: string): Promise<void> {
+    try {
+      await db.delete(groupBooks)
+        .where(
+          and(
+            eq(groupBooks.groupId, groupId),
+            eq(groupBooks.bookId, bookId)
+          )
+        );
+    } catch (error) {
+      console.error("Error removing book from group:", error);
+      throw error;
+    }
+  }
+
+  async getGroupBooks(groupId: string): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: books.id,
+        title: books.title,
+        author: books.author,
+        coverImageUrl: books.coverImageUrl,
+      })
+        .from(groupBooks)
+        .innerJoin(books, eq(groupBooks.bookId, books.id))
+        .where(eq(groupBooks.groupId, groupId));
+      return result;
+    } catch (error) {
+      console.error("Error getting group books:", error);
+      return [];
+    }
+  }
+
+  // Alias methods for consistency
+  async addGroupBook(groupId: string, bookId: string): Promise<void> {
+    return this.addBookToGroup(groupId, bookId);
+  }
+
+  async removeAllGroupBooks(groupId: string): Promise<void> {
+    try {
+      await db.delete(groupBooks)
+        .where(eq(groupBooks.groupId, groupId));
+    } catch (error) {
+      console.error("Error removing all group books:", error);
+      throw error;
+    }
+  }
+
+  // Message reaction operations
+  async addMessageReaction(messageId: string, userId: string, emoji: string): Promise<any> {
+    try {
+      const result = await db.insert(messageReactions).values({
+        messageId,
+        userId,
+        emoji
+      }).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error adding message reaction:", error);
+      throw error;
+    }
+  }
+
+  async removeMessageReaction(reactionId: string, userId: string): Promise<void> {
+    try {
+      await db.delete(messageReactions)
+        .where(
+          and(
+            eq(messageReactions.id, reactionId),
+            eq(messageReactions.userId, userId)
+          )
+        );
+    } catch (error) {
+      console.error("Error removing message reaction:", error);
+      throw error;
+    }
+  }
+
+  async getMessageReactions(messageId: string): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: messageReactions.id,
+        emoji: messageReactions.emoji,
+        userId: messageReactions.userId,
+        createdAt: messageReactions.createdAt,
+        username: users.username,
+        fullName: users.fullName,
+      })
+        .from(messageReactions)
+        .leftJoin(users, eq(messageReactions.userId, users.id))
+        .where(eq(messageReactions.messageId, messageId));
+      return result;
+    } catch (error) {
+      console.error("Error getting message reactions:", error);
+      return [];
+    }
+  }
+
+  // Notification operations
+  async createNotification(notificationData: any): Promise<any> {
+    try {
+      const result = await db.insert(notifications).values(notificationData).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      throw error;
+    }
+  }
+
+  async getUserNotifications(userId: string, limit: number): Promise<any[]> {
+    try {
+      const result = await db.select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(limit);
+      return result;
+    } catch (error) {
+      console.error("Error getting user notifications:", error);
+      return [];
+    }
+  }
+
+  async markNotificationAsRead(notificationId: string, userId: string): Promise<void> {
+    try {
+      await db.update(notifications)
+        .set({ readStatus: true })
+        .where(
+          and(
+            eq(notifications.id, notificationId),
+            eq(notifications.userId, userId)
+          )
+        );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      throw error;
+    }
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    try {
+      await db.update(notifications)
+        .set({ readStatus: true })
+        .where(
+          and(
+            eq(notifications.userId, userId),
+            eq(notifications.readStatus, false)
+          )
+        );
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
       throw error;
     }
   }

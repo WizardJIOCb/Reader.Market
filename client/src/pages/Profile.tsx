@@ -572,29 +572,11 @@ export default function Profile() {
                   <h1 className="text-3xl font-serif font-bold">{profile.name}</h1>
                   <p className="text-muted-foreground font-medium">{profile.username}</p>
                   {!isOwnProfile && (
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="-ml-2 mt-1 p-1 cursor-pointer">
-                          <Mail className="w-5 h-5" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Написать сообщение {profile.name}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 pt-4">
-                          <Textarea 
-                            placeholder="Привет! Как тебе последняя книга..." 
-                            className="min-h-[150px]"
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                          />
-                          <div className="flex justify-end">
-                            <Button onClick={handleSendMessage} className="cursor-pointer">Отправить</Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <Link href="/messages" className="cursor-pointer">
+                      <Button variant="ghost" size="icon" className="-ml-2 mt-1 p-1">
+                        <Mail className="w-5 h-5" />
+                      </Button>
+                    </Link>
                   )}
                 </div>
               </div>

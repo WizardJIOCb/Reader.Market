@@ -18,7 +18,10 @@ import BookDetail from "@/pages/BookDetail";
 import AddBook from "@/pages/AddBook";
 import AdminDashboard from "@/components/AdminDashboard";
 import UserManagement from "@/pages/UserManagement";
+import Messages from "@/pages/Messages";
 import { Navbar } from "@/components/Navbar";
+import { useEffect } from "react";
+import { initializeSocket, disconnectSocket } from "@/lib/socket";
 
 function Router() {
   return (
@@ -34,6 +37,7 @@ function Router() {
       <Route path="/search" component={SearchPage} />
       <Route path="/book/:bookId" component={BookDetail} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
+      <Route path="/messages" component={Messages} />
       <Route path="/profile/:userId?" component={Profile} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/users" component={UserManagement} />
@@ -43,6 +47,19 @@ function Router() {
 }
 
 function App() {
+  // Initialize WebSocket connection when user is authenticated
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      initializeSocket(token);
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      disconnectSocket();
+    };
+  }, []);
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

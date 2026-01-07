@@ -28,6 +28,11 @@ REM Kill all node processes as a last resort
 echo Killing all Node.js processes as a last resort...
 taskkill /f /im node.exe >nul 2>&1
 
+REM Clean dist folder to ensure fresh start next time
+echo Cleaning dist folder...
+if exist dist rmdir /S /Q dist
+echo Dist folder cleaned.
+
 echo.
 echo ================================
 echo DEVELOPMENT PROCESSES STOPPED

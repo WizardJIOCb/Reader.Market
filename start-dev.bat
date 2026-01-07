@@ -6,6 +6,11 @@ echo Stopping any existing processes on ports 5001 and 3001...
 taskkill /f /im node.exe /fi "WINDOWTITLE eq Backend*" >nul 2>&1
 taskkill /f /im node.exe /fi "WINDOWTITLE eq Frontend*" >nul 2>&1
 
+REM Clean dist folder to ensure fresh development build
+echo Cleaning dist folder...
+if exist dist rmdir /S /Q dist
+echo Dist folder cleaned.
+
 REM Start Docker containers if needed
 echo Starting Docker containers...
 docker start postgres-db >nul 2>&1 || (
@@ -26,9 +31,9 @@ start "Ollama" /MIN cmd /c "ollama serve"
 
 timeout /t 5 /nobreak >nul
 
-REM Start backend server on port 5001
-echo Starting backend server on port 5001...
-start "Backend" cmd /k "set PORT=5001 && node dist/index.cjs || npm run dev"
+REM Start backend server on port 5001 in development mode
+echo Starting backend server on port 5001 (dev mode with hot-reload)...
+start "Backend" cmd /k "set PORT=5001 && npm run dev"
 
 timeout /t 5 /nobreak >nul
 

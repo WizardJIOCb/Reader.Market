@@ -143,25 +143,93 @@ export const reactions = pgTable("reactions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Table for private messages
-export const messages = pgTable("messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  senderId: varchar("sender_id").notNull().references(() => users.id),
-  recipientId: varchar("recipient_id").notNull().references(() => users.id),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  readStatus: boolean("read_status").default(false),
-});
-
 // Table for conversations
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   user1Id: varchar("user1_id").notNull().references(() => users.id),
   user2Id: varchar("user2_id").notNull().references(() => users.id),
-  lastMessageId: varchar("last_message_id").references(() => messages.id),
+  lastMessageId: varchar("last_message_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for groups
+export const groups = pgTable("groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  creatorId: varchar("creator_id").notNull().references(() => users.id),
+  privacy: text("privacy").notNull().default('public'), // 'public' or 'private'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+// Table for group members
+export const groupMembers = pgTable("group_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").notNull().references(() => groups.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  role: text("role").notNull().default('member'), // 'administrator', 'moderator', 'member'
+  invitedBy: varchar("invited_by").references(() => users.id),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+// Table for group-book associations
+export const groupBooks = pgTable("group_books", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").notNull().references(() => groups.id),
+  bookId: varchar("book_id").notNull().references(() => books.id),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+});
+
+// Table for channels within groups
+export const channels = pgTable("channels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").notNull().references(() => groups.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  creatorId: varchar("creator_id").notNull().references(() => users.id),
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  archivedAt: timestamp("archived_at"),
+});
+
+// Table for private messages (updated)
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  senderId: varchar("sender_id").notNull().references(() => users.id),
+  recipientId: varchar("recipient_id").references(() => users.id), // nullable for group messages
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  channelId: varchar("channel_id").references(() => channels.id),
+  parentMessageId: varchar("parent_message_id"),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  readStatus: boolean("read_status").default(false),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by").references(() => users.id),
+});
+
+// Table for message reactions
+export const messageReactions = pgTable("message_reactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => messages.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  emoji: text("emoji").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Table for notifications
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // 'new_message', 'group_invite', 'mention', etc.
+  relatedEntityId: varchar("related_entity_id"),
+  relatedEntityType: text("related_entity_type"),
+  content: jsonb("content"), // stores notification details
+  readStatus: boolean("read_status").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Table for book view statistics

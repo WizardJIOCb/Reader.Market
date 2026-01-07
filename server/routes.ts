@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import { sql } from "drizzle-orm/sql";
 import bcrypt from "bcrypt";
@@ -185,6 +186,114 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   console.log("Registering API routes...");
+  
+  // Initialize Socket.io server
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: "*",
+      credentials: true
+    }
+  });
+  
+  // JWT authentication middleware for Socket.io
+  io.use(async (socket, next) => {
+    const token = socket.handshake.auth.token;
+    
+    if (!token) {
+      return next(new Error('Authentication error: No token provided'));
+    }
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "default_secret") as any;
+      
+      // Verify user exists
+      const userData = await storage.getUser(decoded.userId);
+      if (!userData) {
+        return next(new Error('Authentication error: User not found'));
+      }
+      
+      socket.data.userId = decoded.userId;
+      next();
+    } catch (err) {
+      console.error('Socket authentication error:', err);
+      return next(new Error('Authentication error: Invalid token'));
+    }
+  });
+  
+  // Handle WebSocket connections
+  io.on('connection', (socket) => {
+    const userId = socket.data.userId;
+    console.log(`User ${userId} connected via WebSocket`);
+    
+    // Join user's personal room for notifications
+    socket.join(`user:${userId}`);
+    
+    // Handle joining conversation rooms
+    socket.on('join:conversation', (conversationId: string) => {
+      console.log(`User ${userId} joining conversation ${conversationId}`);
+      socket.join(`conversation:${conversationId}`);
+    });
+    
+    // Handle leaving conversation rooms
+    socket.on('leave:conversation', (conversationId: string) => {
+      console.log(`User ${userId} leaving conversation ${conversationId}`);
+      socket.leave(`conversation:${conversationId}`);
+    });
+    
+    // Handle joining channel rooms
+    socket.on('join:channel', (channelId: string) => {
+      console.log(`User ${userId} joining channel ${channelId}`);
+      socket.join(`channel:${channelId}`);
+    });
+    
+    // Handle leaving channel rooms
+    socket.on('leave:channel', (channelId: string) => {
+      console.log(`User ${userId} leaving channel ${channelId}`);
+      socket.leave(`channel:${channelId}`);
+    });
+    
+    // Handle typing indicators for conversations
+    socket.on('typing:start', (data: { conversationId: string }) => {
+      socket.to(`conversation:${data.conversationId}`).emit('user:typing', {
+        userId,
+        conversationId: data.conversationId,
+        typing: true
+      });
+    });
+    
+    socket.on('typing:stop', (data: { conversationId: string }) => {
+      socket.to(`conversation:${data.conversationId}`).emit('user:typing', {
+        userId,
+        conversationId: data.conversationId,
+        typing: false
+      });
+    });
+    
+    // Handle typing indicators for channels
+    socket.on('channel:typing:start', (data: { channelId: string }) => {
+      socket.to(`channel:${data.channelId}`).emit('channel:user:typing', {
+        userId,
+        channelId: data.channelId,
+        typing: true
+      });
+    });
+    
+    socket.on('channel:typing:stop', (data: { channelId: string }) => {
+      socket.to(`channel:${data.channelId}`).emit('channel:user:typing', {
+        userId,
+        channelId: data.channelId,
+        typing: false
+      });
+    });
+    
+    // Handle disconnection
+    socket.on('disconnect', () => {
+      console.log(`User ${userId} disconnected from WebSocket`);
+    });
+  });
+  
+  // Store io instance globally so we can use it in route handlers
+  (app as any).io = io;
   
   // put application routes here
   // prefix all routes with /api
@@ -1554,10 +1663,13 @@ export async function registerRoutes(
     }
   });
   
-  // Messaging endpoints
-  // Send a new message
+  // ========================================
+  // OLD MESSAGING ENDPOINTS - DEPRECATED (Commented out to use new conversation-based endpoints)
+  // ========================================
+  /*
+  // OLD: Send a new message
   app.post("/api/messages", authenticateToken, async (req, res) => {
-    console.log("Send message endpoint called");
+    console.log("OLD Send message endpoint called");
     try {
       const senderId = (req as any).user.userId;
       const { recipientId, content } = req.body;
@@ -1566,18 +1678,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Recipient ID and content are required" });
       }
       
-      // Check if recipient exists
       const recipient = await storage.getUser(recipientId);
       if (!recipient) {
         return res.status(404).json({ error: "Recipient not found" });
       }
       
-      // Prevent user from messaging themselves
       if (senderId === recipientId) {
         return res.status(400).json({ error: "Cannot send message to yourself" });
       }
       
-      // Create the message
       const messageData = {
         senderId,
         recipientId,
@@ -1585,12 +1694,6 @@ export async function registerRoutes(
       };
       
       const message = await storage.createMessage(messageData);
-      
-      // Update or create conversation record
-      // Check if a conversation already exists between these users
-      // For simplicity, we'll update the last message in the conversation
-      // In a more complex implementation, we'd have a conversation table
-      
       res.status(201).json(message);
     } catch (error) {
       console.error("Send message error:", error);
@@ -1598,9 +1701,9 @@ export async function registerRoutes(
     }
   });
   
-  // Get messages with a specific user
+  // OLD: Get messages with a specific user
   app.get("/api/messages/:userId", authenticateToken, async (req, res) => {
-    console.log("Get messages endpoint called");
+    console.log("OLD Get messages endpoint called");
     try {
       const currentUserId = (req as any).user.userId;
       const { userId: otherUserId } = req.params;
@@ -1609,15 +1712,12 @@ export async function registerRoutes(
         return res.status(400).json({ error: "User ID is required" });
       }
       
-      // Check if the other user exists
       const otherUser = await storage.getUser(otherUserId);
       if (!otherUser) {
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Get messages between these users
       const messages = await storage.getMessagesBetweenUsers(currentUserId, otherUserId);
-      
       res.json(messages);
     } catch (error) {
       console.error("Get messages error:", error);
@@ -1625,14 +1725,12 @@ export async function registerRoutes(
     }
   });
   
-  // Get conversations for current user
+  // OLD: Get conversations for current user
   app.get("/api/conversations", authenticateToken, async (req, res) => {
-    console.log("Get conversations endpoint called");
+    console.log("OLD Get conversations endpoint called");
     try {
       const userId = (req as any).user.userId;
-      
       const conversations = await storage.getConversationsForUser(userId);
-      
       res.json(conversations);
     } catch (error) {
       console.error("Get conversations error:", error);
@@ -1640,9 +1738,9 @@ export async function registerRoutes(
     }
   });
   
-  // Mark message as read
+  // OLD: Mark message as read
   app.put("/api/messages/:messageId/read", authenticateToken, async (req, res) => {
-    console.log("Mark message as read endpoint called");
+    console.log("OLD Mark message as read endpoint called");
     try {
       const userId = (req as any).user.userId;
       const { messageId } = req.params;
@@ -1651,10 +1749,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Message ID is required" });
       }
       
-      // Check if the message exists and belongs to the user (as recipient)
-      // For now, we'll just mark the message as read
       await storage.markMessageAsRead(messageId);
-      
       res.status(200).json({ success: true });
     } catch (error) {
       console.error("Mark message as read error:", error);
@@ -1662,20 +1757,19 @@ export async function registerRoutes(
     }
   });
   
-  // Get unread messages count
+  // OLD: Get unread messages count
   app.get("/api/messages/unread-count", authenticateToken, async (req, res) => {
-    console.log("Get unread messages count endpoint called");
+    console.log("OLD Get unread messages count endpoint called");
     try {
       const userId = (req as any).user.userId;
-      
       const count = await storage.getUnreadMessagesCount(userId);
-      
       res.json({ count });
     } catch (error) {
       console.error("Get unread count error:", error);
       res.status(500).json({ error: "Failed to get unread messages count" });
     }
   });
+  */
   
   // Admin: Delete any message
   app.delete("/api/admin/messages/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
@@ -2098,6 +2192,1000 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Delete book (admin) error:", error);
       res.status(500).json({ error: "Failed to delete book" });
+    }
+  });
+  
+  // ========================================
+  // MESSAGING SYSTEM ROUTES
+  // ========================================
+  
+  // Send a private message
+  app.post("/api/messages", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { recipientId, content, conversationId } = req.body;
+    
+    console.log("POST /api/messages called:");
+    console.log("- userId:", userId);
+    console.log("- recipientId:", recipientId);
+    console.log("- content:", content);
+    console.log("- conversationId:", conversationId);
+    console.log("- Full request body:", JSON.stringify(req.body, null, 2));
+    
+    try {
+      if (!content || content.trim().length === 0) {
+        console.log("ERROR: Message content is required");
+        return res.status(400).json({ error: "Message content is required" });
+      }
+      
+      if (!recipientId) {
+        console.log("ERROR: Recipient ID is required");
+        return res.status(400).json({ error: "Recipient ID is required" });
+      }
+      
+      // Check if recipient exists
+      const recipient = await storage.getUser(recipientId);
+      if (!recipient) {
+        return res.status(404).json({ error: "Recipient not found" });
+      }
+      
+      // Find or create conversation
+      let conversation;
+      if (conversationId) {
+        conversation = await storage.getConversation(conversationId);
+      } else {
+        // Find existing conversation between these users
+        conversation = await storage.findConversationBetweenUsers(userId, recipientId);
+        
+        if (!conversation) {
+          // Create new conversation
+          conversation = await storage.createConversation(userId, recipientId);
+        }
+      }
+      
+      // Create message
+      const message = await storage.createMessage({
+        senderId: userId,
+        recipientId,
+        conversationId: conversation.id,
+        content: content.trim(),
+        readStatus: false
+      });
+      
+      // Update conversation's last message
+      await storage.updateConversationLastMessage(conversation.id, message.id);
+      
+      // Broadcast new message via WebSocket
+      const io = (app as any).io;
+      if (io) {
+        // Send to conversation room
+        io.to(`conversation:${conversation.id}`).emit('message:new', {
+          message,
+          conversationId: conversation.id
+        });
+        
+        // Send notification to recipient's personal room
+        io.to(`user:${recipientId}`).emit('notification:new', {
+          type: 'new_message',
+          conversationId: conversation.id,
+          senderId: userId
+        });
+      }
+      
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Send message error:", error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+  
+  // Get messages in a conversation
+  app.get("/api/messages/conversation/:conversationId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { conversationId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    
+    try {
+      // Verify user is part of this conversation
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.user1Id !== userId && conversation.user2Id !== userId) {
+        return res.status(403).json({ error: "Access denied to this conversation" });
+      }
+      
+      // Get messages
+      const messages = await storage.getConversationMessages(conversationId, limit, offset);
+      
+      // Mark messages as read
+      await storage.markConversationMessagesAsRead(conversationId, userId);
+      
+      res.json(messages);
+    } catch (error) {
+      console.error("Get conversation messages error:", error);
+      res.status(500).json({ error: "Failed to retrieve messages" });
+    }
+  });
+  
+  // Get unread message count
+  app.get("/api/messages/unread-count", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    
+    try {
+      const count = await storage.getUnreadMessageCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Get unread count error:", error);
+      res.status(500).json({ error: "Failed to get unread count" });
+    }
+  });
+  
+  // Mark message as read
+  app.put("/api/messages/:messageId/read", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { messageId } = req.params;
+    
+    try {
+      const message = await storage.getMessage(messageId);
+      if (!message) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      
+      // Only recipient can mark as read
+      if (message.recipientId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.markMessageAsRead(messageId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Mark message as read error:", error);
+      res.status(500).json({ error: "Failed to mark message as read" });
+    }
+  });
+  
+  // Get all conversations for a user
+  app.get("/api/conversations", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    
+    console.log("\n=== GET /api/conversations ===");
+    console.log("CODE VERSION: 2026-01-07-v2 - FIXED QUERY");
+    console.log("Timestamp:", new Date().toISOString());
+    console.log("User ID from token:", userId);
+    console.log("User username:", (req as any).user.username);
+    
+    try {
+      const conversations = await storage.getUserConversations(userId);
+      console.log("Conversations returned:", conversations.length);
+      if (conversations.length > 0) {
+        console.log("Sample conversation:", JSON.stringify(conversations[0], null, 2));
+      } else {
+        console.log("⚠️  WARNING: No conversations found for this user!");
+      }
+      console.log("=========================\n");
+      
+      // Add version header for debugging
+      res.setHeader('X-API-Version', '2026-01-07-v2');
+      res.json(conversations);
+    } catch (error) {
+      console.error("❌ Get conversations error:", error);
+      res.status(500).json({ error: "Failed to retrieve conversations" });
+    }
+  });
+  
+  // Create a new conversation
+  app.post("/api/conversations", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { otherUserId } = req.body;
+    
+    console.log("POST /api/conversations called with userId:", userId, "otherUserId:", otherUserId);
+    
+    try {
+      if (!otherUserId) {
+        return res.status(400).json({ error: "Other user ID is required" });
+      }
+      
+      // Check if conversation already exists
+      const existing = await storage.findConversationBetweenUsers(userId, otherUserId);
+      console.log("Existing conversation found:", existing);
+      
+      if (existing) {
+        // Get the other user's details
+        const otherUser = await storage.getUser(otherUserId);
+        console.log("Other user details:", otherUser);
+        
+        const response = {
+          ...existing,
+          otherUser: otherUser ? {
+            id: otherUser.id,
+            username: otherUser.username,
+            fullName: otherUser.fullName,
+            avatarUrl: otherUser.avatarUrl,
+          } : null,
+          lastMessage: existing.lastMessageId ? null : null // Will be populated by getUserConversations
+        };
+        console.log("Returning existing conversation with otherUser:", response);
+        return res.json(response);
+      }
+      
+      // Create new conversation
+      const conversation = await storage.createConversation(userId, otherUserId);
+      console.log("Created new conversation:", conversation);
+      
+      // Get the other user's details
+      const otherUser = await storage.getUser(otherUserId);
+      console.log("Other user details for new conversation:", otherUser);
+      
+      const response = {
+        ...conversation,
+        otherUser: otherUser ? {
+          id: otherUser.id,
+          username: otherUser.username,
+          fullName: otherUser.fullName,
+          avatarUrl: otherUser.avatarUrl,
+        } : null,
+        lastMessage: null
+      };
+      console.log("Returning new conversation with otherUser:", response);
+      res.status(201).json(response);
+    } catch (error) {
+      console.error("Create conversation error:", error);
+      res.status(500).json({ error: "Failed to create conversation" });
+    }
+  });
+  
+  // Get conversation details
+  app.get("/api/conversations/:conversationId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { conversationId } = req.params;
+    
+    try {
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      // Verify user is part of conversation
+      if (conversation.user1Id !== userId && conversation.user2Id !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json(conversation);
+    } catch (error) {
+      console.error("Get conversation error:", error);
+      res.status(500).json({ error: "Failed to retrieve conversation" });
+    }
+  });
+  
+  // Search users
+  app.get("/api/users/search", authenticateToken, async (req, res) => {
+    const { q } = req.query;
+    
+    try {
+      if (!q || typeof q !== 'string' || q.trim().length === 0) {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+      
+      const users = await storage.searchUsers(q.trim());
+      res.json(users);
+    } catch (error) {
+      console.error("Search users error:", error);
+      res.status(500).json({ error: "Failed to search users" });
+    }
+  });
+  
+  // ========================================
+  // GROUP MESSAGING ROUTES
+  // ========================================
+  
+  // Create a group
+  app.post("/api/groups", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { name, description, privacy, bookIds } = req.body;
+    
+    try {
+      if (!name || name.trim().length === 0) {
+        return res.status(400).json({ error: "Group name is required" });
+      }
+      
+      // Create group
+      const group = await storage.createGroup({
+        name: name.trim(),
+        description: description || null,
+        creatorId: userId,
+        privacy: privacy || 'public'
+      });
+      
+      // Add creator as administrator
+      await storage.addGroupMember(group.id, userId, 'administrator', userId);
+      
+      // Create default "General" channel
+      await storage.createChannel({
+        groupId: group.id,
+        name: 'General',
+        description: 'General discussion',
+        creatorId: userId,
+        displayOrder: 0
+      });
+      
+      // Associate books if provided
+      if (bookIds && Array.isArray(bookIds) && bookIds.length > 0) {
+        for (const bookId of bookIds) {
+          await storage.addBookToGroup(group.id, bookId);
+        }
+      }
+      
+      res.status(201).json(group);
+    } catch (error) {
+      console.error("Create group error:", error);
+      res.status(500).json({ error: "Failed to create group" });
+    }
+  });
+  
+  // Get user's groups
+  app.get("/api/groups", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    
+    try {
+      const groups = await storage.getUserGroups(userId);
+      res.json(groups);
+    } catch (error) {
+      console.error("Get groups error:", error);
+      res.status(500).json({ error: "Failed to retrieve groups" });
+    }
+  });
+  
+  // Search public groups
+  app.get("/api/groups/search", authenticateToken, async (req, res) => {
+    const { q } = req.query;
+    
+    try {
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+      
+      const groups = await storage.searchGroups(q.trim());
+      res.json(groups);
+    } catch (error) {
+      console.error("Search groups error:", error);
+      res.status(500).json({ error: "Failed to search groups" });
+    }
+  });
+  
+  // Get group details
+  app.get("/api/groups/:groupId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    
+    try {
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+      
+      // Check if user is a member
+      const isMember = await storage.isGroupMember(groupId, userId);
+      if (!isMember && group.privacy === 'private') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get channels
+      const channels = await storage.getGroupChannels(groupId);
+      
+      // Get members
+      const members = await storage.getGroupMembers(groupId);
+      
+      // Get associated books
+      const books = await storage.getGroupBooks(groupId);
+      
+      // Add member count
+      const memberCount = members.length;
+      
+      res.json({ ...group, channels, members, books, memberCount });
+    } catch (error) {
+      console.error("Get group error:", error);
+      res.status(500).json({ error: "Failed to retrieve group" });
+    }
+  });
+  
+  // Update group
+  app.put("/api/groups/:groupId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    const { name, description, privacy, bookIds } = req.body;
+    
+    try {
+      // Check if user is admin
+      const role = await storage.getGroupMemberRole(groupId, userId);
+      if (role !== 'administrator') {
+        return res.status(403).json({ error: "Only administrators can update group settings" });
+      }
+      
+      const group = await storage.updateGroup(groupId, {
+        name,
+        description,
+        privacy
+      });
+      
+      // Update book associations if provided
+      if (bookIds !== undefined) {
+        // Remove all existing associations
+        await storage.removeAllGroupBooks(groupId);
+        
+        // Add new associations
+        if (Array.isArray(bookIds) && bookIds.length > 0) {
+          for (const bookId of bookIds) {
+            await storage.addGroupBook(groupId, bookId);
+          }
+        }
+      }
+      
+      res.json(group);
+    } catch (error) {
+      console.error("Update group error:", error);
+      res.status(500).json({ error: "Failed to update group" });
+    }
+  });
+  
+  // Delete group
+  app.delete("/api/groups/:groupId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    
+    try {
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+      
+      // Only creator can delete
+      if (group.creatorId !== userId) {
+        return res.status(403).json({ error: "Only the group creator can delete the group" });
+      }
+      
+      await storage.deleteGroup(groupId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete group error:", error);
+      res.status(500).json({ error: "Failed to delete group" });
+    }
+  });
+  
+  // Add member to group
+  // ========================================
+  // GROUP MEMBERSHIP ROUTES
+  // ========================================
+  
+  // Join a public group (self-service)
+  app.post("/api/groups/:groupId/join", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    
+    try {
+      console.log(`User ${userId} attempting to join group ${groupId}`);
+      
+      // Check if group exists and is public
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+      
+      console.log(`Group found: ${group.name}, privacy: ${group.privacy}`);
+      
+      if (group.privacy === 'private') {
+        return res.status(403).json({ error: "Cannot join private groups without invitation" });
+      }
+      
+      // Check if already a member
+      const isMember = await storage.isGroupMember(groupId, userId);
+      if (isMember) {
+        console.log(`User ${userId} is already a member of group ${groupId}`);
+        return res.json({ success: true, message: "Already a member" });
+      }
+      
+      // Add user as member
+      await storage.addGroupMember(groupId, userId, 'member', null);
+      console.log(`User ${userId} successfully joined group ${groupId}`);
+      
+      res.status(201).json({ success: true, message: "Joined group successfully" });
+    } catch (error) {
+      console.error("Join group error:", error);
+      res.status(500).json({ error: "Failed to join group" });
+    }
+  });
+  
+  // Add member to group (by admin/moderator)
+  app.post("/api/groups/:groupId/members", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    const { userId: newMemberId } = req.body;
+    
+    try {
+      // Check if requester is admin or moderator
+      const role = await storage.getGroupMemberRole(groupId, userId);
+      if (role !== 'administrator' && role !== 'moderator') {
+        return res.status(403).json({ error: "Only administrators and moderators can add members" });
+      }
+      
+      await storage.addGroupMember(groupId, newMemberId, 'member', userId);
+      res.status(201).json({ success: true });
+    } catch (error) {
+      console.error("Add group member error:", error);
+      res.status(500).json({ error: "Failed to add member" });
+    }
+  });
+  
+  // Remove member from group
+  app.delete("/api/groups/:groupId/members/:memberId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId, memberId } = req.params;
+    
+    try {
+      const requesterRole = await storage.getGroupMemberRole(groupId, userId);
+      
+      // Get the member to be removed to check their role
+      const members = await storage.getGroupMembers(groupId);
+      const memberToRemove = members.find(m => m.id === memberId);
+      
+      if (!memberToRemove) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      // Moderators can't remove admins
+      if (requesterRole === 'moderator' && memberToRemove.role === 'administrator') {
+        return res.status(403).json({ error: "Moderators cannot remove administrators" });
+      }
+      
+      // Only admins and moderators can remove members
+      if (requesterRole !== 'administrator' && requesterRole !== 'moderator') {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      
+      await storage.removeGroupMember(groupId, memberId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Remove group member error:", error);
+      res.status(500).json({ error: "Failed to remove member" });
+    }
+  });
+  
+  // Update member role
+  app.put("/api/groups/:groupId/members/:memberId/role", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId, memberId } = req.params;
+    const { role } = req.body;
+    
+    try {
+      // Only administrators can change roles
+      const requesterRole = await storage.getGroupMemberRole(groupId, userId);
+      if (requesterRole !== 'administrator') {
+        return res.status(403).json({ error: "Only administrators can change member roles" });
+      }
+      
+      if (!['member', 'moderator', 'administrator'].includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+      
+      await storage.updateGroupMemberRole(groupId, memberId, role);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Update member role error:", error);
+      res.status(500).json({ error: "Failed to update role" });
+    }
+  });
+  
+  // Get group members
+  app.get("/api/groups/:groupId/members", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    
+    try {
+      // Check if user has access
+      const isMember = await storage.isGroupMember(groupId, userId);
+      const group = await storage.getGroup(groupId);
+      
+      if (!isMember && group?.privacy === 'private') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const members = await storage.getGroupMembers(groupId);
+      res.json(members);
+    } catch (error) {
+      console.error("Get group members error:", error);
+      res.status(500).json({ error: "Failed to retrieve members" });
+    }
+  });
+  
+  // Get user's role in group
+  app.get("/api/groups/:groupId/my-role", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    
+    try {
+      const role = await storage.getGroupMemberRole(groupId, userId);
+      if (!role) {
+        return res.status(404).json({ error: "User is not a member of this group" });
+      }
+      
+      res.json({ role });
+    } catch (error) {
+      console.error("Get user group role error:", error);
+      res.status(500).json({ error: "Failed to retrieve role" });
+    }
+  });
+  
+  // ========================================
+  // CHANNEL ROUTES
+  // ========================================
+  
+  // Create channel
+  app.post("/api/groups/:groupId/channels", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    const { name, description } = req.body;
+    
+    try {
+      // Check if user is admin or moderator
+      const role = await storage.getGroupMemberRole(groupId, userId);
+      if (role !== 'administrator' && role !== 'moderator') {
+        return res.status(403).json({ error: "Only administrators and moderators can create channels" });
+      }
+      
+      // Get max display order
+      const channels = await storage.getGroupChannels(groupId);
+      const maxOrder = channels.reduce((max, ch) => Math.max(max, ch.displayOrder || 0), 0);
+      
+      const channel = await storage.createChannel({
+        groupId,
+        name,
+        description,
+        creatorId: userId,
+        displayOrder: maxOrder + 1
+      });
+      
+      res.status(201).json(channel);
+    } catch (error) {
+      console.error("Create channel error:", error);
+      res.status(500).json({ error: "Failed to create channel" });
+    }
+  });
+  
+  // Get group channels
+  app.get("/api/groups/:groupId/channels", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId } = req.params;
+    
+    try {
+      const isMember = await storage.isGroupMember(groupId, userId);
+      if (!isMember) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const channels = await storage.getGroupChannels(groupId);
+      res.json(channels);
+    } catch (error) {
+      console.error("Get channels error:", error);
+      res.status(500).json({ error: "Failed to retrieve channels" });
+    }
+  });
+  
+  // Update channel
+  app.put("/api/groups/:groupId/channels/:channelId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId, channelId } = req.params;
+    const { name, description } = req.body;
+    
+    try {
+      const role = await storage.getGroupMemberRole(groupId, userId);
+      if (role !== 'administrator' && role !== 'moderator') {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      
+      const channel = await storage.updateChannel(channelId, { name, description });
+      res.json(channel);
+    } catch (error) {
+      console.error("Update channel error:", error);
+      res.status(500).json({ error: "Failed to update channel" });
+    }
+  });
+  
+  // Delete channel
+  app.delete("/api/groups/:groupId/channels/:channelId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId, channelId } = req.params;
+    
+    try {
+      const role = await storage.getGroupMemberRole(groupId, userId);
+      if (role !== 'administrator' && role !== 'moderator') {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      
+      await storage.deleteChannel(channelId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete channel error:", error);
+      res.status(500).json({ error: "Failed to delete channel" });
+    }
+  });
+  
+  // Get channel messages
+  app.get("/api/groups/:groupId/channels/:channelId/messages", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId, channelId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    
+    try {
+      const isMember = await storage.isGroupMember(groupId, userId);
+      if (!isMember) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const messages = await storage.getChannelMessages(channelId, limit, offset);
+      res.json(messages);
+    } catch (error) {
+      console.error("Get channel messages error:", error);
+      res.status(500).json({ error: "Failed to retrieve messages" });
+    }
+  });
+  
+  // Post message to channel
+  app.post("/api/groups/:groupId/channels/:channelId/messages", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { groupId, channelId } = req.params;
+    const { content } = req.body;
+    
+    try {
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ error: "Message content is required" });
+      }
+      
+      // Check if user is a member of the group
+      const isMember = await storage.isGroupMember(groupId, userId);
+      if (!isMember) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Create message in channel
+      const message = await storage.createMessage({
+        senderId: userId,
+        channelId,
+        content: content.trim(),
+        readStatus: false
+      });
+      
+      // Broadcast message via WebSocket
+      const io = (app as any).io;
+      if (io) {
+        io.to(`channel:${channelId}`).emit('channel:message:new', {
+          message,
+          channelId,
+          groupId
+        });
+      }
+      
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Post channel message error:", error);
+      res.status(500).json({ error: "Failed to post message" });
+    }
+  });
+  
+  // ========================================
+  // MESSAGE REACTIONS ROUTES
+  // ========================================
+  
+  // Add reaction to message
+  app.post("/api/messages/:messageId/reactions", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    
+    try {
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      const message = await storage.getMessage(messageId);
+      if (!message) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      
+      // Check access - user must be part of conversation or group
+      if (message.conversationId) {
+        const conversation = await storage.getConversation(message.conversationId);
+        if (conversation.user1Id !== userId && conversation.user2Id !== userId) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      } else if (message.channelId) {
+        // Get channel to find group
+        const channels = await storage.getGroupChannels(message.channelId);
+        if (channels.length > 0) {
+          const isMember = await storage.isGroupMember(channels[0].groupId, userId);
+          if (!isMember) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        }
+      }
+      
+      const reaction = await storage.addMessageReaction(messageId, userId, emoji);
+      
+      // Broadcast reaction via WebSocket
+      const io = (app as any).io;
+      if (io) {
+        if (message.conversationId) {
+          io.to(`conversation:${message.conversationId}`).emit('reaction:new', {
+            reaction,
+            messageId,
+            conversationId: message.conversationId
+          });
+        } else if (message.channelId) {
+          io.to(`channel:${message.channelId}`).emit('channel:reaction:new', {
+            reaction,
+            messageId,
+            channelId: message.channelId
+          });
+        }
+      }
+      
+      res.status(201).json(reaction);
+    } catch (error) {
+      console.error("Add reaction error:", error);
+      res.status(500).json({ error: "Failed to add reaction" });
+    }
+  });
+  
+  // Remove reaction
+  app.delete("/api/messages/:messageId/reactions/:reactionId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { messageId, reactionId } = req.params;
+    
+    try {
+      // Get message to determine where to broadcast
+      const message = await storage.getMessage(messageId);
+      
+      await storage.removeMessageReaction(reactionId, userId);
+      
+      // Broadcast reaction removal via WebSocket
+      const io = (app as any).io;
+      if (io && message) {
+        if (message.conversationId) {
+          io.to(`conversation:${message.conversationId}`).emit('reaction:removed', {
+            reactionId,
+            messageId,
+            conversationId: message.conversationId
+          });
+        } else if (message.channelId) {
+          io.to(`channel:${message.channelId}`).emit('channel:reaction:removed', {
+            reactionId,
+            messageId,
+            channelId: message.channelId
+          });
+        }
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Remove reaction error:", error);
+      res.status(500).json({ error: "Failed to remove reaction" });
+    }
+  });
+  
+  // Get message reactions
+  app.get("/api/messages/:messageId/reactions", authenticateToken, async (req, res) => {
+    const { messageId } = req.params;
+    
+    try {
+      const reactions = await storage.getMessageReactions(messageId);
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get reactions error:", error);
+      res.status(500).json({ error: "Failed to retrieve reactions" });
+    }
+  });
+  
+  // Delete message
+  app.delete("/api/messages/:messageId", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { messageId } = req.params;
+    
+    try {
+      // Get the message to check permissions
+      const message = await storage.getMessage(messageId);
+      if (!message) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      
+      // Check if user is the sender (can delete own messages)
+      let canDelete = message.senderId === userId;
+      
+      // If message is in a channel (group chat), check if user is admin/moderator
+      if (!canDelete && message.channelId) {
+        // Get the channel to find the group
+        const channel = await storage.getChannel(message.channelId);
+        if (channel) {
+          const role = await storage.getGroupMemberRole(channel.groupId, userId);
+          canDelete = role === 'administrator' || role === 'moderator';
+        }
+      }
+      
+      if (!canDelete) {
+        return res.status(403).json({ error: "Insufficient permissions to delete this message" });
+      }
+      
+      // Delete the message
+      const deleted = await storage.deleteMessage(messageId, userId);
+      if (!deleted) {
+        return res.status(500).json({ error: "Failed to delete message" });
+      }
+      
+      // Broadcast deletion via WebSocket
+      const io = (app as any).io;
+      if (io) {
+        if (message.conversationId) {
+          io.to(`conversation:${message.conversationId}`).emit('message:deleted', {
+            messageId,
+            conversationId: message.conversationId
+          });
+        } else if (message.channelId) {
+          io.to(`channel:${message.channelId}`).emit('channel:message:deleted', {
+            messageId,
+            channelId: message.channelId
+          });
+        }
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete message error:", error);
+      res.status(500).json({ error: "Failed to delete message" });
+    }
+  });
+  
+  // ========================================
+  // NOTIFICATIONS ROUTES
+  // ========================================
+  
+  // Get user notifications
+  app.get("/api/notifications", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const limit = parseInt(req.query.limit as string) || 50;
+    
+    try {
+      const notifications = await storage.getUserNotifications(userId, limit);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      res.status(500).json({ error: "Failed to retrieve notifications" });
+    }
+  });
+  
+  // Mark notification as read
+  app.put("/api/notifications/:notificationId/read", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { notificationId } = req.params;
+    
+    try {
+      await storage.markNotificationAsRead(notificationId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Mark notification read error:", error);
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+  
+  // Mark all notifications as read
+  app.put("/api/notifications/read-all", authenticateToken, async (req, res) => {
+    const userId = (req as any).user.userId;
+    
+    try {
+      await storage.markAllNotificationsAsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Mark all notifications read error:", error);
+      res.status(500).json({ error: "Failed to mark all notifications as read" });
     }
   });
   
