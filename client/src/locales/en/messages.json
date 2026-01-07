@@ -108,5 +108,7 @@
   "page": "Page",
   "of": "of",
   "previous": "Previous",
-  "next": "Next"
+  "next": "Next",
+  "unreadMessage": "unread message",
+  "unreadMessages": "unread messages"
 }

@@ -30,6 +30,7 @@ interface Conversation {
     createdAt: string;
   } | null;
   updatedAt: string;
+  unreadCount: number;
 }
 
 interface Group {
@@ -39,6 +40,7 @@ interface Group {
   privacy: 'public' | 'private';
   memberCount?: number;
   createdAt: string;
+  unreadCount?: number;
   books?: Array<{
     id: string;
     title: string;
@@ -224,13 +226,19 @@ export default function Messages() {
           if (convIndex >= 0) {
             // Update existing conversation
             const updatedConvs = [...prevConvs];
+            const isCurrentConversation = selectedConversation?.id === data.conversationId;
+            
             updatedConvs[convIndex] = {
               ...updatedConvs[convIndex],
               lastMessage: {
                 content: data.message.content,
                 createdAt: data.message.createdAt
               },
-              updatedAt: data.message.createdAt
+              updatedAt: data.message.createdAt,
+              // Increment unread count only if message is from other user and conversation is not currently open
+              unreadCount: (data.message.senderId !== user?.id && !isCurrentConversation) 
+                ? (updatedConvs[convIndex].unreadCount || 0) + 1 
+                : updatedConvs[convIndex].unreadCount
             };
             
             // Move to top by sorting by updatedAt
@@ -252,7 +260,27 @@ export default function Messages() {
     return () => {
       cleanupGlobalMessage();
     };
-  }, []);
+  }, [selectedConversation, user?.id]);
+
+  // Global WebSocket listener for group channel messages to update group unread counts
+  useEffect(() => {
+    console.log('Setting up global channel message listener for group list updates');
+    
+    const cleanupChannelMessage = onSocketEvent('channel:message:new', (data) => {
+      console.log('Global channel message listener: new message received', data);
+      
+      // Fetch groups to update unread counts
+      // We could also do optimistic updates here, but fetching is more reliable
+      if (!selectedChannel || selectedChannel.id !== data.channelId) {
+        // Only fetch if we're not in that channel (otherwise unread count should be 0)
+        fetchGroups();
+      }
+    });
+    
+    return () => {
+      cleanupChannelMessage();
+    };
+  }, [selectedChannel]);
 
   // Clear search and selected items when switching tabs
   useEffect(() => {
@@ -1033,12 +1061,22 @@ export default function Messages() {
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarImage src={conv.otherUser?.avatarUrl || undefined} />
-                      <AvatarFallback>
-                        <User className="w-4 h-4" />
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                      <Avatar>
+                        <AvatarImage src={conv.otherUser?.avatarUrl || undefined} />
+                        <AvatarFallback>
+                          <User className="w-4 h-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      {conv.unreadCount > 0 && (
+                        <div 
+                          className="absolute -bottom-1 -left-1 h-5 min-w-[20px] px-1 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center border-2 border-background"
+                          aria-label={`${conv.unreadCount} ${conv.unreadCount === 1 ? t('messages:unreadMessage') : t('messages:unreadMessages')}`}
+                        >
+                          {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">
                         {conv.otherUser?.fullName || conv.otherUser?.username}
@@ -1077,8 +1115,18 @@ export default function Messages() {
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Users className="w-5 h-5 text-primary" />
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Users className="w-5 h-5 text-primary" />
+                      </div>
+                      {group.unreadCount && group.unreadCount > 0 && (
+                        <div 
+                          className="absolute -bottom-1 -left-1 h-5 min-w-[20px] px-1 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center border-2 border-background"
+                          aria-label={`${group.unreadCount} ${group.unreadCount === 1 ? t('messages:unreadMessage') : t('messages:unreadMessages')}`}
+                        >
+                          {group.unreadCount > 99 ? '99+' : group.unreadCount}
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{group.name}</p>

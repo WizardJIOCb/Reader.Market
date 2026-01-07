@@ -2932,7 +2932,7 @@ export class DBStorage implements IStorage {
       console.log('[getUserConversations] Raw query result:', result.length, 'conversations');
       console.log('[getUserConversations] First conversation:', result[0]);
 
-      // Fetch other user info and last message for each conversation
+      // Fetch other user info, last message, and unread count for each conversation
       const conversationsWithDetails = await Promise.all(
         result.map(async (conv) => {
           const otherUserId = conv.user1Id === userId ? conv.user2Id : conv.user1Id;
@@ -2945,6 +2945,18 @@ export class DBStorage implements IStorage {
             lastMessage = await this.getMessage(conv.lastMessageId);
           }
 
+          // Count unread messages where current user is recipient
+          const unreadResult: any = await pool.query(
+            `SELECT COUNT(*) as count 
+             FROM messages 
+             WHERE conversation_id = $1 
+               AND recipient_id = $2 
+               AND read_status = false 
+               AND deleted_at IS NULL`,
+            [conv.id, userId]
+          );
+          const unreadCount = parseInt(unreadResult.rows[0]?.count || '0');
+
           return {
             ...conv,
             otherUser: otherUser ? {
@@ -2954,6 +2966,7 @@ export class DBStorage implements IStorage {
               avatarUrl: otherUser.avatarUrl,
             } : null,
             lastMessage,
+            unreadCount,
           };
         })
       );
@@ -3037,14 +3050,37 @@ export class DBStorage implements IStorage {
           )
         );
       
-      // Add member count for each group
+      // Add member count and unread count for each group
       const groupsWithCount = await Promise.all(
         result.map(async (group) => {
           const memberCountResult = await db.execute(
             sql`SELECT COUNT(*) as count FROM group_members WHERE group_id = ${group.id}`
           );
           const memberCount = parseInt((memberCountResult.rows[0] as any).count) || 0;
-          return { ...group, memberCount };
+          
+          // Count unread messages in all channels of this group
+          // For simplicity, we'll count all messages in group channels that the user hasn't seen
+          // A more sophisticated approach would track per-user last read message per channel
+          const unreadCountResult = await db.execute(
+            sql`SELECT COUNT(DISTINCT m.id) as count
+                FROM messages m
+                INNER JOIN channels c ON m.channel_id = c.id
+                WHERE c.group_id = ${group.id}
+                  AND m.sender_id != ${userId}
+                  AND m.deleted_at IS NULL
+                  AND m.created_at > COALESCE(
+                    (SELECT MAX(m2.created_at) 
+                     FROM messages m2 
+                     INNER JOIN channels c2 ON m2.channel_id = c2.id
+                     WHERE c2.group_id = ${group.id} 
+                       AND m2.sender_id = ${userId}
+                       AND m2.deleted_at IS NULL),
+                    ${group.createdAt}
+                  )`
+          );
+          const unreadCount = parseInt((unreadCountResult.rows[0] as any).count) || 0;
+          
+          return { ...group, memberCount, unreadCount };
         })
       );
       
