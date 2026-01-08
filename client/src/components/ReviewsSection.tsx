@@ -200,12 +200,13 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
         const formattedReview: Review = {
           id: newReviewObj.id,
           bookId: newReviewObj.bookId,
-          author: user.fullName || user.username || 'Вы',
+          author: newReviewObj.author || user.fullName || user.username || 'Вы',
           content: newReviewObj.content,
           rating: newReviewObj.rating,
           createdAt: newReviewObj.createdAt,
           reactions: [],
-          userId: user.id,
+          userId: newReviewObj.userId || user.id,
+          avatarUrl: newReviewObj.avatarUrl || user.avatarUrl || null,
           attachments: newReviewObj.attachmentMetadata?.attachments || []
         };
         

@@ -158,11 +158,12 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         const formattedComment: Comment = {
           id: newCommentObj.id,
           bookId: newCommentObj.bookId,
-          author: user.fullName || user.username || 'Вы',
+          author: newCommentObj.author || user.fullName || user.username || 'Вы',
           content: newCommentObj.content,
           createdAt: newCommentObj.createdAt,
           reactions: [],
-          userId: user.id,
+          userId: newCommentObj.userId || user.id,
+          avatarUrl: newCommentObj.avatarUrl || user.avatarUrl || null,
           attachments: newCommentObj.attachmentMetadata?.attachments || []
         };
         
