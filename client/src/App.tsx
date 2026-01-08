@@ -50,6 +50,13 @@ function Router() {
 function App() {
   const [location] = useLocation();
   
+  // Track page views in Yandex Metrika on route change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).ym) {
+      (window as any).ym(106177065, 'hit', window.location.pathname);
+    }
+  }, [location]);
+  
   // Check if current page is reader or messages (don't show footer on these pages)
   const isReaderPage = location.startsWith('/read/');
   const isMessagesPage = location.startsWith('/messages');
