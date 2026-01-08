@@ -36,15 +36,14 @@ export const BookCard: React.FC<BookCardProps> = ({
   addToShelfButton
 }) => {
   const { t } = useTranslation(['books']);
-  // Format dates for display
+  // Format dates for display in DD.MM.YYYY format
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
   };
 
   // Get book dates - using created_at as fallback for uploaded_at

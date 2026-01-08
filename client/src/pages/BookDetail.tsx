@@ -31,6 +31,7 @@ import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useShelves } from '@/hooks/useShelves';
 import { useAuth } from '@/lib/auth';
+import { useTranslation } from 'react-i18next';
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -89,15 +90,16 @@ interface Reaction {
 }
 
 export default function BookDetail() {
-  // Format dates for display
+  const { t } = useTranslation(['books']);
+  
+  // Format dates for display in DD.MM.YYYY format
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
   };
   
   // Format date for display based on age (relative for <24h, full for >=24h)
@@ -249,8 +251,8 @@ export default function BookDetail() {
             console.error('Error fetching book data:', err);
             setError(err instanceof Error ? err.message : 'Failed to load book');
             toastRef.current({
-              title: "Ошибка",
-              description: "Не удалось загрузить данные книги",
+              title: t('books:error'),
+              description: t('books:failedToLoad'),
               variant: "destructive",
             });
           } finally {
@@ -308,8 +310,8 @@ export default function BookDetail() {
           console.error('Error fetching book data:', err);
           setError(err instanceof Error ? err.message : 'Failed to load book');
           toastRef.current({
-            title: "Ошибка",
-            description: "Не удалось загрузить данные книги",
+            title: t('books:error'),
+            description: t('books:failedToLoad'),
             variant: "destructive",
           });
         } finally {
@@ -349,8 +351,8 @@ export default function BookDetail() {
           setBookComments(prev => [commentData, ...prev]);
           setNewComment('');
           toast({
-            title: "Комментарий добавлен",
-            description: "Ваш комментарий успешно добавлен!",
+            title: t('books:commentAdded'),
+            description: t('books:commentAddedSuccess'),
           });
         } else {
           const errorData = await response.json();
@@ -359,8 +361,8 @@ export default function BookDetail() {
       } catch (err) {
         console.error('Error adding comment:', err);
         toast({
-          title: "Ошибка",
-          description: err instanceof Error ? err.message : "Не удалось добавить комментарий",
+          title: t('books:error'),
+          description: err instanceof Error ? err.message : t('books:failedToAddComment'),
           variant: "destructive",
         });
       }
@@ -389,8 +391,8 @@ export default function BookDetail() {
         // Remove from local state
         setBookComments(prev => prev.filter(comment => comment.id !== commentId));
         toast({
-          title: "Комментарий удален",
-          description: "Комментарий успешно удален!",
+          title: t('books:commentDeleted'),
+          description: t('books:commentDeletedSuccess'),
         });
         
         // Refresh comments and reviews to ensure proper state
@@ -402,8 +404,8 @@ export default function BookDetail() {
     } catch (err) {
       console.error('Error deleting comment:', err);
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : "Не удалось удалить комментарий",
+        title: t('books:error'),
+        description: err instanceof Error ? err.message : t('books:failedToDeleteComment'),
         variant: "destructive",
       });
     }
@@ -449,8 +451,8 @@ export default function BookDetail() {
           }
           
           toast({
-            title: "Рецензия добавлена",
-            description: "Ваша рецензия успешно добавлена!",
+            title: t('books:reviewAdded'),
+            description: t('books:reviewAddedSuccess'),
           });
           
           // Refresh comments and reviews to ensure proper state
@@ -462,8 +464,8 @@ export default function BookDetail() {
       } catch (err) {
         console.error('Error adding review:', err);
         toast({
-          title: "Ошибка",
-          description: err instanceof Error ? err.message : "Не удалось добавить рецензию",
+          title: t('books:error'),
+          description: err instanceof Error ? err.message : t('books:failedToAddReview'),
           variant: "destructive",
         });
       }
@@ -507,8 +509,8 @@ export default function BookDetail() {
         }
         
         toast({
-          title: "Рецензия удалена",
-          description: "Рецензия успешно удалена!",
+          title: t('books:reviewDeleted'),
+          description: t('books:reviewDeletedSuccess'),
         });
         
         // Refresh comments and reviews to ensure proper state
@@ -520,8 +522,8 @@ export default function BookDetail() {
     } catch (err) {
       console.error('Error deleting review:', err);
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : "Не удалось удалить рецензию",
+        title: t('books:error'),
+        description: err instanceof Error ? err.message : t('books:failedToDeleteReview'),
         variant: "destructive",
       });
     }
@@ -556,8 +558,8 @@ export default function BookDetail() {
     } catch (err) {
       console.error('Error adding reaction:', err);
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : "Не удалось добавить реакцию",
+        title: t('books:error'),
+        description: err instanceof Error ? err.message : t('books:failedToAddReaction'),
         variant: "destructive",
       });
     }
@@ -592,8 +594,8 @@ export default function BookDetail() {
     } catch (err) {
       console.error('Error adding reaction:', err);
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : "Не удалось добавить реакцию",
+        title: t('books:error'),
+        description: err instanceof Error ? err.message : t('books:failedToAddReaction'),
         variant: "destructive",
       });
     }
@@ -611,21 +613,21 @@ export default function BookDetail() {
         await addBookToShelf(shelfId, bookId);
         
         toast({
-          title: "Книга добавлена",
-          description: "Книга успешно добавлена на полку!",
+          title: t('books:bookAdded'),
+          description: t('books:bookAddedToShelf'),
         });
       } else {
         await removeBookFromShelf(shelfId, bookId);
         
         toast({
-          title: "Книга удалена",
-          description: "Книга удалена с полки!",
+          title: t('books:bookRemoved'),
+          description: t('books:bookRemovedFromShelf'),
         });
       }
     } catch (err) {
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : "Не удалось обновить полку",
+        title: t('books:error'),
+        description: err instanceof Error ? err.message : t('books:failedToUpdateShelf'),
         variant: "destructive",
       });
     }
@@ -635,7 +637,7 @@ export default function BookDetail() {
     if (!book || !user) return;
     
     // Confirm deletion
-    if (!window.confirm('Вы уверены, что хотите удалить эту книгу? Это действие нельзя отменить.')) {
+    if (!window.confirm(t('books:confirmDelete'))) {
       return;
     }
     
@@ -660,8 +662,8 @@ export default function BookDetail() {
       
       // Show success message
       toast({
-        title: "Книга удалена",
-        description: "Книга успешно удалена из вашей библиотеки",
+        title: t('books:bookDeleted'),
+        description: t('books:bookDeletedSuccess'),
       });
       
       // Redirect to shelves page after successful deletion
@@ -669,8 +671,8 @@ export default function BookDetail() {
     } catch (err) {
       console.error('Error deleting book:', err);
       toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : 'Не удалось удалить книгу',
+        title: t('books:error'),
+        description: err instanceof Error ? err.message : t('books:failedToDeleteBook'),
         variant: "destructive",
       });
     } finally {
@@ -683,7 +685,7 @@ export default function BookDetail() {
       <div className="min-h-screen bg-background font-sans pb-20 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Загрузка данных книги...</p>
+          <p>{t('books:loadingBook')}</p>
         </div>
       </div>
     );
@@ -700,10 +702,10 @@ export default function BookDetail() {
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
           </div>
-          <h2 className="text-xl font-bold mb-2">Ошибка загрузки</h2>
-          <p className="text-muted-foreground mb-4">{error || 'Не удалось загрузить данные книги'}</p>
+          <h2 className="text-xl font-bold mb-2">{t('books:loadError')}</h2>
+          <p className="text-muted-foreground mb-4">{error || t('books:failedToLoad')}</p>
           <Link href="/library">
-            <Button>Вернуться в библиотеку</Button>
+            <Button>{t('books:backToLibrary')}</Button>
           </Link>
         </div>
       </div>
@@ -739,7 +741,7 @@ export default function BookDetail() {
                 <Link href={`/read/${book.id}/1`}>
                   <Button className="gap-2 w-full">
                     <Play className="w-4 h-4" />
-                    Читать сейчас
+                    {t('books:readNow')}
                   </Button>
                 </Link>
                 
@@ -750,7 +752,7 @@ export default function BookDetail() {
                   trigger={
                     <Button variant="outline" className="gap-2 w-full">
                       <Plus className="w-4 h-4" />
-                      В мои полки
+                      {t('books:addToMyShelves')}
                     </Button>
                   }
                 />
@@ -764,7 +766,7 @@ export default function BookDetail() {
                     disabled={isDeleting}
                   >
                     <Trash className="w-4 h-4" />
-                    {isDeleting ? 'Удаление...' : 'Удалить'}
+                    {isDeleting ? t('books:deleting') : t('books:delete')}
                   </Button>
                 )}
               </div>
@@ -774,7 +776,7 @@ export default function BookDetail() {
             <div className="flex-1">
               <CardHeader className="p-6 pb-4">
                 <h1 className="font-serif text-2xl md:text-3xl font-bold mb-2">{book.title}</h1>
-                <p className="text-lg text-muted-foreground mb-4">Автор: {book.author}</p>
+                <p className="text-lg text-muted-foreground mb-4">{t('books:authorLabel')}: {book.author}</p>
                 
                 <div className="flex flex-wrap gap-2 mb-4">
                   {book.genre && book.genre.split(',').map((g, index) => (
@@ -803,7 +805,7 @@ export default function BookDetail() {
                 )}
                 
                 <p className="text-foreground/90 mb-6 leading-relaxed">
-                  {book.description || 'Описание отсутствует'}
+                  {book.description || t('books:noDescription')}
                 </p>
               </CardContent>
               
@@ -813,40 +815,40 @@ export default function BookDetail() {
                   {book.publishedAt && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
                       <Calendar className="w-3 h-3 mr-1" />
-                      <span>Опубликовано: {book.publishedAt ? formatDate(book.publishedAt) : ''}</span>
+                      <span>{t('books:published')}: {book.publishedAt ? formatDate(book.publishedAt) : ''}</span>
                     </div>
                   )}
                   
                   {book.uploadedAt && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
                       <Clock className="w-3 h-3 mr-1" />
-                      <span>Добавлено: {book.uploadedAt ? formatDate(book.uploadedAt) : ''}</span>
+                      <span>{t('books:added')}: {book.uploadedAt ? formatDate(book.uploadedAt) : ''}</span>
                     </div>
                   )}
                   
                   {typeof book.shelfCount === 'number' && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
                       <Bookmark className="w-3 h-3 mr-1" />
-                      <span>Добавили на полку: {book.shelfCount}</span>
+                      <span>{t('books:addedToShelf')}: {book.shelfCount}</span>
                     </div>
                   )}
                   
                   {book.cardViewCount !== undefined && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
-                      <span>👁️ {book.cardViewCount} просмотров карточки</span>
+                      <span>👁️ {book.cardViewCount} {t('books:cardViews')}</span>
                     </div>
                   )}
                   
                   {book.readerOpenCount !== undefined && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
-                      <span>📖 {book.readerOpenCount} открытий в читалке</span>
+                      <span>📖 {book.readerOpenCount} {t('books:readerOpens')}</span>
                     </div>
                   )}
                   
                   {book.lastActivityDate && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
                       <Activity className="w-3 h-3 mr-1" />
-                      <span>Последняя активность: {book.lastActivityDate ? formatDate(book.lastActivityDate) : ''}</span>
+                      <span>{t('books:lastActivity')}: {book.lastActivityDate ? formatDate(book.lastActivityDate) : ''}</span>
                     </div>
                   )}
                 </div>
@@ -863,8 +865,8 @@ export default function BookDetail() {
         <Card>
           <Tabs defaultValue="comments" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="comments">Комментарии ({bookComments.length})</TabsTrigger>
-              <TabsTrigger value="reviews">Рецензии ({bookReviews.length})</TabsTrigger>
+              <TabsTrigger value="comments">{t('books:commentCount')} ({bookComments.length})</TabsTrigger>
+              <TabsTrigger value="reviews">{t('books:reviewCount')} ({bookReviews.length})</TabsTrigger>
             </TabsList>
             
             {/* Comments Tab */}
@@ -872,10 +874,10 @@ export default function BookDetail() {
               <CardContent className="space-y-6 pt-4">
                 {/* Add Comment Form */}
                 <div className="pt-4">
-                  <h4 className="font-medium mb-3">Добавить комментарий</h4>
+                  <h4 className="font-medium mb-3">{t('books:addComment')}</h4>
                   <div className="space-y-4">
                     <Textarea 
-                      placeholder="Ваш комментарий..." 
+                      placeholder={t('books:commentPlaceholder')} 
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       rows={3}
@@ -883,7 +885,7 @@ export default function BookDetail() {
                     <div className="flex justify-end">
                       <Button onClick={handleAddComment} className="gap-2">
                         <Send className="w-4 h-4" />
-                        Отправить
+                        {t('books:send')}
                       </Button>
                     </div>
                   </div>
@@ -995,10 +997,10 @@ export default function BookDetail() {
                         {/* Add Review Form - only show if user hasn't reviewed yet */}
                         {!userHasReviewed && (
                           <div className="pt-4 border-t mt-4">
-                            <h4 className="font-medium mb-3">Написать рецензию</h4>
+                            <h4 className="font-medium mb-3">{t('books:writeReview')}</h4>
                             <div className="space-y-4">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm">Оценка:</span>
+                                <span className="text-sm">{t('books:ratingLabel')}:</span>
                                 <div className="flex">
                                   {[...Array(10)].map((_, i) => (
                                     <button
@@ -1019,7 +1021,7 @@ export default function BookDetail() {
                                 <span className="text-sm font-medium">{reviewRating}/10</span>
                               </div>
                               <Textarea 
-                                placeholder="Ваша рецензия..." 
+                                placeholder={t('books:reviewPlaceholder')} 
                                 value={newReview}
                                 onChange={(e) => setNewReview(e.target.value)}
                                 rows={5}
@@ -1027,7 +1029,7 @@ export default function BookDetail() {
                               <div className="flex justify-end">
                                 <Button onClick={handleAddReview} className="gap-2">
                                   <Send className="w-4 h-4" />
-                                  Опубликовать
+                                  {t('books:publish')}
                                 </Button>
                               </div>
                             </div>

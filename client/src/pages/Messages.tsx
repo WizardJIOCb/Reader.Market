@@ -74,6 +74,36 @@ export default function Messages() {
   const [location] = useLocation();
   const { t } = useTranslation(['messages']);
   const isMobile = useIsMobile();
+  
+  // Format message timestamp: time only for today, date+time for older messages
+  const formatMessageTimestamp = (dateString: string): string => {
+    const messageDate = new Date(dateString);
+    const today = new Date();
+    
+    // Check if message was sent today (same day)
+    const isToday = 
+      messageDate.getDate() === today.getDate() &&
+      messageDate.getMonth() === today.getMonth() &&
+      messageDate.getFullYear() === today.getFullYear();
+    
+    // Format time (HH:mm)
+    const hours = messageDate.getHours().toString().padStart(2, '0');
+    const minutes = messageDate.getMinutes().toString().padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+    
+    // If today, return only time; otherwise return date + time
+    if (isToday) {
+      return timeStr;
+    }
+    
+    // Format date (DD.MM.YYYY)
+    const day = messageDate.getDate().toString().padStart(2, '0');
+    const month = (messageDate.getMonth() + 1).toString().padStart(2, '0');
+    const year = messageDate.getFullYear();
+    
+    return `${day}.${month}.${year} ${timeStr}`;
+  };
+  
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -1429,7 +1459,7 @@ export default function Messages() {
                           <p className={`text-xs mt-1 ${
                             isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
                           }`}>
-                            {new Date(message.createdAt).toLocaleTimeString()}
+                            {formatMessageTimestamp(message.createdAt)}
                           </p>
                         </div>
                       </div>
@@ -1614,7 +1644,7 @@ export default function Messages() {
                               <p className={`text-xs mt-1 ${
                                 isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
                               }`}>
-                                {new Date(message.createdAt).toLocaleTimeString()}
+                                {formatMessageTimestamp(message.createdAt)}
                               </p>
                             </div>
                           </div>
