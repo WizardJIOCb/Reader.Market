@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Send, User, MessageCircle, Users, Plus, Hash, Settings, X as XIcon, Share2, ArrowLeft } from 'lucide-react';
+import { Search, Send, User, MessageCircle, Users, Plus, Hash, Settings, X as XIcon, Share2, ArrowLeft, Reply } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { joinConversation, leaveConversation, onSocketEvent, startTyping, stopTyping, joinChannel, leaveChannel } from '@/lib/socket';
@@ -16,6 +16,13 @@ import { GroupMembersModal } from '@/components/GroupMembersModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Link, useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
+import { EmojiPicker } from '@/components/EmojiPicker';
+import { AttachmentButton } from '@/components/AttachmentButton';
+import { AttachmentPreview } from '@/components/AttachmentPreview';
+import { AttachmentDisplay } from '@/components/AttachmentDisplay';
+import { QuotedMessagePreview } from '@/components/QuotedMessagePreview';
+import { QuotedMessageDisplay } from '@/components/QuotedMessageDisplay';
+import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
 
 interface Conversation {
   id: string;
@@ -66,6 +73,17 @@ interface Message {
   senderUsername: string;
   senderFullName: string | null;
   senderAvatarUrl: string | null;
+  quotedMessageId?: string;
+  quotedText?: string;
+  quotedSenderName?: string;
+  quotedMessageContent?: string;
+  attachments?: {
+    url: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    thumbnailUrl?: string;
+  }[];
 }
 
 export default function Messages() {
@@ -126,7 +144,30 @@ export default function Messages() {
   const [showMobileChat, setShowMobileChat] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [quotedMessage, setQuotedMessage] = useState<{
+    id: string;
+    senderName: string;
+    content: string;
+    quotedText?: string;
+  } | null>(null);
   
+  // Scroll to a specific message
+  const scrollToMessage = (messageId: string) => {
+    const element = messageRefs.current.get(messageId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight the message briefly
+      element.style.transition = 'background-color 0.3s';
+      element.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+      setTimeout(() => {
+        element.style.backgroundColor = '';
+      }, 1500);
+    }
+  };
+
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -331,6 +372,7 @@ export default function Messages() {
     
     const cleanupMessage = onSocketEvent('message:new', (data) => {
       console.log('%c[MESSAGE LISTENER] 📬 Message received', 'color: teal; font-weight: bold', data);
+      console.log('%c[MESSAGE LISTENER] Message attachments:', 'color: teal', data.message?.attachments);
       
       // If message is for currently open conversation, add it to the message list
       if (selectedConversation && data.conversationId === selectedConversation.id) {
@@ -520,6 +562,8 @@ export default function Messages() {
       
       // Set up WebSocket event listeners for channel
       const cleanupChannelMessage = onSocketEvent('channel:message:new', (data) => {
+        console.log('Channel-specific listener: message for channel', data.channelId);
+        console.log('Channel message attachments:', data.message?.attachments);
         if (data.channelId === selectedChannel.id) {
           setMessages((prev) => {
             // Avoid duplicates
@@ -1007,13 +1051,27 @@ export default function Messages() {
 
     setSending(true);
     try {
+      console.log('=== SENDING MESSAGE ===');
+      console.log('uploadedFiles:', uploadedFiles);
+      console.log('attachmentFiles:', attachmentFiles);
+      console.log('Upload IDs to send:', uploadedFiles.map(f => f.uploadId));
+      console.log('quotedMessage:', quotedMessage);
+      
       if (selectedConversation) {
         // Send private message
-        const payload = {
+        const payload: any = {
           recipientId: selectedConversation.otherUser?.id,
           content: newMessage.trim(),
-          conversationId: selectedConversation.id
+          conversationId: selectedConversation.id,
+          attachments: uploadedFiles.map(f => f.uploadId)
         };
+        
+        // Add quote data if replying to a message
+        if (quotedMessage) {
+          payload.quotedMessageId = quotedMessage.id;
+          payload.quotedText = quotedMessage.quotedText || quotedMessage.content;
+        }
+        
         console.log('Sending payload:', JSON.stringify(payload, null, 2));
         
         // Use direct backend URL in development to bypass Vite proxy
@@ -1037,14 +1095,21 @@ export default function Messages() {
         if (response.ok) {
           const message = await response.json();
           console.log('Message sent successfully:', message);
+          console.log('Message attachments:', message.attachments);
+          console.log('Message has attachments:', message.attachments && message.attachments.length > 0);
           // Message will be added via WebSocket event, but add locally as fallback
           setMessages((prev) => {
             if (prev.some(msg => msg.id === message.id)) {
+              console.log('Message already in list, skipping');
               return prev;
             }
+            console.log('Adding message to list:', message);
             return [...prev, message];
           });
           setNewMessage('');
+          setAttachmentFiles([]);
+          setUploadedFiles([]);
+          setQuotedMessage(null); // Clear quoted message after sending
           await fetchConversations(); // Update last message in conversation list
         } else {
           const errorData = await response.json();
@@ -1058,13 +1123,24 @@ export default function Messages() {
       } else if (selectedChannel && selectedGroup) {
         // Send channel message
         console.log('Sending channel message to:', selectedChannel.id);
+        const payload: any = { 
+          content: newMessage.trim(),
+          attachments: uploadedFiles.map(f => f.uploadId)
+        };
+        
+        // Add quote data if replying to a message
+        if (quotedMessage) {
+          payload.quotedMessageId = quotedMessage.id;
+          payload.quotedText = quotedMessage.quotedText || quotedMessage.content;
+        }
+        
         const response = await fetch(`/api/groups/${selectedGroup.id}/channels/${selectedChannel.id}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           },
-          body: JSON.stringify({ content: newMessage.trim() })
+          body: JSON.stringify(payload)
         });
 
         console.log('Channel message send response status:', response.status);
@@ -1072,6 +1148,7 @@ export default function Messages() {
         if (response.ok) {
           const message = await response.json();
           console.log('Channel message sent successfully:', message);
+          console.log('Channel message attachments:', message.attachments);
           // Message will be added via WebSocket event, but add locally as fallback
           setMessages((prev) => {
             if (prev.some(msg => msg.id === message.id)) {
@@ -1080,6 +1157,9 @@ export default function Messages() {
             return [...prev, message];
           });
           setNewMessage('');
+          setAttachmentFiles([]);
+          setUploadedFiles([]);
+          setQuotedMessage(null); // Clear quoted message after sending
           
           // Refresh group list to update unread counts after sending message
           // Backend uses user's last sent message timestamp to calculate unread counts
@@ -1116,6 +1196,46 @@ export default function Messages() {
     }
   };
   
+  // Handle replying to a message (full message quote)
+  const handleReplyToMessage = (message: Message) => {
+    const senderName = message.senderId === user?.id 
+      ? (user?.fullName || user?.username) 
+      : (message.senderFullName || message.senderUsername);
+    
+    setQuotedMessage({
+      id: message.id,
+      senderName: senderName || 'Unknown',
+      content: message.content,
+      quotedText: undefined // Full message quote
+    });
+  };
+  
+  // Handle replying with selected text (partial quote)
+  const handleReplyWithSelection = (message: Message) => {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim();
+    
+    if (!selectedText || selectedText.length === 0) {
+      // If no selection, quote full message
+      handleReplyToMessage(message);
+      return;
+    }
+    
+    const senderName = message.senderId === user?.id 
+      ? (user?.fullName || user?.username) 
+      : (message.senderFullName || message.senderUsername);
+    
+    setQuotedMessage({
+      id: message.id,
+      senderName: senderName || 'Unknown',
+      content: message.content,
+      quotedText: selectedText // Partial quote
+    });
+    
+    // Clear selection after capturing
+    selection?.removeAllRanges();
+  };
+  
   // Handle typing indicator
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
@@ -1146,7 +1266,7 @@ export default function Messages() {
 
   return (
     <>
-      <div className="flex h-[calc(100vh-4rem)] bg-background">
+      <div className="flex h-[calc(100vh-4rem)] bg-background overflow-hidden">
       {/* Left Panel - Conversations List */}
       <div className={`w-full md:w-80 border-r flex flex-col ${
         isMobile && showMobileChat ? 'hidden' : 'flex'
@@ -1414,7 +1534,7 @@ export default function Messages() {
             </div>
 
             {/* Private Messages */}
-            <ScrollArea className="flex-1 p-4">
+            <ScrollArea className="flex-1 p-4 overflow-x-hidden">
               <div className="space-y-4">
                 {messages.map((message) => {
                   const isOwn = message.senderId === user?.id;
@@ -1423,12 +1543,24 @@ export default function Messages() {
                     : (selectedConversation.otherUser?.fullName || selectedConversation.otherUser?.username);
                   const senderId = isOwn ? user?.id : selectedConversation.otherUser?.id;
                   
+                  // Debug logging for attachments
+                  if (message.attachments && message.attachments.length > 0) {
+                    console.log('Rendering message with attachments:', message.id, message.attachments);
+                  }
+                  
                   return (
                     <div
                       key={message.id}
+                      ref={(el) => {
+                        if (el) {
+                          messageRefs.current.set(message.id, el);
+                        } else {
+                          messageRefs.current.delete(message.id);
+                        }
+                      }}
                       className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
+                      <div className={`max-w-[85%] sm:max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
                         {!isOwn && (
                           <Link 
                             href={`/profile/${senderId}`} 
@@ -1442,22 +1574,44 @@ export default function Messages() {
                         <div
                           className={`rounded-lg p-3 relative group ${
                             isOwn
-                              ? 'bg-primary text-primary-foreground'
+                              ? 'bg-slate-100 dark:bg-slate-800 text-foreground'
                               : 'bg-muted'
                           }`}
                         >
                           {isOwn && (
                             <button
                               onClick={() => deleteMessage(message.id)}
-                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10"
+                              className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10 bg-background/80 sm:bg-transparent"
                               title={t('messages:deleteMessage')}
                             >
                               <XIcon className="w-3 h-3" />
                             </button>
                           )}
-                          <p className="text-sm break-words">{message.content}</p>
+                          {!isOwn && (
+                            <button
+                              onClick={() => handleReplyWithSelection(message)}
+                              className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-accent bg-background/80 sm:bg-transparent"
+                              title="Reply"
+                            >
+                              <Reply className="w-3 h-3" />
+                            </button>
+                          )}
+                          {message.quotedMessageId && (
+                            <QuotedMessageDisplay
+                              senderName={message.quotedSenderName || 'Unknown'}
+                              content={message.quotedMessageContent || ''}
+                              quotedText={message.quotedText}
+                              onClick={() => scrollToMessage(message.quotedMessageId!)}
+                            />
+                          )}
+                          <p className="text-sm break-words overflow-wrap-anywhere">{message.content}</p>
+                          {message.attachments && message.attachments.length > 0 && (
+                            <div className="mt-2">
+                              <AttachmentDisplay attachments={message.attachments} />
+                            </div>
+                          )}
                           <p className={`text-xs mt-1 ${
-                            isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                            isOwn ? 'text-muted-foreground' : 'text-muted-foreground'
                           }`}>
                             {formatMessageTimestamp(message.createdAt)}
                           </p>
@@ -1471,16 +1625,41 @@ export default function Messages() {
             </ScrollArea>
 
             {/* Message Input */}
-            <div className="p-4 border-t">
-              <div className="flex gap-2">
+            <div className="p-2 sm:p-4 border-t space-y-2">
+              {quotedMessage && (
+                <QuotedMessagePreview
+                  quotedMessage={quotedMessage}
+                  onClear={() => setQuotedMessage(null)}
+                />
+              )}
+              {attachmentFiles.length > 0 && (
+                <AttachmentPreview
+                  files={attachmentFiles}
+                  onRemove={(index) => {
+                    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+                    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                  }}
+                  onUploadComplete={(files) => setUploadedFiles(files)}
+                  autoUpload={true}
+                />
+              )}
+              <div className="flex gap-1 sm:gap-2">
+                <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+                  <EmojiPicker onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} />
+                  <AttachmentButton 
+                    onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
+                    maxFiles={5}
+                  />
+                </div>
                 <Input
                   placeholder={t('messages:typeMessage')}
                   value={newMessage}
                   onChange={handleInputChange}
                   onKeyPress={handleKeyPress}
                   disabled={sending}
+                  className="flex-1 min-w-0"
                 />
-                <Button onClick={sendMessage} disabled={sending || !newMessage.trim()}>
+                <Button onClick={sendMessage} disabled={sending || !newMessage.trim()} size="sm" className="flex-shrink-0">
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
@@ -1603,7 +1782,7 @@ export default function Messages() {
             {selectedChannel ? (
               <>
                 {/* Channel Messages */}
-                <ScrollArea className="flex-1 p-4">
+                <ScrollArea className="flex-1 p-4 overflow-x-hidden">
                   <div className="space-y-4">
                     {messages.map((message) => {
                       const isOwn = message.senderId === user?.id;
@@ -1611,9 +1790,16 @@ export default function Messages() {
                       return (
                         <div
                           key={message.id}
+                          ref={(el) => {
+                            if (el) {
+                              messageRefs.current.set(message.id, el);
+                            } else {
+                              messageRefs.current.delete(message.id);
+                            }
+                          }}
                           className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                         >
-                          <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
+                          <div className={`max-w-[85%] sm:max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
                             {!isOwn && message.senderUsername && (
                               <Link 
                                 href={`/profile/${message.senderId}`} 
@@ -1627,22 +1813,44 @@ export default function Messages() {
                             <div
                               className={`rounded-lg p-3 relative group ${
                                 isOwn
-                                  ? 'bg-primary text-primary-foreground'
+                                  ? 'bg-slate-100 dark:bg-slate-800 text-foreground'
                                   : 'bg-muted'
                               }`}
                             >
                               {canDelete && (
                                 <button
                                   onClick={() => deleteMessage(message.id)}
-                                  className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10"
+                                  className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10 bg-background/80 sm:bg-transparent"
                                   title="Удалить сообщение"
                                 >
                                   <XIcon className="w-3 h-3" />
                                 </button>
                               )}
-                              <p className="text-sm break-words">{message.content}</p>
+                              {!isOwn && (
+                                <button
+                                  onClick={() => handleReplyWithSelection(message)}
+                                  className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-accent bg-background/80 sm:bg-transparent"
+                                  title="Reply"
+                                >
+                                  <Reply className="w-3 h-3" />
+                                </button>
+                              )}
+                              {message.quotedMessageId && (
+                                <QuotedMessageDisplay
+                                  senderName={message.quotedSenderName || 'Unknown'}
+                                  content={message.quotedMessageContent || ''}
+                                  quotedText={message.quotedText}
+                                  onClick={() => scrollToMessage(message.quotedMessageId!)}
+                                />
+                              )}
+                              <p className="text-sm break-words overflow-wrap-anywhere">{message.content}</p>
+                              {message.attachments && message.attachments.length > 0 && (
+                                <div className="mt-2">
+                                  <AttachmentDisplay attachments={message.attachments} />
+                                </div>
+                              )}
                               <p className={`text-xs mt-1 ${
-                                isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                                isOwn ? 'text-muted-foreground' : 'text-muted-foreground'
                               }`}>
                                 {formatMessageTimestamp(message.createdAt)}
                               </p>
@@ -1656,16 +1864,41 @@ export default function Messages() {
                 </ScrollArea>
 
                 {/* Channel Message Input */}
-                <div className="p-4 border-t">
-                  <div className="flex gap-2">
+                <div className="p-2 sm:p-4 border-t space-y-2">
+                  {quotedMessage && (
+                    <QuotedMessagePreview
+                      quotedMessage={quotedMessage}
+                      onClear={() => setQuotedMessage(null)}
+                    />
+                  )}
+                  {attachmentFiles.length > 0 && (
+                    <AttachmentPreview
+                      files={attachmentFiles}
+                      onRemove={(index) => {
+                        setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+                        setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                      }}
+                      onUploadComplete={(files) => setUploadedFiles(files)}
+                      autoUpload={true}
+                    />
+                  )}
+                  <div className="flex gap-1 sm:gap-2">
+                    <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+                      <EmojiPicker onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} />
+                      <AttachmentButton 
+                        onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
+                        maxFiles={5}
+                      />
+                    </div>
                     <Input
                       placeholder={`Message #${selectedChannel.name}`}
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
                       disabled={sending}
+                      className="flex-1 min-w-0"
                     />
-                    <Button onClick={sendMessage} disabled={sending || !newMessage.trim()}>
+                    <Button onClick={sendMessage} disabled={sending || !newMessage.trim()} size="sm" className="flex-shrink-0">
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>

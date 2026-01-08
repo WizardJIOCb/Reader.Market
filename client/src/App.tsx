@@ -50,8 +50,9 @@ function Router() {
 function App() {
   const [location] = useLocation();
   
-  // Check if current page is reader (don't show footer on reader)
+  // Check if current page is reader or messages (don't show footer on these pages)
   const isReaderPage = location.startsWith('/read/');
+  const isMessagesPage = location.startsWith('/messages');
   
   // Initialize WebSocket connection when user is authenticated
   useEffect(() => {
@@ -75,7 +76,7 @@ function App() {
           <main className="flex-1">
             <Router />
           </main>
-          {!isReaderPage && <Footer />}
+          {!isReaderPage && !isMessagesPage && <Footer />}
         </div>
       </TooltipProvider>
     </QueryClientProvider>

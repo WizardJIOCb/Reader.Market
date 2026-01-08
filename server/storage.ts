@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull } from "drizzle-orm";
 
 // Database connection
@@ -122,6 +122,14 @@ export interface IStorage {
   getAllBooksWithUploader(limit: number, offset: number, search?: string, sortBy?: string, sortOrder?: string): Promise<{books: any[], total: number}>;
   updateBookAdmin(id: string, bookData: any): Promise<any>;
   deleteBookAdmin(id: string): Promise<boolean>;
+  
+  // File upload operations
+  createFileUpload(fileData: any): Promise<any>;
+  getFileUpload(id: string): Promise<any | undefined>;
+  updateFileUploadThumbnail(id: string, thumbnailUrl: string): Promise<void>;
+  updateFileUploadEntity(id: string, entityType: string, entityId: string): Promise<void>;
+  verifyFileAccess(uploadId: string, userId: string): Promise<boolean>;
+  softDeleteFileUpload(id: string, deleterId: string): Promise<void>;
 }
 
 export class DBStorage implements IStorage {
@@ -1472,6 +1480,7 @@ export class DBStorage implements IStorage {
         content: comments.content,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
+        attachmentMetadata: comments.attachmentMetadata,
         username: users.username,
         fullName: users.fullName
       })
@@ -1488,7 +1497,8 @@ export class DBStorage implements IStorage {
         content: comment.content,
         createdAt: comment.createdAt.toISOString(),
         updatedAt: comment.updatedAt.toISOString(),
-        author: comment.fullName || comment.username || 'Anonymous'
+        author: comment.fullName || comment.username || 'Anonymous',
+        attachmentMetadata: comment.attachmentMetadata
       };
     } catch (error) {
       console.error("Error creating comment:", error);
@@ -1506,6 +1516,7 @@ export class DBStorage implements IStorage {
         content: comments.content,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
+        attachmentMetadata: comments.attachmentMetadata,
         username: users.username,
         fullName: users.fullName,
         avatarUrl: users.avatarUrl
@@ -1516,17 +1527,21 @@ export class DBStorage implements IStorage {
       .orderBy(desc(comments.createdAt));
       
       // Format the response to match what the frontend expects
-      return result.map(comment => ({
-        id: comment.id,
-        userId: comment.userId,
-        bookId: comment.bookId,
-        content: comment.content,
-        createdAt: comment.createdAt.toISOString(),
-        updatedAt: comment.updatedAt.toISOString(),
-        author: comment.fullName || comment.username || 'Anonymous',
-        avatarUrl: comment.avatarUrl || null,
-        reactions: []
-      }));
+      return result.map(comment => {
+        const metadata = comment.attachmentMetadata as any;
+        return {
+          id: comment.id,
+          userId: comment.userId,
+          bookId: comment.bookId,
+          content: comment.content,
+          createdAt: comment.createdAt.toISOString(),
+          updatedAt: comment.updatedAt.toISOString(),
+          author: comment.fullName || comment.username || 'Anonymous',
+          avatarUrl: comment.avatarUrl || null,
+          reactions: [],
+          attachments: metadata?.attachments || []
+        };
+      });
     } catch (error) {
       console.error("Error getting comments:", error);
       return [];
@@ -1654,6 +1669,7 @@ export class DBStorage implements IStorage {
         content: reviews.content,
         createdAt: reviews.createdAt,
         updatedAt: reviews.updatedAt,
+        attachmentMetadata: reviews.attachmentMetadata,
         username: users.username,
         fullName: users.fullName
       })
@@ -1676,7 +1692,8 @@ export class DBStorage implements IStorage {
         content: review.content,
         createdAt: review.createdAt.toISOString(),
         updatedAt: review.updatedAt.toISOString(),
-        author: review.fullName || review.username || 'Anonymous'
+        author: review.fullName || review.username || 'Anonymous',
+        attachmentMetadata: review.attachmentMetadata
       };
     } catch (error) {
       console.error("Error creating review:", error);
@@ -1731,6 +1748,7 @@ export class DBStorage implements IStorage {
         content: reviews.content,
         createdAt: reviews.createdAt,
         updatedAt: reviews.updatedAt,
+        attachmentMetadata: reviews.attachmentMetadata,
         username: users.username,
         fullName: users.fullName,
         avatarUrl: users.avatarUrl
@@ -1741,18 +1759,22 @@ export class DBStorage implements IStorage {
       .orderBy(desc(reviews.createdAt));
       
       // Format the response to match what the frontend expects
-      return result.map(review => ({
-        id: review.id,
-        userId: review.userId,
-        bookId: review.bookId,
-        rating: review.rating,
-        content: review.content,
-        createdAt: review.createdAt.toISOString(),
-        updatedAt: review.updatedAt.toISOString(),
-        author: review.fullName || review.username || 'Anonymous',
-        avatarUrl: review.avatarUrl || null,
-        reactions: []
-      }));
+      return result.map(review => {
+        const metadata = review.attachmentMetadata as any;
+        return {
+          id: review.id,
+          userId: review.userId,
+          bookId: review.bookId,
+          rating: review.rating,
+          content: review.content,
+          createdAt: review.createdAt.toISOString(),
+          updatedAt: review.updatedAt.toISOString(),
+          author: review.fullName || review.username || 'Anonymous',
+          avatarUrl: review.avatarUrl || null,
+          reactions: [],
+          attachments: metadata?.attachments || []
+        };
+      });
     } catch (error) {
       console.error("Error getting reviews:", error);
       return [];
@@ -2024,8 +2046,38 @@ export class DBStorage implements IStorage {
   
   async createMessage(messageData: any): Promise<any> {
     try {
+      console.log('🔴 [storage.createMessage] Input messageData:', JSON.stringify(messageData, null, 2));
+      
+      // Prepare the insert data
+      const insertData: any = {
+        senderId: messageData.senderId,
+        recipientId: messageData.recipientId,
+        conversationId: messageData.conversationId,
+        channelId: messageData.channelId,
+        content: messageData.content,
+        readStatus: messageData.readStatus || false,
+      };
+      
+      // Add attachment metadata if present (Drizzle requires explicit field assignment for JSONB)
+      if (messageData.attachmentMetadata) {
+        insertData.attachmentMetadata = messageData.attachmentMetadata;
+      }
+      
+      // Add quote data if present
+      if (messageData.quotedMessageId) {
+        insertData.quotedMessageId = messageData.quotedMessageId;
+      }
+      if (messageData.quotedText) {
+        insertData.quotedText = messageData.quotedText;
+      }
+      
+      console.log('🔴 [storage.createMessage] Insert data prepared:', JSON.stringify(insertData, null, 2));
+      
       // Insert the message
-      const result = await db.insert(messages).values(messageData).returning();
+      const result: any = await db.insert(messages).values(insertData).returning();
+      const insertedMessage = result[0];
+      
+      console.log('🔴 [storage.createMessage] Inserted message:', JSON.stringify(insertedMessage, null, 2));
       
       // Get the inserted message with sender and recipient information
       const fullMessage = await db.select({
@@ -2038,12 +2090,49 @@ export class DBStorage implements IStorage {
         readStatus: messages.readStatus,
         senderUsername: users.username,
         senderFullName: users.fullName,
+        attachmentMetadata: messages.attachmentMetadata,
+        quotedMessageId: messages.quotedMessageId,
+        quotedText: messages.quotedText,
       })
       .from(messages)
       .leftJoin(users, eq(messages.senderId, users.id))
-      .where(eq(messages.id, result[0].id));
+      .where(eq(messages.id, insertedMessage.id));
       
-      return fullMessage[0];
+      console.log('🔴 [storage.createMessage] Full message query result:', JSON.stringify(fullMessage, null, 2));
+      
+      // Get quoted sender name if quotedMessageId exists
+      let quotedSenderName = null;
+      let quotedMessageContent = null;
+      if (fullMessage[0].quotedMessageId) {
+        const quotedMsg = await db.select({
+          senderId: messages.senderId,
+          senderUsername: users.username,
+          senderFullName: users.fullName,
+          content: messages.content,
+        })
+        .from(messages)
+        .leftJoin(users, eq(messages.senderId, users.id))
+        .where(eq(messages.id, fullMessage[0].quotedMessageId));
+        
+        if (quotedMsg.length > 0) {
+          quotedSenderName = quotedMsg[0].senderFullName || quotedMsg[0].senderUsername;
+          quotedMessageContent = quotedMsg[0].content;
+        }
+      }
+      
+      // Format with attachments
+      const msg = fullMessage[0];
+      const metadata = msg.attachmentMetadata as any;
+      const finalMessage = {
+        ...msg,
+        attachments: metadata?.attachments || [],
+        quotedSenderName,
+        quotedMessageContent
+      };
+      
+      console.log('🔴 [storage.createMessage] Returning final message:', JSON.stringify(finalMessage, null, 2));
+      
+      return finalMessage;
     } catch (error) {
       console.error("Error creating message:", error);
       throw error;
@@ -2855,6 +2944,9 @@ export class DBStorage implements IStorage {
         senderUsername: users.username,
         senderFullName: users.fullName,
         senderAvatarUrl: users.avatarUrl,
+        attachmentMetadata: messages.attachmentMetadata,
+        quotedMessageId: messages.quotedMessageId,
+        quotedText: messages.quotedText,
       })
         .from(messages)
         .leftJoin(users, eq(messages.senderId, users.id))
@@ -2862,7 +2954,40 @@ export class DBStorage implements IStorage {
         .orderBy(desc(messages.createdAt))
         .limit(limit)
         .offset(offset);
-      return result;
+      
+      // Format messages with attachments and quoted sender names
+      const formattedMessages = [];
+      for (const msg of result) {
+        const metadata = msg.attachmentMetadata as any;
+        let quotedSenderName = null;
+        let quotedMessageContent = null;
+        
+        // Get quoted sender name and content if quotedMessageId exists
+        if (msg.quotedMessageId) {
+          const quotedMsg = await db.select({
+            senderUsername: users.username,
+            senderFullName: users.fullName,
+            content: messages.content,
+          })
+          .from(messages)
+          .leftJoin(users, eq(messages.senderId, users.id))
+          .where(eq(messages.id, msg.quotedMessageId));
+          
+          if (quotedMsg.length > 0) {
+            quotedSenderName = quotedMsg[0].senderFullName || quotedMsg[0].senderUsername;
+            quotedMessageContent = quotedMsg[0].content;
+          }
+        }
+        
+        formattedMessages.push({
+          ...msg,
+          attachments: metadata?.attachments || [],
+          quotedSenderName,
+          quotedMessageContent
+        });
+      }
+      
+      return formattedMessages;
     } catch (error) {
       console.error("Error getting conversation messages:", error);
       return [];
@@ -3328,6 +3453,9 @@ export class DBStorage implements IStorage {
         senderUsername: users.username,
         senderFullName: users.fullName,
         senderAvatarUrl: users.avatarUrl,
+        attachmentMetadata: messages.attachmentMetadata,
+        quotedMessageId: messages.quotedMessageId,
+        quotedText: messages.quotedText,
       })
         .from(messages)
         .leftJoin(users, eq(messages.senderId, users.id))
@@ -3340,7 +3468,40 @@ export class DBStorage implements IStorage {
         .orderBy(desc(messages.createdAt))
         .limit(limit)
         .offset(offset);
-      return result;
+      
+      // Format messages with attachments and quoted sender names
+      const formattedMessages = [];
+      for (const msg of result) {
+        const metadata = msg.attachmentMetadata as any;
+        let quotedSenderName = null;
+        let quotedMessageContent = null;
+        
+        // Get quoted sender name and content if quotedMessageId exists
+        if (msg.quotedMessageId) {
+          const quotedMsg = await db.select({
+            senderUsername: users.username,
+            senderFullName: users.fullName,
+            content: messages.content,
+          })
+          .from(messages)
+          .leftJoin(users, eq(messages.senderId, users.id))
+          .where(eq(messages.id, msg.quotedMessageId));
+          
+          if (quotedMsg.length > 0) {
+            quotedSenderName = quotedMsg[0].senderFullName || quotedMsg[0].senderUsername;
+            quotedMessageContent = quotedMsg[0].content;
+          }
+        }
+        
+        formattedMessages.push({
+          ...msg,
+          attachments: metadata?.attachments || [],
+          quotedSenderName,
+          quotedMessageContent
+        });
+      }
+      
+      return formattedMessages;
     } catch (error) {
       console.error("Error getting channel messages:", error);
       return [];
@@ -3508,6 +3669,120 @@ export class DBStorage implements IStorage {
         );
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
+      throw error;
+    }
+  }
+  
+  // File upload operations
+  async createFileUpload(fileData: any): Promise<any> {
+    try {
+      const result = await db.insert(fileUploads).values({
+        uploaderId: fileData.uploaderId,
+        fileUrl: fileData.fileUrl,
+        filename: fileData.filename,
+        fileSize: fileData.fileSize,
+        mimeType: fileData.mimeType,
+        storagePath: fileData.storagePath,
+        entityType: fileData.entityType,
+        entityId: fileData.entityId,
+        thumbnailUrl: fileData.thumbnailUrl || null
+      }).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating file upload:", error);
+      throw error;
+    }
+  }
+  
+  async getFileUpload(id: string): Promise<any | undefined> {
+    try {
+      const result = await db.select().from(fileUploads).where(eq(fileUploads.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting file upload:", error);
+      return undefined;
+    }
+  }
+  
+  async updateFileUploadThumbnail(id: string, thumbnailUrl: string): Promise<void> {
+    try {
+      await db.update(fileUploads)
+        .set({ thumbnailUrl })
+        .where(eq(fileUploads.id, id));
+    } catch (error) {
+      console.error("Error updating file upload thumbnail:", error);
+      throw error;
+    }
+  }
+  
+  async updateFileUploadEntity(id: string, entityType: string, entityId: string): Promise<void> {
+    try {
+      await db.update(fileUploads)
+        .set({ entityType, entityId })
+        .where(eq(fileUploads.id, id));
+    } catch (error) {
+      console.error("Error updating file upload entity:", error);
+      throw error;
+    }
+  }
+  
+  async verifyFileAccess(uploadId: string, userId: string): Promise<boolean> {
+    try {
+      const fileUpload = await this.getFileUpload(uploadId);
+      if (!fileUpload) return false;
+      
+      // Uploader always has access
+      if (fileUpload.uploaderId === userId) return true;
+      
+      // If file is temporary (not attached yet), only uploader has access
+      if (fileUpload.entityType === 'temp') return false;
+      
+      // Check access based on entity type
+      if (fileUpload.entityType === 'message') {
+        // Check if user is part of the conversation
+        const message = await db.select().from(messages).where(eq(messages.id, fileUpload.entityId));
+        if (message[0]) {
+          // Check if it's a private message or group message
+          if (message[0].conversationId) {
+            const conversation = await db.select().from(conversations)
+              .where(eq(conversations.id, message[0].conversationId));
+            if (conversation[0]) {
+              return conversation[0].user1Id === userId || conversation[0].user2Id === userId;
+            }
+          } else if (message[0].channelId) {
+            // Group message - check if user is a member
+            const channel = await db.select().from(channels)
+              .where(eq(channels.id, message[0].channelId));
+            if (channel[0]) {
+              const membership = await db.select().from(groupMembers)
+                .where(and(
+                  eq(groupMembers.groupId, channel[0].groupId),
+                  eq(groupMembers.userId, userId)
+                ));
+              return membership.length > 0;
+            }
+          }
+        }
+      } else if (fileUpload.entityType === 'comment' || fileUpload.entityType === 'review') {
+        // Comments and reviews are public if the book is public
+        // For now, allow access (can add more granular control later)
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("Error verifying file access:", error);
+      return false;
+    }
+  }
+  
+  async softDeleteFileUpload(id: string, deleterId: string): Promise<void> {
+    try {
+      await db.update(fileUploads)
+        .set({ deletedAt: new Date() })
+        .where(eq(fileUploads.id, id));
+    } catch (error) {
+      console.error("Error soft deleting file upload:", error);
       throw error;
     }
   }

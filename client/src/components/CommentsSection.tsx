@@ -5,15 +5,29 @@ import { Textarea } from '@/components/ui/textarea';
 import { ReactionBar } from '@/components/ReactionBar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow, format } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { Send } from 'lucide-react';
+import { ru, enUS } from 'date-fns/locale';
+import { Send, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
 import { dataCache, getCachedComments, setCachedComments, getPendingRequest, trackPendingRequest, isCachedDataStale } from '@/lib/dataCache';
+import { EmojiPicker } from '@/components/EmojiPicker';
+import { AttachmentButton } from '@/components/AttachmentButton';
+import { AttachmentPreview } from '@/components/AttachmentPreview';
+import { AttachmentDisplay } from '@/components/AttachmentDisplay';
+import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
 
 interface Reaction {
   emoji: string;
   count: number;
   userReacted: boolean;
+}
+
+interface Attachment {
+  url: string;
+  filename: string;
+  fileSize: number;
+  mimeType: string;
+  thumbnailUrl?: string;
 }
 
 interface Comment {
@@ -23,8 +37,9 @@ interface Comment {
   content: string;
   createdAt: string;
   reactions: Reaction[];
-  userId?: string; // Add userId to determine ownership
-  avatarUrl?: string | null; // Add avatarUrl for displaying user avatar
+  userId?: string;
+  avatarUrl?: string | null;
+  attachments?: Attachment[];
 }
 
 interface CommentsProps {
@@ -37,6 +52,12 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { t, i18n } = useTranslation(['books', 'common']);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  
+  // Get date-fns locale based on current language
+  const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
   // Fetch comments when component mounts or bookId changes
   useEffect(() => {
@@ -124,7 +145,10 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
-        body: JSON.stringify({ content: newComment })
+        body: JSON.stringify({ 
+          content: newComment,
+          attachments: uploadedFiles.map(f => f.uploadId)
+        })
       });
       
       if (response.ok) {
@@ -138,13 +162,16 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
           content: newCommentObj.content,
           createdAt: newCommentObj.createdAt,
           reactions: [],
-          userId: user.id
+          userId: user.id,
+          attachments: newCommentObj.attachmentMetadata?.attachments || []
         };
         
         // Optimistically add the new comment to the beginning of the list
         const updatedComments = [formattedComment, ...comments];
         setComments(updatedComments);
         setNewComment('');
+        setAttachmentFiles([]);
+        setUploadedFiles([]);
         
         // Update cache with new comment
         setCachedComments(bookId, updatedComments);
@@ -229,7 +256,12 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     if (!user) return;
     
     try {
-      const response = await fetch(`/api/comments/${commentId}`, {
+      // Use admin endpoint if user is admin or moderator
+      const endpoint = (user.accessLevel === 'admin' || user.accessLevel === 'moder') 
+        ? `/api/admin/comments/${commentId}`
+        : `/api/comments/${commentId}`;
+      
+      const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -265,15 +297,37 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         </Avatar>
         <div className="flex-1 space-y-2">
           <Textarea
-            placeholder="Оставьте комментарий..."
+            placeholder={t('books:commentPlaceholder')}
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             className="min-h-[100px] resize-none"
           />
-          <div className="flex justify-end">
-            <Button onClick={handlePostComment} disabled={!newComment.trim() || !user} className="gap-2">
+          {attachmentFiles.length > 0 && (
+            <AttachmentPreview
+              files={attachmentFiles}
+              onRemove={(index) => {
+                setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+                setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+              }}
+              onUploadComplete={(files) => setUploadedFiles(files)}
+              autoUpload={true}
+            />
+          )}
+          <div className="flex justify-between items-center">
+            <div className="flex gap-1">
+              <EmojiPicker onEmojiSelect={(emoji) => setNewComment(prev => prev + emoji)} />
+              <AttachmentButton 
+                onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
+                maxFiles={5}
+              />
+            </div>
+            <Button 
+              onClick={handlePostComment} 
+              disabled={!newComment.trim() || !user || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
+              className="gap-2"
+            >
               <Send className="w-4 h-4" />
-              Отправить
+              {t('books:send')}
             </Button>
           </div>
         </div>
@@ -282,11 +336,11 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       <div className="space-y-6">
         {loading ? (
           <div className="text-center py-8">
-            <p>Загрузка комментариев...</p>
+            <p>{t('common:loading')}</p>
           </div>
         ) : comments.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <p>Пока нет комментариев. Будьте первым!</p>
+            <p>{t('books:noComments', 'Пока нет комментариев. Будьте первым!')}</p>
           </div>
         ) : (
           comments.map((comment) => (
@@ -297,7 +351,16 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
                 ) : null}
                 <AvatarFallback>{comment.author[0]}</AvatarFallback>
               </Avatar>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 space-y-2 relative">
+                {user && (comment.userId === user.id || user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
+                  <button 
+                    onClick={() => handleDeleteComment(comment.id)}
+                    className="absolute top-0 right-0 text-muted-foreground hover:text-destructive transition-colors"
+                    title={t('books:delete')}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
                 <div className="flex items-center gap-2 mb-1">
                   {comment.userId ? (
                     <a
@@ -311,28 +374,23 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
                   ) : (
                     <span className="font-semibold text-sm">{comment.author}</span>
                   )}
-                  {user && comment.userId === user.id && (
-                    <button 
-                      onClick={() => handleDeleteComment(comment.id)}
-                      className="ml-auto text-xs text-destructive hover:underline"
-                    >
-                      Удалить
-                    </button>
-                  )}
                 </div>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <p className="text-xs text-muted-foreground cursor-help">
-                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: ru })}
+                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: dateLocale })}
                       </p>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{format(new Date(comment.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
+                      <p>{format(new Date(comment.createdAt), 'dd.MM.yyyy HH:mm', { locale: dateLocale })}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <p className="text-sm text-foreground/90 leading-relaxed">{comment.content}</p>
+                {comment.attachments && comment.attachments.length > 0 && (
+                  <AttachmentDisplay attachments={comment.attachments} className="mt-2" />
+                )}
                 <ReactionBar 
                   reactions={comment.reactions} 
                   onReact={(emoji) => handleReact(comment.id, emoji)} 

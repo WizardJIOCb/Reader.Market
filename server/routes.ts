@@ -1343,16 +1343,38 @@ export async function registerRoutes(
     try {
       const userId = (req as any).user.userId;
       const { bookId } = req.params;
-      const { content } = req.body;
+      const { content, attachments } = req.body;
       
       if (!content) {
         return res.status(400).json({ error: "Comment content is required" });
       }
       
+      // Process attachments if provided
+      let attachmentMetadata = null;
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        const uploadedAttachments = [];
+        for (const uploadId of attachments) {
+          const fileUpload = await storage.getFileUpload(uploadId);
+          if (fileUpload && fileUpload.uploaderId === userId && fileUpload.entityType === 'temp') {
+            uploadedAttachments.push({
+              url: fileUpload.fileUrl,
+              filename: fileUpload.filename,
+              fileSize: fileUpload.fileSize,
+              mimeType: fileUpload.mimeType,
+              thumbnailUrl: fileUpload.thumbnailUrl
+            });
+          }
+        }
+        if (uploadedAttachments.length > 0) {
+          attachmentMetadata = { attachments: uploadedAttachments };
+        }
+      }
+      
       const comment = await storage.createComment({
         userId,
         bookId,
-        content
+        content,
+        attachmentMetadata
       });
       
       res.status(201).json(comment);
@@ -1470,7 +1492,7 @@ export async function registerRoutes(
     try {
       const userId = (req as any).user.userId;
       const { bookId } = req.params;
-      const { rating, content } = req.body;
+      const { rating, content, attachments } = req.body;
       
       console.log(`Creating review for book ${bookId} by user ${userId} with rating ${rating}`);
       
@@ -1489,11 +1511,33 @@ export async function registerRoutes(
         return res.status(400).json({ error: "You have already reviewed this book" });
       }
       
+      // Process attachments if provided
+      let attachmentMetadata = null;
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        const uploadedAttachments = [];
+        for (const uploadId of attachments) {
+          const fileUpload = await storage.getFileUpload(uploadId);
+          if (fileUpload && fileUpload.uploaderId === userId && fileUpload.entityType === 'temp') {
+            uploadedAttachments.push({
+              url: fileUpload.fileUrl,
+              filename: fileUpload.filename,
+              fileSize: fileUpload.fileSize,
+              mimeType: fileUpload.mimeType,
+              thumbnailUrl: fileUpload.thumbnailUrl
+            });
+          }
+        }
+        if (uploadedAttachments.length > 0) {
+          attachmentMetadata = { attachments: uploadedAttachments };
+        }
+      }
+      
       const review = await storage.createReview({
         userId,
         bookId,
         rating,
-        content
+        content,
+        attachmentMetadata
       });
       
       console.log(`Successfully created review for book ${bookId}:`, review);
@@ -2237,13 +2281,16 @@ export async function registerRoutes(
   // Send a private message
   app.post("/api/messages", authenticateToken, async (req, res) => {
     const userId = (req as any).user.userId;
-    const { recipientId, content, conversationId } = req.body;
+    const { recipientId, content, conversationId, attachments, quotedMessageId, quotedText } = req.body;
     
     console.log("POST /api/messages called:");
     console.log("- userId:", userId);
     console.log("- recipientId:", recipientId);
     console.log("- content:", content);
     console.log("- conversationId:", conversationId);
+    console.log("- attachments:", attachments);
+    console.log("- quotedMessageId:", quotedMessageId);
+    console.log("- quotedText:", quotedText);
     console.log("- Full request body:", JSON.stringify(req.body, null, 2));
     
     try {
@@ -2277,14 +2324,57 @@ export async function registerRoutes(
         }
       }
       
-      // Create message
-      const message = await storage.createMessage({
+      // Process attachments if provided
+      let attachmentMetadata = null;
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        console.log('🔵 Processing attachments:', attachments);
+        const uploadedAttachments = [];
+        for (const uploadId of attachments) {
+          const fileUpload = await storage.getFileUpload(uploadId);
+          console.log('🔵 File upload for', uploadId, ':', fileUpload);
+          if (fileUpload && fileUpload.uploaderId === userId && fileUpload.entityType === 'temp') {
+            uploadedAttachments.push({
+              url: fileUpload.fileUrl,
+              filename: fileUpload.filename,
+              fileSize: fileUpload.fileSize,
+              mimeType: fileUpload.mimeType,
+              thumbnailUrl: fileUpload.thumbnailUrl
+            });
+          }
+        }
+        if (uploadedAttachments.length > 0) {
+          attachmentMetadata = { attachments: uploadedAttachments };
+          console.log('🟢 Created attachmentMetadata:', JSON.stringify(attachmentMetadata, null, 2));
+        }
+      }
+      
+      const messageData: any = {
         senderId: userId,
         recipientId,
         conversationId: conversation.id,
         content: content.trim(),
-        readStatus: false
-      });
+        readStatus: false,
+        attachmentMetadata
+      };
+      
+      // Add quote data if provided
+      if (quotedMessageId) {
+        messageData.quotedMessageId = quotedMessageId;
+        messageData.quotedText = quotedText || null;
+      }
+      
+      console.log('🟡 Calling createMessage with data:', JSON.stringify(messageData, null, 2));
+      
+      // Create message with attachments
+      const message = await storage.createMessage(messageData);
+      console.log('🟠 createMessage returned:', JSON.stringify(message, null, 2));
+      
+      // Update file upload entity IDs with the message ID
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        for (const uploadId of attachments) {
+          await storage.updateFileUploadEntity(uploadId, 'message', message.id);
+        }
+      }
       
       // Update conversation's last message
       await storage.updateConversationLastMessage(conversation.id, message.id);
@@ -3089,7 +3179,7 @@ export async function registerRoutes(
   app.post("/api/groups/:groupId/channels/:channelId/messages", authenticateToken, async (req, res) => {
     const userId = (req as any).user.userId;
     const { groupId, channelId } = req.params;
-    const { content } = req.body;
+    const { content, attachments, quotedMessageId, quotedText } = req.body;
     
     try {
       if (!content || content.trim().length === 0) {
@@ -3102,13 +3192,50 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied" });
       }
       
-      // Create message in channel
-      const message = await storage.createMessage({
+      // Process attachments if provided
+      let attachmentMetadata = null;
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        const uploadedAttachments = [];
+        for (const uploadId of attachments) {
+          const fileUpload = await storage.getFileUpload(uploadId);
+          if (fileUpload && fileUpload.uploaderId === userId && fileUpload.entityType === 'temp') {
+            uploadedAttachments.push({
+              url: fileUpload.fileUrl,
+              filename: fileUpload.filename,
+              fileSize: fileUpload.fileSize,
+              mimeType: fileUpload.mimeType,
+              thumbnailUrl: fileUpload.thumbnailUrl
+            });
+          }
+        }
+        if (uploadedAttachments.length > 0) {
+          attachmentMetadata = { attachments: uploadedAttachments };
+        }
+      }
+      
+      // Create message in channel with attachments and quote data
+      const messageData: any = {
         senderId: userId,
         channelId,
         content: content.trim(),
-        readStatus: false
-      });
+        readStatus: false,
+        attachmentMetadata
+      };
+      
+      // Add quote data if provided
+      if (quotedMessageId) {
+        messageData.quotedMessageId = quotedMessageId;
+        messageData.quotedText = quotedText || null;
+      }
+      
+      const message = await storage.createMessage(messageData);
+      
+      // Update file upload entity IDs with the message ID
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        for (const uploadId of attachments) {
+          await storage.updateFileUploadEntity(uploadId, 'message', message.id);
+        }
+      }
       
       // Broadcast message via WebSocket
       const io = (app as any).io;
@@ -3340,6 +3467,177 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Mark all notifications read error:", error);
       res.status(500).json({ error: "Failed to mark all notifications as read" });
+    }
+  });
+  
+  // ========================================
+  // FILE UPLOAD ROUTES
+  // ========================================
+  
+  // Configure multer for attachment uploads
+  const attachmentStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(process.cwd(), 'uploads', 'attachments', 'temp');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const sanitizedFilename = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      cb(null, `${uniqueSuffix}-${sanitizedFilename}`);
+    }
+  });
+  
+  const attachmentUpload = multer({
+    storage: attachmentStorage,
+    limits: {
+      fileSize: 20 * 1024 * 1024, // 20MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain'
+      ];
+      
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        const error = new Error('Invalid file type');
+        (error as any).code = 'INVALID_FILE_TYPE';
+        cb(error);
+      }
+    }
+  });
+  
+  // Upload attachment
+  app.post("/api/uploads", authenticateToken, attachmentUpload.single('file'), async (req, res) => {
+    const userId = (req as any).user.userId;
+    
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const fileUrl = `/uploads/attachments/temp/${req.file.filename}`;
+      
+      // Create file upload record
+      const uploadRecord = await storage.createFileUpload({
+        uploaderId: userId,
+        fileUrl: fileUrl,
+        filename: req.file.originalname,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        storagePath: req.file.path,
+        entityType: 'temp', // Will be updated when attached to message/comment
+        entityId: null
+      });
+      
+      // Generate thumbnail for images
+      let thumbnailUrl = null;
+      if (req.file.mimetype.startsWith('image/')) {
+        try {
+          const sharp = require('sharp');
+          const thumbnailPath = path.join(path.dirname(req.file.path), `thumb_${req.file.filename}`);
+          await sharp(req.file.path)
+            .resize(200, 200, { fit: 'inside', withoutEnlargement: true })
+            .toFile(thumbnailPath);
+          thumbnailUrl = `/uploads/attachments/temp/thumb_${req.file.filename}`;
+          
+          // Update record with thumbnail
+          await storage.updateFileUploadThumbnail(uploadRecord.id, thumbnailUrl);
+        } catch (error) {
+          console.error('Thumbnail generation error:', error);
+        }
+      }
+      
+      res.json({
+        uploadId: uploadRecord.id,
+        url: fileUrl,
+        filename: req.file.originalname,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        thumbnailUrl
+      });
+    } catch (error) {
+      console.error("File upload error:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+  
+  // Download/view attachment
+  app.get("/api/uploads/:uploadId", authenticateToken, async (req, res) => {
+    const { uploadId } = req.params;
+    const userId = (req as any).user.userId;
+    
+    try {
+      const fileUpload = await storage.getFileUpload(uploadId);
+      
+      if (!fileUpload) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      
+      // Check if file is deleted
+      if (fileUpload.deletedAt) {
+        return res.status(410).json({ error: "File has been deleted" });
+      }
+      
+      // Verify access permissions
+      const hasAccess = await storage.verifyFileAccess(uploadId, userId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Send file
+      if (!fs.existsSync(fileUpload.storagePath)) {
+        return res.status(404).json({ error: "File not found on disk" });
+      }
+      
+      res.setHeader('Content-Type', fileUpload.mimeType);
+      res.setHeader('Content-Disposition', `inline; filename="${fileUpload.filename}"`);
+      res.sendFile(fileUpload.storagePath);
+    } catch (error) {
+      console.error("File download error:", error);
+      res.status(500).json({ error: "Failed to download file" });
+    }
+  });
+  
+  // Delete attachment
+  app.delete("/api/uploads/:uploadId", authenticateToken, async (req, res) => {
+    const { uploadId } = req.params;
+    const userId = (req as any).user.userId;
+    
+    try {
+      const fileUpload = await storage.getFileUpload(uploadId);
+      
+      if (!fileUpload) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      
+      // Only uploader or admin/moderator can delete
+      const user = await storage.getUser(userId);
+      const canDelete = fileUpload.uploaderId === userId || 
+                       user?.accessLevel === 'admin' || 
+                       user?.accessLevel === 'moder';
+      
+      if (!canDelete) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Soft delete
+      await storage.softDeleteFileUpload(uploadId, userId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("File delete error:", error);
+      res.status(500).json({ error: "Failed to delete file" });
     }
   });
   

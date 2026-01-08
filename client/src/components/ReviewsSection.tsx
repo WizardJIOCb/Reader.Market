@@ -15,7 +15,14 @@ interface Review {
     userReacted: boolean;
   }[];
   userId: string;
-  avatarUrl?: string | null; // Add avatarUrl for displaying user avatar
+  avatarUrl?: string | null;
+  attachments?: {
+    url: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    thumbnailUrl?: string;
+  }[];
 }
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -24,11 +31,17 @@ import { ReactionBar } from '@/components/ReactionBar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
 import { formatDistanceToNow, format } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { Star, Send } from 'lucide-react';
+import { ru, enUS } from 'date-fns/locale';
+import { Star, Send, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { dataCache, getCachedReviews, setCachedReviews, getPendingRequest, trackPendingRequest, isCachedDataStale } from '@/lib/dataCache';
+import { EmojiPicker } from '@/components/EmojiPicker';
+import { AttachmentButton } from '@/components/AttachmentButton';
+import { AttachmentPreview } from '@/components/AttachmentPreview';
+import { AttachmentDisplay } from '@/components/AttachmentDisplay';
+import { type UploadedFile } from '@/lib/fileUploadManager';
 
 interface ReviewsProps {
   bookId: string;
@@ -45,6 +58,12 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
   const [loading, setLoading] = useState(true);
   const [userReview, setUserReview] = useState<Review | null>(null);
   const { user } = useAuth();
+  const { t, i18n } = useTranslation(['books', 'common']);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  
+  // Get date-fns locale based on current language
+  const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
   // Fetch reviews when component mounts or bookId changes
   useEffect(() => {
@@ -167,7 +186,11 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
-        body: JSON.stringify({ rating: newRating, content: newReviewContent })
+        body: JSON.stringify({ 
+          rating: newRating, 
+          content: newReviewContent,
+          attachments: uploadedFiles.map(f => f.uploadId)
+        })
       });
       
       if (response.ok) {
@@ -182,12 +205,15 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
           rating: newReviewObj.rating,
           createdAt: newReviewObj.createdAt,
           reactions: [],
-          userId: user.id
+          userId: user.id,
+          attachments: newReviewObj.attachmentMetadata?.attachments || []
         };
         
         setNewReviewContent('');
         setNewRating(1);
         setIsFormOpen(false);
+        setAttachmentFiles([]);
+        setUploadedFiles([]);
         
         // Optimistically add the new review to the beginning of the list
         const updatedReviews = [formattedReview, ...reviews];
@@ -357,7 +383,12 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     }
     
     try {
-      const response = await fetch(`/api/reviews/${reviewId}`, {
+      // Use admin endpoint if user is admin or moderator
+      const endpoint = (user.accessLevel === 'admin' || user.accessLevel === 'moder') 
+        ? `/api/admin/reviews/${reviewId}`
+        : `/api/reviews/${reviewId}`;
+      
+      const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -407,66 +438,71 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
       {!userReview && !isFormOpen ? (
         <Button onClick={() => setIsFormOpen(true)} className="w-full gap-2" variant="outline" disabled={!user}>
           <Star className="w-4 h-4" />
-          Написать рецензию
+          {t('books:writeReview')}
         </Button>
       ) : (
         <>
           {userReview && (
             <div className="bg-card border rounded-lg p-6 space-y-4">
-              <h3 className="font-serif font-bold text-lg">Ваша рецензия</h3>
               <div className="flex justify-between items-start">
-                <div className="flex gap-3 items-center">
-                  <Avatar className="w-10 h-10">
-                    {userReview.avatarUrl ? (
-                      <AvatarImage src={userReview.avatarUrl} alt={userReview.author} />
-                    ) : null}
-                    <AvatarFallback>{userReview.author[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    {userReview.userId ? (
-                      <a
-                        href={`/profile/${userReview.userId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-sm text-primary hover:underline"
-                      >
-                        {userReview.author}
-                      </a>
-                    ) : (
-                      <h4 className="font-semibold text-sm">{userReview.author}</h4>
-                    )}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="text-xs text-muted-foreground cursor-help">
-                            {formatDistanceToNow(new Date(userReview.createdAt), { addSuffix: true, locale: ru })}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{format(new Date(userReview.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </div>
+                <h3 className="font-serif font-bold text-lg">{t('books:yourReview', 'Ваша рецензия')}</h3>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className={`text-lg font-bold px-3 py-1 ${getRatingColor(userReview.rating)}`}>
                     {userReview.rating}/10
                   </Badge>
-                  {user && userReview.userId === user.id && (
+                  {user && (userReview.userId === user.id || user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
                     <button 
                       onClick={() => handleDeleteReview(userReview.id)}
-                      className="text-xs text-destructive hover:underline"
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      title={t('books:delete')}
                     >
-                      Удалить
+                      <X className="w-4 h-4" />
                     </button>
                   )}
+                </div>
+              </div>
+              <div className="flex gap-3 items-start">
+                <Avatar className="w-10 h-10">
+                  {userReview.avatarUrl ? (
+                    <AvatarImage src={userReview.avatarUrl} alt={userReview.author} />
+                  ) : null}
+                  <AvatarFallback>{userReview.author[0]}</AvatarFallback>
+                </Avatar>
+                <div>
+                  {userReview.userId ? (
+                    <a
+                      href={`/profile/${userReview.userId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-sm text-primary hover:underline"
+                    >
+                      {userReview.author}
+                    </a>
+                  ) : (
+                    <h4 className="font-semibold text-sm">{userReview.author}</h4>
+                  )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-muted-foreground cursor-help">
+                          {formatDistanceToNow(new Date(userReview.createdAt), { addSuffix: true, locale: dateLocale })}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{format(new Date(userReview.createdAt), 'dd.MM.yyyy HH:mm', { locale: dateLocale })}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
               
               <p className="text-foreground/90 leading-relaxed whitespace-pre-line">
                 {userReview.content}
               </p>
+
+              {userReview.attachments && userReview.attachments.length > 0 && (
+                <AttachmentDisplay attachments={userReview.attachments} className="mt-2" />
+              )}
                   
               <div className="pt-4 border-t border-border/50">
                 <ReactionBar 
@@ -479,41 +515,68 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
           )}
           
           {!isFormOpen && !userReview && (
-            <h3 className="font-serif font-bold text-lg">Рецензии</h3>
+            <h3 className="font-serif font-bold text-lg">{t('books:reviewsTitle', 'Рецензии')}</h3>
           )}
           {isFormOpen && (
             <div className="bg-card border rounded-lg p-6 space-y-6 animate-in fade-in slide-in-from-top-4">
-              <h3 className="font-serif font-bold text-lg">Ваша рецензия</h3>
+              <h3 className="font-serif font-bold text-lg">{t('books:yourReview', 'Ваша рецензия')}</h3>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Оценка: {newRating}/10</label>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-muted-foreground">1</span>
-                    <Slider
-                      value={[newRating]}
-                      onValueChange={(vals) => setNewRating(vals[0])}
-                      min={1}
-                      max={10}
-                      step={1}
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-muted-foreground">10</span>
+                  <label className="text-sm font-medium">{t('books:ratingLabel')}: {newRating}/10</label>
+                  <div className="flex items-center gap-1">
+                    {[...Array(10)].map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setNewRating(i + 1)}
+                        className="p-1 hover:scale-110 transition-transform"
+                      >
+                        <Star 
+                          className={`w-6 h-6 ${
+                            i < newRating 
+                              ? 'fill-yellow-400 text-yellow-400' 
+                              : 'text-muted-foreground'
+                          }`} 
+                        />
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <Textarea
-                  placeholder="Поделитесь развернутым мнением о книге..."
+                  placeholder={t('books:reviewPlaceholder')}
                   value={newReviewContent}
                   onChange={(e) => setNewReviewContent(e.target.value)}
                   className="min-h-[150px]"
                 />
 
-                <div className="flex justify-end gap-3">
-                  <Button variant="ghost" onClick={() => setIsFormOpen(false)}>Отмена</Button>
-                  <Button onClick={handlePostReview} disabled={!newReviewContent.trim() || !user}>
-                    Опубликовать
-                  </Button>
+                {attachmentFiles.length > 0 && (
+                  <AttachmentPreview
+                    files={attachmentFiles}
+                    onRemove={(index) => {
+                      setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+                      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                    }}
+                    onUploadComplete={(files) => setUploadedFiles(files)}
+                    autoUpload={true}
+                  />
+                )}
+
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-1">
+                    <EmojiPicker onEmojiSelect={(emoji) => setNewReviewContent(prev => prev + emoji)} />
+                    <AttachmentButton 
+                      onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
+                      maxFiles={5}
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="ghost" onClick={() => setIsFormOpen(false)}>{t('books:cancel')}</Button>
+                    <Button onClick={handlePostReview} disabled={!newReviewContent.trim() || !user}>
+                      {t('books:publish')}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -524,19 +587,28 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
       <div className="space-y-8">
         {loading ? (
           <div className="text-center py-8">
-            <p>Загрузка рецензий...</p>
+            <p>{t('common:loading')}</p>
           </div>
         ) : reviews.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <p>Пока нет рецензий. Будьте первым!</p>
+            <p>{t('books:noReviews', 'Пока нет рецензий. Будьте первым!')}</p>
           </div>
         ) : (
           reviews
             .filter(review => !userReview || review.id !== userReview.id)
             .map((review) => (
-              <div key={review.id} className="bg-card border rounded-xl p-6 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div key={review.id} className="bg-card border rounded-xl p-6 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
+                {user && (review.userId === user.id || user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
+                  <button 
+                    onClick={() => handleDeleteReview(review.id)}
+                    className="absolute top-4 right-4 text-muted-foreground hover:text-destructive transition-colors"
+                    title={t('books:delete')}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
                 <div className="flex justify-between items-start">
-                  <div className="flex gap-3 items-center">
+                  <div className="flex gap-3 items-start">
                     <Avatar className="w-10 h-10">
                       {review.avatarUrl ? (
                         <AvatarImage src={review.avatarUrl} alt={review.author} />
@@ -560,34 +632,28 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="text-xs text-muted-foreground cursor-help">
-                              {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true, locale: ru })}
+                              {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true, locale: dateLocale })}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{format(new Date(review.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
+                            <p>{format(new Date(review.createdAt), 'dd.MM.yyyy HH:mm', { locale: dateLocale })}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={`text-lg font-bold px-3 py-1 ${getRatingColor(review.rating)}`}>
-                      {review.rating}/10
-                    </Badge>
-                    {user && review.userId === user.id && (
-                      <button 
-                        onClick={() => handleDeleteReview(review.id)}
-                        className="text-xs text-destructive hover:underline"
-                      >
-                        Удалить
-                      </button>
-                    )}
-                  </div>
+                  <Badge variant="outline" className={`text-lg font-bold px-3 py-1 ${getRatingColor(review.rating)}`}>
+                    {review.rating}/10
+                  </Badge>
                 </div>
                         
                 <p className="text-foreground/90 leading-relaxed whitespace-pre-line">
                   {review.content}
                 </p>
+
+                {review.attachments && review.attachments.length > 0 && (
+                  <AttachmentDisplay attachments={review.attachments} className="mt-2" />
+                )}
         
                 <div className="pt-4 border-t border-border/50">
                   <ReactionBar 

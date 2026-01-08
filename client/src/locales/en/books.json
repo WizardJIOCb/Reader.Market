@@ -95,5 +95,11 @@
   "confirmDelete": "Are you sure you want to delete this book? This action cannot be undone.",
   "bookDeleted": "Book deleted",
   "bookDeletedSuccess": "Book has been successfully deleted from your library",
-  "failedToDeleteBook": "Failed to delete book"
+  "failedToDeleteBook": "Failed to delete book",
+  "noComments": "No comments yet. Be the first!",
+  "noReviews": "No reviews yet. Be the first!",
+  "yourReview": "Your Review",
+  "reviewsTitle": "Reviews",
+  "loadingComments": "Loading comments...",
+  "loadingReviews": "Loading reviews..."
 }

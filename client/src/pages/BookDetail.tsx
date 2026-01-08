@@ -28,6 +28,8 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ReactionBar } from '@/components/ReactionBar';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
+import { CommentsSection } from '@/components/CommentsSection';
+import { ReviewsSection } from '@/components/ReviewsSection';
 import { useToast } from '@/hooks/use-toast';
 import { useShelves } from '@/hooks/useShelves';
 import { useAuth } from '@/lib/auth';
@@ -871,239 +873,38 @@ export default function BookDetail() {
             
             {/* Comments Tab */}
             <TabsContent value="comments" className="mt-0">
-              <CardContent className="space-y-6 pt-4">
-                {/* Add Comment Form */}
-                <div className="pt-4">
-                  <h4 className="font-medium mb-3">{t('books:addComment')}</h4>
-                  <div className="space-y-4">
-                    <Textarea 
-                      placeholder={t('books:commentPlaceholder')} 
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      rows={3}
-                    />
-                    <div className="flex justify-end">
-                      <Button onClick={handleAddComment} className="gap-2">
-                        <Send className="w-4 h-4" />
-                        {t('books:send')}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                
-                {bookComments.map(comment => (
-                  <div key={comment.id} className="border-b pb-6 last:border-0 last:pb-0">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="w-10 h-10">
-                        {comment.avatarUrl ? (
-                          <AvatarImage src={comment.avatarUrl} alt={comment.author} />
-                        ) : null}
-                        <AvatarFallback>
-                          <User className="w-5 h-5" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          {comment.userId ? (
-                            <a
-                              href={`/profile/${comment.userId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-medium text-sm text-primary hover:underline"
-                            >
-                              {comment.author}
-                            </a>
-                          ) : (
-                            <p className="font-medium text-sm">{comment.author}</p>
-                          )}
-                          {user?.id && (((comment.userId === user.id) ||
-                            (comment.author && user.fullName && comment.author.includes(user.fullName)) ||
-                            (comment.author && user.username && comment.author.includes(user.username))) ||
-                            (user.accessLevel === 'admin' || user.accessLevel === 'moder')) && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDeleteComment(comment.id)}
-                            >
-                              <Trash className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <p className="text-xs text-muted-foreground cursor-help mb-3">
-                                {formatDateDisplay(comment.createdAt)}
-                              </p>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{format(new Date(comment.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <p className="text-foreground/90 mb-3">{comment.content}</p>
-                        <ReactionBar 
-                          reactions={comment.reactions} 
-                          onReact={(emoji) => handleReactToComment(comment.id, emoji)} 
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <CardContent className="pt-4">
+                <CommentsSection 
+                  bookId={bookId} 
+                  onCommentsCountChange={(count) => setBookComments(prev => {
+                    // Update comment count for tab label
+                    if (count !== prev.length) {
+                      fetchCommentsAndReviews();
+                    }
+                    return prev;
+                  })}
+                />
               </CardContent>
             </TabsContent>
             
             {/* Reviews Tab */}
             <TabsContent value="reviews" className="mt-0">
-              <CardContent className="space-y-6 pt-4">
-                {
-                  (() => {
-                    // Check if user has already reviewed - using a more robust approach
-                    const userHasReviewed = user?.id ? bookReviews.some(review => {
-                      // Direct userId comparison (most reliable)
-                      if (review.userId && user.id) {
-                        return review.userId === user.id;
-                      }
-                      // Fallback: check by author name
-                      if (review.author && user.fullName) {
-                        return review.author.includes(user.fullName);
-                      }
-                      if (review.author && user.username) {
-                        return review.author.includes(user.username);
-                      }
-                      return false;
-                    }) : false;
-                    
-                    // Sort reviews: user's review first, then others by date (newest first)
-                    const sortedReviews = [...bookReviews].sort((a, b) => {
-                      const isAUserReview = user?.id ? (a.userId === user.id || 
-                                          (a.author && user.fullName && a.author.includes(user.fullName)) ||
-                                          (a.author && user.username && a.author.includes(user.username))) : false;
-                      const isBUserReview = user?.id ? (b.userId === user.id || 
-                                          (b.author && user.fullName && b.author.includes(user.fullName)) ||
-                                          (b.author && user.username && b.author.includes(user.username))) : false;
-                      
-                      // If one is user's review and the other isn't, user's review comes first
-                      if (isAUserReview && !isBUserReview) return -1;
-                      if (isBUserReview && !isAUserReview) return 1;
-                      
-                      // If both are user's reviews or both are others, sort by date (newest first)
-                      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                    });
-                    
-                    return (
-                      <>
-                        {/* Add Review Form - only show if user hasn't reviewed yet */}
-                        {!userHasReviewed && (
-                          <div className="pt-4 border-t mt-4">
-                            <h4 className="font-medium mb-3">{t('books:writeReview')}</h4>
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">{t('books:ratingLabel')}:</span>
-                                <div className="flex">
-                                  {[...Array(10)].map((_, i) => (
-                                    <button
-                                      key={i}
-                                      onClick={() => setReviewRating(i + 1)}
-                                      className="p-1"
-                                    >
-                                      <Star 
-                                        className={`w-5 h-5 ${
-                                          i < reviewRating 
-                                            ? 'fill-yellow-400 text-yellow-400' 
-                                            : 'text-muted-foreground'
-                                        }`} 
-                                      />
-                                    </button>
-                                  ))}
-                                </div>
-                                <span className="text-sm font-medium">{reviewRating}/10</span>
-                              </div>
-                              <Textarea 
-                                placeholder={t('books:reviewPlaceholder')} 
-                                value={newReview}
-                                onChange={(e) => setNewReview(e.target.value)}
-                                rows={5}
-                              />
-                              <div className="flex justify-end">
-                                <Button onClick={handleAddReview} className="gap-2">
-                                  <Send className="w-4 h-4" />
-                                  {t('books:publish')}
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {sortedReviews.map(review => (
-                          <div key={review.id} className="border-b pb-6 last:border-0 last:pb-0">
-                            <div className="flex items-start gap-3">
-                              <Avatar className="w-10 h-10">
-                                {review.avatarUrl ? (
-                                  <AvatarImage src={review.avatarUrl} alt={review.author} />
-                                ) : null}
-                                <AvatarFallback>
-                                  <User className="w-5 h-5" />
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  {review.userId ? (
-                                    <a
-                                      href={`/profile/${review.userId}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="font-medium text-sm text-primary hover:underline"
-                                    >
-                                      {review.author}
-                                    </a>
-                                  ) : (
-                                    <p className="font-medium text-sm">{review.author}</p>
-                                  )}
-                                  <div className="flex items-center gap-1">
-                                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                                    <span className="text-sm font-medium">{review.rating}/10</span>
-                                  </div>
-                                  {user?.id && (((review.userId === user.id) ||
-                                    (review.author && user.fullName && review.author.includes(user.fullName)) ||
-                                    (review.author && user.username && review.author.includes(user.username))) ||
-                                    (user.accessLevel === 'admin' || user.accessLevel === 'moder')) && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleDeleteReview(review.id)}
-                                    >
-                                      <Trash className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <p className="text-xs text-muted-foreground cursor-help mb-3">
-                                        {formatDateDisplay(review.createdAt)}
-                                      </p>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>{format(new Date(review.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                                <p className="text-foreground/90 mb-3">{review.content}</p>
-                                <ReactionBar 
-                                  reactions={review.reactions} 
-                                  onReact={(emoji) => handleReactToReview(review.id, emoji)} 
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    );
-                  })()
-                }
+              <CardContent className="pt-4">
+                <ReviewsSection 
+                  bookId={bookId}
+                  onReviewsCountChange={(count) => setBookReviews(prev => {
+                    // Update review count for tab label
+                    if (count !== prev.length) {
+                      fetchCommentsAndReviews();
+                    }
+                    return prev;
+                  })}
+                  onBookRatingChange={(newRating) => {
+                    if (book) {
+                      setBook({ ...book, rating: newRating || undefined });
+                    }
+                  }}
+                />
               </CardContent>
             </TabsContent>
           </Tabs>

@@ -119,6 +119,8 @@ export const comments = pgTable("comments", {
   userId: varchar("user_id").notNull().references(() => users.id),
   bookId: varchar("book_id").notNull().references(() => books.id),
   content: text("content").notNull(),
+  attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
+  attachmentMetadata: jsonb("attachment_metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -130,6 +132,8 @@ export const reviews = pgTable("reviews", {
   bookId: varchar("book_id").notNull().references(() => books.id),
   rating: integer("rating").notNull(), // Rating from 1-10
   content: text("content").notNull(),
+  attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
+  attachmentMetadata: jsonb("attachment_metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -205,7 +209,11 @@ export const messages = pgTable("messages", {
   conversationId: varchar("conversation_id").references(() => conversations.id),
   channelId: varchar("channel_id").references(() => channels.id),
   parentMessageId: varchar("parent_message_id"),
+  quotedMessageId: varchar("quoted_message_id").references(() => messages.id),
+  quotedText: text("quoted_text"),
   content: text("content").notNull(),
+  attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
+  attachmentMetadata: jsonb("attachment_metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   readStatus: boolean("read_status").default(false),
@@ -255,6 +263,22 @@ export const news = pgTable("news", {
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for file uploads
+export const fileUploads = pgTable("file_uploads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  uploaderId: varchar("uploader_id").notNull().references(() => users.id),
+  fileUrl: text("file_url").notNull(),
+  filename: text("filename").notNull(),
+  fileSize: integer("file_size").notNull(),
+  mimeType: text("mime_type").notNull(),
+  storagePath: text("storage_path").notNull(),
+  entityType: text("entity_type").notNull(), // 'message', 'comment', 'review'
+  entityId: varchar("entity_id"),
+  thumbnailUrl: text("thumbnail_url"),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // Create unique constraint for conversations to prevent duplicate user pairs
