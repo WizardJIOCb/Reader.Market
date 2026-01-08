@@ -1590,23 +1590,48 @@ export class DBStorage implements IStorage {
     try {
       const comment = await db.select().from(comments).where(eq(comments.id, id));
       if (!comment.length) {
+        console.log(`[deleteComment] Comment not found: ${id}`);
         return false; // Comment not found
       }
+      
+      console.log(`[deleteComment] Attempting to delete comment ${id} by user ${userId}`);
       
       // If userId is provided, verify it belongs to the user (for regular users)
       // If userId is null, allow deletion (for admin/moderators)
       if (userId !== null && comment[0].userId !== userId) {
+        console.log(`[deleteComment] Permission denied: user ${userId} is not owner ${comment[0].userId}`);
         return false; // Not the owner and not an admin action
       }
       
       // Delete associated reactions first
+      console.log(`[deleteComment] Deleting reactions for comment ${id}`);
       await db.delete(reactions).where(eq(reactions.commentId, id));
       
+      // Soft delete associated file uploads
+      const metadata = comment[0].attachmentMetadata as any;
+      if (metadata?.attachments && Array.isArray(metadata.attachments)) {
+        console.log(`[deleteComment] Found ${metadata.attachments.length} attachments to soft delete`);
+        for (const attachment of metadata.attachments) {
+          // Find file upload by URL
+          const fileUpload = await db.select().from(fileUploads)
+            .where(eq(fileUploads.fileUrl, attachment.url));
+          
+          if (fileUpload.length > 0 && !fileUpload[0].deletedAt) {
+            console.log(`[deleteComment] Soft deleting file upload: ${fileUpload[0].id}`);
+            await db.update(fileUploads)
+              .set({ deletedAt: new Date() })
+              .where(eq(fileUploads.id, fileUpload[0].id));
+          }
+        }
+      }
+      
       // Delete the comment
+      console.log(`[deleteComment] Deleting comment ${id}`);
       await db.delete(comments).where(eq(comments.id, id));
+      console.log(`[deleteComment] Successfully deleted comment ${id}`);
       return true;
     } catch (error) {
-      console.error("Error deleting comment:", error);
+      console.error("[deleteComment] Error deleting comment:", error);
       throw error;
     }
   }
@@ -1847,29 +1872,55 @@ export class DBStorage implements IStorage {
     try {
       const review = await db.select().from(reviews).where(eq(reviews.id, id));
       if (!review.length) {
+        console.log(`[deleteReview] Review not found: ${id}`);
         return false; // Review not found
       }
+      
+      console.log(`[deleteReview] Attempting to delete review ${id} by user ${userId}`);
       
       // If userId is provided, verify it belongs to the user (for regular users)
       // If userId is null, allow deletion (for admin/moderators)
       if (userId !== null && review[0].userId !== userId) {
+        console.log(`[deleteReview] Permission denied: user ${userId} is not owner ${review[0].userId}`);
         return false; // Not the owner and not an admin action
       }
       
       const bookId = review[0].bookId;
       
       // Delete associated reactions first
+      console.log(`[deleteReview] Deleting reactions for review ${id}`);
       await db.delete(reactions).where(eq(reactions.reviewId, id));
       
+      // Soft delete associated file uploads
+      const metadata = review[0].attachmentMetadata as any;
+      if (metadata?.attachments && Array.isArray(metadata.attachments)) {
+        console.log(`[deleteReview] Found ${metadata.attachments.length} attachments to soft delete`);
+        for (const attachment of metadata.attachments) {
+          // Find file upload by URL
+          const fileUpload = await db.select().from(fileUploads)
+            .where(eq(fileUploads.fileUrl, attachment.url));
+          
+          if (fileUpload.length > 0 && !fileUpload[0].deletedAt) {
+            console.log(`[deleteReview] Soft deleting file upload: ${fileUpload[0].id}`);
+            await db.update(fileUploads)
+              .set({ deletedAt: new Date() })
+              .where(eq(fileUploads.id, fileUpload[0].id));
+          }
+        }
+      }
+      
       // Delete the review
+      console.log(`[deleteReview] Deleting review ${id}`);
       await db.delete(reviews).where(eq(reviews.id, id));
       
       // Recalculate and update the book's average rating
+      console.log(`[deleteReview] Recalculating book rating for ${bookId}`);
       await this.updateBookAverageRating(bookId);
       
+      console.log(`[deleteReview] Successfully deleted review ${id}`);
       return true;
     } catch (error) {
-      console.error("Error deleting review:", error);
+      console.error("[deleteReview] Error deleting review:", error);
       throw error;
     }
   }
@@ -2297,23 +2348,86 @@ export class DBStorage implements IStorage {
   
   async deleteMessage(id: string, userId: string | null): Promise<boolean> {
     try {
-      // Get the message to check if it exists
+      console.log(`[deleteMessage] Starting deletion for message ${id} by user ${userId}`);
+      
+      // Get the message to check if it exists and get attachments
       const message = await db.select().from(messages).where(eq(messages.id, id));
       if (!message.length) {
+        console.log(`[deleteMessage] Message not found: ${id}`);
         return false; // Message not found
       }
+      
+      console.log(`[deleteMessage] Found message: ${JSON.stringify(message[0])}`);
+      console.log(`[deleteMessage] Attempting to delete message ${id} by user ${userId}`);
       
       // If userId is provided, verify it's the sender (for regular users)
       // If userId is null, allow deletion (for admin/moderators)
       if (userId !== null && message[0].senderId !== userId) {
+        console.log(`[deleteMessage] Permission denied: user ${userId} is not sender ${message[0].senderId}`);
         return false; // Not the sender and not an admin action
       }
       
+      try {
+        // Remove references from conversations table (lastMessageId)
+        console.log(`[deleteMessage] Removing references from conversations table`);
+        await db.update(conversations)
+          .set({ lastMessageId: null })
+          .where(eq(conversations.lastMessageId, id));
+        console.log(`[deleteMessage] Cleared conversation references`);
+      } catch (error) {
+        console.error(`[deleteMessage] Error clearing conversation references:`, error);
+        // Continue anyway
+      }
+      
+      try {
+        // Delete associated message reactions first
+        console.log(`[deleteMessage] Deleting reactions for message ${id}`);
+        const deletedReactions = await db.delete(messageReactions).where(eq(messageReactions.messageId, id));
+        console.log(`[deleteMessage] Deleted reactions result:`, deletedReactions);
+      } catch (error) {
+        console.error(`[deleteMessage] Error deleting reactions:`, error);
+        // Continue anyway - maybe there were no reactions
+      }
+      
+      try {
+        // Soft delete associated file uploads
+        const metadata = message[0].attachmentMetadata as any;
+        if (metadata?.attachments && Array.isArray(metadata.attachments)) {
+          console.log(`[deleteMessage] Found ${metadata.attachments.length} attachments to soft delete`);
+          for (const attachment of metadata.attachments) {
+            try {
+              // Find file upload by URL
+              const fileUpload = await db.select().from(fileUploads)
+                .where(eq(fileUploads.fileUrl, attachment.url));
+              
+              if (fileUpload.length > 0 && !fileUpload[0].deletedAt) {
+                console.log(`[deleteMessage] Soft deleting file upload: ${fileUpload[0].id}`);
+                await db.update(fileUploads)
+                  .set({ deletedAt: new Date() })
+                  .where(eq(fileUploads.id, fileUpload[0].id));
+              }
+            } catch (error) {
+              console.error(`[deleteMessage] Error soft deleting attachment ${attachment.url}:`, error);
+              // Continue with other attachments
+            }
+          }
+        } else {
+          console.log(`[deleteMessage] No attachments found in metadata`);
+        }
+      } catch (error) {
+        console.error(`[deleteMessage] Error processing attachments:`, error);
+        // Continue anyway
+      }
+      
       // Delete the message
-      await db.delete(messages).where(eq(messages.id, id));
+      console.log(`[deleteMessage] Deleting message ${id}`);
+      const deleteResult = await db.delete(messages).where(eq(messages.id, id));
+      console.log(`[deleteMessage] Delete result:`, deleteResult);
+      console.log(`[deleteMessage] Successfully deleted message ${id}`);
       return true;
     } catch (error) {
-      console.error("Error deleting message:", error);
+      console.error(`[deleteMessage] Error deleting message ${id}:`, error);
+      console.error(`[deleteMessage] Error stack:`, (error as Error).stack);
       throw error;
     }
   }

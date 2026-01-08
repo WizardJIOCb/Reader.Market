@@ -51,6 +51,12 @@ export class FileUploadManager {
   }
 
   async compressImageIfNeeded(file: File): Promise<File> {
+    // Don't compress GIFs - compression loses animation
+    if (file.type === 'image/gif') {
+      console.log('Skipping compression for GIF to preserve animation');
+      return file;
+    }
+    
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       return file;
     }

@@ -3540,9 +3540,9 @@ export async function registerRoutes(
         entityId: null
       });
       
-      // Generate thumbnail for images
+      // Generate thumbnail for images (except GIFs to preserve animation)
       let thumbnailUrl = null;
-      if (req.file.mimetype.startsWith('image/')) {
+      if (req.file.mimetype.startsWith('image/') && req.file.mimetype !== 'image/gif') {
         try {
           const sharp = require('sharp');
           const thumbnailPath = path.join(path.dirname(req.file.path), `thumb_${req.file.filename}`);

@@ -34,9 +34,12 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
       for (const attachment of attachments) {
         if (attachment.mimeType && attachment.mimeType.startsWith('image/')) {
           try {
-            // Use thumbnail if available for preview, otherwise full image
-            let imageUrl = attachment.thumbnailUrl || attachment.url;
-            console.log('🖼️ [AttachmentDisplay] Loading image URL:', imageUrl);
+            // For GIFs, always use original to preserve animation
+            // For other images, use thumbnail if available for faster preview
+            let imageUrl = attachment.mimeType === 'image/gif' 
+              ? attachment.url 
+              : (attachment.thumbnailUrl || attachment.url);
+            console.log('🖼️ [AttachmentDisplay] Loading image URL:', imageUrl, 'MIME:', attachment.mimeType);
             
             // Handle localhost URLs by stripping them to relative paths
             // This fixes production issue where localhost URLs were stored during development
@@ -57,27 +60,34 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
               console.log('🖼️ [AttachmentDisplay] Using absolute URL directly:', imageUrl);
               newUrls.set(attachment.url, imageUrl);
             }
-            // For relative paths, fetch with authentication
+            // For relative paths, construct full URL
             else {
-              // Fetch the image with authentication and create a blob URL
               const fullUrl = getFileUrl(imageUrl);
-              console.log('🖼️ [AttachmentDisplay] Fetching authenticated image:', fullUrl);
+              console.log('🖼️ [AttachmentDisplay] Processing image:', fullUrl, 'MIME:', attachment.mimeType);
               
-              const response = await fetch(fullUrl, {
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                }
-              });
-              
-              console.log('🖼️ [AttachmentDisplay] Fetch response status:', response.status);
-              
-              if (response.ok) {
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                console.log('🖼️ [AttachmentDisplay] Created blob URL:', blobUrl);
-                newUrls.set(attachment.url, blobUrl);
+              // For GIFs, use direct URL without blob conversion to preserve animation
+              // Static files in /uploads don't require authentication
+              if (attachment.mimeType === 'image/gif') {
+                console.log('🖼️ [AttachmentDisplay] Using direct URL for GIF (preserves animation):', fullUrl);
+                newUrls.set(attachment.url, fullUrl);
               } else {
-                console.error('❌ Failed to load image:', imageUrl, 'Status:', response.status);
+                // For non-GIF images, fetch and create blob URL for better caching
+                const response = await fetch(fullUrl, {
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                  }
+                });
+                
+                console.log('🖼️ [AttachmentDisplay] Fetch response status:', response.status);
+                
+                if (response.ok) {
+                  const blob = await response.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  console.log('🖼️ [AttachmentDisplay] Created blob URL:', blobUrl);
+                  newUrls.set(attachment.url, blobUrl);
+                } else {
+                  console.error('❌ Failed to load image:', imageUrl, 'Status:', response.status);
+                }
               }
             }
           } catch (error) {
@@ -111,22 +121,39 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
 
   // Helper function to load full-size image
   const loadFullSizeImage = async (image: Attachment) => {
+    console.log('🔍 [loadFullSizeImage] Loading full-size for:', image.filename, 'MIME:', image.mimeType, 'URL:', image.url);
     let fullImageUrl = image.url;
     
     // Handle localhost URLs
     if (fullImageUrl.startsWith('http://localhost') || fullImageUrl.startsWith('https://localhost')) {
       const url = new URL(fullImageUrl);
       fullImageUrl = url.pathname;
+      console.log('🔧 [loadFullSizeImage] Stripped localhost to:', fullImageUrl);
     }
     
     // If it's already a blob or absolute URL, use directly
     if (fullImageUrl.startsWith('blob:') || fullImageUrl.startsWith('http://') || fullImageUrl.startsWith('https://')) {
+      console.log('⚠️ [loadFullSizeImage] Using as-is (blob or absolute):', fullImageUrl);
       return fullImageUrl;
     }
     
-    // Fetch full-size image with authentication
+    // For GIFs, return the direct URL (don't convert to blob to preserve animation)
+    if (image.mimeType === 'image/gif') {
+      // Return the imageUrls map entry if available, otherwise construct URL
+      const cachedUrl = imageUrls.get(image.url);
+      if (cachedUrl) {
+        console.log('✅ [loadFullSizeImage] Using cached GIF URL:', cachedUrl);
+        return cachedUrl;
+      }
+      const directUrl = getFileUrl(fullImageUrl);
+      console.log('✅ [loadFullSizeImage] Using direct GIF URL:', directUrl);
+      return directUrl;
+    }
+    
+    // For non-GIF images, fetch and create blob URL for better quality
     try {
       const fullUrl = getFileUrl(fullImageUrl);
+      console.log('📦 [loadFullSizeImage] Fetching non-GIF as blob:', fullUrl);
       const response = await fetch(fullUrl, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -135,12 +162,15 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
       
       if (response.ok) {
         const blob = await response.blob();
-        return URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
+        console.log('✅ [loadFullSizeImage] Created blob URL for non-GIF:', blobUrl);
+        return blobUrl;
       }
     } catch (error) {
-      console.error('Failed to load full-size image:', error);
+      console.error('❌ [loadFullSizeImage] Failed to load full-size image:', error);
     }
     
+    console.log('⚠️ [loadFullSizeImage] Fallback to original URL:', fullImageUrl);
     return fullImageUrl;
   };
 
