@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogContent,
 } from '@/components/ui/dialog';
+import { getFileUrl } from '@/lib/config';
 
 interface Attachment {
   url: string;
@@ -38,12 +39,12 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
             console.log('🖼️ [AttachmentDisplay] Loading image URL:', imageUrl);
             
             // If it's already a blob URL or absolute URL, use it directly
-            if (imageUrl.startsWith('blob:') || imageUrl.startsWith('http')) {
+            if (imageUrl.startsWith('blob:') || imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
               console.log('🖼️ [AttachmentDisplay] Using direct URL:', imageUrl);
               newUrls.set(attachment.url, imageUrl);
             } else {
               // Fetch the image with authentication and create a blob URL
-              const fullUrl = `http://localhost:5001${imageUrl}`;
+              const fullUrl = getFileUrl(imageUrl);
               console.log('🖼️ [AttachmentDisplay] Fetching authenticated image:', fullUrl);
               
               const response = await fetch(fullUrl, {
@@ -148,11 +149,20 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
 
   const handleDownload = async (attachment: Attachment) => {
     try {
-      const response = await fetch(attachment.url, {
+      const fullUrl = getFileUrl(attachment.url);
+      console.log('📥 [AttachmentDisplay] Downloading file:', fullUrl);
+      
+      const response = await fetch(fullUrl, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
+      
+      if (!response.ok) {
+        console.error('❌ Download failed with status:', response.status);
+        return;
+      }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -162,8 +172,9 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      console.log('✅ [AttachmentDisplay] Download completed:', attachment.filename);
     } catch (error) {
-      console.error('Download failed:', error);
+      console.error('❌ Download failed:', error);
     }
   };
 
