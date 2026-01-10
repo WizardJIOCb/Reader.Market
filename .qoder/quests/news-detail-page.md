@@ -22,6 +22,11 @@ This document outlines the design for implementing a news detail page feature th
 - Display existing comments under each news article
 - Connect comments system with news articles
 
+### 2.4 Reactions Integration
+- Allow users to add reactions to specific news articles (similar to comment reactions)
+- Display reaction counts for each type of reaction
+- Enable users to toggle their reactions on/off
+
 ## 3. System Architecture
 
 ### 3.1 Frontend Components
@@ -29,11 +34,13 @@ This document outlines the design for implementing a news detail page feature th
 - News detail page component
 - Comment display and submission components
 - View counter display component
+- Reaction display and interaction components
 
 ### 3.2 Backend Services
 - News detail API endpoint
 - View tracking service
 - Comment management API
+- Reaction management API
 - News metadata enhancement
 
 ## 4. User Experience Flow
@@ -47,24 +54,33 @@ This document outlines the design for implementing a news detail page feature th
 1. User accesses the news detail page via unique URL
 2. Full article content is displayed
 3. Comments section is available below the article
-4. View count is incremented upon visiting the page
+4. Reaction options are displayed with current counts
+5. View count is incremented upon visiting the page
 
 ### 4.3 Interaction
 1. User can read comments on the news article
 2. User can submit new comments
-3. Updated comment count is reflected in the listing
+3. User can add/remove reactions to the news article
+4. Updated comment and reaction counts are reflected in the listing
 
 ## 5. Data Model Changes
 
 ### 5.1 News Entity Extensions
 - Add view_count field
 - Add comment_count field
+- Add reactions field (JSON/object to store different reaction types and counts)
 - Ensure unique identifier for URL generation
 
 ### 5.2 Comments Entity
 - Link to specific news article
 - Store user information
 - Track timestamp of comments
+
+### 5.3 Reactions Entity
+- Link to specific news article
+- Store user information
+- Track reaction type
+- Track timestamp of reactions
 
 ## 6. API Endpoints
 
@@ -76,6 +92,11 @@ This document outlines the design for implementing a news detail page feature th
 - GET /api/news/:id/comments - Retrieve comments for specific news
 - POST /api/news/:id/comments - Submit new comment
 - PUT /api/news/:id/views - Increment view count
+
+### 6.3 Reactions Endpoints
+- GET /api/news/:id/reactions - Retrieve reactions for specific news
+- POST /api/news/:id/reactions - Submit new reaction
+- DELETE /api/news/:id/reactions - Remove user's reaction
 
 ## 7. Performance Considerations
 
@@ -107,7 +128,11 @@ This document outlines the design for implementing a news detail page feature th
 - Integrate comments with news articles
 - Add comment display and submission
 
-### Phase 3: Enhancement
+### Phase 3: Reactions System
+- Integrate reactions with news articles
+- Add reaction display and interaction
+
+### Phase 4: Enhancement
 - Optimize performance
 - Add advanced features like comment threading
 
@@ -117,9 +142,34 @@ This document outlines the design for implementing a news detail page feature th
 - Test news detail retrieval
 - Validate view count increment logic
 - Verify comment submission and retrieval
+- Verify reaction submission and removal
 
 ### 10.2 Integration Tests
 - Test end-to-end news detail viewing
 - Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality
+### 10.2 Integration Tests
+- Test end-to-end news detail viewing
+- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionalityng
+- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
+- Confirm URL sharing functionality- Validate comment integration
 - Confirm URL sharing functionality- Validate comment integration
 - Confirm URL sharing functionality

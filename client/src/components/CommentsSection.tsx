@@ -350,7 +350,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
                 {comment.avatarUrl ? (
                   <AvatarImage src={comment.avatarUrl} alt={comment.author} />
                 ) : null}
-                <AvatarFallback>{comment.author[0]}</AvatarFallback>
+                <AvatarFallback>{comment.author ? comment.author.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-2 relative">
                 {user && (comment.userId === user.id || user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
@@ -370,10 +370,10 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
                       rel="noopener noreferrer"
                       className="font-semibold text-sm text-primary hover:underline"
                     >
-                      {comment.author}
+                      {comment.author || 'Anonymous'}
                     </a>
                   ) : (
-                    <span className="font-semibold text-sm">{comment.author}</span>
+                    <span className="font-semibold text-sm">{comment.author || 'Anonymous'}</span>
                   )}
                 </div>
                 <TooltipProvider>

@@ -467,7 +467,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                   {userReview.avatarUrl ? (
                     <AvatarImage src={userReview.avatarUrl} alt={userReview.author} />
                   ) : null}
-                  <AvatarFallback>{userReview.author[0]}</AvatarFallback>
+                  <AvatarFallback>{userReview.author ? userReview.author.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                 </Avatar>
                 <div>
                   {userReview.userId ? (
@@ -477,10 +477,10 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                       rel="noopener noreferrer"
                       className="font-semibold text-sm text-primary hover:underline"
                     >
-                      {userReview.author}
+                      {userReview.author || 'Anonymous'}
                     </a>
                   ) : (
-                    <h4 className="font-semibold text-sm">{userReview.author}</h4>
+                    <h4 className="font-semibold text-sm">{userReview.author || 'Anonymous'}</h4>
                   )}
                   <TooltipProvider>
                     <Tooltip>
@@ -614,7 +614,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                       {review.avatarUrl ? (
                         <AvatarImage src={review.avatarUrl} alt={review.author} />
                       ) : null}
-                      <AvatarFallback>{review.author[0]}</AvatarFallback>
+                      <AvatarFallback>{review.author ? review.author.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                     </Avatar>
                     <div>
                       {review.userId ? (
@@ -624,10 +624,10 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                           rel="noopener noreferrer"
                           className="font-semibold text-sm text-primary hover:underline"
                         >
-                          {review.author}
+                          {review.author || 'Anonymous'}
                         </a>
                       ) : (
-                        <h4 className="font-semibold text-sm">{review.author}</h4>
+                        <h4 className="font-semibold text-sm">{review.author || 'Anonymous'}</h4>
                       )}
                       <TooltipProvider>
                         <Tooltip>

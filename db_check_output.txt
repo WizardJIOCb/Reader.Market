@@ -9,9 +9,9 @@ Total shelves found: 9
 - Shelf ID: 5bcf234a-1d48-4b45-be78-07f1fdb97b44, Name: Полкааа, User ID: c781bfe0-a57c-4c97-9a73-bf666c647bd0
 - Shelf ID: 57e9f91d-1407-499f-bcd5-2049a3cb2eee, Name: Загруженные, User ID: c781bfe0-a57c-4c97-9a73-bf666c647bd0
 - Shelf ID: 2d0c5233-bb40-4064-952f-6ceb17247b75, Name: Фантастика, User ID: 605db90f-4691-4281-991e-b2e248e33915
-- Shelf ID: 935fbc37-7e1f-4a83-b236-543cba12993d, Name: 3, User ID: 605db90f-4691-4281-991e-b2e248e33915
 - Shelf ID: 36d71f0a-7eb8-4ea4-98d8-8234b132fff5, Name: Test, User ID: 605db90f-4691-4281-991e-b2e248e33915
 - Shelf ID: 07826741-5bba-4d48-bf4f-f32865174f8d, Name: Yo!, User ID: 9cc86c83-dc21-4feb-b526-5b87249b7c8c
+- Shelf ID: 935fbc37-7e1f-4a83-b236-543cba12993d, Name: Разное, User ID: 605db90f-4691-4281-991e-b2e248e33915
 
 Checking if book 935fbc37-7e1f-4a83-b236-543cba12993d exists...
 Book not found in database

@@ -19,6 +19,7 @@ import AddBook from "@/pages/AddBook";
 import AdminDashboard from "@/components/AdminDashboard";
 import UserManagement from "@/pages/UserManagement";
 import Messages from "@/pages/Messages";
+import NewsDetailPage from "@/pages/NewsDetailPage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/search" component={SearchPage} />
       <Route path="/book/:bookId" component={BookDetail} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
+      <Route path="/news/:id" component={NewsDetailPage} />
       <Route path="/messages" component={Messages} />
       <Route path="/profile/:userId?" component={Profile} />
       <Route path="/admin" component={AdminDashboard} />

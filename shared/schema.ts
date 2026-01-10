@@ -117,7 +117,8 @@ export const bookmarks = pgTable("bookmarks", {
 export const comments = pgTable("comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  bookId: varchar("book_id").notNull().references(() => books.id),
+  bookId: varchar("book_id").references(() => books.id),  // Optional - for book comments
+  newsId: varchar("news_id").references(() => news.id),  // Optional - for news comments
   content: text("content").notNull(),
   attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
   attachmentMetadata: jsonb("attachment_metadata"),
@@ -138,13 +139,14 @@ export const reviews = pgTable("reviews", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Table for reactions (likes, etc.) on comments and reviews
+// Table for reactions (likes, etc.) on comments, reviews, and news
 export const reactions = pgTable("reactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  // Either commentId or reviewId should be set, but not both
+  // Exactly one of these IDs should be set
   commentId: varchar("comment_id").references(() => comments.id),
   reviewId: varchar("review_id").references(() => reviews.id),
+  newsId: varchar("news_id").references(() => news.id),
   emoji: text("emoji").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -261,6 +263,9 @@ export const news = pgTable("news", {
   authorId: varchar("author_id").notNull().references(() => users.id),
   published: boolean("published").default(false),
   publishedAt: timestamp("published_at"),
+  viewCount: integer("view_count").default(0).notNull(),
+  commentCount: integer("comment_count").default(0).notNull(),
+  reactionCount: integer("reaction_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

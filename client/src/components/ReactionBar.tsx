@@ -16,39 +16,16 @@ interface ReactionBarProps {
   onReact: (emoji: string) => void | Promise<void>;
   commentId?: string;
   reviewId?: string;
+  newsId?: string;
 }
 
 const AVAILABLE_EMOJIS = ['👍', '❤️', '🔥', '👏', '🤯', '🤔', '😢', '😂'];
 
-export function ReactionBar({ reactions = [], onReact, commentId, reviewId }: ReactionBarProps) {
+export function ReactionBar({ reactions = [], onReact, commentId, reviewId, newsId }: ReactionBarProps) {
   const handleReaction = async (emoji: string) => {
-    // If we don't have either commentId or reviewId, fallback to the original onReact
-    if (!commentId && !reviewId) {
-      onReact(emoji);
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/reactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({ 
-          commentId, 
-          reviewId, 
-          emoji 
-        })
-      });
-
-      if (response.ok) {
-        // Call the original onReact to update the UI
-        await onReact(emoji);
-      }
-    } catch (error) {
-      console.error('Failed to react:', error);
-    }
+    // Simply call the onReact handler provided by the parent component
+    // The parent component handles the API call and UI updates
+    await onReact(emoji);
   };
   return (
     <div className="flex flex-wrap gap-2 items-center">

@@ -15,6 +15,7 @@ import enAbout from './locales/en/about.json';
 import enLanding from './locales/en/landing.json';
 import enBooks from './locales/en/books.json';
 
+
 import ruCommon from './locales/ru/common.json';
 import ruNavigation from './locales/ru/navigation.json';
 import ruProfile from './locales/ru/profile.json';
@@ -26,6 +27,7 @@ import ruHome from './locales/ru/home.json';
 import ruAbout from './locales/ru/about.json';
 import ruLanding from './locales/ru/landing.json';
 import ruBooks from './locales/ru/books.json';
+
 
 // Define resources
 const resources = {
