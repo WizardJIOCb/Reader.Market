@@ -22,6 +22,8 @@
     "byRating": "By Rating",
     "byComments": "By Comments",
     "byReviews": "By Reviews",
-    "byShelfCount": "By Added to Shelves"
+    "byShelfCount": "By Added to Shelves",
+    "byUploadDate": "By Upload Date",
+    "byPublicationDate": "By Publication Date"
   }
 }

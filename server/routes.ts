@@ -57,7 +57,8 @@ const upload = multer({
       'image/jpeg',
       'image/png',
       'image/gif',
-      'image/webp'
+      'image/webp',
+      'image/bmp'
     ];
     
     // Check if it's an FB2 file by extension
@@ -101,7 +102,8 @@ const avatarUpload = multer({
       'image/jpeg',
       'image/png',
       'image/gif',
-      'image/webp'
+      'image/webp',
+      'image/bmp'
     ];
     
     if (allowedImageTypes.includes(file.mimetype)) {
@@ -1123,6 +1125,7 @@ export async function registerRoutes(
   // Upload book endpoint
   app.post("/api/books/upload", authenticateToken, upload.fields([{ name: 'bookFile' }, { name: 'coverImage' }]), async (req, res) => {
     console.log("Upload book endpoint called");
+    console.log("req.files received:", req.files ? Object.keys(req.files) : 'none');
     try {
       const userId = (req as any).user.userId;
       
@@ -1148,17 +1151,40 @@ export async function registerRoutes(
       // If book file was uploaded, add file information
       if (req.files && (req.files as any).bookFile) {
         const bookFile = (req.files as any).bookFile[0];
+        console.log("Book file uploaded:", { filename: bookFile.filename, path: bookFile.path });
         // Store only the relative path from the uploads directory
-        bookData.filePath = bookFile.path.replace(/^.*[\\\/](uploads[\\\/].*)$/, '$1');
+        // Use filename as fallback if regex fails
+        let filePath = bookFile.path.replace(/^.*[\\\/](uploads[\\\/].*)$/, '$1');
+        if (filePath === bookFile.path || !filePath.startsWith('uploads')) {
+          // Regex failed, construct path from filename
+          filePath = 'uploads/' + bookFile.filename;
+        }
+        // Normalize backslashes to forward slashes
+        bookData.filePath = filePath.replace(/\\/g, '/');
         bookData.fileSize = bookFile.size;
         bookData.fileType = bookFile.mimetype;
+        console.log("Book file path stored:", bookData.filePath);
       }
       
       // If cover image was uploaded, add cover image information
-      if (req.files && (req.files as any).coverImage) {
-        const coverImage = (req.files as any).coverImage[0];
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      console.log("Checking for coverImage in files:", files ? Object.keys(files) : 'no files');
+      
+      if (files && files.coverImage && files.coverImage.length > 0) {
+        const coverImage = files.coverImage[0];
+        console.log("Cover image uploaded:", { filename: coverImage.filename, path: coverImage.path, originalname: coverImage.originalname });
         // Store only the relative path from the uploads directory
-        bookData.coverImageUrl = coverImage.path.replace(/^.*[\\\/](uploads[\\\/].*)$/, '$1');
+        // Use filename as fallback if regex fails
+        let coverPath = coverImage.path.replace(/^.*[\\\/](uploads[\\\/].*)$/, '$1');
+        if (coverPath === coverImage.path || !coverPath.startsWith('uploads')) {
+          // Regex failed, construct path from filename
+          coverPath = 'uploads/' + coverImage.filename;
+        }
+        // Normalize backslashes to forward slashes
+        bookData.coverImageUrl = coverPath.replace(/\\/g, '/');
+        console.log("Cover image URL stored:", bookData.coverImageUrl);
+      } else {
+        console.log("No cover image found in upload. files.coverImage:", files?.coverImage);
       }
       
       const book = await storage.createBook(bookData);

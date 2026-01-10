@@ -117,8 +117,12 @@ export default function AddBook() {
       }
       
       // Add cover image if selected
+      console.log("[DEBUG] coverImage state:", coverImage ? { name: coverImage.name, size: coverImage.size, type: coverImage.type } : 'NULL');
       if (coverImage) {
         requestData.append('coverImage', coverImage);
+        console.log("[DEBUG] coverImage appended to FormData");
+      } else {
+        console.log("[DEBUG] NO coverImage to append!");
       }
       
       const response = await booksApi.uploadBook(requestData);

@@ -33,6 +33,7 @@ import { ReviewsSection } from '@/components/ReviewsSection';
 import { useToast } from '@/hooks/use-toast';
 import { useShelves } from '@/hooks/useShelves';
 import { useAuth } from '@/lib/auth';
+import { booksApi } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 
 // Define the Book interface to match our database schema
@@ -650,16 +651,18 @@ export default function BookDetail() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`/api/books/${book.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // Use booksApi.deleteBook which bypasses Vite proxy in development
+      const response = await booksApi.deleteBook(book.id);
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete book');
+        let errorMessage = 'Failed to delete book';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // Response might not be JSON
+        }
+        throw new Error(errorMessage);
       }
       
       // Show success message

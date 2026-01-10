@@ -34,10 +34,10 @@ const hasValidRating = (book: any): boolean => {
 type SortOption = 'views' | 'readerOpens' | 'rating' | 'comments' | 'reviews';
 
 // Helper function to sort books by the specified field
-const sortBooksByOption = (books: any[], sortBy?: string): any[] => {
+const sortBooksByOption = (books: any[], sortBy?: string, direction: 'asc' | 'desc' = 'desc'): any[] => {
   if (!sortBy || sortBy === 'rating') {
     // Default sorting: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
-    return [...books].sort((a, b) => {
+    let sorted = [...books].sort((a, b) => {
       const ratingANum = a.rating ? Number(a.rating) : 0;
       const ratingBNum = b.rating ? Number(b.rating) : 0;
       
@@ -59,24 +59,56 @@ const sortBooksByOption = (books: any[], sortBy?: string): any[] => {
       
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+    
+    // Reverse if ascending
+    if (direction === 'asc') {
+      sorted = sorted.reverse();
+    }
+    
+    return sorted;
   }
   
-  return [...books].sort((a, b) => {
+  let sorted = [...books].sort((a, b) => {
+    let result = 0;
     switch (sortBy) {
       case 'views':
-        return (b.cardViewCount || 0) - (a.cardViewCount || 0);
+        result = (b.cardViewCount || 0) - (a.cardViewCount || 0);
+        break;
       case 'readerOpens':
-        return (b.readerOpenCount || 0) - (a.readerOpenCount || 0);
+        result = (b.readerOpenCount || 0) - (a.readerOpenCount || 0);
+        break;
       case 'comments':
-        return (b.commentCount || 0) - (a.commentCount || 0);
+        result = (b.commentCount || 0) - (a.commentCount || 0);
+        break;
       case 'reviews':
-        return (b.reviewCount || 0) - (a.reviewCount || 0);
+        result = (b.reviewCount || 0) - (a.reviewCount || 0);
+        break;
       case 'shelfCount':
-        return (b.shelfCount || 0) - (a.shelfCount || 0);
+        result = (b.shelfCount || 0) - (a.shelfCount || 0);
+        break;
+      case 'uploadedAt':
+        // Sort by upload date
+        result = new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime();
+        break;
+      case 'publishedAt':
+        // Sort by publication date, nulls last
+        const publishedAtA = a.publishedAt ? new Date(a.publishedAt).getTime() : -Infinity;
+        const publishedAtB = b.publishedAt ? new Date(b.publishedAt).getTime() : -Infinity;
+        result = publishedAtB - publishedAtA;
+        break;
       default:
-        return 0;
+        result = 0;
     }
+    
+    return result;
   });
+  
+  // Reverse if ascending
+  if (direction === 'asc') {
+    sorted = sorted.reverse();
+  }
+  
+  return sorted;
 };
 export interface IStorage {
   // User operations
@@ -477,16 +509,20 @@ export class DBStorage implements IStorage {
       // Delete reviews
       await db.delete(reviews).where(eq(reviews.bookId, id));
       
+      // Delete group book associations
+      await db.delete(groupBooks).where(eq(groupBooks.bookId, id));
+      
+      // Delete book view statistics
+      await db.delete(bookViewStatistics).where(eq(bookViewStatistics.bookId, id));
+      
       // Delete the physical file if it exists
       if (book.filePath) {
         try {
           const path = await import('path');
           const fs = await import('fs');
-          const { fileURLToPath } = await import('url');
           
-          // Get __dirname equivalent for ES modules
-          const __filename = fileURLToPath(import.meta.url);
-          const __dirname = path.dirname(__filename);
+          // Use process.cwd() which works in both CommonJS and ESM contexts
+          const projectRoot = process.cwd();
           
           // Construct the full file path - handle both relative and absolute paths
           let fullPath;
@@ -494,17 +530,48 @@ export class DBStorage implements IStorage {
             fullPath = book.filePath;
           } else {
             // For relative paths, construct from the project root
-            fullPath = path.join(__dirname, '../..', book.filePath);
+            fullPath = path.join(projectRoot, book.filePath);
           }
+          
+          console.log(`Attempting to delete file: ${fullPath}`);
           
           // Check if file exists and delete it
           if (fs.existsSync(fullPath)) {
             fs.unlinkSync(fullPath);
             console.log(`Deleted file: ${fullPath}`);
+          } else {
+            console.log(`File not found, skipping: ${fullPath}`);
           }
         } catch (fileError) {
           console.warn(`Could not delete file for book ${id}:`, fileError);
           // Don't throw error here as we still want to delete the database record
+        }
+      }
+      
+      // Delete the cover image file if it exists
+      if (book.coverImageUrl) {
+        try {
+          const path = await import('path');
+          const fs = await import('fs');
+          
+          const projectRoot = process.cwd();
+          let coverPath;
+          if (path.isAbsolute(book.coverImageUrl)) {
+            coverPath = book.coverImageUrl;
+          } else {
+            coverPath = path.join(projectRoot, book.coverImageUrl);
+          }
+          
+          console.log(`Attempting to delete cover image: ${coverPath}`);
+          
+          if (fs.existsSync(coverPath)) {
+            fs.unlinkSync(coverPath);
+            console.log(`Deleted cover image: ${coverPath}`);
+          } else {
+            console.log(`Cover image not found, skipping: ${coverPath}`);
+          }
+        } catch (fileError) {
+          console.warn(`Could not delete cover image for book ${id}:`, fileError);
         }
       }
       

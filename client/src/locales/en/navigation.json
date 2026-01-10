@@ -6,5 +6,10 @@
   "messages": "Messages",
   "profile": "Profile",
   "openMenu": "Open menu",
-  "closeMenu": "Close menu"
+  "closeMenu": "Close menu",
+  "language": "Language",
+  "languages": {
+    "en": "English",
+    "ru": "Русский"
+  }
 }

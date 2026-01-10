@@ -23,7 +23,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { BookCard } from '@/components/BookCard';
 import { PageHeader } from '@/components/PageHeader';
 import { useMainPageData } from '@/hooks/useMainPageData';
-import { BookListSortSelector, sortBooks, type SortOption } from '@/components/BookListSortSelector';
+import { BookListSortSelector, sortBooks, type SortOption, type SortDirection } from '@/components/BookListSortSelector';
 
 
 
@@ -38,10 +38,15 @@ export default function Library() {
   
   // Sort states for each section
   const [popularSort, setPopularSort] = useState<SortOption>('rating');
+  const [popularSortDir, setPopularSortDir] = useState<SortDirection>('desc');
   const [genreSort, setGenreSort] = useState<SortOption>('rating');
+  const [genreSortDir, setGenreSortDir] = useState<SortDirection>('desc');
   const [reviewedSort, setReviewedSort] = useState<SortOption>('rating');
+  const [reviewedSortDir, setReviewedSortDir] = useState<SortDirection>('desc');
   const [newReleasesSort, setNewReleasesSort] = useState<SortOption>('rating');
+  const [newReleasesSortDir, setNewReleasesSortDir] = useState<SortDirection>('desc');
   const [myBooksSort, setMyBooksSort] = useState<SortOption>('rating');
+  const [myBooksSortDir, setMyBooksSortDir] = useState<SortDirection>('desc');
 
   // Toggle genre selection
   const toggleGenre = (genre: string) => {
@@ -90,10 +95,10 @@ export default function Library() {
   };
 
   // Filter all book collections and apply sorting
-  const filteredPopularBooks = useMemo(() => sortBooks(filterBooks(data.popularBooks), popularSort), [data.popularBooks, selectedGenres, selectedStyles, yearRange, popularSort]);
-  const filteredRecentlyReviewedBooks = useMemo(() => sortBooks(filterBooks(data.recentlyReviewedBooks), reviewedSort), [data.recentlyReviewedBooks, selectedGenres, selectedStyles, yearRange, reviewedSort]);
-  const filteredNewReleases = useMemo(() => sortBooks(filterBooks(data.newReleases), newReleasesSort), [data.newReleases, selectedGenres, selectedStyles, yearRange, newReleasesSort]);
-  const filteredCurrentUserBooks = useMemo(() => sortBooks(filterBooks(data.currentUserBooks), myBooksSort), [data.currentUserBooks, selectedGenres, selectedStyles, yearRange, myBooksSort]);
+  const filteredPopularBooks = useMemo(() => sortBooks(filterBooks(data.popularBooks), popularSort, popularSortDir), [data.popularBooks, selectedGenres, selectedStyles, yearRange, popularSort, popularSortDir]);
+  const filteredRecentlyReviewedBooks = useMemo(() => sortBooks(filterBooks(data.recentlyReviewedBooks), reviewedSort, reviewedSortDir), [data.recentlyReviewedBooks, selectedGenres, selectedStyles, yearRange, reviewedSort, reviewedSortDir]);
+  const filteredNewReleases = useMemo(() => sortBooks(filterBooks(data.newReleases), newReleasesSort, newReleasesSortDir), [data.newReleases, selectedGenres, selectedStyles, yearRange, newReleasesSort, newReleasesSortDir]);
+  const filteredCurrentUserBooks = useMemo(() => sortBooks(filterBooks(data.currentUserBooks), myBooksSort, myBooksSortDir), [data.currentUserBooks, selectedGenres, selectedStyles, yearRange, myBooksSort, myBooksSortDir]);
   
   // Get all unique genres from all book collections for the filter options
   const allGenres = useMemo(() => {
@@ -164,7 +169,7 @@ export default function Library() {
               {t('home:popularBooks')}
             </h2>
             <div className="flex items-center gap-4">
-              <BookListSortSelector value={popularSort} onChange={setPopularSort} />
+              <BookListSortSelector value={popularSort} direction={popularSortDir} onDirectionChange={setPopularSortDir} onChange={setPopularSort} />
               <Link href="/search" className="text-sm text-primary hover:underline">
                 {t('home:allPopular')}
               </Link>
@@ -214,7 +219,7 @@ export default function Library() {
               <Users className="w-6 h-6 text-primary" />
               {t('home:booksByGenre')}
             </h2>
-            <BookListSortSelector value={genreSort} onChange={setGenreSort} />
+            <BookListSortSelector value={genreSort} direction={genreSortDir} onDirectionChange={setGenreSortDir} onChange={setGenreSort} />
           </div>
                   
           {data.booksByGenre.length > 0 ? (
@@ -264,7 +269,7 @@ export default function Library() {
               {t('home:recentlyReviewed')}
             </h2>
             <div className="flex items-center gap-4">
-              <BookListSortSelector value={reviewedSort} onChange={setReviewedSort} />
+              <BookListSortSelector value={reviewedSort} direction={reviewedSortDir} onDirectionChange={setReviewedSortDir} onChange={setReviewedSort} />
               <Link href="/search" className="text-sm text-primary hover:underline">
                 {t('home:allReviewed')}
               </Link>
@@ -315,7 +320,7 @@ export default function Library() {
               {t('home:newReleases')}
             </h2>
             <div className="flex items-center gap-4">
-              <BookListSortSelector value={newReleasesSort} onChange={setNewReleasesSort} />
+              <BookListSortSelector value={newReleasesSort} direction={newReleasesSortDir} onDirectionChange={setNewReleasesSortDir} onChange={setNewReleasesSort} />
               <Link href="/search" className="text-sm text-primary hover:underline">
                 {t('home:allNew')}
               </Link>
@@ -366,7 +371,7 @@ export default function Library() {
                 <BookOpen className="w-6 h-6 text-primary" />
                 {t('home:myBooks')}
               </h2>
-              <BookListSortSelector value={myBooksSort} onChange={setMyBooksSort} />
+              <BookListSortSelector value={myBooksSort} direction={myBooksSortDir} onDirectionChange={setMyBooksSortDir} onChange={setMyBooksSort} />
             </div>
             
             {filteredCurrentUserBooks && filteredCurrentUserBooks.length > 0 ? (

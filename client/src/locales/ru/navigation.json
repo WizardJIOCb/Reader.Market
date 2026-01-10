@@ -6,5 +6,10 @@
   "messages": "Сообщения",
   "profile": "Профиль",
   "openMenu": "Открыть меню",
-  "closeMenu": "Закрыть меню"
+  "closeMenu": "Закрыть меню",
+  "language": "Язык",
+  "languages": {
+    "en": "English",
+    "ru": "Русский"
+  }
 }

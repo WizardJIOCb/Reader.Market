@@ -43,15 +43,40 @@ export const booksApi = {
   getNewReleases: () => apiCall('/api/books/new-releases'),
   getBookById: (bookId: string) => apiCall(`/api/books/${bookId}`),
   searchBooks: (query: string) => apiCall(`/api/books/search?query=${encodeURIComponent(query)}`),
-  uploadBook: (formData: FormData) => apiCall('/api/books/upload', {
-    method: 'POST',
-    body: formData,
-  }),
+  // Use direct backend URL for file uploads to bypass Vite proxy which can corrupt multipart form data
+  uploadBook: (formData: FormData) => {
+    const token = localStorage.getItem('authToken');
+    // In development, bypass Vite proxy for file uploads
+    const apiUrl = import.meta.env.DEV 
+      ? 'http://localhost:5001/api/books/upload'
+      : '/api/books/upload';
+    return fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+  },
   trackBookView: (bookId: string, viewType: 'card_view' | 'reader_open') => apiCall(`/api/books/${bookId}/track-view`, {
     method: 'POST',
     body: JSON.stringify({ viewType }),
   }),
   getBookStats: (bookId: string) => apiCall(`/api/books/${bookId}/stats`),
+  // Use direct backend URL for delete to bypass Vite proxy which can have issues with DELETE requests
+  deleteBook: (bookId: string) => {
+    const token = localStorage.getItem('authToken');
+    // In development, bypass Vite proxy for DELETE requests
+    const apiUrl = import.meta.env.DEV 
+      ? `http://localhost:5001/api/books/${bookId}`
+      : `/api/books/${bookId}`;
+    return fetch(apiUrl, {
+      method: 'DELETE',
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+    });
+  },
 };
 
 export const shelvesApi = {

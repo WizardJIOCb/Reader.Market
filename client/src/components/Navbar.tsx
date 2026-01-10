@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileMenu } from '@/components/MobileMenu';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { onSocketEvent } from '@/lib/socket';
 import { useTranslation } from 'react-i18next';
 
@@ -122,15 +123,17 @@ export function Navbar() {
                   <User className="w-4 h-4" />
                   <span>{t('navigation:profile')} ({user.username})</span>
                 </Link>
+                <LanguageSwitcher />
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Button variant="outline" asChild>
                   <Link href="/login" className="cursor-pointer">{t('common:login')}</Link>
                 </Button>
                 <Button asChild>
                   <Link href="/register" className="cursor-pointer">{t('common:register')}</Link>
                 </Button>
+                <LanguageSwitcher />
               </div>
             )}
           </div>
