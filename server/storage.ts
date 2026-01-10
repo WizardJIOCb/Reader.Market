@@ -120,7 +120,7 @@ export interface IStorage {
   // Book operations
   createBook(bookData: any): Promise<any>;
   getBook(id: string): Promise<any | undefined>;
-  searchBooks(query: string, sortBy?: string): Promise<any[]>;
+  searchBooks(query: string, sortBy?: string, sortDirection?: 'asc' | 'desc'): Promise<any[]>;
   deleteBook(id: string, userId: string): Promise<boolean>;
   getPopularBooks(sortBy?: string): Promise<any[]>;
   getBooksByGenre(genre: string, sortBy?: string): Promise<any[]>;
@@ -319,7 +319,7 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async searchBooks(query: string, sortBy?: string): Promise<any[]> {
+  async searchBooks(query: string, sortBy?: string, sortDirection: 'asc' | 'desc' = 'desc'): Promise<any[]> {
     try {
       let result;
       if (query) {
@@ -457,7 +457,7 @@ export class DBStorage implements IStorage {
       }));
       
       // Sort the books using the helper function
-      const sortedBooks = sortBooksByOption(resultWithCounts, sortBy);
+      const sortedBooks = sortBooksByOption(resultWithCounts, sortBy, sortDirection);
       
       return sortedBooks;
     } catch (error) {

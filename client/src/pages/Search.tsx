@@ -17,6 +17,7 @@ import { BookListSortSelector, sortBooks, type SortOption, type SortDirection } 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
+import { booksApi } from '@/lib/api';
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -77,16 +78,8 @@ export default function SearchPage() {
     const fetchAllBooks = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
         
-        const response = await fetch('/api/books/search', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        const response = await booksApi.searchBooks('', sortBy, sortDir);
         
         if (response.ok) {
           const data = await response.json();
@@ -126,17 +119,8 @@ export default function SearchPage() {
       setLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
       // Make a server-side search request to the backend service
-      const response = await fetch(`/api/books/search?query=${encodeURIComponent(query)}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await booksApi.searchBooks(query, sortBy, sortDir);
       
       if (response.ok) {
         const data = await response.json();
@@ -182,7 +166,7 @@ export default function SearchPage() {
     });
     
     return sortBooks(filtered, sortBy, sortDir);
-  }, [books, selectedGenres, selectedStyles, yearRange, sortBy]);
+  }, [books, selectedGenres, selectedStyles, yearRange, sortBy, sortDir]);
 
 
   const toggleGenre = (genre: string) => {

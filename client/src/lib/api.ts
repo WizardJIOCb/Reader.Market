@@ -42,7 +42,12 @@ export const booksApi = {
   getCurrentlyReading: () => apiCall('/api/books/currently-reading'),
   getNewReleases: () => apiCall('/api/books/new-releases'),
   getBookById: (bookId: string) => apiCall(`/api/books/${bookId}`),
-  searchBooks: (query: string) => apiCall(`/api/books/search?query=${encodeURIComponent(query)}`),
+  searchBooks: (query: string, sortBy?: string, sortDirection?: 'asc' | 'desc') => {
+    const params = new URLSearchParams({ query: encodeURIComponent(query) });
+    if (sortBy) params.append('sortBy', sortBy);
+    if (sortDirection) params.append('sortDirection', sortDirection);
+    return apiCall(`/api/books/search?${params.toString()}`);
+  },
   // Use direct backend URL for file uploads to bypass Vite proxy which can corrupt multipart form data
   uploadBook: (formData: FormData) => {
     const token = localStorage.getItem('authToken');

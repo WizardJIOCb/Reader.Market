@@ -1025,9 +1025,10 @@ export async function registerRoutes(
     try {
       const query = req.query.query ? String(req.query.query) : '';
       const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
-      console.log("Search query:", query, "sortBy:", sortBy);
+      const sortDirection = req.query.sortDirection === 'asc' ? 'asc' : 'desc'; // Default to 'desc'
+      console.log("Search query:", query, "sortBy:", sortBy, "sortDirection:", sortDirection);
       
-      let books = await storage.searchBooks(query, sortBy);
+      let books = await storage.searchBooks(query, sortBy, sortDirection);
       
       // For books without ratings, calculate them
       for (const book of books) {
@@ -1037,7 +1038,7 @@ export async function registerRoutes(
       }
       
       // Fetch the books again with updated ratings
-      books = await storage.searchBooks(query, sortBy);
+      books = await storage.searchBooks(query, sortBy, sortDirection);
       
       res.json(books);
     } catch (error) {

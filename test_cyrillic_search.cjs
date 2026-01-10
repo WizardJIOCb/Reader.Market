@@ -10,7 +10,7 @@ async function testCyrillicSearch() {
     const query = "Гиперион";
     console.log(`Searching for: "${query}"`);
     
-    const results = await storage.searchBooks(query);
+    const results = await storage.searchBooks(query, undefined, 'desc');
     console.log(`Found ${results.length} results for "${query}":`);
     
     if (results.length > 0) {
@@ -25,7 +25,7 @@ async function testCyrillicSearch() {
     const query2 = "Дэн Симмонс";
     console.log(`\nSearching for: "${query2}"`);
     
-    const results2 = await storage.searchBooks(query2);
+    const results2 = await storage.searchBooks(query2, undefined, 'desc');
     console.log(`Found ${results2.length} results for "${query2}":`);
     
     if (results2.length > 0) {
@@ -40,7 +40,7 @@ async function testCyrillicSearch() {
     const query3 = "test";
     console.log(`\nSearching for: "${query3}"`);
     
-    const results3 = await storage.searchBooks(query3);
+    const results3 = await storage.searchBooks(query3, undefined, 'desc');
     console.log(`Found ${results3.length} results for "${query3}":`);
     
     if (results3.length > 0) {
