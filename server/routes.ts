@@ -1977,6 +1977,73 @@ export async function registerRoutes(
     }
   });
   
+  // Admin: Get all reactions for a news article
+  app.get("/api/admin/news/:id/reactions", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get news reactions (admin) endpoint called for news ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      
+      // Get reactions for this news article
+      const reactions = await storage.getReactionsForNews(id);
+      
+      // Get user information for each reaction
+      const reactionsWithUsers = await Promise.all(reactions.map(async (reaction: any) => {
+        const user = await storage.getUser(reaction.userId);
+        return {
+          ...reaction,
+          userFullName: user?.fullName,
+          userUsername: user?.username
+        };
+      }));
+      
+      res.json(reactionsWithUsers);
+    } catch (error) {
+      console.error("Get news reactions (admin) error:", error);
+      res.status(500).json({ error: "Failed to get news reactions" });
+    }
+  });
+  
+  // Admin: Update reaction count for a news article
+  app.put("/api/admin/news/:id/reaction-count", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Update news reaction count (admin) endpoint called for news ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const { reactionCount } = req.body;
+      
+      if (reactionCount === undefined || reactionCount < 0) {
+        return res.status(400).json({ error: "Valid reaction count is required" });
+      }
+      
+      // Update the news article with the new reaction count
+      const updatedNews = await storage.updateNews(id, { reactionCount: parseInt(reactionCount) });
+      
+      res.json(updatedNews);
+    } catch (error) {
+      console.error("Update news reaction count (admin) error:", error);
+      res.status(500).json({ error: "Failed to update news reaction count" });
+    }
+  });
+  
+  // Admin: Delete any reaction
+  app.delete("/api/admin/reactions/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Admin delete reaction endpoint called");
+    try {
+      const { id } = req.params;
+      
+      // Admins can delete any reaction
+      const success = await storage.deleteReaction(id, null);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Reaction not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Admin delete reaction error:", error);
+      res.status(500).json({ error: "Failed to delete reaction" });
+    }
+  });
+  
   // ========================================
   // OLD MESSAGING ENDPOINTS - DEPRECATED (Commented out to use new conversation-based endpoints)
   // ========================================

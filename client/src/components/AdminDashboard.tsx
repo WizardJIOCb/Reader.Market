@@ -13,9 +13,10 @@ import {
 import NewsManagement from '@/components/NewsManagement';
 import CommentsModeration from '@/components/CommentsModeration';
 import ReviewsModeration from '@/components/ReviewsModeration';
+import NewsReactionsManagement from '@/components/NewsReactionsManagement';
 import UserManagement from '@/pages/UserManagement';
 import BooksManagement from '@/components/BooksManagement';
-import { 
+import {
   LayoutDashboard, 
   Newspaper, 
   MessageSquare, 
@@ -24,7 +25,8 @@ import {
   BookOpen,
   LogOut,
   User,
-  Menu
+  Menu,
+  Heart
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -365,6 +367,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'news', label: 'News Management', icon: Newspaper },
     { id: 'comments', label: 'Comments', icon: MessageSquare },
+    { id: 'reactions', label: 'News Reactions', icon: Heart },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'books', label: 'Books', icon: BookOpen },
     ...(isAdmin ? [{ id: 'users', label: 'User Management', icon: Users }] : []),
@@ -649,6 +652,10 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'comments' && (
               <CommentsModeration />
+            )}
+
+            {activeTab === 'reactions' && (
+              <NewsReactionsManagement />
             )}
 
             {activeTab === 'reviews' && (

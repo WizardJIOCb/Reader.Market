@@ -198,6 +198,7 @@ export interface IStorage {
   getNewsComments(newsId: string, userId?: string): Promise<any[]>;
   createNewsReaction(reactionData: any): Promise<any>;
   getNewsReactions(newsId: string): Promise<any[]>;
+  getReactionsForNews(newsId: string): Promise<any[]>;
   updateAccessLevel(userId: string, accessLevel: string): Promise<User>;
   getUsersWithStats(limit: number, offset: number): Promise<any[]>;
   getRecentActivity(limit: number): Promise<any[]>;
@@ -1488,6 +1489,7 @@ export class DBStorage implements IStorage {
         id: comments.id,
         userId: comments.userId,
         bookId: comments.bookId,
+        newsId: comments.newsId,
         content: comments.content,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
@@ -1504,6 +1506,7 @@ export class DBStorage implements IStorage {
         id: comment.id,
         userId: comment.userId,
         bookId: comment.bookId,
+        newsId: comment.newsId,
         content: comment.content,
         createdAt: comment.createdAt.toISOString(),
         updatedAt: comment.updatedAt.toISOString(),
@@ -2769,6 +2772,38 @@ export class DBStorage implements IStorage {
       }));
     } catch (error) {
       console.error("Error getting news reactions:", error);
+      return [];
+    }
+  }
+  
+  async getReactionsForNews(newsId: string): Promise<any[]> {
+    try {
+      // Get all reactions for this news article with user information
+      const result = await db.select({
+        id: reactions.id,
+        userId: reactions.userId,
+        newsId: reactions.newsId,
+        emoji: reactions.emoji,
+        createdAt: reactions.createdAt,
+        username: users.username,
+        fullName: users.fullName
+      })
+      .from(reactions)
+      .leftJoin(users, eq(reactions.userId, users.id))
+      .where(eq(reactions.newsId, newsId));
+      
+      // Format the response
+      return result.map(reaction => ({
+        id: reaction.id,
+        userId: reaction.userId,
+        newsId: reaction.newsId,
+        emoji: reaction.emoji,
+        createdAt: reaction.createdAt.toISOString(),
+        userFullName: reaction.fullName,
+        userUsername: reaction.username
+      }));
+    } catch (error) {
+      console.error("Error getting reactions for news:", error);
       return [];
     }
   }
