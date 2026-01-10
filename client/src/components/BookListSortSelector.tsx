@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowDownWideNarrow } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -8,16 +8,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 
-export type SortOption = 'views' | 'readerOpens' | 'rating' | 'comments' | 'reviews' | 'shelfCount';
+export type SortOption = 'views' | 'readerOpens' | 'rating' | 'comments' | 'reviews' | 'shelfCount' | 'uploadedAt' | 'publishedAt';
+
+export type SortDirection = 'asc' | 'desc';
 
 interface BookListSortSelectorProps {
   value: SortOption;
+  direction?: SortDirection;
+  onDirectionChange?: (direction: SortDirection) => void;
   onChange: (value: SortOption) => void;
   className?: string;
 }
 
-export function BookListSortSelector({ value, onChange, className }: BookListSortSelectorProps) {
+export function BookListSortSelector({ value, direction = 'desc', onDirectionChange, onChange, className }: BookListSortSelectorProps) {
   const { t } = useTranslation(['common']);
 
   const sortOptions: { value: SortOption; label: string }[] = [
@@ -27,11 +32,31 @@ export function BookListSortSelector({ value, onChange, className }: BookListSor
     { value: 'comments', label: t('common:sort.byComments') },
     { value: 'reviews', label: t('common:sort.byReviews') },
     { value: 'shelfCount', label: t('common:sort.byShelfCount') },
+    { value: 'uploadedAt', label: t('common:sort.byUploadDate') },
+    { value: 'publishedAt', label: t('common:sort.byPublicationDate') },
   ];
+
+  const toggleDirection = () => {
+    const newDirection = direction === 'asc' ? 'desc' : 'asc';
+    if (onDirectionChange) {
+      onDirectionChange(newDirection);
+    }
+  };
 
   return (
     <div className={`flex items-center gap-2 ${className || ''}`}>
-      <ArrowDownWideNarrow className="w-4 h-4 text-muted-foreground" />
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={toggleDirection}
+        className="p-2 h-8 w-8 flex items-center justify-center"
+      >
+        {direction === 'desc' ? (
+          <ArrowDownWideNarrow className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <ArrowUpNarrowWide className="w-4 h-4 text-muted-foreground" />
+        )}
+      </Button>
       <Select value={value} onValueChange={(val) => onChange(val as SortOption)}>
         <SelectTrigger className="w-[180px] h-8 text-sm">
           <SelectValue placeholder={t('common:sort.label')} />
@@ -49,25 +74,49 @@ export function BookListSortSelector({ value, onChange, className }: BookListSor
 }
 
 // Helper function to sort books client-side
-export function sortBooks<T extends Record<string, any>>(books: T[], sortBy: SortOption): T[] {
-  return [...books].sort((a, b) => {
+export function sortBooks<T extends Record<string, any>>(books: T[], sortBy: SortOption, direction: SortDirection = 'desc'): T[] {
+  const sortedBooks = [...books].sort((a, b) => {
+    let result = 0;
     switch (sortBy) {
       case 'views':
-        return (b.cardViewCount || 0) - (a.cardViewCount || 0);
+        result = (b.cardViewCount || 0) - (a.cardViewCount || 0);
+        break;
       case 'readerOpens':
-        return (b.readerOpenCount || 0) - (a.readerOpenCount || 0);
+        result = (b.readerOpenCount || 0) - (a.readerOpenCount || 0);
+        break;
       case 'rating':
         const ratingA = a.rating != null ? Number(a.rating) : 0;
         const ratingB = b.rating != null ? Number(b.rating) : 0;
-        return ratingB - ratingA;
+        result = ratingB - ratingA;
+        break;
       case 'comments':
-        return (b.commentCount || 0) - (a.commentCount || 0);
+        result = (b.commentCount || 0) - (a.commentCount || 0);
+        break;
       case 'reviews':
-        return (b.reviewCount || 0) - (a.reviewCount || 0);
+        result = (b.reviewCount || 0) - (a.reviewCount || 0);
+        break;
       case 'shelfCount':
-        return (b.shelfCount || 0) - (a.shelfCount || 0);
+        result = (b.shelfCount || 0) - (a.shelfCount || 0);
+        break;
+      case 'uploadedAt':
+        // Sort by upload date
+        const uploadedAtA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+        const uploadedAtB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+        result = uploadedAtB - uploadedAtA;
+        break;
+      case 'publishedAt':
+        // Sort by publication date, nulls last
+        const publishedAtA = a.publishedAt ? new Date(a.publishedAt).getTime() : -Infinity;
+        const publishedAtB = b.publishedAt ? new Date(b.publishedAt).getTime() : -Infinity;
+        result = publishedAtB - publishedAtA;
+        break;
       default:
-        return 0;
+        result = 0;
     }
+    
+    // Reverse the result if direction is ascending
+    return direction === 'asc' ? -result : result;
   });
+  
+  return sortedBooks;
 }

@@ -22,6 +22,8 @@
     "byRating": "По рейтингу",
     "byComments": "По комментариям",
     "byReviews": "По рецензиям",
-    "byShelfCount": "По добавлениям на полку"
+    "byShelfCount": "По добавлениям на полку",
+    "byUploadDate": "По дате добавления",
+    "byPublicationDate": "По дате публикации"
   }
 }

@@ -13,14 +13,84 @@ import {
   SheetPortal,
   SheetOverlay,
 } from '@/components/ui/sheet';
-import { Menu, BookOpen, Search, User, X, MessageCircle } from 'lucide-react';
+import { Menu, BookOpen, Search, User, X, MessageCircle, Globe, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { onSocketEvent } from '@/lib/socket';
 
 export function MobileMenu() {
-  const { user, isLoading } = useAuth();
-  const { t } = useTranslation(['navigation', 'common']);
+  const { user, isLoading, refreshUser } = useAuth();
+  const { t, i18n } = useTranslation(['navigation', 'common']);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Language configuration with flag indicators using colored blocks
+  const LANGUAGES = [
+    { 
+      code: 'en', 
+      icon: (
+        <div className="relative w-5 h-5 rounded-sm border border-gray-300 overflow-hidden flex-shrink-0" style={{ backgroundColor: '#B22234' }}>
+          <div className="absolute top-0 left-0 w-full h-full flex flex-col">
+            <div className="w-full flex-1 bg-[#B22234]"></div>
+            <div className="w-full flex-1 bg-white"></div>
+            <div className="w-full flex-1 bg-[#B22234]"></div>
+            <div className="w-full flex-1 bg-white"></div>
+            <div className="w-full flex-1 bg-[#B22234]"></div>
+            <div className="w-full flex-1 bg-white"></div>
+            <div className="w-full flex-1 bg-[#B22234]"></div>
+          </div>
+          <div className="absolute top-0 left-0 w-[45%] h-[55%] bg-[#3C3B6E]"></div>
+        </div>
+      ),
+      name: 'English' 
+    },
+    { 
+      code: 'ru', 
+      icon: (
+        <div className="flex flex-col w-5 h-5 rounded-sm border border-gray-300 overflow-hidden flex-shrink-0">
+          <div className="h-1/3 bg-white"></div>
+          <div className="h-1/3 bg-[#0039A6]"></div>
+          <div className="h-1/3 bg-[#D52B1E]"></div>
+        </div>
+      ),
+      name: 'Русский' 
+    },
+  ];
+
+  const handleLanguageChange = async (newLanguage: string) => {
+    if (newLanguage === i18n.language) return;
+    
+    try {
+      await i18n.changeLanguage(newLanguage);
+      
+      if (user) {
+        const apiUrl = import.meta.env.DEV 
+          ? 'http://localhost:5001/api/profile/language'
+          : '/api/profile/language';
+        
+        const response = await fetch(apiUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          },
+          body: JSON.stringify({ language: newLanguage })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          localStorage.setItem('userData', JSON.stringify(data.user));
+          if (refreshUser) {
+            await refreshUser();
+          }
+        }
+      }
+      
+      localStorage.setItem('i18nextLng', newLanguage);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Failed to change language:', error);
+    }
+  };
 
   // Fetch unread message count
   useEffect(() => {
@@ -81,7 +151,7 @@ export function MobileMenu() {
   }
 
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="text-foreground">
           <Menu className="h-6 w-6" />
@@ -168,6 +238,31 @@ export function MobileMenu() {
                   {t('navigation:profile')} ({user.username})
                 </Link>
               </SheetClose>
+              
+              {/* Language Switcher Section */}
+              <div className="px-6 py-3 text-sm font-medium text-muted-foreground border-b border-muted flex items-center gap-2">
+                <Globe className="w-4 h-4" />
+                {t('navigation:language')}
+              </div>
+              {LANGUAGES.map((lang) => {
+                return (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className={`w-full px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center justify-between ${
+                      i18n.language === lang.code ? 'bg-accent/50' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {lang.icon}
+                      <span>{lang.name}</span>
+                    </div>
+                    {i18n.language === lang.code && (
+                      <Check className="w-4 h-4 text-primary" />
+                    )}
+                  </button>
+                );
+              })}
             </>
           ) : (
             <div className="space-y-2 px-4">
@@ -185,6 +280,33 @@ export function MobileMenu() {
                   </Link>
                 </Button>
               </SheetClose>
+              
+              {/* Language Switcher Section for non-authenticated users */}
+              <div className="pt-4 border-t mt-4">
+                <div className="px-2 py-2 text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  {t('navigation:language')}
+                </div>
+                {LANGUAGES.map((lang) => {
+                  return (
+                    <button
+                      key={lang.code}
+                      onClick={() => handleLanguageChange(lang.code)}
+                      className={`w-full px-2 py-2 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer rounded-md flex items-center justify-between ${
+                        i18n.language === lang.code ? 'bg-accent/50' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {lang.icon}
+                        <span>{lang.name}</span>
+                      </div>
+                      {i18n.language === lang.code && (
+                        <Check className="w-4 h-4 text-primary" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

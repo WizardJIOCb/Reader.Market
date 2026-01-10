@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/SearchBar';
 import { BookCard } from '@/components/BookCard';
 import { PageHeader } from '@/components/PageHeader';
-import { BookListSortSelector, sortBooks, type SortOption } from '@/components/BookListSortSelector';
+import { BookListSortSelector, sortBooks, type SortOption, type SortDirection } from '@/components/BookListSortSelector';
 
 
 import { useToast } from '@/hooks/use-toast';
@@ -59,6 +59,7 @@ export default function SearchPage() {
   
   // Sort state
   const [sortBy, setSortBy] = useState<SortOption>('rating');
+  const [sortDir, setSortDir] = useState<SortDirection>('desc');
 
   // Check for query parameter in URL when component mounts
   useEffect(() => {
@@ -180,7 +181,7 @@ export default function SearchPage() {
       return true;
     });
     
-    return sortBooks(filtered, sortBy);
+    return sortBooks(filtered, sortBy, sortDir);
   }, [books, selectedGenres, selectedStyles, yearRange, sortBy]);
 
 
@@ -252,7 +253,7 @@ export default function SearchPage() {
                 ? t('search:allBooks')
                 : `${t('search:booksFound')}: ${filteredBooks.length}`}
             </h2>
-            <BookListSortSelector value={sortBy} onChange={setSortBy} />
+            <BookListSortSelector value={sortBy} direction={sortDir} onDirectionChange={setSortDir} onChange={setSortBy} />
           </div>
 
           {loading ? (
