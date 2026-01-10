@@ -154,6 +154,7 @@ export interface IStorage {
   
   // Comment operations
   createComment(commentData: any): Promise<any>;
+  getCommentById(id: string): Promise<any | undefined>;
   getComments(bookId: string): Promise<any[]>;
   getAllComments(): Promise<any[]>;
   updateComment(id: string, commentData: any): Promise<any>;
@@ -192,6 +193,11 @@ export interface IStorage {
   getAllNews(): Promise<any[]>;
   updateNews(id: string, newsData: any): Promise<any>;
   deleteNews(id: string): Promise<void>;
+  incrementNewsViewCount(newsId: string): Promise<void>;
+  createNewsComment(commentData: any): Promise<any>;
+  getNewsComments(newsId: string, userId?: string): Promise<any[]>;
+  createNewsReaction(reactionData: any): Promise<any>;
+  getNewsReactions(newsId: string): Promise<any[]>;
   updateAccessLevel(userId: string, accessLevel: string): Promise<User>;
   getUsersWithStats(limit: number, offset: number): Promise<any[]>;
   getRecentActivity(limit: number): Promise<any[]>;
@@ -1604,7 +1610,49 @@ export class DBStorage implements IStorage {
       throw error;
     }
   }
-
+    
+  async getCommentById(id: string): Promise<any | undefined> {
+    try {
+      // Get the comment with user information
+      const result = await db.select({
+        id: comments.id,
+        userId: comments.userId,
+        bookId: comments.bookId,
+        newsId: comments.newsId,
+        content: comments.content,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.id, id));
+        
+      if (result.length === 0) {
+        return undefined; // Comment not found
+      }
+        
+      // Format the response to match what the frontend expects
+      const comment = result[0];
+      return {
+        id: comment.id,
+        userId: comment.userId,
+        bookId: comment.bookId,
+        newsId: comment.newsId,
+        content: comment.content,
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
+        author: comment.fullName || comment.username || 'Anonymous',
+        avatarUrl: comment.avatarUrl || null
+      };
+    } catch (error) {
+      console.error("Error getting comment by ID:", error);
+      return undefined;
+    }
+  }
+    
   async createReview(reviewData: any): Promise<any> {
     try {
       console.log('Creating review with data:', reviewData);
@@ -2359,25 +2407,48 @@ export class DBStorage implements IStorage {
   
   async incrementBookViewCount(bookId: string, viewType: string): Promise<any> {
     try {
-      // Use upsert to atomically increment the view count
-      const result = await db.insert(bookViewStatistics)
-        .values({ 
-          bookId, 
-          viewType, 
-          viewCount: 1,
-          lastViewedAt: new Date()
-        })
-        .onConflictDoUpdate({
-          target: [bookViewStatistics.bookId, bookViewStatistics.viewType],
-          set: {
+      // First check if a record already exists for this bookId and viewType
+      const existingRecord = await db.select().from(bookViewStatistics)
+        .where(
+          and(
+            eq(bookViewStatistics.bookId, bookId),
+            eq(bookViewStatistics.viewType, viewType)
+          )
+        )
+        .limit(1);
+      
+      if (existingRecord.length > 0) {
+        // If record exists, update it
+        const result = await db.update(bookViewStatistics)
+          .set({
             viewCount: sql`${bookViewStatistics.viewCount} + 1`,
             lastViewedAt: new Date(),
             updatedAt: new Date()
-          }
-        })
-        .returning();
-      
-      return result[0];
+          })
+          .where(
+            and(
+              eq(bookViewStatistics.bookId, bookId),
+              eq(bookViewStatistics.viewType, viewType)
+            )
+          )
+          .returning();
+        
+        return result[0];
+      } else {
+        // If record doesn't exist, insert a new one
+        const result = await db.insert(bookViewStatistics)
+          .values({ 
+            bookId, 
+            viewType, 
+            viewCount: 1,
+            lastViewedAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          })
+          .returning();
+        
+        return result[0];
+      }
     } catch (error) {
       console.error("Error incrementing book view count:", error);
       throw error;
@@ -2476,16 +2547,229 @@ export class DBStorage implements IStorage {
   
   async getNews(id: string): Promise<any | undefined> {
     try {
-      const result = await db.select().from(news).where(eq(news.id, id));
+      // Get news with author information
+      const result = await db.select({
+        id: news.id,
+        title: news.title,
+        content: news.content,
+        authorId: news.authorId,
+        published: news.published,
+        publishedAt: news.publishedAt,
+        viewCount: news.viewCount,
+        commentCount: news.commentCount,
+        reactionCount: news.reactionCount,
+        createdAt: news.createdAt,
+        updatedAt: news.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(news)
+      .leftJoin(users, eq(news.authorId, users.id))
+      .where(eq(news.id, id));
       
       if (result.length === 0) {
         return undefined;
       }
       
-      return result[0];
+      const newsItem = result[0];
+      return {
+        id: newsItem.id,
+        title: newsItem.title,
+        content: newsItem.content,
+        authorId: newsItem.authorId,
+        published: newsItem.published,
+        publishedAt: newsItem.publishedAt?.toISOString() || null,
+        viewCount: newsItem.viewCount,
+        commentCount: newsItem.commentCount,
+        reactionCount: newsItem.reactionCount,
+        createdAt: newsItem.createdAt.toISOString(),
+        updatedAt: newsItem.updatedAt.toISOString(),
+        author: newsItem.fullName || newsItem.username || 'Anonymous',
+        avatarUrl: newsItem.avatarUrl || null
+      };
     } catch (error) {
       console.error("Error getting news:", error);
       return undefined;
+    }
+  }
+  
+  async incrementNewsViewCount(newsId: string): Promise<void> {
+    try {
+      await db.update(news)
+        .set({ viewCount: sql`${news.viewCount} + 1`, updatedAt: new Date() })
+        .where(eq(news.id, newsId));
+    } catch (error) {
+      console.error("Error incrementing news view count:", error);
+      throw error;
+    }
+  }
+  
+  async createNewsComment(commentData: any): Promise<any> {
+    try {
+      const result = await db.insert(comments).values({
+        userId: commentData.userId,
+        newsId: commentData.newsId,
+        content: commentData.content,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      
+      // Increment comment count in news
+      await db.update(news)
+        .set({ commentCount: sql`${news.commentCount} + 1`, updatedAt: new Date() })
+        .where(eq(news.id, commentData.newsId));
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error creating news comment:", error);
+      throw error;
+    }
+  }
+  
+  async getNewsComments(newsId: string, userId?: string): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: comments.id,
+        userId: comments.userId,
+        newsId: comments.newsId,
+        content: comments.content,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.newsId, newsId))
+      .orderBy(desc(comments.createdAt));
+      
+      // For each comment, get its reactions
+      const commentsWithReactions = await Promise.all(result.map(async item => {
+        // Get reactions for this comment
+        const commentReactions = await this.getReactions(item.id, true); // true for comment reactions
+        
+        // Group and aggregate reactions by emoji
+        const reactionsMap: Record<string, any[]> = {};
+        
+        // Group reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        commentReactions.forEach((reaction: any) => {
+          const key = reaction.emoji;
+          if (!groupedReactions[key]) {
+            groupedReactions[key] = [];
+          }
+          groupedReactions[key].push(reaction);
+        });
+        
+        // Create aggregated reactions array
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          // Check if the current user has reacted with this emoji
+          const userReacted = userId ? reactionList.some((reaction: any) => reaction.userId === userId) : false;
+          
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted
+          });
+        });
+        
+        return {
+          id: item.id,
+          userId: item.userId,
+          newsId: item.newsId,
+          content: item.content,
+          createdAt: item.createdAt.toISOString(),
+          updatedAt: item.updatedAt.toISOString(),
+          author: item.fullName || item.username || 'Anonymous',
+          avatarUrl: item.avatarUrl || null,
+          reactions: aggregatedReactions
+        };
+      }));
+      
+      return commentsWithReactions;
+    } catch (error) {
+      console.error("Error getting news comments:", error);
+      return [];
+    }
+  }
+  
+  async createNewsReaction(reactionData: any): Promise<any> {
+    try {
+      // Check if user already reacted to this news with the same emoji
+      const existingReaction = await db.select()
+        .from(reactions)
+        .where(
+          and(
+            eq(reactions.userId, reactionData.userId),
+            eq(reactions.newsId, reactionData.newsId),
+            eq(reactions.emoji, reactionData.emoji)
+          )
+        );
+      
+      if (existingReaction.length > 0) {
+        // User already reacted with this emoji, remove it
+        await db.delete(reactions)
+          .where(eq(reactions.id, existingReaction[0].id));
+        
+        // Decrement reaction count in news
+        await db.update(news)
+          .set({ reactionCount: sql`${news.reactionCount} - 1`, updatedAt: new Date() })
+          .where(eq(news.id, reactionData.newsId));
+        
+        return { success: true, action: 'removed' };
+      } else {
+        // Create new reaction
+        const result = await db.insert(reactions).values({
+          userId: reactionData.userId,
+          newsId: reactionData.newsId,
+          emoji: reactionData.emoji,
+          createdAt: new Date()
+        }).returning();
+        
+        // Increment reaction count in news
+        await db.update(news)
+          .set({ reactionCount: sql`${news.reactionCount} + 1`, updatedAt: new Date() })
+          .where(eq(news.id, reactionData.newsId));
+        
+        return { ...result[0], action: 'added' };
+      }
+    } catch (error) {
+      console.error("Error creating news reaction:", error);
+      throw error;
+    }
+  }
+  
+  async getNewsReactions(newsId: string): Promise<any[]> {
+    try {
+      // Get all reactions for this news grouped by emoji
+      const allReactions = await db.select({
+        emoji: reactions.emoji,
+        userId: reactions.userId,
+        createdAt: reactions.createdAt
+      })
+      .from(reactions)
+      .where(eq(reactions.newsId, newsId));
+      
+      // Group reactions by emoji and count them
+      const reactionsMap: { [key: string]: any[] } = {};
+      allReactions.forEach(reaction => {
+        if (!reactionsMap[reaction.emoji]) {
+          reactionsMap[reaction.emoji] = [];
+        }
+        reactionsMap[reaction.emoji].push(reaction);
+      });
+      
+      // Format the result
+      return Object.entries(reactionsMap).map(([emoji, reactionList]) => ({
+        emoji,
+        count: reactionList.length
+      }));
+    } catch (error) {
+      console.error("Error getting news reactions:", error);
+      return [];
     }
   }
   
@@ -2499,6 +2783,9 @@ export class DBStorage implements IStorage {
         authorId: news.authorId,
         published: news.published,
         publishedAt: news.publishedAt,
+        viewCount: news.viewCount,
+        commentCount: news.commentCount,
+        reactionCount: news.reactionCount,
         createdAt: news.createdAt,
         updatedAt: news.updatedAt,
         username: users.username,
@@ -2518,6 +2805,9 @@ export class DBStorage implements IStorage {
         authorId: item.authorId,
         published: item.published,
         publishedAt: item.publishedAt?.toISOString() || null,
+        viewCount: item.viewCount,
+        commentCount: item.commentCount,
+        reactionCount: item.reactionCount,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
         author: item.fullName || item.username || 'Anonymous',

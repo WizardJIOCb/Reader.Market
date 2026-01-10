@@ -163,10 +163,10 @@ const CommentsModeration: React.FC = () => {
                               rel="noopener noreferrer"
                               className="font-medium text-primary hover:underline"
                             >
-                              {comment.author}
+                              {comment.author || 'Anonymous'}
                             </a>
                           ) : (
-                            <span className="font-medium">{comment.author}</span>
+                            <span className="font-medium">{comment.author || 'Anonymous'}</span>
                           )}
                           <span className="mx-2 text-muted-foreground">•</span>
                           <span className="text-sm text-muted-foreground">

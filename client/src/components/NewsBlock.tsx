@@ -14,6 +14,9 @@ interface NewsItem {
   avatarUrl?: string | null;
   createdAt: string;
   publishedAt: string | null;
+  viewCount: number;
+  commentCount: number;
+  reactionCount: number;
 }
 
 const NewsBlock: React.FC = () => {
@@ -95,7 +98,14 @@ const NewsBlock: React.FC = () => {
             newsItems.map((newsItem) => (
               <Card key={newsItem.id}>
                 <CardHeader>
-                  <CardTitle>{newsItem.title}</CardTitle>
+                  <CardTitle>
+                    <a 
+                      href={`/news/${newsItem.id}`}
+                      className="text-primary hover:underline"
+                    >
+                      {newsItem.title}
+                    </a>
+                  </CardTitle>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Avatar className="w-8 h-8">
                       {newsItem.avatarUrl ? (
@@ -122,7 +132,18 @@ const NewsBlock: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground whitespace-pre-line">{newsItem.content}</p>
+                  <p className="text-muted-foreground whitespace-pre-line mb-3">{newsItem.content}</p>
+                  <div className="flex gap-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      👁️ {newsItem.viewCount} {t('common:views')}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      💬 {newsItem.commentCount} {t('common:comments')}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      ❤️ {newsItem.reactionCount} {t('common:reactions')}
+                    </span>
+                  </div>
                 </CardContent>
               </Card>
             ))

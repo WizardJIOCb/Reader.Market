@@ -665,10 +665,213 @@ export async function registerRoutes(
         return res.status(404).json({ error: "News item not found" });
       }
       
+      // Increment view count
+      await storage.incrementNewsViewCount(id);
+      
       res.json(newsItem);
     } catch (error) {
       console.error("Get news by ID error:", error);
       res.status(500).json({ error: "Failed to get news item" });
+    }
+  });
+  
+  // Get news comments
+  app.get("/api/news/:id/comments", authenticateToken, async (req, res) => {
+    console.log("Get news comments endpoint called for news ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      const comments = await storage.getNewsComments(id, userId);
+      console.log("Returning", comments.length, "comments for news ID:", id);
+      res.json(comments);
+    } catch (error) {
+      console.error("Get news comments error:", error);
+      res.status(500).json({ error: "Failed to get news comments" });
+    }
+  });
+  
+  // Post news comment
+  app.post("/api/news/:id/comments", authenticateToken, async (req, res) => {
+    console.log("Post news comment endpoint called for news ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const { content } = req.body;
+      const userId = (req as any).user.userId;
+      
+      console.log("Received comment data - userId:", userId, "newsId:", id, "content:", content);
+      
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+      
+      const comment = await storage.createNewsComment({
+        userId,
+        newsId: id,
+        content
+      });
+      
+      console.log("Created comment with ID:", comment.id);
+      res.json(comment);
+    } catch (error) {
+      console.error("Post news comment error:", error);
+      res.status(500).json({ error: "Failed to post news comment" });
+    }
+  });
+  
+  // Get news reactions
+  app.get("/api/news/:id/reactions", authenticateToken, async (req, res) => {
+    console.log("Get news reactions endpoint called for news ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const reactions = await storage.getNewsReactions(id);
+      console.log("Returning", reactions.length, "reactions for news ID:", id);
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get news reactions error:", error);
+      res.status(500).json({ error: "Failed to get news reactions" });
+    }
+  });
+  
+  // Post news reaction
+  app.post("/api/news/:id/reactions", authenticateToken, async (req, res) => {
+    console.log("Post news reaction endpoint called for news ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const { emoji } = req.body;
+      const userId = (req as any).user.userId;
+      
+      console.log("Received reaction data - userId:", userId, "newsId:", id, "emoji:", emoji);
+      
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      const reaction = await storage.createNewsReaction({
+        userId,
+        newsId: id,
+        emoji
+      });
+      
+      console.log("Created reaction with ID:", reaction.id);
+      res.json(reaction);
+    } catch (error) {
+      console.error("Post news reaction error:", error);
+      res.status(500).json({ error: "Failed to post news reaction" });
+    }
+  });
+  
+  // Get news comment reactions
+  app.get("/api/news/comments/:commentId/reactions", authenticateToken, async (req, res) => {
+    console.log("Get news comment reactions endpoint called for comment ID:", req.params.commentId);
+    try {
+      const { commentId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Verify that the comment exists
+      const comment = await storage.getCommentById(commentId);
+      if (!comment) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      
+      // Get reactions for this comment
+      const reactions = await storage.getReactions(commentId, true); // true for comment reactions (not using getReactionsForItem)
+      
+      // Group and aggregate reactions by emoji
+      const reactionsMap: Record<string, any[]> = {};
+      
+      // Group reactions by emoji
+      const groupedReactions: Record<string, any[]> = {};
+      reactions.forEach((reaction: any) => {
+        const key = reaction.emoji;
+        if (!groupedReactions[key]) {
+          groupedReactions[key] = [];
+        }
+        groupedReactions[key].push(reaction);
+      });
+      
+      // Aggregate reactions
+      const aggregatedReactions: any[] = [];
+      Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+        // Check if current user reacted with this emoji
+        const userReacted = reactionList.some(reaction => reaction.userId === userId);
+        
+        aggregatedReactions.push({
+          emoji,
+          count: reactionList.length,
+          userReacted
+        });
+      });
+      
+      res.json(aggregatedReactions);
+    } catch (error) {
+      console.error("Get news comment reactions error:", error);
+      res.status(500).json({ error: "Failed to get news comment reactions" });
+    }
+  });
+  
+  // Post news comment reaction
+  app.post("/api/news/comments/:commentId/reactions", authenticateToken, async (req, res) => {
+    console.log("Post news comment reaction endpoint called for comment ID:", req.params.commentId);
+    try {
+      const { commentId } = req.params;
+      const { emoji } = req.body;
+      const userId = (req as any).user.userId;
+      
+      console.log("Received comment reaction data - userId:", userId, "commentId:", commentId, "emoji:", emoji);
+      
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      // Verify that the comment exists
+      const comment = await storage.getCommentById(commentId);
+      if (!comment) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      
+      // Check if user already reacted with this emoji
+      // Using createReaction which acts as a toggle
+      const reactionResult = await storage.createReaction({
+        userId,
+        commentId,
+        emoji
+      });
+      
+      let action = 'added';
+      if (reactionResult.removed) {
+        action = 'removed';
+      }
+      
+      // Get all reactions for this comment
+      const updatedReactions = await storage.getReactions(commentId, true);
+      
+      // Group and aggregate reactions by emoji
+      const groupedReactions: Record<string, any[]> = {};
+      updatedReactions.forEach((reaction: any) => {
+        const key = reaction.emoji;
+        if (!groupedReactions[key]) {
+          groupedReactions[key] = [];
+        }
+        groupedReactions[key].push(reaction);
+      });
+      
+      // Aggregate reactions
+      const aggregatedReactions: any[] = [];
+      Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+        const userReacted = reactionList.some((reaction: any) => reaction.userId === userId);
+        
+        aggregatedReactions.push({
+          emoji,
+          count: reactionList.length,
+          userReacted
+        });
+      });
+      
+      console.log(action === 'added' ? "Added" : "Removed", "reaction to comment with ID:", commentId);
+      res.json({ action, reactions: aggregatedReactions });
+    } catch (error) {
+      console.error("Post news comment reaction error:", error);
+      res.status(500).json({ error: "Failed to post news comment reaction" });
     }
   });
   

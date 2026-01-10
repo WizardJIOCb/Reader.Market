@@ -1,13 +1,17 @@
 @echo off
-echo Stopping Node.js processes...
-taskkill /F /IM node.exe 2>nul
-if errorlevel 1 (
-    echo No Node.js processes found
-) else (
-    echo Node.js processes stopped
-)
-timeout /t 2 /nobreak >nul
+
+echo ========================================
+echo RESTARTING DEVELOPMENT ENVIRONMENT
+echo ========================================
+
+echo Stopping all development processes...
+call stop-dev.bat
+
 echo.
-echo Starting dev server...
-cd /d C:\Projects\reader.market
-npm run dev
+echo Starting development environment with fresh build...
+call start-dev.bat
+
+echo.
+echo ========================================
+echo DEVELOPMENT ENVIRONMENT RESTARTED
+echo ========================================

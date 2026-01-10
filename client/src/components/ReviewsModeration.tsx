@@ -164,10 +164,10 @@ const ReviewsModeration: React.FC = () => {
                               rel="noopener noreferrer"
                               className="font-medium text-primary hover:underline"
                             >
-                              {review.author}
+                              {review.author || 'Anonymous'}
                             </a>
                           ) : (
-                            <span className="font-medium">{review.author}</span>
+                            <span className="font-medium">{review.author || 'Anonymous'}</span>
                           )}
                           <span className="mx-2 text-muted-foreground">•</span>
                           <span className="text-sm text-muted-foreground">

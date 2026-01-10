@@ -15,6 +15,13 @@
   "loadingNews": "Loading news...",
   "noNews": "No news items available at the moment.",
   "by": "By",
+  "back": "Back",
+  "views": "views",
+  "comments": "comments",
+  "reactions": "reactions",
+  "writeComment": "Write a comment...",
+  "noCommentsYet": "No comments yet",
+  "postComment": "Send",
   "sort": {
     "label": "Sort by",
     "byViews": "By Views",
