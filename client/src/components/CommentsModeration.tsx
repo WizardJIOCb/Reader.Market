@@ -11,8 +11,10 @@ interface Comment {
   author: string;
   userId?: string;
   avatarUrl?: string | null;
-  bookId: string;
+  bookId?: string;
+  newsId?: string;
   bookTitle?: string;
+  newsTitle?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,25 +39,44 @@ const CommentsModeration: React.FC = () => {
       const response = await apiCall('/api/admin/comments/pending');
       const data = await response.json();
       
-      // Fetch book titles for each comment
-      const commentsWithBooks = await Promise.all(data.map(async (comment: Comment) => {
+      // Fetch book or news titles for each comment
+      const commentsWithEntities = await Promise.all(data.map(async (comment: Comment) => {
         try {
-          const bookResponse = await apiCall(`/api/books/${comment.bookId}`);
-          const bookData = await bookResponse.json();
-          return {
-            ...comment,
-            bookTitle: bookData.title
-          };
+          if (comment.bookId) {
+            // This is a book comment
+            const bookResponse = await apiCall(`/api/books/${comment.bookId}`);
+            const bookData = await bookResponse.json();
+            return {
+              ...comment,
+              bookTitle: bookData.title
+            };
+          } else if (comment.newsId) {
+            // This is a news comment
+            const newsResponse = await apiCall(`/api/news/${comment.newsId}`);
+            const newsData = await newsResponse.json();
+            return {
+              ...comment,
+              newsTitle: newsData.title
+            };
+          } else {
+            // Neither book nor news - shouldn't happen but handle gracefully
+            return {
+              ...comment,
+              bookTitle: 'Unknown Entity',
+              newsTitle: 'Unknown Entity'
+            };
+          }
         } catch (err) {
-          console.error(`Error fetching book ${comment.bookId} for comment ${comment.id}:`, err);
+          console.error(`Error fetching entity for comment ${comment.id}:`, err);
           return {
             ...comment,
-            bookTitle: 'Unknown Book'
+            bookTitle: comment.bookId ? 'Unknown Book' : undefined,
+            newsTitle: comment.newsId ? 'Unknown News' : undefined
           };
         }
       }));
       
-      setComments(commentsWithBooks);
+      setComments(commentsWithEntities);
       setError(null);
     } catch (err) {
       console.error('Error fetching pending comments:', err);
@@ -174,7 +195,13 @@ const CommentsModeration: React.FC = () => {
                           </span>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          Book: <span className="font-medium">{comment.bookTitle || 'Unknown Book'}</span>
+                          {comment.bookId ? (
+                            <span>Book: <span className="font-medium">{comment.bookTitle || 'Unknown Book'}</span></span>
+                          ) : comment.newsId ? (
+                            <span>News: <span className="font-medium">{comment.newsTitle || 'Unknown News'}</span></span>
+                          ) : (
+                            <span>Entity: <span className="font-medium">Unknown</span></span>
+                          )}
                         </div>
                       {editingComment && editingComment.id === comment.id ? (
                         <div className="mt-2">
@@ -222,7 +249,13 @@ const CommentsModeration: React.FC = () => {
                             <Button 
                               variant="secondary" 
                               size="sm" 
-                              onClick={() => window.open(`/book/${comment.bookId}`, '_blank', 'noopener,noreferrer')}
+                              onClick={() => {
+                                if (comment.bookId) {
+                                  window.open(`/book/${comment.bookId}`, '_blank', 'noopener,noreferrer');
+                                } else if (comment.newsId) {
+                                  window.open(`/news/${comment.newsId}`, '_blank', 'noopener,noreferrer');
+                                }
+                              }}
                             >
                               Show
                             </Button>

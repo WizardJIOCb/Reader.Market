@@ -206,3 +206,16 @@ export const adminBooksApi = {
     method: 'DELETE',
   }),
 };
+
+export const newsReactionsApi = {
+  getNewsReactions: (newsId: string) => apiCall(`/api/admin/news/${newsId}/reactions`),
+  
+  updateNewsReactionCount: (newsId: string, reactionCount: number) => apiCall(`/api/admin/news/${newsId}/reaction-count`, {
+    method: 'PUT',
+    body: JSON.stringify({ reactionCount }),
+  }),
+  
+  deleteReaction: (reactionId: string) => apiCall(`/api/admin/reactions/${reactionId}`, {
+    method: 'DELETE',
+  }),
+};
