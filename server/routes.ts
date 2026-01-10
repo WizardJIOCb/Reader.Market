@@ -954,7 +954,8 @@ export async function registerRoutes(
   app.get("/api/books/popular", authenticateToken, async (req, res) => {
     console.log("Get popular books endpoint called");
     try {
-      const books = await storage.getPopularBooks();
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
+      const books = await storage.getPopularBooks(sortBy);
       res.json(books);
     } catch (error) {
       console.error("Get popular books error:", error);
@@ -967,7 +968,8 @@ export async function registerRoutes(
     console.log("Get books by genre endpoint called");
     try {
       const { genre } = req.params;
-      const books = await storage.getBooksByGenre(genre);
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
+      const books = await storage.getBooksByGenre(genre, sortBy);
       res.json(books);
     } catch (error) {
       console.error("Get books by genre error:", error);
@@ -979,7 +981,8 @@ export async function registerRoutes(
   app.get("/api/books/recently-reviewed", authenticateToken, async (req, res) => {
     console.log("Get recently reviewed books endpoint called");
     try {
-      const books = await storage.getRecentlyReviewedBooks();
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
+      const books = await storage.getRecentlyReviewedBooks(sortBy);
       res.json(books);
     } catch (error) {
       console.error("Get recently reviewed books error:", error);
@@ -1004,7 +1007,8 @@ export async function registerRoutes(
   app.get("/api/books/new-releases", authenticateToken, async (req, res) => {
     console.log("Get new releases endpoint called");
     try {
-      const books = await storage.getNewReleases();
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
+      const books = await storage.getNewReleases(sortBy);
       console.log("New releases fetched successfully, count:", books.length);
       res.json(books);
     } catch (error) {
@@ -1018,9 +1022,10 @@ export async function registerRoutes(
     console.log("Search books endpoint called");
     try {
       const query = req.query.query ? String(req.query.query) : '';
-      console.log("Search query:", query);
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
+      console.log("Search query:", query, "sortBy:", sortBy);
       
-      let books = await storage.searchBooks(query);
+      let books = await storage.searchBooks(query, sortBy);
       
       // For books without ratings, calculate them
       for (const book of books) {
@@ -1030,7 +1035,7 @@ export async function registerRoutes(
       }
       
       // Fetch the books again with updated ratings
-      books = await storage.searchBooks(query);
+      books = await storage.searchBooks(query, sortBy);
       
       res.json(books);
     } catch (error) {

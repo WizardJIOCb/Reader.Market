@@ -29,6 +29,55 @@ const hasValidRating = (book: any): boolean => {
          !isNaN(Number(book.rating)) &&
          Number(book.rating) !== 0; // Treat 0 as no rating
 };
+
+// SortOption type for book sorting
+type SortOption = 'views' | 'readerOpens' | 'rating' | 'comments' | 'reviews';
+
+// Helper function to sort books by the specified field
+const sortBooksByOption = (books: any[], sortBy?: string): any[] => {
+  if (!sortBy || sortBy === 'rating') {
+    // Default sorting: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
+    return [...books].sort((a, b) => {
+      const ratingANum = a.rating ? Number(a.rating) : 0;
+      const ratingBNum = b.rating ? Number(b.rating) : 0;
+      
+      if (ratingBNum !== ratingANum) {
+        return ratingBNum - ratingANum;
+      }
+      
+      const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
+      const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
+      const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
+      const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
+      
+      const totalEngagementA = reviewCountA + commentCountA;
+      const totalEngagementB = reviewCountB + commentCountB;
+      
+      if (totalEngagementB !== totalEngagementA) {
+        return totalEngagementB - totalEngagementA;
+      }
+      
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }
+  
+  return [...books].sort((a, b) => {
+    switch (sortBy) {
+      case 'views':
+        return (b.cardViewCount || 0) - (a.cardViewCount || 0);
+      case 'readerOpens':
+        return (b.readerOpenCount || 0) - (a.readerOpenCount || 0);
+      case 'comments':
+        return (b.commentCount || 0) - (a.commentCount || 0);
+      case 'reviews':
+        return (b.reviewCount || 0) - (a.reviewCount || 0);
+      case 'shelfCount':
+        return (b.shelfCount || 0) - (a.shelfCount || 0);
+      default:
+        return 0;
+    }
+  });
+};
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
@@ -39,13 +88,13 @@ export interface IStorage {
   // Book operations
   createBook(bookData: any): Promise<any>;
   getBook(id: string): Promise<any | undefined>;
-  searchBooks(query: string): Promise<any[]>;
+  searchBooks(query: string, sortBy?: string): Promise<any[]>;
   deleteBook(id: string, userId: string): Promise<boolean>;
-  getPopularBooks(): Promise<any[]>;
-  getBooksByGenre(genre: string): Promise<any[]>;
-  getRecentlyReviewedBooks(): Promise<any[]>;
+  getPopularBooks(sortBy?: string): Promise<any[]>;
+  getBooksByGenre(genre: string, sortBy?: string): Promise<any[]>;
+  getRecentlyReviewedBooks(sortBy?: string): Promise<any[]>;
   getCurrentUserBooks(userId: string): Promise<any[]>;
-  getNewReleases(): Promise<any[]>;
+  getNewReleases(sortBy?: string): Promise<any[]>;
   
   // Shelf operations
   createShelf(userId: string, shelfData: any): Promise<any>;
@@ -238,7 +287,7 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async searchBooks(query: string): Promise<any[]> {
+  async searchBooks(query: string, sortBy?: string): Promise<any[]> {
     try {
       let result;
       if (query) {
@@ -377,35 +426,8 @@ export class DBStorage implements IStorage {
         };
       }));
       
-      // Sort the books in JavaScript to ensure proper ordering
-      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
-      const sortedBooks = [...resultWithCounts].sort((a, b) => {
-        // Convert ratings to numbers for comparison
-        const ratingANum = a.rating ? Number(a.rating) : 0;
-        const ratingBNum = b.rating ? Number(b.rating) : 0;
-        
-        // First sort by rating (descending)
-        if (ratingBNum !== ratingANum) {
-          return ratingBNum - ratingANum;
-        }
-        
-        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
-        // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
-        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
-        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
-        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
-        
-        const totalEngagementA = reviewCountA + commentCountA;
-        const totalEngagementB = reviewCountB + commentCountB;
-        
-        if (totalEngagementB !== totalEngagementA) {
-          return totalEngagementB - totalEngagementA;
-        }
-        
-        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      // Sort the books using the helper function
+      const sortedBooks = sortBooksByOption(resultWithCounts, sortBy);
       
       return sortedBooks;
     } catch (error) {
@@ -570,35 +592,8 @@ export class DBStorage implements IStorage {
         };
       }));
       
-      // Sort the books in JavaScript to ensure proper ordering
-      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
-      const sortedBooks = [...resultWithCounts].sort((a, b) => {
-        // Convert ratings to numbers for comparison
-        const ratingANum = a.rating ? Number(a.rating) : 0;
-        const ratingBNum = b.rating ? Number(b.rating) : 0;
-        
-        // First sort by rating (descending)
-        if (ratingBNum !== ratingANum) {
-          return ratingBNum - ratingANum;
-        }
-        
-        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
-        // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
-        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
-        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
-        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
-        
-        const totalEngagementA = reviewCountA + commentCountA;
-        const totalEngagementB = reviewCountB + commentCountB;
-        
-        if (totalEngagementB !== totalEngagementA) {
-          return totalEngagementB - totalEngagementA;
-        }
-        
-        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      // Sort the books using the helper function
+      const sortedBooks = sortBooksByOption(resultWithCounts);
       
       console.log('Books fetched with counts:', sortedBooks);
       
@@ -609,7 +604,7 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async getPopularBooks(): Promise<any[]> {
+  async getPopularBooks(sortBy?: string): Promise<any[]> {
     try {
       console.log('Fetching popular books');
       
@@ -682,35 +677,8 @@ export class DBStorage implements IStorage {
         };
       }));
       
-      // Sort the books in JavaScript to ensure proper ordering
-      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
-      const sortedBooks = [...resultWithCounts].sort((a, b) => {
-        // Convert ratings to numbers for comparison
-        const ratingANum = a.rating ? Number(a.rating) : 0;
-        const ratingBNum = b.rating ? Number(b.rating) : 0;
-        
-        // First sort by rating (descending)
-        if (ratingBNum !== ratingANum) {
-          return ratingBNum - ratingANum;
-        }
-        
-        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
-        // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
-        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
-        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
-        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
-        
-        const totalEngagementA = reviewCountA + commentCountA;
-        const totalEngagementB = reviewCountB + commentCountB;
-        
-        if (totalEngagementB !== totalEngagementA) {
-          return totalEngagementB - totalEngagementA;
-        }
-        
-        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      // Sort the books using the helper function
+      const sortedBooks = sortBooksByOption(resultWithCounts, sortBy);
       
       console.log('Popular books fetched with counts:', sortedBooks);
       
@@ -721,7 +689,7 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async getBooksByGenre(genre: string): Promise<any[]> {
+  async getBooksByGenre(genre: string, sortBy?: string): Promise<any[]> {
     try {
       console.log('Fetching books by genre:', genre);
       
@@ -793,35 +761,8 @@ export class DBStorage implements IStorage {
         };
       }));
       
-      // Sort the books in JavaScript to ensure proper ordering
-      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
-      const sortedBooks = [...resultWithCounts].sort((a, b) => {
-        // Convert ratings to numbers for comparison
-        const ratingANum = a.rating ? Number(a.rating) : 0;
-        const ratingBNum = b.rating ? Number(b.rating) : 0;
-        
-        // First sort by rating (descending)
-        if (ratingBNum !== ratingANum) {
-          return ratingBNum - ratingANum;
-        }
-        
-        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
-        // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
-        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
-        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
-        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
-        
-        const totalEngagementA = reviewCountA + commentCountA;
-        const totalEngagementB = reviewCountB + commentCountB;
-        
-        if (totalEngagementB !== totalEngagementA) {
-          return totalEngagementB - totalEngagementA;
-        }
-        
-        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      // Sort the books using the helper function
+      const sortedBooks = sortBooksByOption(resultWithCounts, sortBy);
       
       console.log('Books by genre fetched with counts:', sortedBooks);
       
@@ -832,7 +773,7 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async getRecentlyReviewedBooks(): Promise<any[]> {
+  async getRecentlyReviewedBooks(sortBy?: string): Promise<any[]> {
     try {
       console.log('Fetching recently reviewed books');
       
@@ -926,35 +867,8 @@ export class DBStorage implements IStorage {
         };
       }));
       
-      // Sort the books in JavaScript to ensure proper ordering
-      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
-      const sortedBooks = [...result].sort((a, b) => {
-        // Convert ratings to numbers for comparison
-        const ratingANum = a.rating ? Number(a.rating) : 0;
-        const ratingBNum = b.rating ? Number(b.rating) : 0;
-        
-        // First sort by rating (descending)
-        if (ratingBNum !== ratingANum) {
-          return ratingBNum - ratingANum;
-        }
-        
-        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
-        // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
-        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
-        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
-        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
-        
-        const totalEngagementA = reviewCountA + commentCountA;
-        const totalEngagementB = reviewCountB + commentCountB;
-        
-        if (totalEngagementB !== totalEngagementA) {
-          return totalEngagementB - totalEngagementA;
-        }
-        
-        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      // Sort the books using the helper function
+      const sortedBooks = sortBooksByOption(result, sortBy);
       
       console.log('Recently reviewed books fetched with counts:', sortedBooks);
       
@@ -1053,35 +967,8 @@ export class DBStorage implements IStorage {
         };
       }));
       
-      // Sort the books in JavaScript to ensure proper ordering
-      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
-      const sortedBooks = [...result].sort((a, b) => {
-        // Convert ratings to numbers for comparison
-        const ratingANum = a.rating ? Number(a.rating) : 0;
-        const ratingBNum = b.rating ? Number(b.rating) : 0;
-        
-        // First sort by rating (descending)
-        if (ratingBNum !== ratingANum) {
-          return ratingBNum - ratingANum;
-        }
-        
-        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
-        // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
-        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
-        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
-        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
-        
-        const totalEngagementA = reviewCountA + commentCountA;
-        const totalEngagementB = reviewCountB + commentCountB;
-        
-        if (totalEngagementB !== totalEngagementA) {
-          return totalEngagementB - totalEngagementA;
-        }
-        
-        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      // Sort the books using the helper function
+      const sortedBooks = sortBooksByOption(result);
       
       console.log('Current user books fetched with counts:', sortedBooks);
       
@@ -1092,12 +979,12 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async getNewReleases(): Promise<any[]> {
+  async getNewReleases(sortBy?: string): Promise<any[]> {
     try {
       console.log('Fetching new releases');
       
-      // Get books sorted by published date (descending, nulls last) and then by rating (descending, nulls last), limit to 20
-      const booksResult = await db.select().from(books).orderBy(desc(sql`${books.publishedAt} NULLS LAST`), sql`rating DESC NULLS LAST`).limit(20);
+      // Get books sorted by created date (descending) - showing newest additions to our system first
+      const booksResult = await db.select().from(books).orderBy(desc(books.createdAt)).limit(20);
       console.log('Books result from database:', booksResult.length);
       
       // For books without ratings, calculate them
@@ -1108,7 +995,7 @@ export class DBStorage implements IStorage {
       }
       
       // Fetch the books again with updated ratings
-      const updatedBooksResult = await db.select().from(books).orderBy(desc(sql`${books.publishedAt} NULLS LAST`), sql`rating DESC NULLS LAST`).limit(20);
+      const updatedBooksResult = await db.select().from(books).orderBy(desc(books.createdAt)).limit(20);
       console.log('Updated books result from database:', updatedBooksResult.length);
       
       // For each book, get the comment and review counts
@@ -1166,35 +1053,8 @@ export class DBStorage implements IStorage {
         };
       }));
       
-      // Sort the books in JavaScript to ensure proper ordering
-      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
-      const sortedBooks = [...result].sort((a, b) => {
-        // Convert ratings to numbers for comparison
-        const ratingANum = a.rating ? Number(a.rating) : 0;
-        const ratingBNum = b.rating ? Number(b.rating) : 0;
-        
-        // First sort by rating (descending)
-        if (ratingBNum !== ratingANum) {
-          return ratingBNum - ratingANum;
-        }
-        
-        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
-        // Handle cases where counts might be undefined
-        const reviewCountA = a.reviewCount !== undefined ? Number(a.reviewCount) : 0;
-        const reviewCountB = b.reviewCount !== undefined ? Number(b.reviewCount) : 0;
-        const commentCountA = a.commentCount !== undefined ? Number(a.commentCount) : 0;
-        const commentCountB = b.commentCount !== undefined ? Number(b.commentCount) : 0;
-        
-        const totalEngagementA = reviewCountA + commentCountA;
-        const totalEngagementB = reviewCountB + commentCountB;
-        
-        if (totalEngagementB !== totalEngagementA) {
-          return totalEngagementB - totalEngagementA;
-        }
-        
-        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      // Sort the books using the helper function
+      const sortedBooks = sortBooksByOption(result, sortBy);
       
       console.log('New releases fetched with counts:', sortedBooks);
       
