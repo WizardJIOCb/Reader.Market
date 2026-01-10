@@ -14,5 +14,14 @@
   "stayUpdated": "Stay updated with our latest announcements",
   "loadingNews": "Loading news...",
   "noNews": "No news items available at the moment.",
-  "by": "By"
+  "by": "By",
+  "sort": {
+    "label": "Sort by",
+    "byViews": "By Views",
+    "byReaderOpens": "By Reader Opens",
+    "byRating": "By Rating",
+    "byComments": "By Comments",
+    "byReviews": "By Reviews",
+    "byShelfCount": "By Added to Shelves"
+  }
 }

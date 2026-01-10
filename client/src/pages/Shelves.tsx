@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'wouter';
 import { mockUser } from '@/lib/mockData';
 import { Plus, Search, Book as BookIcon, User, MoreHorizontal, Edit, Trash2, Library, BookPlus } from 'lucide-react';
@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/hooks/use-toast';
 import { useShelves } from '@/hooks/useShelves';
 import { useBooks } from '@/hooks/useBooks';
+import { BookListSortSelector, sortBooks, type SortOption } from '@/components/BookListSortSelector';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +36,10 @@ export default function Shelves() {
   const [shelfBooks, setShelfBooks] = useState<{[key: string]: any[]}>({});
   const { toast } = useToast();
   const { t } = useTranslation(['shelves', 'notifications', 'common']);
+  
+  // Sort states
+  const [searchSortBy, setSearchSortBy] = useState<SortOption>('rating');
+  const [shelfSortBy, setShelfSortBy] = useState<SortOption>('rating');
 
   // Fetch books for all shelves
   useEffect(() => {
@@ -346,10 +351,13 @@ export default function Shelves() {
         {/* Global Search Results (if search query exists) */}
         {searchQuery && (
           <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Search className="w-4 h-4" />
-              {t('shelves:globalSearchResults')}
-            </h2>
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                {t('shelves:globalSearchResults')}
+              </h2>
+              <BookListSortSelector value={searchSortBy} onChange={setSearchSortBy} />
+            </div>
             {isSearching ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -357,7 +365,7 @@ export default function Shelves() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {globalSearchResults.length > 0 ? (
-                  globalSearchResults.map((book: any) => {
+                  sortBooks(globalSearchResults, searchSortBy).map((book: any) => {
                     // Find reading progress for this book
                     const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
                     
@@ -427,10 +435,12 @@ export default function Shelves() {
         {/* Shelf Books Matching Search Query */}
         {searchQuery && (
           <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-              <BookIcon className="w-4 h-4" />
-              {t('shelves:booksOnYourShelves')}
-            </h2>
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <BookIcon className="w-4 h-4" />
+                {t('shelves:booksOnYourShelves')}
+              </h2>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {(() => {
                 // Flatten all shelf books into a single array
@@ -453,7 +463,7 @@ export default function Shelves() {
                 });
                 
                 return matchingShelfBooks.length > 0 ? (
-                  matchingShelfBooks.map((book: any) => {
+                  sortBooks(matchingShelfBooks, searchSortBy).map((book: any) => {
                     // Find reading progress for this book
                     const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
                     
@@ -513,6 +523,11 @@ export default function Shelves() {
 
         {/* Shelves Grid */}
         <div className="space-y-12">
+          {!searchQuery && shelves.length > 0 && (
+            <div className="flex justify-end mb-4">
+              <BookListSortSelector value={shelfSortBy} onChange={setShelfSortBy} />
+            </div>
+          )}
           {shelves.map((shelf) => (
             <section key={shelf.id} className="relative group">
               <div className="flex items-baseline justify-between mb-4">
@@ -554,7 +569,7 @@ export default function Shelves() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {(shelfBooks[shelf.id] || []).map((book: any) => {
+                  {sortBooks(shelfBooks[shelf.id] || [], shelfSortBy).map((book: any) => {
                     // Convert book data to match BookCard expectations
                     const bookData = {
                       id: book.id, // Keep the original ID as string (UUID)

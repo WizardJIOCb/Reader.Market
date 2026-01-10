@@ -23,6 +23,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { BookCard } from '@/components/BookCard';
 import { PageHeader } from '@/components/PageHeader';
 import { useMainPageData } from '@/hooks/useMainPageData';
+import { BookListSortSelector, sortBooks, type SortOption } from '@/components/BookListSortSelector';
 
 
 
@@ -34,6 +35,13 @@ export default function Library() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [yearRange, setYearRange] = useState<[number, number]>([1800, new Date().getFullYear()]);
+  
+  // Sort states for each section
+  const [popularSort, setPopularSort] = useState<SortOption>('rating');
+  const [genreSort, setGenreSort] = useState<SortOption>('rating');
+  const [reviewedSort, setReviewedSort] = useState<SortOption>('rating');
+  const [newReleasesSort, setNewReleasesSort] = useState<SortOption>('rating');
+  const [myBooksSort, setMyBooksSort] = useState<SortOption>('rating');
 
   // Toggle genre selection
   const toggleGenre = (genre: string) => {
@@ -81,11 +89,11 @@ export default function Library() {
     });
   };
 
-  // Filter all book collections
-  const filteredPopularBooks = useMemo(() => filterBooks(data.popularBooks), [data.popularBooks, selectedGenres, selectedStyles, yearRange]);
-  const filteredRecentlyReviewedBooks = useMemo(() => filterBooks(data.recentlyReviewedBooks), [data.recentlyReviewedBooks, selectedGenres, selectedStyles, yearRange]);
-  const filteredNewReleases = useMemo(() => filterBooks(data.newReleases), [data.newReleases, selectedGenres, selectedStyles, yearRange]);
-  const filteredCurrentUserBooks = useMemo(() => filterBooks(data.currentUserBooks), [data.currentUserBooks, selectedGenres, selectedStyles, yearRange]);
+  // Filter all book collections and apply sorting
+  const filteredPopularBooks = useMemo(() => sortBooks(filterBooks(data.popularBooks), popularSort), [data.popularBooks, selectedGenres, selectedStyles, yearRange, popularSort]);
+  const filteredRecentlyReviewedBooks = useMemo(() => sortBooks(filterBooks(data.recentlyReviewedBooks), reviewedSort), [data.recentlyReviewedBooks, selectedGenres, selectedStyles, yearRange, reviewedSort]);
+  const filteredNewReleases = useMemo(() => sortBooks(filterBooks(data.newReleases), newReleasesSort), [data.newReleases, selectedGenres, selectedStyles, yearRange, newReleasesSort]);
+  const filteredCurrentUserBooks = useMemo(() => sortBooks(filterBooks(data.currentUserBooks), myBooksSort), [data.currentUserBooks, selectedGenres, selectedStyles, yearRange, myBooksSort]);
   
   // Get all unique genres from all book collections for the filter options
   const allGenres = useMemo(() => {
@@ -150,14 +158,17 @@ export default function Library() {
 
         {/* Popular Books Section */}
         <section className="mb-12">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
             <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
               <TrendingUp className="w-6 h-6 text-primary" />
               {t('home:popularBooks')}
             </h2>
-            <Link href="/search" className="text-sm text-primary hover:underline">
-              {t('home:allPopular')}
-            </Link>
+            <div className="flex items-center gap-4">
+              <BookListSortSelector value={popularSort} onChange={setPopularSort} />
+              <Link href="/search" className="text-sm text-primary hover:underline">
+                {t('home:allPopular')}
+              </Link>
+            </div>
           </div>
           
           {filteredPopularBooks.length > 0 ? (
@@ -198,10 +209,13 @@ export default function Library() {
         
         {/* Books by Genre */}
         <section className="mb-12">
-          <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2">
-            <Users className="w-6 h-6 text-primary" />
-            {t('home:booksByGenre')}
-          </h2>
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
+              <Users className="w-6 h-6 text-primary" />
+              {t('home:booksByGenre')}
+            </h2>
+            <BookListSortSelector value={genreSort} onChange={setGenreSort} />
+          </div>
                   
           {data.booksByGenre.length > 0 ? (
             <div className="space-y-10">
@@ -209,7 +223,7 @@ export default function Library() {
                 <div key={index}>
                   <h3 className="text-xl font-serif font-bold mb-4">{genreGroup.genre}</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
-                    {genreGroup.books.map((book) => {
+                    {sortBooks(genreGroup.books, genreSort).map((book) => {
                       // Find reading progress for this book
                       const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
                       
@@ -244,14 +258,17 @@ export default function Library() {
 
         {/* Recently Reviewed Books */}
         <section className="mb-12">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
             <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
               <Award className="w-6 h-6 text-primary" />
               {t('home:recentlyReviewed')}
             </h2>
-            <Link href="/search" className="text-sm text-primary hover:underline">
-              {t('home:allReviewed')}
-            </Link>
+            <div className="flex items-center gap-4">
+              <BookListSortSelector value={reviewedSort} onChange={setReviewedSort} />
+              <Link href="/search" className="text-sm text-primary hover:underline">
+                {t('home:allReviewed')}
+              </Link>
+            </div>
           </div>
           
           {filteredRecentlyReviewedBooks.length > 0 ? (
@@ -292,14 +309,17 @@ export default function Library() {
 
         {/* New Releases */}
         <section className="mb-12">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
             <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
               <LibraryIcon className="w-6 h-6 text-primary" />
               {t('home:newReleases')}
             </h2>
-            <Link href="/search" className="text-sm text-primary hover:underline">
-              {t('home:allNew')}
-            </Link>
+            <div className="flex items-center gap-4">
+              <BookListSortSelector value={newReleasesSort} onChange={setNewReleasesSort} />
+              <Link href="/search" className="text-sm text-primary hover:underline">
+                {t('home:allNew')}
+              </Link>
+            </div>
           </div>
           
           {filteredNewReleases.length > 0 ? (
@@ -341,10 +361,13 @@ export default function Library() {
         {/* User's Currently Reading */}
         {user && (
           <section className="mb-12">
-            <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-primary" />
-              {t('home:myBooks')}
-            </h2>
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+              <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
+                <BookOpen className="w-6 h-6 text-primary" />
+                {t('home:myBooks')}
+              </h2>
+              <BookListSortSelector value={myBooksSort} onChange={setMyBooksSort} />
+            </div>
             
             {filteredCurrentUserBooks && filteredCurrentUserBooks.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>

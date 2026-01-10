@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/SearchBar';
 import { BookCard } from '@/components/BookCard';
 import { PageHeader } from '@/components/PageHeader';
+import { BookListSortSelector, sortBooks, type SortOption } from '@/components/BookListSortSelector';
 
 
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +56,9 @@ export default function SearchPage() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [yearRange, setYearRange] = useState<[number, number]>([1800, new Date().getFullYear()]);
+  
+  // Sort state
+  const [sortBy, setSortBy] = useState<SortOption>('rating');
 
   // Check for query parameter in URL when component mounts
   useEffect(() => {
@@ -152,9 +156,9 @@ export default function SearchPage() {
     }
   };
 
-  // Filter Logic
+  // Filter and Sort Logic
   const filteredBooks = useMemo(() => {
-    return books.filter(book => {
+    const filtered = books.filter(book => {
       // Genre Filter
       if (selectedGenres.length > 0) {
         if (!book.genre) return false;
@@ -175,7 +179,9 @@ export default function SearchPage() {
 
       return true;
     });
-  }, [books, selectedGenres, selectedStyles, yearRange]);
+    
+    return sortBooks(filtered, sortBy);
+  }, [books, selectedGenres, selectedStyles, yearRange, sortBy]);
 
 
   const toggleGenre = (genre: string) => {
@@ -240,12 +246,13 @@ export default function SearchPage() {
 
         {/* Results */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <h2 className="text-sm font-medium text-muted-foreground">
               {!searchQuery 
                 ? t('search:allBooks')
                 : `${t('search:booksFound')}: ${filteredBooks.length}`}
             </h2>
+            <BookListSortSelector value={sortBy} onChange={setSortBy} />
           </div>
 
           {loading ? (

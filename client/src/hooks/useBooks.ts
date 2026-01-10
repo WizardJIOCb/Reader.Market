@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { booksApi } from '@/lib/api';
+import type { SortOption } from '@/components/BookListSortSelector';
 
 export interface Book {
   id: string;
@@ -73,7 +74,7 @@ export function useBooks() {
   };
 
   // Fetch popular books
-  const fetchPopularBooks = async () => {
+  const fetchPopularBooks = async (sortBy?: SortOption) => {
     if (!user) {
       return [];
     }
@@ -84,7 +85,8 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('/api/books/popular', {
+      const url = sortBy ? `/api/books/popular?sortBy=${sortBy}` : '/api/books/popular';
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -105,7 +107,7 @@ export function useBooks() {
   };
 
   // Fetch books by genre
-  const fetchBooksByGenre = async (genre: string) => {
+  const fetchBooksByGenre = async (genre: string, sortBy?: SortOption) => {
     if (!user || !genre) {
       return [];
     }
@@ -116,7 +118,10 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`/api/books/genre/${encodeURIComponent(genre)}`, {
+      const url = sortBy 
+        ? `/api/books/genre/${encodeURIComponent(genre)}?sortBy=${sortBy}` 
+        : `/api/books/genre/${encodeURIComponent(genre)}`;
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -137,7 +142,7 @@ export function useBooks() {
   };
 
   // Fetch recently reviewed books
-  const fetchRecentlyReviewedBooks = async () => {
+  const fetchRecentlyReviewedBooks = async (sortBy?: SortOption) => {
     if (!user) {
       return [];
     }
@@ -148,7 +153,8 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('/api/books/recently-reviewed', {
+      const url = sortBy ? `/api/books/recently-reviewed?sortBy=${sortBy}` : '/api/books/recently-reviewed';
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -201,7 +207,7 @@ export function useBooks() {
   };
 
   // Fetch new releases
-  const fetchNewReleases = async () => {
+  const fetchNewReleases = async (sortBy?: SortOption) => {
     if (!user) {
       return [];
     }
@@ -212,7 +218,8 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('/api/books/new-releases', {
+      const url = sortBy ? `/api/books/new-releases?sortBy=${sortBy}` : '/api/books/new-releases';
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
