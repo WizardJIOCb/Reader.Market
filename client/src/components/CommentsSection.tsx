@@ -277,6 +277,15 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
             placeholder={t('books:commentPlaceholder')}
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                // Only submit if validation passes (same as button disabled state)
+                if (newComment.trim() && user && !(attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)) {
+                  handlePostComment();
+                }
+              }
+            }}
             className="min-h-[100px] resize-none"
           />
           {attachmentFiles.length > 0 && (
@@ -364,7 +373,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <p className="text-sm text-foreground/90 leading-relaxed">{comment.content}</p>
+                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{comment.content}</p>
                 {comment.attachments && comment.attachments.length > 0 && (
                   <AttachmentDisplay attachments={comment.attachments} className="mt-2" />
                 )}

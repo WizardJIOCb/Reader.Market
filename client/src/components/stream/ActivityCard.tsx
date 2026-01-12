@@ -291,7 +291,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
       case 'comment':
         return (
           <div>
-            <p className="text-sm">{metadata.content_preview}</p>
+            <p className="text-sm whitespace-pre-line">{metadata.content_preview}</p>
             {/* Interactive reaction bar */}
             <div className="mt-3 pt-3 border-t border-border/50">
               <ReactionBar 
@@ -314,7 +314,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
                 </div>
               )}
             </div>
-            <p className="text-sm">{metadata.content_preview}</p>
+            <p className="text-sm whitespace-pre-line">{metadata.content_preview}</p>
             {/* Interactive reaction bar */}
             <div className="mt-3 pt-3 border-t border-border/50">
               <ReactionBar 

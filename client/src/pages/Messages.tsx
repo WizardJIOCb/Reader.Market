@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -119,6 +120,7 @@ export default function Messages() {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [quotedMessage, setQuotedMessage] = useState<{
@@ -1085,6 +1087,8 @@ export default function Messages() {
           setUploadedFiles([]);
           setQuotedMessage(null); // Clear quoted message after sending
           await fetchConversations(); // Update last message in conversation list
+          // Restore focus to input after sending
+          setTimeout(() => messageInputRef.current?.focus(), 0);
         } else {
           const errorData = await response.json();
           console.error('Message send failed:', errorData);
@@ -1141,6 +1145,8 @@ export default function Messages() {
           await new Promise(resolve => setTimeout(resolve, 100));
           await fetchGroups();
           console.log('%c[SEND MESSAGE] ✅ Group list refreshed', 'color: green; font-weight: bold');
+          // Restore focus to input after sending
+          setTimeout(() => messageInputRef.current?.focus(), 0);
         } else {
           const errorData = await response.json();
           console.error('Channel message send failed:', errorData);
@@ -1163,7 +1169,7 @@ export default function Messages() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -1211,7 +1217,7 @@ export default function Messages() {
   };
   
   // Handle typing indicator
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
     
     if (selectedConversation) {
@@ -1578,7 +1584,7 @@ export default function Messages() {
                               onClick={() => scrollToMessage(message.quotedMessageId!)}
                             />
                           )}
-                          <p className="text-sm break-words overflow-wrap-anywhere">{message.content}</p>
+                          <p className="text-sm break-words overflow-wrap-anywhere whitespace-pre-line">{message.content}</p>
                           {message.attachments && message.attachments.length > 0 && (
                             <div className="mt-2">
                               <AttachmentDisplay attachments={message.attachments} />
@@ -1625,13 +1631,15 @@ export default function Messages() {
                     maxFiles={5}
                   />
                 </div>
-                <Input
+                <Textarea
+                  ref={messageInputRef}
                   placeholder={t('messages:typeMessage')}
                   value={newMessage}
                   onChange={handleInputChange}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   disabled={sending}
-                  className="flex-1 min-w-0"
+                  className="flex-1 min-w-0 min-h-[40px] max-h-[120px] resize-none overflow-y-auto"
+                  rows={1}
                 />
                 <Button onClick={sendMessage} disabled={sending || !newMessage.trim()} size="sm" className="flex-shrink-0">
                   <Send className="w-4 h-4" />
@@ -1817,7 +1825,7 @@ export default function Messages() {
                                   onClick={() => scrollToMessage(message.quotedMessageId!)}
                                 />
                               )}
-                              <p className="text-sm break-words overflow-wrap-anywhere">{message.content}</p>
+                              <p className="text-sm break-words overflow-wrap-anywhere whitespace-pre-line">{message.content}</p>
                               {message.attachments && message.attachments.length > 0 && (
                                 <div className="mt-2">
                                   <AttachmentDisplay attachments={message.attachments} />
@@ -1864,13 +1872,15 @@ export default function Messages() {
                         maxFiles={5}
                       />
                     </div>
-                    <Input
+                    <Textarea
+                      ref={messageInputRef}
                       placeholder={`Message #${selectedChannel.name}`}
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
+                      onKeyDown={handleKeyPress}
                       disabled={sending}
-                      className="flex-1 min-w-0"
+                      className="flex-1 min-w-0 min-h-[40px] max-h-[120px] resize-none overflow-y-auto"
+                      rows={1}
                     />
                     <Button onClick={sendMessage} disabled={sending || !newMessage.trim()} size="sm" className="flex-shrink-0">
                       <Send className="w-4 h-4" />

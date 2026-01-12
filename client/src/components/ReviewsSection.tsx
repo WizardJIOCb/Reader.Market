@@ -549,6 +549,15 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                   placeholder={t('books:reviewPlaceholder')}
                   value={newReviewContent}
                   onChange={(e) => setNewReviewContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      // Only submit if validation passes (same as button disabled state)
+                      if (newReviewContent.trim() && user) {
+                        handlePostReview();
+                      }
+                    }
+                  }}
                   className="min-h-[150px]"
                 />
 

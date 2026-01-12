@@ -454,6 +454,15 @@ const NewsDetailPage: React.FC = () => {
                       placeholder={t('common:writeComment')}
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          // Only submit if validation passes (same as button disabled state)
+                          if (newComment.trim()) {
+                            handlePostComment();
+                          }
+                        }
+                      }}
                       className="min-h-[100px]"
                     />
                     <div className="flex justify-end">
@@ -511,7 +520,7 @@ const NewsDetailPage: React.FC = () => {
                             {formatAbsoluteDateTime(comment.createdAt, dateLocale)}
                           </span>
                         </div>
-                        <p className="text-foreground/90">{comment.content}</p>
+                        <p className="text-foreground/90 whitespace-pre-line">{comment.content}</p>
                         
                         <div className="mt-2">
                           <ReactionBar 
