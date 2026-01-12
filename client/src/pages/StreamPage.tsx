@@ -47,6 +47,27 @@ export default function StreamPage() {
     setIsAuthenticated(!!token);
   }, []);
 
+  // Invalidate query cache on mount to ensure fresh data when returning to Stream page
+  // This fixes the issue where comments posted on other pages don't appear until manual refresh
+  useEffect(() => {
+    console.log('[STREAM PAGE] Component mounted, invalidating cache for fresh data');
+    
+    // Always invalidate global stream as it's visible to all users
+    queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'global'] });
+    
+    // Invalidate personal stream if authenticated and on personal tab
+    if (isAuthenticated && activeTab === 'personal') {
+      console.log('[STREAM PAGE] Invalidating personal stream cache');
+      queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'personal'] });
+    }
+    
+    // Invalidate shelves stream if authenticated and on shelves tab
+    if (isAuthenticated && activeTab === 'shelves') {
+      console.log('[STREAM PAGE] Invalidating shelves stream cache');
+      queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'shelves'] });
+    }
+  }, []); // Run only on mount
+
   // Fetch global stream - always keep this active to receive real-time updates
   const { data: globalActivities = [], isLoading: globalLoading, refetch: refetchGlobal } = useQuery<Activity[]>({
     queryKey: ['api', 'stream', 'global'],
@@ -97,6 +118,31 @@ export default function StreamPage() {
   const isLoading = activeTab === 'global' ? globalLoading : 
                    activeTab === 'personal' ? personalLoading : 
                    shelfLoading;
+
+  // Page Visibility API: Refetch data when user returns to the browser tab
+  // This ensures the stream is up-to-date after switching tabs
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[STREAM PAGE] Tab became visible, refetching active stream');
+        
+        // Refetch the currently active tab's data
+        if (activeTab === 'global') {
+          refetchGlobal();
+        } else if (activeTab === 'personal' && isAuthenticated) {
+          refetchPersonal();
+        } else if (activeTab === 'shelves' && isAuthenticated) {
+          refetchShelf();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeTab, isAuthenticated, refetchGlobal, refetchPersonal, refetchShelf]);
 
   // WebSocket connection and event handlers
   useEffect(() => {
