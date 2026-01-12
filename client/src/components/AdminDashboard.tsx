@@ -30,10 +30,15 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { formatAbsoluteDateTime } from '@/lib/dateUtils';
+import { ru, enUS } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
   const isMobile = useIsMobile();
+  const { i18n } = useTranslation();
+  const dateLocale = i18n.language === 'ru' ? ru : enUS;
   const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dashboardStats, setDashboardStats] = useState({
@@ -543,7 +548,7 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                {new Date(activity.createdAt).toLocaleString()}
+                                {formatAbsoluteDateTime(activity.createdAt, dateLocale)}
                               </div>
                             </div>
                             {editingActivity && editingActivity.id === activity.id ? (

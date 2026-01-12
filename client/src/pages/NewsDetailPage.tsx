@@ -12,6 +12,8 @@ import { useAuth } from '@/lib/auth';
 import { ReactionBar } from '@/components/ReactionBar';
 import { User, Eye, MessageCircle, Heart, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { formatAbsoluteDateTime } from '@/lib/dateUtils';
+import { ru, enUS } from 'date-fns/locale';
 
 interface NewsItem {
   id: string;
@@ -53,7 +55,8 @@ const NewsDetailPage: React.FC = () => {
   const [match, params] = useRoute('/news/:id');
   const id = params?.id;
   const { user } = useAuth();
-  const { t } = useTranslation(['common', 'news']);
+  const { t, i18n } = useTranslation(['common', 'news']);
+  const dateLocale = i18n.language === 'ru' ? ru : enUS;
   const [newsItem, setNewsItem] = useState<NewsItem | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -505,7 +508,7 @@ const NewsDetailPage: React.FC = () => {
                             {comment.author || 'Anonymous'}
                           </Link>
                           <span className="text-xs text-muted-foreground">
-                            {new Date(comment.createdAt).toLocaleString()}
+                            {formatAbsoluteDateTime(comment.createdAt, dateLocale)}
                           </span>
                         </div>
                         <p className="text-foreground/90">{comment.content}</p>

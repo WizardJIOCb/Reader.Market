@@ -43,6 +43,9 @@ import {
 } from '../components/ui/alert-dialog';
 import { useToast } from '../hooks/use-toast';
 import { Edit, User } from 'lucide-react';
+import { formatAbsoluteDateTime } from '../lib/dateUtils';
+import { ru, enUS } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 
 interface User {
   id: string;
@@ -71,6 +74,8 @@ interface UserWithStats {
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const { i18n } = useTranslation();
+  const dateLocale = i18n.language === 'ru' ? ru : enUS;
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -320,7 +325,7 @@ const UserManagement: React.FC = () => {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleString();
+    return formatAbsoluteDateTime(dateString, dateLocale);
   };
 
   const getAccessLevelBadgeVariant = (level: string) => {

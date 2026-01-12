@@ -4,6 +4,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { apiCall } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
+import { formatAbsoluteDate } from '@/lib/dateUtils';
+import { ru, enUS } from 'date-fns/locale';
 
 interface NewsItem {
   id: string;
@@ -23,7 +25,8 @@ const NewsBlock: React.FC = () => {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { t } = useTranslation(['common']);
+  const { t, i18n } = useTranslation(['common']);
+  const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -127,7 +130,7 @@ const NewsBlock: React.FC = () => {
                         </a>
                       </span>
                       <span className="mx-2">•</span>
-                      <span>{new Date(newsItem.createdAt).toLocaleDateString()}</span>
+                      <span>{formatAbsoluteDate(newsItem.createdAt, dateLocale)}</span>
                     </div>
                   </div>
                 </CardHeader>
