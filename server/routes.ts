@@ -1191,7 +1191,23 @@ export async function registerRoutes(
         title: title !== undefined ? title : existingNews.title,
         content: content !== undefined ? content : existingNews.content,
         published: published !== undefined ? published : existingNews.published,
-        publishedAt: published ? new Date() : existingNews.publishedAt
+        publishedAt: (() => {
+          const isPublishing = published !== undefined ? published : existingNews.published;
+          
+          if (isPublishing) {
+            // If transitioning to published, set new timestamp
+            // If already published, preserve existing timestamp (convert string to Date)
+            if (published === true && !existingNews.published) {
+              return new Date(); // First time publishing
+            } else if (existingNews.publishedAt) {
+              return new Date(existingNews.publishedAt); // Convert string to Date
+            } else {
+              return new Date(); // Fallback if somehow publishedAt is missing
+            }
+          } else {
+            return null; // Unpublished state
+          }
+        })()
       };
       
       const updatedNews = await storage.updateNews(id, newsData);
