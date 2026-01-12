@@ -13,7 +13,7 @@ import {
   SheetPortal,
   SheetOverlay,
 } from '@/components/ui/sheet';
-import { Menu, BookOpen, Search, User, X, MessageCircle, Globe, Check } from 'lucide-react';
+import { Menu, BookOpen, Search, User, X, MessageCircle, Globe, Check, Rss } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { onSocketEvent } from '@/lib/socket';
 
@@ -184,6 +184,15 @@ export function MobileMenu() {
                 >
                   <BookOpen className="w-4 h-4" />
                   {t('navigation:home')}
+                </Link>
+              </SheetClose>
+              <SheetClose asChild>
+                <Link 
+                  href="/stream" 
+                  className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+                >
+                  <Rss className="w-4 h-4" />
+                  {t('navigation:stream')}
                 </Link>
               </SheetClose>
               <SheetClose asChild>

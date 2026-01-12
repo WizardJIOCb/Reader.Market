@@ -57,7 +57,7 @@ export function GroupCreationDialog({
     }
 
     try {
-      const response = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(`/api/books/search?query=${encodeURIComponent(query)}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('authToken')}`,
         },

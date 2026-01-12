@@ -8,10 +8,11 @@ import "./i18n";
 const rootElement = document.getElementById("root");
 if (rootElement) {
   createRoot(rootElement).render(
-    <React.StrictMode>
+    // Temporarily disabled StrictMode to test reactions without double API calls
+    // <React.StrictMode>
       <AuthProvider>
         <App />
       </AuthProvider>
-    </React.StrictMode>
+    // </React.StrictMode>
   );
 }

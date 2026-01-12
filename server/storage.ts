@@ -172,7 +172,7 @@ export interface IStorage {
   createReaction(reactionData: any): Promise<any>;
   getReactions(commentOrReviewId: string, isComment: boolean): Promise<any[]>;
   getReactionsForItems(itemIds: string[], isComment: boolean): Promise<any[]>;
-  deleteReaction(id: string, userId: string): Promise<boolean>;
+  deleteReaction(id: string, userId: string | null): Promise<boolean>;
   
   // Book view statistics operations
   incrementBookViewCount(bookId: string, viewType: string): Promise<any>;
@@ -218,6 +218,12 @@ export interface IStorage {
   updateFileUploadEntity(id: string, entityType: string, entityId: string): Promise<void>;
   verifyFileAccess(uploadId: string, userId: string): Promise<boolean>;
   softDeleteFileUpload(id: string, deleterId: string): Promise<void>;
+  
+  // Activity feed operations
+  getGlobalActivities(limit: number, offset: number, before?: string): Promise<any[]>;
+  getPersonalActivities(userId: string, limit: number, offset: number, before?: string): Promise<any[]>;
+  getShelfActivities(userId: string, shelfIds?: string[], bookIds?: string[], limit?: number, offset?: number, before?: string): Promise<any[]>;
+  getUserShelvesWithBooks(userId: string): Promise<{shelves: any[], books: any[]}>;
 }
 
 export class DBStorage implements IStorage {
@@ -1537,6 +1543,10 @@ export class DBStorage implements IStorage {
         return false; // Not the owner and not an admin action
       }
       
+      // Store the newsId or bookId before deletion to update counters
+      const commentNewsId = comment[0].newsId;
+      const commentBookId = comment[0].bookId;
+      
       // Delete associated reactions first
       console.log(`[deleteComment] Deleting reactions for comment ${id}`);
       await db.delete(reactions).where(eq(reactions.commentId, id));
@@ -1563,6 +1573,15 @@ export class DBStorage implements IStorage {
       console.log(`[deleteComment] Deleting comment ${id}`);
       await db.delete(comments).where(eq(comments.id, id));
       console.log(`[deleteComment] Successfully deleted comment ${id}`);
+      
+      // Decrement comment count in news (books don't have commentCount in schema)
+      if (commentNewsId) {
+        console.log(`[deleteComment] Decrementing comment count for news ${commentNewsId}`);
+        await db.update(news)
+          .set({ commentCount: sql`GREATEST(${news.commentCount} - 1, 0)`, updatedAt: new Date() })
+          .where(eq(news.id, commentNewsId));
+      }
+      
       return true;
     } catch (error) {
       console.error("[deleteComment] Error deleting comment:", error);
@@ -2058,12 +2077,18 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async deleteReaction(id: string, userId: string): Promise<boolean> {
+  async deleteReaction(id: string, userId: string | null): Promise<boolean> {
     try {
-      // First check if the reaction belongs to the user
+      // First check if the reaction exists
       const reaction = await db.select().from(reactions).where(eq(reactions.id, id));
-      if (!reaction.length || reaction[0].userId !== userId) {
-        return false; // Reaction not found or doesn't belong to user
+      if (!reaction.length) {
+        return false; // Reaction not found
+      }
+      
+      // If userId is provided, verify it belongs to the user (for regular users)
+      // If userId is null, allow deletion (for admin/moderators)
+      if (userId !== null && reaction[0].userId !== userId) {
+        return false; // Not the owner and not an admin action
       }
       
       // Delete the reaction
@@ -2909,6 +2934,28 @@ export class DBStorage implements IStorage {
   
   async deleteNews(id: string): Promise<void> {
     try {
+      // First, get all comments on this news item
+      const newsComments = await db.select()
+        .from(comments)
+        .where(eq(comments.newsId, id));
+      
+      const commentIds = newsComments.map(c => c.id);
+      
+      // Delete reactions on those comments
+      if (commentIds.length > 0) {
+        await db.delete(reactions)
+          .where(inArray(reactions.commentId, commentIds));
+      }
+      
+      // Delete reactions on the news item itself
+      await db.delete(reactions)
+        .where(eq(reactions.newsId, id));
+      
+      // Delete comments on the news item
+      await db.delete(comments)
+        .where(eq(comments.newsId, id));
+      
+      // Finally, delete the news item
       await db.delete(news).where(eq(news.id, id));
     } catch (error) {
       console.error("Error deleting news:", error);
@@ -4152,6 +4199,666 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error soft deleting file upload:", error);
       throw error;
+    }
+  }
+  
+
+  
+  async getUserShelvesWithBooks(userId: string): Promise<{shelves: any[], books: any[]}> {
+    try {
+      // Get user's shelves
+      const userShelves = await db.select().from(shelves)
+        .where(eq(shelves.userId, userId))
+        .orderBy(desc(shelves.createdAt));
+      
+      // Get all books from these shelves
+      const shelfIdsList = userShelves.map(s => s.id);
+      let shelfBooksData: any[] = [];
+      let booksData: any[] = [];
+      
+      if (shelfIdsList.length > 0) {
+        shelfBooksData = await db.select().from(shelfBooks)
+          .where(inArray(shelfBooks.shelfId, shelfIdsList));
+        
+        const bookIdsList = Array.from(new Set(shelfBooksData.map(sb => sb.bookId)));
+        if (bookIdsList.length > 0) {
+          booksData = await db.select().from(books)
+            .where(inArray(books.id, bookIdsList));
+        }
+      }
+      
+      // Build shelf -> book mapping
+      const shelfBookMap: {[key: string]: string[]} = {};
+      shelfBooksData.forEach(sb => {
+        if (!shelfBookMap[sb.shelfId]) {
+          shelfBookMap[sb.shelfId] = [];
+        }
+        shelfBookMap[sb.shelfId].push(sb.bookId);
+      });
+      
+      // Format shelves with book count
+      const formattedShelves = userShelves.map(shelf => ({
+        id: shelf.id,
+        name: shelf.name,
+        bookCount: shelfBookMap[shelf.id]?.length || 0
+      }));
+      
+      // Format books with shelf associations
+      const formattedBooks = booksData.map(book => {
+        const associatedShelfIds = shelfBooksData
+          .filter(sb => sb.bookId === book.id)
+          .map(sb => sb.shelfId);
+        
+        return {
+          id: book.id,
+          title: book.title,
+          shelfIds: associatedShelfIds
+        };
+      });
+      
+      return {
+        shelves: formattedShelves,
+        books: formattedBooks
+      };
+    } catch (error) {
+      console.error("Error getting user shelves with books:", error);
+      return { shelves: [], books: [] };
+    }
+  }
+  
+
+  
+  // Activity feed methods (temporary implementation without activity_feed table)
+  async getGlobalActivities(limit: number = 50, offset: number = 0, before?: string): Promise<any[]> {
+    try {
+      const activities: any[] = [];
+      
+      // Get recent news
+      const newsData = await db.select()
+        .from(news)
+        .where(eq(news.published, true))
+        .orderBy(desc(news.publishedAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const item of newsData) {
+        // Get author info
+        const author = await db.select().from(users).where(eq(users.id, item.authorId)).limit(1);
+        const authorData = author[0];
+        
+        // Get reactions for this news item using the correct method
+        const newsReactions = await this.getReactionsForNews(item.id);
+        
+        // Group and aggregate reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        newsReactions.forEach((r: any) => {
+          if (!groupedReactions[r.emoji]) {
+            groupedReactions[r.emoji] = [];
+          }
+          groupedReactions[r.emoji].push(r);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted: false // Will be updated by real-time handler if needed
+          });
+        });
+        
+        activities.push({
+          id: item.id,
+          type: 'news',
+          entityId: item.id,
+          userId: item.authorId,
+          metadata: {
+            title: item.title,
+            content_preview: item.content.substring(0, 200),
+            view_count: item.viewCount || 0,
+            comment_count: item.commentCount || 0,
+            reaction_count: item.reactionCount || 0,
+            author_name: authorData ? (authorData.fullName || authorData.username) : 'Unknown',
+            author_avatar: authorData?.avatarUrl || null,
+            reactions: aggregatedReactions
+          },
+          createdAt: item.publishedAt || item.createdAt,
+          updatedAt: item.updatedAt
+        });
+      }
+      
+      // Get recent books
+      const booksData = await db.select()
+        .from(books)
+        .orderBy(desc(books.createdAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const book of booksData) {
+        // Get uploader info
+        const uploader = await db.select().from(users).where(eq(users.id, book.userId)).limit(1);
+        const uploaderData = uploader[0];
+        
+        activities.push({
+          id: book.id,
+          type: 'book',
+          entityId: book.id,
+          userId: book.userId,
+          bookId: book.id,
+          metadata: {
+            title: book.title,
+            author: book.author,
+            cover_url: book.coverImageUrl,
+            genre: book.genre,
+            uploader_name: uploaderData ? (uploaderData.fullName || uploaderData.username) : 'Unknown',
+            uploader_avatar: uploaderData?.avatarUrl || null
+          },
+          createdAt: book.createdAt,
+          updatedAt: book.updatedAt
+        });
+      }
+      
+      // Get recent comments
+      const commentsData = await db.select()
+        .from(comments)
+        .orderBy(desc(comments.createdAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const comment of commentsData) {
+        let bookTitle = 'Unknown';
+        let newsTitle = null;
+        let newsId = null;
+        
+        if (comment.bookId) {
+          const bookData = await db.select().from(books).where(eq(books.id, comment.bookId)).limit(1);
+          if (bookData[0]) bookTitle = bookData[0].title;
+        }
+        
+        if (comment.newsId) {
+          const newsData = await db.select().from(news).where(eq(news.id, comment.newsId)).limit(1);
+          if (newsData[0]) {
+            newsTitle = newsData[0].title;
+            newsId = newsData[0].id;
+          }
+        }
+        
+        // Get commenter info
+        const commenter = await db.select().from(users).where(eq(users.id, comment.userId)).limit(1);
+        const commenterData = commenter[0];
+        
+        // Get reactions for this comment
+        const commentReactions = await this.getReactions(comment.id, true);
+        
+        // Group and aggregate reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        commentReactions.forEach((r: any) => {
+          if (!groupedReactions[r.emoji]) {
+            groupedReactions[r.emoji] = [];
+          }
+          groupedReactions[r.emoji].push(r);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted: false // Will be updated by real-time handler if needed
+          });
+        });
+        
+        activities.push({
+          id: comment.id,
+          type: 'comment',
+          entityId: comment.id,
+          userId: comment.userId,
+          bookId: comment.bookId,
+          newsId: newsId,
+          metadata: {
+            content_preview: comment.content.substring(0, 200),
+            book_id: comment.bookId,
+            book_title: bookTitle,
+            news_id: newsId,
+            news_title: newsTitle,
+            author_name: commenterData ? (commenterData.fullName || commenterData.username) : 'Unknown',
+            author_avatar: commenterData?.avatarUrl || null,
+            reactions: aggregatedReactions,
+            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0)
+          },
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt
+        });
+      }
+      
+      // Get recent reviews
+      const reviewsData = await db.select()
+        .from(reviews)
+        .orderBy(desc(reviews.createdAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const review of reviewsData) {
+        const bookData = await db.select().from(books).where(eq(books.id, review.bookId)).limit(1);
+        const bookTitle = bookData[0] ? bookData[0].title : 'Unknown';
+        
+        // Get reviewer info
+        const reviewer = await db.select().from(users).where(eq(users.id, review.userId)).limit(1);
+        const reviewerData = reviewer[0];
+        
+        // Get reactions for this review
+        const reviewReactions = await this.getReactions(review.id, false);
+        
+        // Group and aggregate reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        reviewReactions.forEach((r: any) => {
+          if (!groupedReactions[r.emoji]) {
+            groupedReactions[r.emoji] = [];
+          }
+          groupedReactions[r.emoji].push(r);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted: false // Will be updated by real-time handler if needed
+          });
+        });
+        
+        activities.push({
+          id: review.id,
+          type: 'review',
+          entityId: review.id,
+          userId: review.userId,
+          bookId: review.bookId,
+          metadata: {
+            content_preview: review.content.substring(0, 200),
+            rating: review.rating,
+            book_id: review.bookId,
+            book_title: bookTitle,
+            author_name: reviewerData ? (reviewerData.fullName || reviewerData.username) : 'Unknown',
+            author_avatar: reviewerData?.avatarUrl || null,
+            reactions: aggregatedReactions,
+            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0)
+          },
+          createdAt: review.createdAt,
+          updatedAt: review.updatedAt
+        });
+      }
+      
+      // Sort by creation date
+      activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // Apply pagination
+      return activities.slice(offset, offset + limit);
+    } catch (error) {
+      console.error("Error getting global activities:", error);
+      return [];
+    }
+  }
+  
+  async getPersonalActivities(userId: string, limit: number = 50, offset: number = 0, before?: string): Promise<any[]> {
+    try {
+      const activities: any[] = [];
+      
+      // Get user info once
+      const userInfo = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const userData = userInfo[0];
+      const user_name = userData ? (userData.fullName || userData.username) : 'Unknown';
+      const user_avatar = userData?.avatarUrl || null;
+      
+      // Get user's own news articles
+      const userNews = await db.select()
+        .from(news)
+        .where(and(
+          eq(news.authorId, userId),
+          eq(news.published, true)
+        ))
+        .orderBy(desc(news.publishedAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const item of userNews) {
+        // Get reactions for this news item
+        const newsReactions = await this.getReactionsForNews(item.id);
+        
+        // Group and aggregate reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        newsReactions.forEach((r: any) => {
+          if (!groupedReactions[r.emoji]) {
+            groupedReactions[r.emoji] = [];
+          }
+          groupedReactions[r.emoji].push(r);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted: false
+          });
+        });
+        
+        activities.push({
+          id: item.id,
+          type: 'news',
+          entityId: item.id,
+          userId: item.authorId,
+          metadata: {
+            title: item.title,
+            content_preview: item.content.substring(0, 200),
+            view_count: item.viewCount || 0,
+            comment_count: item.commentCount || 0,
+            reaction_count: item.reactionCount || 0,
+            author_name: user_name,
+            author_avatar: user_avatar,
+            reactions: aggregatedReactions
+          },
+          createdAt: item.publishedAt || item.createdAt,
+          updatedAt: item.updatedAt
+        });
+      }
+      
+      // Get user's uploaded books
+      const userBooks = await db.select()
+        .from(books)
+        .where(eq(books.userId, userId))
+        .orderBy(desc(books.uploadedAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const book of userBooks) {
+        activities.push({
+          id: book.id,
+          type: 'book',
+          entityId: book.id,
+          userId: book.userId,
+          bookId: book.id,
+          metadata: {
+            title: book.title,
+            author: book.author,
+            cover_url: book.coverImageUrl,
+            genre: book.genre,
+            uploader_name: user_name,
+            uploader_avatar: user_avatar
+          },
+          createdAt: book.uploadedAt,
+          updatedAt: book.updatedAt
+        });
+      }
+      
+      // Get user's comments
+      const userComments = await db.select()
+        .from(comments)
+        .where(eq(comments.userId, userId))
+        .orderBy(desc(comments.createdAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const comment of userComments) {
+        let book_title = 'Unknown';
+        if (comment.bookId) {
+          const bookData = await db.select().from(books).where(eq(books.id, comment.bookId)).limit(1);
+          book_title = bookData[0] ? bookData[0].title : 'Unknown';
+        }
+        
+        // Get reactions for this comment
+        const commentReactions = await this.getReactions(comment.id, true);
+        
+        // Group and aggregate reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        commentReactions.forEach((r: any) => {
+          if (!groupedReactions[r.emoji]) {
+            groupedReactions[r.emoji] = [];
+          }
+          groupedReactions[r.emoji].push(r);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted: false
+          });
+        });
+        
+        activities.push({
+          id: comment.id,
+          type: 'comment',
+          entityId: comment.id,
+          userId: comment.userId,
+          bookId: comment.bookId,
+          metadata: {
+            content_preview: comment.content.substring(0, 200),
+            book_id: comment.bookId,
+            book_title: book_title,
+            author_name: user_name,
+            author_avatar: user_avatar,
+            reactions: aggregatedReactions,
+            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0)
+          },
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt
+        });
+      }
+      
+      // Get user's reviews
+      const userReviews = await db.select()
+        .from(reviews)
+        .where(eq(reviews.userId, userId))
+        .orderBy(desc(reviews.createdAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const review of userReviews) {
+        const bookData = await db.select().from(books).where(eq(books.id, review.bookId)).limit(1);
+        const book_title = bookData[0] ? bookData[0].title : 'Unknown';
+        
+        // Get reactions for this review
+        const reviewReactions = await this.getReactions(review.id, false);
+        
+        // Group and aggregate reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        reviewReactions.forEach((r: any) => {
+          if (!groupedReactions[r.emoji]) {
+            groupedReactions[r.emoji] = [];
+          }
+          groupedReactions[r.emoji].push(r);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted: false
+          });
+        });
+        
+        activities.push({
+          id: review.id,
+          type: 'review',
+          entityId: review.id,
+          userId: review.userId,
+          bookId: review.bookId,
+          metadata: {
+            content_preview: review.content.substring(0, 200),
+            rating: review.rating,
+            book_id: review.bookId,
+            book_title: book_title,
+            author_name: user_name,
+            author_avatar: user_avatar,
+            reactions: aggregatedReactions,
+            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0)
+          },
+          createdAt: review.createdAt,
+          updatedAt: review.updatedAt
+        });
+      }
+      
+      // Sort by creation date
+      activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // Apply pagination
+      return activities.slice(offset, offset + limit);
+    } catch (error) {
+      console.error("Error getting personal activities:", error);
+      return [];
+    }
+  }
+  
+  async getShelfActivities(userId: string, shelfIds?: string[], bookIds?: string[], limit: number = 50, offset: number = 0, before?: string): Promise<any[]> {
+    try {
+      // Get user's shelves
+      const userShelves = await db.select().from(shelves).where(eq(shelves.userId, userId));
+      const userShelfIds = userShelves.map(s => s.id);
+      
+      if (userShelfIds.length === 0) {
+        return [];
+      }
+      
+      // Get books from shelves
+      const shelfBooksData = await db.select().from(shelfBooks)
+        .where(inArray(shelfBooks.shelfId, shelfIds || userShelfIds));
+      
+      let targetBookIds = shelfBooksData.map(sb => sb.bookId);
+      
+      // Filter by specific book IDs if provided
+      if (bookIds && bookIds.length > 0) {
+        targetBookIds = targetBookIds.filter(id => bookIds.includes(id));
+      }
+      
+      if (targetBookIds.length === 0) {
+        return [];
+      }
+      
+      const activities: any[] = [];
+      
+      // Get comments for these books
+      const commentsData = await db.select()
+        .from(comments)
+        .where(inArray(comments.bookId, targetBookIds))
+        .orderBy(desc(comments.createdAt))
+        .limit(Math.ceil(limit / 2));
+      
+      for (const comment of commentsData) {
+        const bookData = await db.select().from(books).where(eq(books.id, comment.bookId!)).limit(1);
+        const bookTitle = bookData[0] ? bookData[0].title : 'Unknown';
+        
+        // Get commenter info
+        const commenter = await db.select().from(users).where(eq(users.id, comment.userId)).limit(1);
+        const commenterData = commenter[0];
+        
+        // Get reactions for this comment
+        const commentReactions = await this.getReactions(comment.id, true);
+        
+        // Group and aggregate reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        commentReactions.forEach((r: any) => {
+          if (!groupedReactions[r.emoji]) {
+            groupedReactions[r.emoji] = [];
+          }
+          groupedReactions[r.emoji].push(r);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted: false
+          });
+        });
+        
+        activities.push({
+          id: comment.id,
+          type: 'comment',
+          entityId: comment.id,
+          userId: comment.userId,
+          bookId: comment.bookId,
+          metadata: {
+            content_preview: comment.content.substring(0, 200),
+            book_id: comment.bookId,
+            book_title: bookTitle,
+            author_name: commenterData ? (commenterData.fullName || commenterData.username) : 'Unknown',
+            author_avatar: commenterData?.avatarUrl || null,
+            reactions: aggregatedReactions,
+            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0)
+          },
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt
+        });
+      }
+      
+      // Get reviews for these books
+      const reviewsData = await db.select()
+        .from(reviews)
+        .where(inArray(reviews.bookId, targetBookIds))
+        .orderBy(desc(reviews.createdAt))
+        .limit(Math.ceil(limit / 2));
+      
+      for (const review of reviewsData) {
+        const bookData = await db.select().from(books).where(eq(books.id, review.bookId)).limit(1);
+        const bookTitle = bookData[0] ? bookData[0].title : 'Unknown';
+        
+        // Get reviewer info
+        const reviewer = await db.select().from(users).where(eq(users.id, review.userId)).limit(1);
+        const reviewerData = reviewer[0];
+        
+        // Get reactions for this review
+        const reviewReactions = await this.getReactions(review.id, false);
+        
+        // Group and aggregate reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        reviewReactions.forEach((r: any) => {
+          if (!groupedReactions[r.emoji]) {
+            groupedReactions[r.emoji] = [];
+          }
+          groupedReactions[r.emoji].push(r);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted: false
+          });
+        });
+        
+        activities.push({
+          id: review.id,
+          type: 'review',
+          entityId: review.id,
+          userId: review.userId,
+          bookId: review.bookId,
+          metadata: {
+            content_preview: review.content.substring(0, 200),
+            rating: review.rating,
+            book_id: review.bookId,
+            book_title: bookTitle,
+            author_name: reviewerData ? (reviewerData.fullName || reviewerData.username) : 'Unknown',
+            author_avatar: reviewerData?.avatarUrl || null,
+            reactions: aggregatedReactions,
+            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0)
+          },
+          createdAt: review.createdAt,
+          updatedAt: review.updatedAt
+        });
+      }
+      
+      // Sort by creation date
+      activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // Apply pagination
+      return activities.slice(offset, offset + limit);
+    } catch (error) {
+      console.error("Error getting shelf activities:", error);
+      return [];
     }
   }
 }

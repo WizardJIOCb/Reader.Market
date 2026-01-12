@@ -1,0 +1,67 @@
+{
+  "title": "Activity Stream",
+  "globalTab": "Global",
+  "myTab": "My Stream",
+  "myShelvesTab": "My Shelves",
+  "noActivities": "No activities yet",
+  "authRequired": "Please sign in to view this content",
+  "loadMore": "Load more",
+  "newItemsAvailable": "New items available. Click to refresh.",
+  "activityTypes": {
+    "news": "New Article",
+    "book": "New Book",
+    "comment": "New Comment",
+    "review": "New Review"
+  },
+  "by": "by",
+  "author": "Author",
+  "uploadedBy": "Uploaded by",
+  "on": "On",
+  "for": "For",
+  "activityDeleted": "Activity deleted",
+  "activityDeletedDescription": "The activity has been removed from the stream",
+  "confirmDelete": "Are you sure you want to delete this activity?",
+  "deleteError": "Failed to delete activity",
+  "error": "Error",
+  "myStream": {
+    "unauthenticated": "Sign in to see your personalized activity feed",
+    "benefits": [
+      "Get notified when your content receives likes",
+      "See who mentioned you in comments",
+      "Track replies to your reviews",
+      "Never miss a private message"
+    ]
+  },
+  "myShelvesStream": {
+    "unauthenticated": "Sign in to track activities on your favorite books",
+    "benefits": [
+      "Stay updated on new comments for books on your shelves",
+      "See new reviews for books you're interested in",
+      "Get notified about discussions on your collection"
+    ],
+    "filters": {
+      "title": "Filters",
+      "allShelves": "All Shelves",
+      "specificShelf": "Filter by Shelf",
+      "specificBooks": "Filter by Books",
+      "clearFilter": "Clear Filter",
+      "selectShelf": "Select a shelf...",
+      "selectBooks": "Select books...",
+      "infoText": "Select a shelf or specific books to filter activities",
+      "noShelves": "You don't have any shelves yet",
+      "noBooks": "No books on your shelves"
+    }
+  },
+  "viewDetails": "View details",
+  "editedByModerator": "Edited by moderator",
+  "loading": "Loading...",
+  "retryLoad": "Retry",
+  "newActivity": "New Activity",
+  "newComment": "New comment posted",
+  "newReview": "New review posted",
+  "newBook": "New book uploaded",
+  "newNews": "New article published",
+  "reactionAdded": "Reaction added",
+  "reactionAddedDescription": "Your reaction has been saved",
+  "reactionError": "Failed to add reaction"
+}

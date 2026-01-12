@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { apiCall } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { ReactionBar } from '@/components/ReactionBar';
-import { User, Eye, MessageCircle, Heart } from 'lucide-react';
+import { User, Eye, MessageCircle, Heart, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface NewsItem {
@@ -303,6 +303,42 @@ const NewsDetailPage: React.FC = () => {
     }
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!user) return;
+    
+    try {
+      // Determine endpoint based on user access level
+      const isAdminOrModerator = user.accessLevel === 'admin' || user.accessLevel === 'moder';
+      const endpoint = isAdminOrModerator 
+        ? `/api/admin/comments/${commentId}`
+        : `/api/comments/${commentId}`;
+      
+      const response = await apiCall(endpoint, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        // Remove comment from local state
+        const updatedComments = comments.filter(comment => comment.id !== commentId);
+        setComments(updatedComments);
+        
+        // Update news item comment count to match actual comments array length
+        // This ensures synchronization even if database had wrong count
+        setNewsItem(prevNewsItem => {
+          if (!prevNewsItem) return prevNewsItem;
+          return {
+            ...prevNewsItem,
+            commentCount: updatedComments.length
+          };
+        });
+      } else {
+        console.error('Failed to delete comment');
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto py-8 px-4">
@@ -440,8 +476,18 @@ const NewsDetailPage: React.FC = () => {
           ) : (
             <div className="space-y-6">
               {comments.map((comment) => (
-                <Card key={comment.id}>
+                <Card key={comment.id} className="relative">
                   <CardContent className="pt-6">
+                    {/* Delete Button */}
+                    {user && (comment.userId === user.id || user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
+                      <button
+                        onClick={() => handleDeleteComment(comment.id)}
+                        className="absolute top-4 right-4 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label={t('common:deleteComment')}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                     <div className="flex gap-4">
                       <Avatar>
                         {comment.avatarUrl ? (

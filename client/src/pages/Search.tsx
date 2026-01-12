@@ -74,7 +74,13 @@ export default function SearchPage() {
   }, []);
 
   // Fetch all books for filters when component mounts
+  // Skip if we already have a search query from URL to avoid race condition
   useEffect(() => {
+    // Don't fetch all books if we have a search query from URL
+    if (searchQuery) {
+      return;
+    }
+    
     const fetchAllBooks = async () => {
       try {
         setLoading(true);
@@ -96,7 +102,7 @@ export default function SearchPage() {
     };
     
     fetchAllBooks();
-  }, []);
+  }, [searchQuery, sortBy, sortDir]);
 
   // Derived Data for Filters
   const allGenres = useMemo(() => {

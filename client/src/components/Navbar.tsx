@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Search, User, Menu, MessageCircle } from 'lucide-react';
+import { Search, User, Menu, MessageCircle, Rss } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -97,6 +97,10 @@ export function Navbar() {
               <div className="flex items-center gap-4">
                 <Link href="/home" className="text-sm hover:text-primary transition-colors cursor-pointer">
                   {t('navigation:home')}
+                </Link>
+                <Link href="/stream" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
+                  <Rss className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('navigation:stream')}</span>
                 </Link>
                 <Link href="/search" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
                   <Search className="w-4 h-4" />

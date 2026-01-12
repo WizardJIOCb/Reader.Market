@@ -34,8 +34,17 @@ export const getQueryFn: <T>(options: {
     // Ensure the URL is relative by joining query key parts and making it relative
     const path = queryKey.filter(part => part !== '').join('/');
     const relativeUrl = `${API_BASE_URL}/${path}`;
+    
+    // Get auth token from localStorage if available
+    const token = localStorage.getItem('authToken');
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     const res = await fetch(relativeUrl, {
       credentials: "include",
+      headers,
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

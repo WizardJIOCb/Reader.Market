@@ -22,6 +22,10 @@
   "writeComment": "Написать комментарий...",
   "noCommentsYet": "Комментариев пока нет",
   "postComment": "Отправить",
+  "deleteComment": "Удалить комментарий",
+  "confirmDeleteComment": "Вы уверены, что хотите удалить этот комментарий?",
+  "commentDeleted": "Комментарий удалён",
+  "failedToDeleteComment": "Не удалось удалить комментарий",
   "sort": {
     "label": "Сортировка",
     "byViews": "По просмотрам",

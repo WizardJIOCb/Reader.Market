@@ -20,6 +20,7 @@ import AdminDashboard from "@/components/AdminDashboard";
 import UserManagement from "@/pages/UserManagement";
 import Messages from "@/pages/Messages";
 import NewsDetailPage from "@/pages/NewsDetailPage";
+import StreamPage from "@/pages/StreamPage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/shelves" component={Shelves} />
       <Route path="/add-book" component={AddBook} />
       <Route path="/search" component={SearchPage} />
+      <Route path="/stream" component={StreamPage} />
       <Route path="/book/:bookId" component={BookDetail} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
       <Route path="/news/:id" component={NewsDetailPage} />
@@ -63,12 +65,11 @@ function App() {
   const isReaderPage = location.startsWith('/read/');
   const isMessagesPage = location.startsWith('/messages');
   
-  // Initialize WebSocket connection when user is authenticated
+  // Initialize WebSocket connection (works for both authenticated and unauthenticated users)
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    if (token) {
-      initializeSocket(token);
-    }
+    // Initialize socket with token if available, or without token for guest access
+    initializeSocket(token || undefined);
     
     // Cleanup on unmount
     return () => {

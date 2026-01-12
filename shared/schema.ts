@@ -286,5 +286,19 @@ export const fileUploads = pgTable("file_uploads", {
   deletedAt: timestamp("deleted_at"),
 });
 
+// Table for activity feed
+export const activityFeed = pgTable("activity_feed", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityType: text("activity_type").notNull(), // 'news', 'book', 'comment', 'review'
+  entityId: varchar("entity_id").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  targetUserId: varchar("target_user_id").references(() => users.id),
+  bookId: varchar("book_id").references(() => books.id),
+  metadata: jsonb("metadata").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
 // Create unique constraint for conversations to prevent duplicate user pairs
 // Note: We'll handle this in the migration file

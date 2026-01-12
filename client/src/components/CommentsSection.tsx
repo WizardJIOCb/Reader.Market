@@ -190,66 +190,42 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
   };
 
   const handleReact = async (commentId: string, emoji: string) => {
-    // Since reactions are handled on the server, we need to:
-    // 1. Optimistically update the UI
-    // 2. Refetch the comments to get the accurate reaction counts from the server
+    if (!user) return;
     
-    // Optimistically update the UI for immediate feedback
-    const updatedComments = comments.map(comment => {
-      if (comment.id !== commentId) return comment;
-
-      const existingReactionIndex = comment.reactions.findIndex(r => r.emoji === emoji);
-      let newReactions = [...comment.reactions];
-
-      if (existingReactionIndex >= 0) {
-        const reaction = newReactions[existingReactionIndex];
-        // Toggle the userReacted flag for the current user
-        newReactions[existingReactionIndex] = {
-          ...reaction,
-          userReacted: !reaction.userReacted,
-          count: reaction.userReacted ? reaction.count - 1 : reaction.count + 1
-        };
-        
-        // Remove reaction if count becomes 0
-        if (newReactions[existingReactionIndex].count === 0) {
-          newReactions.splice(existingReactionIndex, 1);
-        }
-      } else {
-        // Add new reaction
-        newReactions.push({
-          emoji,
-          count: 1,
-          userReacted: true
-        });
-      }
-
-      return { ...comment, reactions: newReactions };
-    });
-
-    setComments(updatedComments);
-    
-    // Update cache with the updated comments
-    setCachedComments(bookId, updatedComments);
-    
-    // Now refetch the comments to get accurate data from the server
+    // First, send the reaction to the server
     try {
-      const response = await fetch(`/api/books/${bookId}/comments`, {
+      const response = await fetch('/api/reactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({
+          commentId,
+          emoji
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save reaction');
+      }
+      
+      // After successful reaction save, refetch comments to get updated reactions
+      const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
       
-      if (response.ok) {
-        const fetchedComments = await response.json();
+      if (commentsResponse.ok) {
+        const fetchedComments = await commentsResponse.json();
         setComments(fetchedComments);
-        
         // Update cache with fresh data
         setCachedComments(bookId, fetchedComments);
       }
     } catch (error) {
-      console.error('Failed to refresh comments after reaction:', error);
-      // Revert to previous state if refresh fails
-      setComments(comments);
+      console.error('Failed to add reaction:', error);
+      // Keep existing comments on error
     }
   };
 

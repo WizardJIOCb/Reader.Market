@@ -14,6 +14,7 @@ import enHome from './locales/en/home.json';
 import enAbout from './locales/en/about.json';
 import enLanding from './locales/en/landing.json';
 import enBooks from './locales/en/books.json';
+import enStream from './locales/en/stream.json';
 
 
 import ruCommon from './locales/ru/common.json';
@@ -27,6 +28,7 @@ import ruHome from './locales/ru/home.json';
 import ruAbout from './locales/ru/about.json';
 import ruLanding from './locales/ru/landing.json';
 import ruBooks from './locales/ru/books.json';
+import ruStream from './locales/ru/stream.json';
 
 
 // Define resources
@@ -43,6 +45,7 @@ const resources = {
     about: enAbout,
     landing: enLanding,
     books: enBooks,
+    stream: enStream,
   },
   ru: {
     common: ruCommon,
@@ -56,6 +59,7 @@ const resources = {
     about: ruAbout,
     landing: ruLanding,
     books: ruBooks,
+    stream: ruStream,
   },
 };
 
@@ -66,7 +70,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'navigation', 'profile', 'notifications', 'shelves', 'search', 'messages', 'home', 'about', 'landing', 'books'],
+    ns: ['common', 'navigation', 'profile', 'notifications', 'shelves', 'search', 'messages', 'home', 'about', 'landing', 'books', 'stream'],
     
     interpolation: {
       escapeValue: false, // React already escapes values

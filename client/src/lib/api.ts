@@ -43,7 +43,7 @@ export const booksApi = {
   getNewReleases: () => apiCall('/api/books/new-releases'),
   getBookById: (bookId: string) => apiCall(`/api/books/${bookId}`),
   searchBooks: (query: string, sortBy?: string, sortDirection?: 'asc' | 'desc') => {
-    const params = new URLSearchParams({ query: encodeURIComponent(query) });
+    const params = new URLSearchParams({ query: query });
     if (sortBy) params.append('sortBy', sortBy);
     if (sortDirection) params.append('sortDirection', sortDirection);
     return apiCall(`/api/books/search?${params.toString()}`);

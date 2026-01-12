@@ -9,6 +9,7 @@ import { Ollama } from "ollama";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 
 // Import db from storage module
 import { db } from './storage';
@@ -197,12 +198,15 @@ export async function registerRoutes(
     }
   });
   
-  // JWT authentication middleware for Socket.io
+  // JWT authentication middleware for Socket.io (optional - allows unauthenticated connections)
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
     
     if (!token) {
-      return next(new Error('Authentication error: No token provided'));
+      // Allow connection without authentication
+      console.log('[WEBSOCKET] Unauthenticated user connecting');
+      socket.data.userId = null;
+      return next();
     }
     
     try {
@@ -211,57 +215,77 @@ export async function registerRoutes(
       // Verify user exists
       const userData = await storage.getUser(decoded.userId);
       if (!userData) {
-        return next(new Error('Authentication error: User not found'));
+        console.log('[WEBSOCKET] User not found, allowing unauthenticated connection');
+        socket.data.userId = null;
+        return next();
       }
       
       socket.data.userId = decoded.userId;
       next();
     } catch (err) {
-      console.error('Socket authentication error:', err);
-      return next(new Error('Authentication error: Invalid token'));
+      console.error('[WEBSOCKET] Token verification failed, allowing unauthenticated connection:', err);
+      socket.data.userId = null;
+      next();
     }
   });
   
   // Handle WebSocket connections
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
-    console.log('\x1b[34m%s\x1b[0m', `[WEBSOCKET] 🔗 User ${userId} connected via WebSocket`);
+    const isAuthenticated = !!userId;
     
-    // Join user's personal room for notifications
-    const personalRoom = `user:${userId}`;
-    socket.join(personalRoom);
-    console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined personal room: ${personalRoom}`);
+    if (isAuthenticated) {
+      console.log('\x1b[34m%s\x1b[0m', `[WEBSOCKET] 🔗 User ${userId} connected via WebSocket`);
+      
+      // Join user's personal room for notifications (authenticated only)
+      const personalRoom = `user:${userId}`;
+      socket.join(personalRoom);
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined personal room: ${personalRoom}`);
+    } else {
+      console.log('\x1b[34m%s\x1b[0m', `[WEBSOCKET] 🔗 Unauthenticated user connected via WebSocket`);
+    }
     
     // Log all rooms this socket is in
     const rooms = Array.from(socket.rooms);
-    console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] 📋 Socket rooms for user ${userId}: ${JSON.stringify(rooms)}`);
+    console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] 📋 Socket rooms: ${JSON.stringify(rooms)}`);
     
-    // Handle joining conversation rooms
+    // Handle joining conversation rooms (authenticated only)
     socket.on('join:conversation', (conversationId: string) => {
+      if (!isAuthenticated) {
+        console.log('[WEBSOCKET] Unauthenticated user tried to join conversation - denied');
+        return;
+      }
       console.log(`User ${userId} joining conversation ${conversationId}`);
       socket.join(`conversation:${conversationId}`);
     });
     
-    // Handle leaving conversation rooms
+    // Handle leaving conversation rooms (authenticated only)
     socket.on('leave:conversation', (conversationId: string) => {
+      if (!isAuthenticated) return;
       console.log(`User ${userId} leaving conversation ${conversationId}`);
       socket.leave(`conversation:${conversationId}`);
     });
     
-    // Handle joining channel rooms
+    // Handle joining channel rooms (authenticated only)
     socket.on('join:channel', (channelId: string) => {
+      if (!isAuthenticated) {
+        console.log('[WEBSOCKET] Unauthenticated user tried to join channel - denied');
+        return;
+      }
       console.log(`User ${userId} joining channel ${channelId}`);
       socket.join(`channel:${channelId}`);
     });
     
-    // Handle leaving channel rooms
+    // Handle leaving channel rooms (authenticated only)
     socket.on('leave:channel', (channelId: string) => {
+      if (!isAuthenticated) return;
       console.log(`User ${userId} leaving channel ${channelId}`);
       socket.leave(`channel:${channelId}`);
     });
     
-    // Handle typing indicators for conversations
+    // Handle typing indicators for conversations (authenticated only)
     socket.on('typing:start', (data: { conversationId: string }) => {
+      if (!isAuthenticated) return;
       socket.to(`conversation:${data.conversationId}`).emit('user:typing', {
         userId,
         conversationId: data.conversationId,
@@ -270,6 +294,7 @@ export async function registerRoutes(
     });
     
     socket.on('typing:stop', (data: { conversationId: string }) => {
+      if (!isAuthenticated) return;
       socket.to(`conversation:${data.conversationId}`).emit('user:typing', {
         userId,
         conversationId: data.conversationId,
@@ -277,8 +302,9 @@ export async function registerRoutes(
       });
     });
     
-    // Handle typing indicators for channels
+    // Handle typing indicators for channels (authenticated only)
     socket.on('channel:typing:start', (data: { channelId: string }) => {
+      if (!isAuthenticated) return;
       socket.to(`channel:${data.channelId}`).emit('channel:user:typing', {
         userId,
         channelId: data.channelId,
@@ -287,6 +313,7 @@ export async function registerRoutes(
     });
     
     socket.on('channel:typing:stop', (data: { channelId: string }) => {
+      if (!isAuthenticated) return;
       socket.to(`channel:${data.channelId}`).emit('channel:user:typing', {
         userId,
         channelId: data.channelId,
@@ -294,9 +321,48 @@ export async function registerRoutes(
       });
     });
     
+    // Handle joining stream rooms
+    socket.on('join:stream:global', () => {
+      // Global stream is accessible to everyone (authenticated and unauthenticated)
+      console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} joining global stream`);
+      socket.join('stream:global');
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Joined global stream room`);
+    });
+    
+    socket.on('join:stream:personal', () => {
+      if (!isAuthenticated) {
+        console.log('[WEBSOCKET] Unauthenticated user tried to join personal stream - denied');
+        return;
+      }
+      console.log(`User ${userId} joining personal stream`);
+      // Users automatically get personal stream via their personalRoom
+    });
+    
+    socket.on('join:stream:shelves', () => {
+      if (!isAuthenticated) {
+        console.log('[WEBSOCKET] Unauthenticated user tried to join shelves stream - denied');
+        return;
+      }
+      console.log(`User ${userId} joining shelves stream`);
+      socket.join(`stream:shelves:${userId}`);
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined shelves stream room`);
+    });
+    
+    // Handle leaving stream rooms
+    socket.on('leave:stream:global', () => {
+      console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} leaving global stream`);
+      socket.leave('stream:global');
+    });
+    
+    socket.on('leave:stream:shelves', () => {
+      if (!isAuthenticated) return;
+      console.log(`User ${userId} leaving shelves stream`);
+      socket.leave(`stream:shelves:${userId}`);
+    });
+    
     // Handle disconnection
     socket.on('disconnect', () => {
-      console.log(`User ${userId} disconnected from WebSocket`);
+      console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} disconnected from WebSocket`);
     });
   });
   
@@ -711,6 +777,76 @@ export async function registerRoutes(
       });
       
       console.log("Created comment with ID:", comment.id);
+      
+      // Create activity feed entry and broadcast via WebSocket
+      try {
+        console.log('[STREAM] Starting activity broadcast for news comment:', comment.id);
+        console.log('[STREAM] Socket.IO instance available:', !!(app as any).io);
+        
+        const user = await storage.getUser(userId);
+        const newsItem = await storage.getNews(id);
+        
+        console.log('[STREAM] User found:', !!user, user ? user.username : 'N/A');
+        console.log('[STREAM] News found:', !!newsItem, newsItem ? newsItem.title : 'N/A');
+        
+        if (user && newsItem && (app as any).io) {
+                console.log('[STREAM] Broadcasting news comment to stream:global room...');
+          
+          const io = (app as any).io;
+          
+          // Create activity data with snake_case field names (matching ActivityCard expectations)
+          const activityData = {
+            id: comment.id,
+            type: 'comment',
+            entityId: comment.id,
+            userId: userId,
+            newsId: id,
+            metadata: {
+              content_preview: content.substring(0, 200),
+              author_id: userId,
+              author_name: user.username || user.fullName || 'Anonymous',
+              author_avatar: user.avatarUrl || null,
+              news_id: id,
+              news_title: newsItem.title,
+              reactions: [] // Start with empty reactions array
+            },
+            createdAt: comment.createdAt
+          };
+          
+          console.log('[STREAM] Activity data:', activityData);
+          
+          // Broadcast to global stream
+          io.to('stream:global').emit('stream:new-activity', activityData);
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ News comment broadcast sent to stream:global');
+          
+          // Also broadcast counter update for the news item
+          try {
+            const updatedNews = await storage.getNews(id);
+            if (updatedNews) {
+              io.to('stream:global').emit('stream:counter-update', {
+                entityId: id,
+                entityType: 'news',
+                commentCount: updatedNews.commentCount,
+                reactionCount: updatedNews.reactionCount,
+                viewCount: updatedNews.viewCount
+              });
+              console.log('[STREAM] News counter update broadcast sent');
+            }
+          } catch (counterError) {
+            console.error('[STREAM] Failed to broadcast counter update:', counterError);
+          }
+        } else {
+          console.warn('[STREAM] Missing requirements for broadcast:', {
+            hasUser: !!user,
+            hasNews: !!newsItem,
+            hasIo: !!(app as any).io
+          });
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast news comment activity:', streamError);
+        // Don't fail the request if stream activity broadcast fails
+      }
+      
       res.json(comment);
     } catch (error) {
       console.error("Post news comment error:", error);
@@ -753,7 +889,63 @@ export async function registerRoutes(
       });
       
       console.log("Created reaction with ID:", reaction.id);
-      res.json(reaction);
+      
+      // Get all reactions for this news item and aggregate them
+      const allReactions = await storage.getReactionsForNews(id);
+      
+      // Group and aggregate reactions by emoji
+      const groupedReactions: Record<string, any[]> = {};
+      allReactions.forEach((r: any) => {
+        const key = r.emoji;
+        if (!groupedReactions[key]) {
+          groupedReactions[key] = [];
+        }
+        groupedReactions[key].push(r);
+      });
+      
+      // Aggregate reactions
+      const aggregatedReactions: any[] = [];
+      Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+        const userReacted = reactionList.some((r: any) => r.userId === userId);
+        aggregatedReactions.push({
+          emoji,
+          count: reactionList.length,
+          userReacted
+        });
+      });
+      
+      // Broadcast reaction update and counter update for the news item
+      try {
+        if ((app as any).io) {
+          const updatedNews = await storage.getNews(id);
+          if (updatedNews) {
+            const io = (app as any).io;
+            
+            // Broadcast reaction update with aggregated data
+            io.to('stream:global').emit('stream:reaction-update', {
+              entityId: id,
+              entityType: 'news',
+              reactions: aggregatedReactions,
+              action: reaction.removed ? 'removed' : 'added'
+            });
+            console.log('[STREAM] News reaction update broadcast sent');
+            
+            // Broadcast counter update
+            io.to('stream:global').emit('stream:counter-update', {
+              entityId: id,
+              entityType: 'news',
+              commentCount: updatedNews.commentCount,
+              reactionCount: updatedNews.reactionCount,
+              viewCount: updatedNews.viewCount
+            });
+            console.log('[STREAM] News counter update broadcast sent after reaction');
+          }
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast news updates:', streamError);
+      }
+      
+      res.json({ action: reaction.removed ? 'removed' : 'added', reactions: aggregatedReactions });
     } catch (error) {
       console.error("Post news reaction error:", error);
       res.status(500).json({ error: "Failed to post news reaction" });
@@ -868,6 +1060,28 @@ export async function registerRoutes(
       });
       
       console.log(action === 'added' ? "Added" : "Removed", "reaction to comment with ID:", commentId);
+      
+      // Broadcast reaction update to activity stream via WebSocket
+      try {
+        if ((app as any).io) {
+          console.log('[STREAM] Broadcasting reaction update for comment:', commentId);
+          const io = (app as any).io;
+          
+          // Broadcast reaction update with aggregated data
+          io.to('stream:global').emit('stream:reaction-update', {
+            commentId,
+            entityId: commentId,
+            entityType: 'comment',
+            reactions: aggregatedReactions,
+            action
+          });
+          
+          console.log('[STREAM] Reaction update broadcast sent');
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast reaction update:', streamError);
+      }
+      
       res.json({ action, reactions: aggregatedReactions });
     } catch (error) {
       console.error("Post news comment reaction error:", error);
@@ -895,6 +1109,65 @@ export async function registerRoutes(
       };
       
       const newsItem = await storage.createNews(newsData);
+      
+      // Create activity feed entry and broadcast via WebSocket only if published
+      if (published) {
+        try {
+          console.log('[STREAM DEBUG] Starting activity broadcast for news:', newsItem.id);
+          console.log('[STREAM DEBUG] Socket.IO instance available:', !!(app as any).io);
+          
+          const user = await storage.getUser(userId);
+          
+          console.log('[STREAM DEBUG] User found:', !!user, user ? user.username : 'N/A');
+          
+          if (user && (app as any).io) {
+            console.log('[STREAM DEBUG] Broadcasting directly to stream:global room...');
+            
+            const io = (app as any).io;
+            
+            // Check room status
+            const globalRoom = io.sockets.adapter.rooms.get('stream:global');
+            console.log('[STREAM DEBUG] stream:global room size:', globalRoom ? globalRoom.size : 0);
+            if (globalRoom && globalRoom.size > 0) {
+              console.log('[STREAM DEBUG] Socket IDs in global room:', Array.from(globalRoom));
+            }
+            
+            // Create activity data with snake_case field names
+            const activityData = {
+              id: newsItem.id,
+              type: 'news',
+              entityId: newsItem.id,
+              userId: userId,
+              metadata: {
+                title: title,
+                content_preview: content.substring(0, 200),
+                author_id: userId,
+                author_name: user.username || user.fullName || 'Anonymous',
+                author_avatar: user.avatarUrl || null,
+                view_count: 0,
+                comment_count: 0,
+                reaction_count: 0
+              },
+              createdAt: newsItem.createdAt
+            };
+            
+            console.log('[STREAM DEBUG] Activity data:', activityData);
+            
+            // Broadcast to global stream
+            io.to('stream:global').emit('stream:new-activity', activityData);
+            console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✅ Direct broadcast sent to stream:global');
+          } else {
+            console.warn('[STREAM DEBUG] Missing requirements for broadcast:', {
+              hasUser: !!user,
+              hasIo: !!(app as any).io
+            });
+          }
+        } catch (streamError) {
+          console.error('[STREAM] Failed to broadcast news activity:', streamError);
+          // Don't fail the request if stream activity broadcast fails
+        }
+      }
+      
       res.status(201).json(newsItem);
     } catch (error) {
       console.error("Create news error:", error);
@@ -922,6 +1195,68 @@ export async function registerRoutes(
       };
       
       const updatedNews = await storage.updateNews(id, newsData);
+      
+      // Create activity feed entry and broadcast via WebSocket if newly published
+      if (published && !existingNews.published) {
+        try {
+          console.log('[STREAM DEBUG] Starting activity broadcast for published news:', updatedNews.id);
+          console.log('[STREAM DEBUG] Socket.IO instance available:', !!(app as any).io);
+          
+          const user = await storage.getUser((req as any).user.userId);
+          
+          console.log('[STREAM DEBUG] User found:', !!user, user ? user.username : 'N/A');
+          
+          if (user && (app as any).io) {
+            console.log('[STREAM DEBUG] Broadcasting directly to stream:global room...');
+            
+            const io = (app as any).io;
+            
+            // Check room status
+            const globalRoom = io.sockets.adapter.rooms.get('stream:global');
+            console.log('[STREAM DEBUG] stream:global room size:', globalRoom ? globalRoom.size : 0);
+            if (globalRoom && globalRoom.size > 0) {
+              console.log('[STREAM DEBUG] Socket IDs in global room:', Array.from(globalRoom));
+            }
+            
+            const newsContent = content !== undefined ? content : existingNews.content;
+            const newsTitle = title !== undefined ? title : existingNews.title;
+            
+            // Create activity data with snake_case field names
+            const activityData = {
+              id: updatedNews.id,
+              type: 'news',
+              entityId: updatedNews.id,
+              userId: user.id,
+              metadata: {
+                title: newsTitle,
+                content_preview: newsContent.substring(0, 200),
+                author_id: user.id,
+                author_name: user.username || user.fullName || 'Anonymous',
+                author_avatar: user.avatarUrl || null,
+                view_count: 0,
+                comment_count: 0,
+                reaction_count: 0
+              },
+              createdAt: updatedNews.publishedAt || updatedNews.createdAt
+            };
+            
+            console.log('[STREAM DEBUG] Activity data:', activityData);
+            
+            // Broadcast to global stream
+            io.to('stream:global').emit('stream:new-activity', activityData);
+            console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✅ Direct broadcast sent to stream:global');
+          } else {
+            console.warn('[STREAM DEBUG] Missing requirements for broadcast:', {
+              hasUser: !!user,
+              hasIo: !!(app as any).io
+            });
+          }
+        } catch (streamError) {
+          console.error('[STREAM] Failed to broadcast news activity:', streamError);
+          // Don't fail the request if stream activity broadcast fails
+        }
+      }
+      
       res.json(updatedNews);
     } catch (error) {
       console.error("Update news error:", error);
@@ -941,6 +1276,19 @@ export async function registerRoutes(
       }
       
       await storage.deleteNews(id);
+      
+      // Broadcast deletion via WebSocket
+      try {
+        if ((app as any).io) {
+          const io = (app as any).io;
+          console.log('[STREAM] Broadcasting news deletion:', id);
+          io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast deletion:', streamError);
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Delete news error:", error);
@@ -1408,6 +1756,27 @@ export async function registerRoutes(
       // Add book to the shelf
       await storage.addBookToShelf(uploadedShelf.id, book.id);
       
+      // Create activity feed entry and broadcast via WebSocket
+      try {
+        const user = await storage.getUser(userId);
+        
+        if (user) {
+          await createBookActivity(
+            book.id,
+            book.title,
+            book.author,
+            userId,
+            user.username || user.fullName || 'Anonymous',
+            book.coverImageUrl || '',
+            (app as any).io // Socket.IO instance
+          );
+          console.log(`[STREAM] Book activity created for book ${book.id}`);
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to create book activity:', streamError);
+        // Don't fail the request if stream activity creation fails
+      }
+      
       res.status(201).json({ 
         message: "Book uploaded successfully", 
         book,
@@ -1612,6 +1981,82 @@ export async function registerRoutes(
         attachmentMetadata
       });
       
+      // Create activity feed entry and broadcast via WebSocket
+      // TEMPORARY: Direct broadcast test to diagnose real-time issues
+      try {
+        console.log('[STREAM DEBUG] Starting activity broadcast for comment:', comment.id);
+        console.log('[STREAM DEBUG] Socket.IO instance available:', !!(app as any).io);
+        
+        const user = await storage.getUser(userId);
+        const book = await storage.getBook(bookId);
+        
+        console.log('[STREAM DEBUG] User found:', !!user, user ? user.username : 'N/A');
+        console.log('[STREAM DEBUG] Book found:', !!book, book ? book.title : 'N/A');
+        
+        if (user && book && (app as any).io) {
+          console.log('[STREAM DEBUG] Broadcasting directly to stream:global room...');
+          
+          const io = (app as any).io;
+          
+          // Check room status
+          const globalRoom = io.sockets.adapter.rooms.get('stream:global');
+          console.log('[STREAM DEBUG] stream:global room size:', globalRoom ? globalRoom.size : 0);
+          if (globalRoom && globalRoom.size > 0) {
+            console.log('[STREAM DEBUG] Socket IDs in global room:', Array.from(globalRoom));
+          }
+          
+          // Create activity data with snake_case field names (matching ActivityCard expectations)
+          const activityData = {
+            id: comment.id,
+            type: 'comment',
+            entityId: comment.id,
+            userId: userId,
+            bookId: bookId,
+            metadata: {
+              content_preview: content.substring(0, 200),
+              author_id: userId,
+              author_name: user.username || user.fullName || 'Anonymous',
+              author_avatar: user.avatarUrl || null,
+              book_id: bookId,
+              book_title: book.title,
+              reactions: [] // Start with empty reactions array
+            },
+            createdAt: comment.createdAt
+          };
+          
+          console.log('[STREAM DEBUG] Activity data:', activityData);
+          
+          // Broadcast to global stream
+          io.to('stream:global').emit('stream:new-activity', activityData);
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✅ Direct broadcast sent to stream:global');
+          
+          // Also broadcast counter update for the book
+          try {
+            const updatedBook = await storage.getBook(bookId);
+            if (updatedBook) {
+              io.to('stream:global').emit('stream:counter-update', {
+                entityId: bookId,
+                entityType: 'book',
+                commentCount: updatedBook.commentCount || 0,
+                reviewCount: updatedBook.reviewCount || 0
+              });
+              console.log('[STREAM] Book counter update broadcast sent');
+            }
+          } catch (counterError) {
+            console.error('[STREAM] Failed to broadcast book counter update:', counterError);
+          }
+        } else {
+          console.warn('[STREAM DEBUG] Missing requirements for broadcast:', {
+            hasUser: !!user,
+            hasBook: !!book,
+            hasIo: !!(app as any).io
+          });
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast comment activity:', streamError);
+        // Don't fail the request if stream activity broadcast fails
+      }
+      
       res.status(201).json(comment);
     } catch (error) {
       console.error("Create comment error:", error);
@@ -1693,6 +2138,18 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Comment not found" });
       }
       
+      // Broadcast deletion via WebSocket
+      try {
+        if ((app as any).io) {
+          const io = (app as any).io;
+          console.log('[STREAM] Broadcasting comment deletion:', id);
+          io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast deletion:', streamError);
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Admin delete comment error:", error);
@@ -1711,6 +2168,18 @@ export async function registerRoutes(
       
       if (!success) {
         return res.status(404).json({ error: "Comment not found or unauthorized" });
+      }
+      
+      // Broadcast deletion via WebSocket
+      try {
+        if ((app as any).io) {
+          const io = (app as any).io;
+          console.log('[STREAM] Broadcasting comment deletion:', id);
+          io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast deletion:', streamError);
       }
       
       res.status(204).send();
@@ -1774,6 +2243,82 @@ export async function registerRoutes(
         content,
         attachmentMetadata
       });
+      
+      // Create activity feed entry and broadcast via WebSocket
+      try {
+        console.log('[STREAM DEBUG] Starting activity broadcast for review:', review.id);
+        console.log('[STREAM DEBUG] Socket.IO instance available:', !!(app as any).io);
+        
+        const user = await storage.getUser(userId);
+        const book = await storage.getBook(bookId);
+        
+        console.log('[STREAM DEBUG] User found:', !!user, user ? user.username : 'N/A');
+        console.log('[STREAM DEBUG] Book found:', !!book, book ? book.title : 'N/A');
+        
+        if (user && book && (app as any).io) {
+          console.log('[STREAM DEBUG] Broadcasting directly to stream:global room...');
+          
+          const io = (app as any).io;
+          
+          // Check room status
+          const globalRoom = io.sockets.adapter.rooms.get('stream:global');
+          console.log('[STREAM DEBUG] stream:global room size:', globalRoom ? globalRoom.size : 0);
+          if (globalRoom && globalRoom.size > 0) {
+            console.log('[STREAM DEBUG] Socket IDs in global room:', Array.from(globalRoom));
+          }
+          
+          // Create activity data with snake_case field names (matching ActivityCard expectations)
+          const activityData = {
+            id: review.id,
+            type: 'review',
+            entityId: review.id,
+            userId: userId,
+            bookId: bookId,
+            metadata: {
+              content_preview: content.substring(0, 200),
+              rating: rating,
+              author_id: userId,
+              author_name: user.username || user.fullName || 'Anonymous',
+              author_avatar: user.avatarUrl || null,
+              book_id: bookId,
+              book_title: book.title,
+              reactions: [] // Start with empty reactions array
+            },
+            createdAt: review.createdAt
+          };
+          
+          console.log('[STREAM DEBUG] Activity data:', activityData);
+          
+          // Broadcast to global stream
+          io.to('stream:global').emit('stream:new-activity', activityData);
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✅ Direct broadcast sent to stream:global');
+          
+          // Also broadcast counter update for the book
+          try {
+            const updatedBook = await storage.getBook(bookId);
+            if (updatedBook) {
+              io.to('stream:global').emit('stream:counter-update', {
+                entityId: bookId,
+                entityType: 'book',
+                commentCount: updatedBook.commentCount || 0,
+                reviewCount: updatedBook.reviewCount || 0
+              });
+              console.log('[STREAM] Book counter update broadcast sent for review');
+            }
+          } catch (counterError) {
+            console.error('[STREAM] Failed to broadcast book counter update:', counterError);
+          }
+        } else {
+          console.warn('[STREAM DEBUG] Missing requirements for broadcast:', {
+            hasUser: !!user,
+            hasBook: !!book,
+            hasIo: !!(app as any).io
+          });
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast review activity:', streamError);
+        // Don't fail the request if stream activity broadcast fails
+      }
       
       console.log(`Successfully created review for book ${bookId}:`, review);
       res.status(201).json(review);
@@ -1912,6 +2457,18 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Review not found" });
       }
       
+      // Broadcast deletion via WebSocket
+      try {
+        if ((app as any).io) {
+          const io = (app as any).io;
+          console.log('[STREAM] Broadcasting review deletion:', id);
+          io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast deletion:', streamError);
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Admin delete review error:", error);
@@ -1930,6 +2487,18 @@ export async function registerRoutes(
       
       if (!success) {
         return res.status(404).json({ error: "Review not found or unauthorized" });
+      }
+      
+      // Broadcast deletion via WebSocket
+      try {
+        if ((app as any).io) {
+          const io = (app as any).io;
+          console.log('[STREAM] Broadcasting review deletion:', id);
+          io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast deletion:', streamError);
       }
       
       res.status(204).send();
@@ -1969,6 +2538,51 @@ export async function registerRoutes(
         reviewId,
         emoji
       });
+      
+      // Broadcast reaction update to activity stream via WebSocket
+      try {
+        if ((app as any).io) {
+          const io = (app as any).io;
+          const entityId = commentId || reviewId;
+          const entityType = commentId ? 'comment' : 'review';
+          
+          // Get all reactions for this comment/review
+          const updatedReactions = await storage.getReactions(entityId, !!commentId);
+          
+          // Group and aggregate reactions by emoji
+          const groupedReactions: Record<string, any[]> = {};
+          updatedReactions.forEach((r: any) => {
+            const key = r.emoji;
+            if (!groupedReactions[key]) {
+              groupedReactions[key] = [];
+            }
+            groupedReactions[key].push(r);
+          });
+          
+          // Aggregate reactions
+          const aggregatedReactions: any[] = [];
+          Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+            const userReacted = reactionList.some((r: any) => r.userId === userId);
+            aggregatedReactions.push({
+              emoji,
+              count: reactionList.length,
+              userReacted
+            });
+          });
+          
+          // Broadcast reaction update with aggregated data
+          io.to('stream:global').emit('stream:reaction-update', {
+            entityId,
+            entityType,
+            reactions: aggregatedReactions,
+            action: reaction.removed ? 'removed' : 'added'
+          });
+          
+          console.log(`[STREAM] Reaction update broadcast sent for ${entityType}:`, entityId);
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to broadcast reaction update:', streamError);
+      }
       
       res.json(reaction);
     } catch (error) {
@@ -3940,6 +4554,209 @@ export async function registerRoutes(
     } catch (error) {
       console.error("File delete error:", error);
       res.status(500).json({ error: "Failed to delete file" });
+    }
+  });
+  
+  // Stream endpoints
+  // Get global activity stream
+  app.get("/api/stream/global", async (req, res) => {
+    console.log("Get global stream endpoint called");
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const before = req.query.before as string;
+      
+      const activities = await storage.getGlobalActivities(limit, offset, before);
+      res.json(activities);
+    } catch (error) {
+      console.error("Get global stream error:", error);
+      res.status(500).json({ error: "Failed to get global stream" });
+    }
+  });
+  
+  // Get personal activity stream
+  app.get("/api/stream/personal", authenticateToken, async (req, res) => {
+    console.log("Get personal stream endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const before = req.query.before as string;
+      
+      const activities = await storage.getPersonalActivities(userId, limit, offset, before);
+      res.json(activities);
+    } catch (error) {
+      console.error("Get personal stream error:", error);
+      res.status(500).json({ error: "Failed to get personal stream" });
+    }
+  });
+  
+  // Get shelf activity stream
+  app.get("/api/stream/shelves", authenticateToken, async (req, res) => {
+    console.log("Get shelf stream endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const shelfIds = req.query.shelfIds ? (req.query.shelfIds as string).split(',') : undefined;
+      const bookIds = req.query.bookIds ? (req.query.bookIds as string).split(',') : undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const before = req.query.before as string;
+      
+      const activities = await storage.getShelfActivities(userId, shelfIds, bookIds, limit, offset, before);
+      res.json(activities);
+    } catch (error) {
+      console.error("Get shelf stream error:", error);
+      res.status(500).json({ error: "Failed to get shelf stream" });
+    }
+  });
+  
+  // Get user shelves with books for filtering
+  app.get("/api/stream/shelves/filters", authenticateToken, async (req, res) => {
+    console.log("Get shelf filters endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const data = await storage.getUserShelvesWithBooks(userId);
+      res.json(data);
+    } catch (error) {
+      console.error("Get shelf filters error:", error);
+      res.status(500).json({ error: "Failed to get shelf filters" });
+    }
+  });
+  
+  // Admin: Soft delete activity
+  app.delete("/api/stream/activities/:entityId", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Delete activity endpoint called");
+    try {
+      const { entityId } = req.params;
+      
+      if (!entityId) {
+        return res.status(400).json({ error: "Entity ID is required" });
+      }
+      
+      // Try to find and delete the entity from different tables using storage methods
+      // Check if it's a comment
+      const comment = await storage.getCommentById(entityId);
+      if (comment) {
+        console.log("Deleting comment:", entityId);
+        const deleted = await storage.deleteComment(entityId, null); // null = admin override
+        if (deleted) {
+          // Broadcast deletion via WebSocket
+          try {
+            if ((app as any).io) {
+              const io = (app as any).io;
+              console.log('[STREAM] Broadcasting comment deletion from stream:', entityId);
+              io.to('stream:global').emit('stream:activity-deleted', { entityId });
+            }
+          } catch (streamError) {
+            console.error('[STREAM] Failed to broadcast comment deletion:', streamError);
+          }
+          
+          return res.json({ success: true, type: 'comment' });
+        }
+      }
+      
+      // Check if it's a review
+      // Note: We need to check existence first because deleteReview might return true even if not found
+      try {
+        const reviewDeleted = await storage.deleteReview(entityId, null); // null = admin override
+        if (reviewDeleted) {
+          console.log("Deleted review:", entityId);
+          
+          // Broadcast deletion via WebSocket
+          try {
+            if ((app as any).io) {
+              const io = (app as any).io;
+              console.log('[STREAM] Broadcasting review deletion from stream:', entityId);
+              io.to('stream:global').emit('stream:activity-deleted', { entityId });
+            }
+          } catch (streamError) {
+            console.error('[STREAM] Failed to broadcast review deletion:', streamError);
+          }
+          
+          return res.json({ success: true, type: 'review' });
+        }
+      } catch (reviewError) {
+        // Review not found, continue
+      }
+      
+      // Check if it's a news item - VERIFY EXISTENCE FIRST
+      const newsItem = await storage.getNews(entityId);
+      if (newsItem) {
+        console.log("Deleting news:", entityId);
+        await storage.deleteNews(entityId);
+        
+        // Broadcast deletion via WebSocket
+        try {
+          if ((app as any).io) {
+            const io = (app as any).io;
+            console.log('[STREAM] Broadcasting news deletion from stream:', entityId);
+            io.to('stream:global').emit('stream:activity-deleted', { entityId });
+          }
+        } catch (streamError) {
+          console.error('[STREAM] Failed to broadcast news deletion:', streamError);
+        }
+        
+        return res.json({ success: true, type: 'news' });
+      }
+      
+      // Check if it's a book - VERIFY EXISTENCE FIRST
+      const book = await storage.getBook(entityId);
+      if (book) {
+        console.log("Deleting book:", entityId);
+        const deleted = await storage.deleteBookAdmin(entityId);
+        if (deleted) {
+          console.log("Deleted book:", entityId);
+          
+          // Broadcast deletion via WebSocket
+          try {
+            if ((app as any).io) {
+              const io = (app as any).io;
+              console.log('[STREAM] Broadcasting book deletion from stream:', entityId);
+              io.to('stream:global').emit('stream:activity-deleted', { entityId });
+            }
+          } catch (streamError) {
+            console.error('[STREAM] Failed to broadcast book deletion:', streamError);
+          }
+          
+          return res.json({ success: true, type: 'book' });
+        }
+      }
+      
+      // Entity not found in any table
+      console.log("Entity not found:", entityId);
+      return res.status(404).json({ error: "Entity not found" });
+    } catch (error) {
+      console.error("Delete activity error:", error);
+      res.status(500).json({ error: "Failed to delete activity", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+  
+  // Admin: Update activity metadata
+  // NOTE: Activities are virtual entities generated from real data (comments, reviews, news)
+  // To update an activity, update the underlying entity directly
+  app.put("/api/stream/activities/:entityId", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Update activity endpoint called");
+    try {
+      const { entityId } = req.params;
+      const { metadata } = req.body;
+      
+      if (!entityId) {
+        return res.status(400).json({ error: "Entity ID is required" });
+      }
+      
+      if (!metadata) {
+        return res.status(400).json({ error: "Metadata is required" });
+      }
+      
+      // Activities are virtual - they don't have separate metadata
+      // To update activity metadata, you need to update the underlying entity (comment, review, or news)
+      return res.status(501).json({ 
+        error: "Not implemented", 
+        message: "Activities are virtual entities. Update the underlying comment, review, or news item directly." 
+      });
+    } catch (error) {
+      console.error("Update activity error:", error);
+      res.status(500).json({ error: "Failed to update activity" });
     }
   });
   

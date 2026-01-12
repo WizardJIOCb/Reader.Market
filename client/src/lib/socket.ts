@@ -23,7 +23,7 @@ export interface SocketEvents {
   'notification:new': (data: { type: string; conversationId?: string; senderId?: string }) => void;
 }
 
-export function initializeSocket(token: string): Socket {
+export function initializeSocket(token?: string): Socket {
   if (socket?.connected) {
     return socket;
   }
@@ -33,11 +33,9 @@ export function initializeSocket(token: string): Socket {
     socket.disconnect();
   }
 
-  // Connect to WebSocket server
+  // Connect to WebSocket server (with or without token)
   socket = io('/', {
-    auth: {
-      token,
-    },
+    auth: token ? { token } : {},
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
@@ -51,7 +49,11 @@ export function initializeSocket(token: string): Socket {
   socketInstance.on('connect', () => {
     console.log('%c[SOCKET.IO] ✅ WebSocket connected', 'color: green; font-weight: bold');
     console.log('[SOCKET.IO] Socket ID:', socketInstance.id);
-    console.log('[SOCKET.IO] Connected to server, personal room should be auto-joined');
+    if (token) {
+      console.log('[SOCKET.IO] Connected to server with authentication, personal room should be auto-joined');
+    } else {
+      console.log('[SOCKET.IO] Connected to server without authentication (guest mode)');
+    }
   });
 
   socketInstance.on('disconnect', (reason) => {
