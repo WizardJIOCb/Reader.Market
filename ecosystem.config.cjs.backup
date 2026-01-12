@@ -2,8 +2,8 @@ module.exports = {
   apps: [{
     name: 'ollama-reader',
     script: './dist/index.cjs',
-    instances: 1,
-    exec_mode: 'fork',
+    instances: 'max',
+    exec_mode: 'cluster',
     env: {
       NODE_ENV: 'production',
       PORT: 5001,
