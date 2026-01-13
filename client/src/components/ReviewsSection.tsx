@@ -321,11 +321,34 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     // Update cache with the updated reviews
     setCachedReviews(bookId, updatedReviews);
     
-    // Now refetch the reviews to get accurate data from the server
+    // Send POST request to save the reaction to the database
     try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const reactionResponse = await fetch('/api/reactions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          reviewId,
+          emoji
+        }),
+      });
+      
+      if (!reactionResponse.ok) {
+        const errorData = await reactionResponse.json();
+        throw new Error(errorData.error || 'Failed to add reaction');
+      }
+      
+      // Now refetch the reviews to get accurate data from the server
       const response = await fetch(`/api/books/${bookId}/reviews`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          'Authorization': `Bearer ${token}`
         }
       });
       
@@ -345,12 +368,13 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
         setCachedReviews(bookId, fetchedReviews);
       }
     } catch (error) {
-      console.error('Failed to refresh reviews after reaction:', error);
-      // Revert to previous state if refresh fails
+      console.error('Failed to add reaction or refresh reviews:', error);
+      // Revert to previous state if POST or refresh fails
       setReviews(reviews);
       if (userReview) {
         setUserReview(userReview);
       }
+      setCachedReviews(bookId, reviews);
     }
   };
 
