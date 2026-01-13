@@ -244,7 +244,7 @@ export default function Library() {
                         <BookCard 
                           key={book.id} 
                           book={bookData} 
-                          variant="standard"
+                          variant="detailed"
                           readingProgress={readingProgress}
                         />
                       );
