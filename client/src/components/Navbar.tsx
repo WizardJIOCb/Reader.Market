@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Search, User, Menu, MessageCircle, Rss } from 'lucide-react';
+import { Search, User, Menu, MessageCircle, Rss, Shield } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -84,10 +84,21 @@ export function Navbar() {
   return (
     <nav className="bg-background border-b">
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">
-          <img src="/favicon.png" alt="Reader.Market Logo" className="w-6 h-6" />
-          Reader.Market
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">
+            <img src="/favicon.png" alt="Reader.Market Logo" className="w-6 h-6" />
+            Reader.Market
+          </Link>
+          {user && (user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
+            <Link 
+              href="/admin" 
+              className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+              aria-label={t('navigation:adminPanel')}
+            >
+              <Shield className="w-4 h-4" />
+            </Link>
+          )}
+        </div>
         
         {isMobile ? (
           <MobileMenu />
