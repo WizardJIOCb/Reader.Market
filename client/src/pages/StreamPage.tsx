@@ -7,7 +7,7 @@ import { LastActionsActivityCard } from "@/components/stream/LastActionsActivity
 import { ShelfFilters } from "@/components/stream/ShelfFilters";
 import { ActivityTypeFilter } from "@/components/stream/ActivityTypeFilter";
 import { Button } from "@/components/ui/button";
-import { Zap } from "lucide-react";
+import { Zap, Globe, Library, User } from "lucide-react";
 import { getSocket } from "@/lib/socket";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -609,12 +609,15 @@ export default function StreamPage() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="flex flex-col gap-2 sm:grid sm:grid-cols-4 w-full mb-6 h-auto sm:h-9 bg-transparent sm:bg-muted p-0 sm:p-1">
           <TabsTrigger value="global">
+            <Globe className="w-4 h-4 mr-2" />
             {t('stream:globalTab')}
           </TabsTrigger>
           <TabsTrigger value="shelves" disabled={!isAuthenticated}>
+            <Library className="w-4 h-4 mr-2" />
             {t('stream:myShelvesTab')}
           </TabsTrigger>
           <TabsTrigger value="personal" disabled={!isAuthenticated}>
+            <User className="w-4 h-4 mr-2" />
             {t('stream:myTab')}
           </TabsTrigger>
           <TabsTrigger value="last-actions">
