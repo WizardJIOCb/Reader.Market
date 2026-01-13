@@ -1347,8 +1347,8 @@ export default function Messages() {
   }
 
   return (
-    <>
-      <div className="flex h-[calc(100vh-4rem)] bg-background overflow-hidden">
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="flex h-[calc(100vh-8rem)] bg-background overflow-hidden rounded-lg border">
       {/* Left Panel - Conversations List */}
       <div className={`w-full md:w-80 border-r flex flex-col ${
         isMobile && showMobileChat ? 'hidden' : 'flex'
@@ -2151,6 +2151,6 @@ export default function Messages() {
             : []
         }
       />
-    </>
+    </div>
   );
 }
