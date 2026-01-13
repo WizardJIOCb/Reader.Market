@@ -1312,7 +1312,7 @@ export default function Messages() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p>Loading conversations...</p>
+        <p>{t('messages:loadingConversations')}</p>
       </div>
     );
   }

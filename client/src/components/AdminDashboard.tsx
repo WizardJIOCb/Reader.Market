@@ -38,6 +38,7 @@ const AdminDashboard: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
   const isMobile = useIsMobile();
   const { i18n } = useTranslation();
+  const { t } = useTranslation(['common']);
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
   const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -473,7 +474,7 @@ const AdminDashboard: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                       {loadingStats ? (
-                        <div className="text-2xl font-bold">Loading...</div>
+                        <div className="text-2xl font-bold">{t('common:loading')}</div>
                       ) : (
                         <div className="text-2xl font-bold">{dashboardStats.totalNews}</div>
                       )}
@@ -487,7 +488,7 @@ const AdminDashboard: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                       {loadingStats ? (
-                        <div className="text-2xl font-bold">Loading...</div>
+                        <div className="text-2xl font-bold">{t('common:loading')}</div>
                       ) : (
                         <div className="text-2xl font-bold">{dashboardStats.totalComments}</div>
                       )}
@@ -501,7 +502,7 @@ const AdminDashboard: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                       {loadingStats ? (
-                        <div className="text-2xl font-bold">Loading...</div>
+                        <div className="text-2xl font-bold">{t('common:loading')}</div>
                       ) : (
                         <div className="text-2xl font-bold">{dashboardStats.totalReviews}</div>
                       )}
@@ -516,7 +517,7 @@ const AdminDashboard: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     {loadingActivity ? (
-                      <p className="text-muted-foreground">Loading recent activity...</p>
+                      <p className="text-muted-foreground">{t('common:loading')}</p>
                     ) : recentActivity.length > 0 ? (
                       <div className="space-y-4">
                         {recentActivity.map((activity) => (

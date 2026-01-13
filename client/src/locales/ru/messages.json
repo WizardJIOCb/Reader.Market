@@ -48,6 +48,7 @@
   "searchBooksPlaceholder": "Поиск книг для добавления в группу",
   "selectedBooksLabel": "Выбранные книги",
   "noBooksSelected": "Книги ещё не выбраны",
+  "loadingConversations": "Загрузка диалогов...",
   "create": "Создать",
   "cancel": "Отмена",
   "success": "Успех",

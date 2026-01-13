@@ -643,7 +643,7 @@ export default function StreamPage() {
             
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">
-                Loading...
+                {t('stream:loading')}
               </div>
             ) : filteredActivities.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -689,7 +689,7 @@ export default function StreamPage() {
               <div className="space-y-4">
                 {isLoading ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    Loading...
+                    {t('stream:loading')}
                   </div>
                 ) : filteredActivities.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
@@ -728,7 +728,7 @@ export default function StreamPage() {
               
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Loading...
+                  {t('stream:loading')}
                 </div>
               ) : filteredActivities.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -763,7 +763,7 @@ export default function StreamPage() {
             
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">
-                Loading...
+                {t('stream:loading')}
               </div>
             ) : filteredActivities.length === 0 ? (
               <div className="text-center py-12">

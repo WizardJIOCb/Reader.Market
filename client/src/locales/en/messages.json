@@ -48,6 +48,7 @@
   "searchBooksPlaceholder": "Search for books to add to the group",
   "selectedBooksLabel": "Selected Books",
   "noBooksSelected": "No books selected yet",
+  "loadingConversations": "Loading conversations...",
   "create": "Create",
   "cancel": "Cancel",
   "success": "Success",
