@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Search, User, Menu, MessageCircle, Rss, Shield } from 'lucide-react';
@@ -16,6 +16,15 @@ export function Navbar() {
   const isMobile = useIsMobile();
   const [unreadCount, setUnreadCount] = useState(0);
   const { t } = useTranslation(['navigation', 'common']);
+  const [location] = useLocation();
+
+  // Helper function to check if a route is active
+  const isActive = (path: string, exact = true) => {
+    if (exact) {
+      return location === path;
+    }
+    return location.startsWith(path);
+  };
 
   // Fetch unread message count
   useEffect(() => {
@@ -92,8 +101,12 @@ export function Navbar() {
           {user && (user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
             <Link 
               href="/admin" 
-              className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+              className={`hover:text-primary transition-colors cursor-pointer ${
+                isActive('/admin', false) ? '' : 'text-muted-foreground'
+              }`}
+              style={isActive('/admin', false) ? { color: '#f1680c' } : {}}
               aria-label={t('navigation:adminPanel')}
+              aria-current={isActive('/admin', false) ? 'page' : undefined}
             >
               <Shield className="w-4 h-4" />
             </Link>
@@ -107,20 +120,32 @@ export function Navbar() {
             {/* Show navigation menu for all users */}
             <Link 
               href="/home" 
-              className="text-sm hover:text-primary transition-colors cursor-pointer"
+              className={`text-sm hover:text-primary transition-colors cursor-pointer ${
+                isActive('/home') ? 'font-semibold' : ''
+              }`}
+              style={isActive('/home') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/home') ? 'page' : undefined}
             >
               {t('navigation:home')}
             </Link>
             <Link 
               href="/stream" 
-              className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer"
+              className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
+                isActive('/stream') ? 'font-semibold' : ''
+              }`}
+              style={isActive('/stream') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/stream') ? 'page' : undefined}
             >
               <Rss className="w-4 h-4" />
               <span className="hidden sm:inline">{t('navigation:stream')}</span>
             </Link>
             <Link 
               href="/search" 
-              className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer"
+              className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
+                isActive('/search') ? 'font-semibold' : ''
+              }`}
+              style={isActive('/search') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/search') ? 'page' : undefined}
             >
               <Search className="w-4 h-4" />
               <span className="hidden sm:inline">{t('navigation:search')}</span>
@@ -128,21 +153,33 @@ export function Navbar() {
             {user && (
               <Link 
                 href="/shelves" 
-                className="text-sm hover:text-primary transition-colors cursor-pointer"
+                className={`text-sm hover:text-primary transition-colors cursor-pointer ${
+                  isActive('/shelves') ? 'font-semibold' : ''
+                }`}
+                style={isActive('/shelves') ? { color: '#f1680c' } : {}}
+                aria-current={isActive('/shelves') ? 'page' : undefined}
               >
                 {t('navigation:shelves')}
               </Link>
             )}
             <Link 
               href="/" 
-              className="text-sm hover:text-primary transition-colors cursor-pointer"
+              className={`text-sm hover:text-primary transition-colors cursor-pointer ${
+                isActive('/') ? 'font-semibold' : ''
+              }`}
+              style={isActive('/') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/') ? 'page' : undefined}
             >
               {t('navigation:about')}
             </Link>
             {user && (
               <Link 
                 href="/messages" 
-                className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer relative"
+                className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer relative ${
+                  isActive('/messages', false) ? 'font-semibold' : ''
+                }`}
+                style={isActive('/messages', false) ? { color: '#f1680c' } : {}}
+                aria-current={isActive('/messages', false) ? 'page' : undefined}
               >
                 <div className="relative">
                   <MessageCircle className="w-4 h-4" />
@@ -156,7 +193,14 @@ export function Navbar() {
               </Link>
             )}
             {user ? (
-              <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
+              <Link 
+                href={`/profile/${user.id}`} 
+                className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
+                  isActive('/profile', false) ? 'font-semibold' : ''
+                }`}
+                style={isActive('/profile', false) ? { color: '#f1680c' } : {}}
+                aria-current={isActive('/profile', false) ? 'page' : undefined}
+              >
                 <User className="w-4 h-4" />
                 <span>{t('navigation:profile')} ({user.username})</span>
               </Link>

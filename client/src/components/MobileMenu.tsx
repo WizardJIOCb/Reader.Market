@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,15 @@ export function MobileMenu() {
   const { t, i18n } = useTranslation(['navigation', 'common']);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const [location] = useLocation();
+
+  // Helper function to check if a route is active
+  const isActive = (path: string, exact = true) => {
+    if (exact) {
+      return location === path;
+    }
+    return location.startsWith(path);
+  };
 
   // Language configuration with flag indicators using colored blocks
   const LANGUAGES = [
@@ -179,7 +188,11 @@ export function MobileMenu() {
           <SheetClose asChild>
             <Link 
               href="/home" 
-              className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/home') ? 'font-semibold bg-accent/10' : ''
+              }`}
+              style={isActive('/home') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/home') ? 'page' : undefined}
             >
               <BookOpen className="w-4 h-4" />
               {t('navigation:home')}
@@ -188,7 +201,11 @@ export function MobileMenu() {
           <SheetClose asChild>
             <Link 
               href="/stream" 
-              className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/stream') ? 'font-semibold bg-accent/10' : ''
+              }`}
+              style={isActive('/stream') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/stream') ? 'page' : undefined}
             >
               <Rss className="w-4 h-4" />
               {t('navigation:stream')}
@@ -197,7 +214,11 @@ export function MobileMenu() {
           <SheetClose asChild>
             <Link 
               href="/search" 
-              className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/search') ? 'font-semibold bg-accent/10' : ''
+              }`}
+              style={isActive('/search') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/search') ? 'page' : undefined}
             >
               <Search className="w-4 h-4" />
               {t('navigation:search')}
@@ -207,7 +228,11 @@ export function MobileMenu() {
             <SheetClose asChild>
               <Link 
                 href="/shelves" 
-                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+                className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                  isActive('/shelves') ? 'font-semibold bg-accent/10' : ''
+                }`}
+                style={isActive('/shelves') ? { color: '#f1680c' } : {}}
+                aria-current={isActive('/shelves') ? 'page' : undefined}
               >
                 <BookOpen className="w-4 h-4" />
                 {t('navigation:shelves')}
@@ -218,7 +243,11 @@ export function MobileMenu() {
             <SheetClose asChild>
               <Link 
                 href="/admin" 
-                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+                className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                  isActive('/admin', false) ? 'font-semibold bg-accent/10' : ''
+                }`}
+                style={isActive('/admin', false) ? { color: '#f1680c' } : {}}
+                aria-current={isActive('/admin', false) ? 'page' : undefined}
               >
                 <Shield className="w-4 h-4" />
                 {t('navigation:adminPanel')}
@@ -229,7 +258,11 @@ export function MobileMenu() {
             <SheetClose asChild>
               <Link 
                 href="/messages" 
-                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+                className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                  isActive('/messages', false) ? 'font-semibold bg-accent/10' : ''
+                }`}
+                style={isActive('/messages', false) ? { color: '#f1680c' } : {}}
+                aria-current={isActive('/messages', false) ? 'page' : undefined}
               >
                 <div className="relative">
                   <MessageCircle className="w-4 h-4" />
@@ -246,7 +279,11 @@ export function MobileMenu() {
           <SheetClose asChild>
             <Link 
               href="/" 
-              className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/') ? 'font-semibold bg-accent/10' : ''
+              }`}
+              style={isActive('/') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/') ? 'page' : undefined}
             >
               <BookOpen className="w-4 h-4" />
               {t('navigation:about')}
@@ -256,7 +293,11 @@ export function MobileMenu() {
             <SheetClose asChild>
               <Link 
                 href={`/profile/${user.id}`} 
-                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+                className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                  isActive('/profile', false) ? 'font-semibold bg-accent/10' : ''
+                }`}
+                style={isActive('/profile', false) ? { color: '#f1680c' } : {}}
+                aria-current={isActive('/profile', false) ? 'page' : undefined}
               >
                 <User className="w-4 h-4" />
                 {t('navigation:profile')} ({user.username})
