@@ -47,6 +47,8 @@ interface LastAction {
     title?: string;
     username?: string;
     name?: string;
+    shelf_id?: string;
+    shelf_name?: string;
   };
   metadata: any;
   createdAt: string | Date;
@@ -184,6 +186,8 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
         return <User className="w-5 h-5 text-green-500" />;
       case 'shelf_created':
         return <Library className="w-5 h-5 text-amber-500" />;
+      case 'book_added_to_shelf':
+        return <BookOpen className="w-5 h-5 text-blue-500" />;
       default:
         return <Activity className="w-5 h-5 text-gray-500" />;
     }
@@ -200,6 +204,28 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
     // since the user is already shown in the user info section
     if (activity.action_type === 'user_registered') {
       return null;
+    }
+
+    // For book_added_to_shelf, show custom text with book and shelf
+    if (activity.action_type === 'book_added_to_shelf') {
+      const bookTitle = activity.target?.title || activity.metadata?.book_title || 'Unknown Book';
+      const shelfName = activity.target?.shelf_name || activity.metadata?.shelf_name || 'Unknown Shelf';
+      const bookId = activity.target?.id || activity.metadata?.book_id;
+      
+      return (
+        <span className="text-sm">
+          <span className="text-muted-foreground">{t('stream:added')} </span>
+          <Link href={`/book/${bookId}`}>
+            <span className="text-primary hover:underline cursor-pointer font-medium">
+              {bookTitle}
+            </span>
+          </Link>
+          <span className="text-muted-foreground"> {t('stream:to')} </span>
+          <span className="font-medium">
+            {shelfName}
+          </span>
+        </span>
+      );
     }
 
     // For group messages, we need special handling to add the preposition

@@ -29,10 +29,13 @@
     "navigate_reader": "Начал читать",
     "send_group_message": "Отправил сообщение в",
     "user_registered": "Зарегистрировался пользователь",
-    "shelf_created": "Создал полку"
+    "shelf_created": "Создал полку",
+    "book_added_to_shelf": "Добавил книгу на полку"
   },
   "by": "от",
   "in": "в",
+  "added": "добавил",
+  "to": "на",
   "author": "Автор",
   "uploadedBy": "Загрузил",
   "on": "К",

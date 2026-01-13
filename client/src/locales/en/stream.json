@@ -29,10 +29,13 @@
     "navigate_reader": "Started reading",
     "send_group_message": "Sent message in",
     "user_registered": "User registered",
-    "shelf_created": "Created shelf"
+    "shelf_created": "Created shelf",
+    "book_added_to_shelf": "Added book to shelf"
   },
   "by": "by",
   "in": "in",
+  "added": "added",
+  "to": "to",
   "author": "Author",
   "uploadedBy": "Uploaded by",
   "on": "On",

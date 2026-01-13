@@ -2187,6 +2187,68 @@ export async function registerRoutes(
       }
       
       await storage.addBookToShelf(shelfId, bookId);
+      
+      // Log book added to shelf action and broadcast via WebSocket
+      try {
+        console.log('[Book to Shelf] Creating user action for book added to shelf event');
+        const action = await storage.createUserAction({
+          userId: userId,
+          actionType: 'book_added_to_shelf',
+          targetType: 'book',
+          targetId: bookId,
+          metadata: { 
+            book_title: book.title,
+            shelf_id: shelfId,
+            shelf_name: shelf.name 
+          }
+        });
+        console.log('[Book to Shelf] User action created:', action?.id);
+        
+        // Broadcast book added to shelf event via WebSocket
+        if ((app as any).io && action) {
+          const io = (app as any).io;
+          console.log('[Book to Shelf] Broadcasting book added to shelf event');
+          
+          // Get user info for broadcast
+          const user = await storage.getUser(userId);
+          
+          const eventData = {
+            id: action.id,
+            type: 'user_action',
+            action_type: 'book_added_to_shelf',
+            entityId: action.id,
+            userId: userId,
+            user: {
+              id: userId,
+              username: user?.username || 'Unknown',
+              avatar_url: user?.avatarUrl || null
+            },
+            target: {
+              type: 'book',
+              id: bookId,
+              title: book.title,
+              shelf_id: shelfId,
+              shelf_name: shelf.name
+            },
+            metadata: { 
+              book_title: book.title,
+              shelf_id: shelfId,
+              shelf_name: shelf.name 
+            },
+            createdAt: action.createdAt,
+            timestamp: action.createdAt.toISOString()
+          };
+          
+          // Broadcast to both global stream and last-actions room
+          io.to('stream:global').emit('stream:last-action', eventData);
+          io.to('stream:last-actions').emit('stream:last-action', eventData);
+          console.log('[Book to Shelf] ✅ Book added to shelf event broadcasted');
+        }
+      } catch (actionError) {
+        console.error('[Book to Shelf] Failed to log user action or broadcast event:', actionError);
+        // Don't fail book addition if action logging fails
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Add book to shelf error:", error);
