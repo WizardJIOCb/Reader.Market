@@ -21,6 +21,25 @@ const LandingPage = () => {
   const [isEarlyAdopter, setIsEarlyAdopter] = useState(false);
   const { t } = useTranslation(['landing', 'common']);
   
+  // Track landing page view for authenticated users
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    // Use direct backend URL in development
+    const apiUrl = import.meta.env.DEV 
+      ? 'http://localhost:5001/api/page-view/about'
+      : '/api/page-view/about';
+
+    fetch(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }).catch(error => {
+      console.error('[PageView] Failed to log about page view:', error);
+    });
+  }, []);
+  
   useEffect(() => {
     const urlParams = new URLSearchParams(location.split('?')[1]);
     setIsEarlyAdopter(location.includes('/early') || urlParams.get('early') === '1');

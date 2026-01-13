@@ -26,6 +26,7 @@ import { QuotedMessageDisplay } from '@/components/QuotedMessageDisplay';
 import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
 import { formatMessageTimestamp } from '@/lib/dateUtils';
 import { ru, enUS } from 'date-fns/locale';
+import { usePageView } from '@/hooks/usePageView';
 
 interface Conversation {
   id: string;
@@ -96,6 +97,9 @@ export default function Messages() {
   const { t, i18n } = useTranslation(['messages']);
   const isMobile = useIsMobile();
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
+  
+  // Track page view for navigation logging
+  usePageView('messages');
   
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);

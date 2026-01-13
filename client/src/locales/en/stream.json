@@ -1,9 +1,12 @@
 {
   "title": "Activity Stream",
-  "globalTab": "Global",
+  "globalTab": "Social",
   "myTab": "My Activity",
   "myShelvesTab": "My Shelves",
+  "lastActionsTab": "Last Actions",
   "noActivities": "No activities yet",
+  "noLastActions": "No recent actions to display",
+  "noLastActionsSubtext": "User activities will appear here as they interact with the platform",
   "authRequired": "Please sign in to view this content",
   "loadMore": "Load more",
   "newItemsAvailable": "New items available. Click to refresh.",
@@ -12,6 +15,19 @@
     "book": "New Book",
     "comment": "New Comment",
     "review": "New Review"
+  },
+  "actionTypes": {
+    "navigate_home": "Visited home page",
+    "navigate_stream": "Visited stream",
+    "navigate_search": "Used search",
+    "navigate_shelves": "Viewed their shelves",
+    "navigate_about": "Visited about page",
+    "navigate_messages": "Checked messages",
+    "navigate_profile": "Viewed profile",
+    "navigate_news": "Read news",
+    "navigate_book": "Viewed book",
+    "navigate_reader": "Started reading",
+    "send_group_message": "Sent message in"
   },
   "by": "by",
   "author": "Author",

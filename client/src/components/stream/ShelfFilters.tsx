@@ -90,7 +90,7 @@ export function ShelfFilters({ filters, onFilterChange }: ShelfFiltersProps) {
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="py-3">
           <div className="flex items-center justify-between">
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 p-0 hover:bg-transparent">

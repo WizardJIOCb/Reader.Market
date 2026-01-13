@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
 import { booksApi } from '@/lib/api';
+import { usePageView } from '@/hooks/usePageView';
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -47,6 +48,9 @@ export default function SearchPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { t } = useTranslation(['search', 'notifications']);
+  
+  // Track page view for navigation logging
+  usePageView('search');
   
   // State for books and loading
   const [books, setBooks] = useState<Book[]>([]);

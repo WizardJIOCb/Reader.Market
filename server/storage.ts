@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull } from "drizzle-orm";
 
 // Database connection
@@ -225,6 +225,15 @@ export interface IStorage {
   getPersonalActivities(userId: string, limit: number, offset: number, before?: string): Promise<any[]>;
   getShelfActivities(userId: string, shelfIds?: string[], bookIds?: string[], limit?: number, offset?: number, before?: string): Promise<any[]>;
   getUserShelvesWithBooks(userId: string): Promise<{shelves: any[], books: any[]}>;
+  
+  // User actions operations
+  createUserAction(actionData: any): Promise<any>;
+  getLastActions(limit: number, offset: number): Promise<any[]>;
+  cleanupOldActions(daysToKeep: number): Promise<void>;
+  
+  // Channel read position operations
+  upsertChannelReadPosition(userId: string, channelId: string): Promise<void>;
+  getChannelReadPosition(userId: string, channelId: string): Promise<Date | null>;
 }
 
 export class DBStorage implements IStorage {
@@ -3694,23 +3703,16 @@ export class DBStorage implements IStorage {
           const memberCount = parseInt((memberCountResult.rows[0] as any).count) || 0;
           
           // Count unread messages in all channels of this group
-          // For simplicity, we'll count all messages in group channels that the user hasn't seen
-          // A more sophisticated approach would track per-user last read message per channel
+          // Using the new read position tracking system
           const unreadCountResult = await db.execute(
             sql`SELECT COUNT(DISTINCT m.id) as count
                 FROM messages m
                 INNER JOIN channels c ON m.channel_id = c.id
+                LEFT JOIN user_channel_read_positions rp ON rp.channel_id = c.id AND rp.user_id = ${userId}
                 WHERE c.group_id = ${group.id}
                   AND m.sender_id != ${userId}
                   AND m.deleted_at IS NULL
-                  AND m.created_at > COALESCE(
-                    (SELECT MAX(m2.created_at) 
-                     FROM messages m2 
-                     INNER JOIN channels c2 ON m2.channel_id = c2.id
-                     WHERE c2.group_id = ${group.id} 
-                       AND m2.sender_id = ${userId}),
-                    ${group.createdAt}
-                  )`
+                  AND m.created_at > COALESCE(rp.last_read_at, ${group.createdAt})`
           );
           const unreadCount = parseInt((unreadCountResult.rows[0] as any).count) || 0;
           
@@ -4954,6 +4956,209 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting shelf activities:", error);
       return [];
+    }
+  }
+  
+  // User actions operations
+  async createUserAction(actionData: any): Promise<any> {
+    try {
+      const result = await db.insert(userActions).values({
+        userId: actionData.userId,
+        actionType: actionData.actionType,
+        targetType: actionData.targetType || null,
+        targetId: actionData.targetId || null,
+        metadata: actionData.metadata || {},
+        createdAt: new Date()
+      }).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating user action:", error);
+      throw error;
+    }
+  }
+  
+  async getLastActions(limit: number = 50, offset: number = 0): Promise<any[]> {
+    try {
+      // Get user actions
+      const actions = await db
+        .select()
+        .from(userActions)
+        .where(isNull(userActions.deletedAt))
+        .orderBy(desc(userActions.createdAt))
+        .limit(limit * 2) // Get more to account for merging
+        .offset(offset);
+      
+      // Get global activities from activity feed
+      const activities = await this.getGlobalActivities(limit, offset);
+      
+      // Format user actions to match activity feed structure
+      const formattedActions = await Promise.all(actions.map(async (action) => {
+        // Get user info
+        const user = await this.getUser(action.userId);
+        
+        let targetInfo: any = {};
+        
+        // Get target info based on type
+        if (action.targetType && action.targetId) {
+          switch (action.targetType) {
+            case 'user':
+              const targetUser = await this.getUser(action.targetId);
+              if (targetUser) {
+                targetInfo = {
+                  type: 'user',
+                  id: targetUser.id,
+                  username: targetUser.username,
+                  avatar_url: targetUser.avatarUrl
+                };
+              }
+              break;
+            case 'book':
+              const book = await db.select().from(books).where(eq(books.id, action.targetId)).limit(1);
+              if (book[0]) {
+                targetInfo = {
+                  type: 'book',
+                  id: book[0].id,
+                  title: book[0].title,
+                  author: book[0].author,
+                  cover_url: book[0].coverImageUrl
+                };
+              }
+              break;
+            case 'news':
+              const newsItem = await db.select().from(news).where(eq(news.id, action.targetId)).limit(1);
+              if (newsItem[0]) {
+                targetInfo = {
+                  type: 'news',
+                  id: newsItem[0].id,
+                  title: newsItem[0].title
+                };
+              }
+              break;
+            case 'group':
+              const group = await db.select().from(groups).where(eq(groups.id, action.targetId)).limit(1);
+              if (group[0]) {
+                targetInfo = {
+                  type: 'group',
+                  id: group[0].id,
+                  name: group[0].name
+                };
+              }
+              break;
+          }
+        }
+        
+        return {
+          id: action.id,
+          type: 'user_action',
+          action_type: action.actionType,
+          entityId: action.id,
+          userId: action.userId,
+          user: {
+            id: user?.id,
+            username: user?.username,
+            avatar_url: user?.avatarUrl
+          },
+          target: targetInfo,
+          metadata: action.metadata || {},
+          createdAt: action.createdAt,
+          timestamp: action.createdAt.toISOString()
+        };
+      }));
+      
+      // Merge activities and formatted actions
+      const allItems = [...activities, ...formattedActions];
+      
+      // Sort by creation date
+      allItems.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+      
+      // Apply pagination and limit
+      return allItems.slice(0, limit);
+    } catch (error) {
+      console.error("Error getting last actions:", error);
+      return [];
+    }
+  }
+  
+  async cleanupOldActions(daysToKeep: number = 30): Promise<void> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+      
+      await db
+        .update(userActions)
+        .set({ deletedAt: new Date() })
+        .where(sql`${userActions.createdAt} < ${cutoffDate} AND ${userActions.deletedAt} IS NULL`);
+      
+      console.log(`Cleaned up user actions older than ${daysToKeep} days`);
+    } catch (error) {
+      console.error("Error cleaning up old actions:", error);
+    }
+  }
+  
+  // Channel read position operations
+  async upsertChannelReadPosition(userId: string, channelId: string): Promise<void> {
+    try {
+      // Check if a read position already exists
+      const existing = await db
+        .select()
+        .from(userChannelReadPositions)
+        .where(
+          and(
+            eq(userChannelReadPositions.userId, userId),
+            eq(userChannelReadPositions.channelId, channelId)
+          )
+        );
+      
+      if (existing.length > 0) {
+        // Update existing record
+        await db
+          .update(userChannelReadPositions)
+          .set({ 
+            lastReadAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(
+            and(
+              eq(userChannelReadPositions.userId, userId),
+              eq(userChannelReadPositions.channelId, channelId)
+            )
+          );
+      } else {
+        // Insert new record
+        await db
+          .insert(userChannelReadPositions)
+          .values({
+            userId,
+            channelId,
+            lastReadAt: new Date()
+          });
+      }
+    } catch (error) {
+      console.error("Error upserting channel read position:", error);
+      throw error;
+    }
+  }
+  
+  async getChannelReadPosition(userId: string, channelId: string): Promise<Date | null> {
+    try {
+      const result = await db
+        .select()
+        .from(userChannelReadPositions)
+        .where(
+          and(
+            eq(userChannelReadPositions.userId, userId),
+            eq(userChannelReadPositions.channelId, channelId)
+          )
+        );
+      
+      return result.length > 0 ? result[0].lastReadAt : null;
+    } catch (error) {
+      console.error("Error getting channel read position:", error);
+      return null;
     }
   }
 }

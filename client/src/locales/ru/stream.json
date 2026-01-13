@@ -1,9 +1,12 @@
 {
   "title": "Лента активности",
-  "globalTab": "Глобальная",
+  "globalTab": "Социальная",
   "myTab": "Моя активность",
   "myShelvesTab": "Мои полки",
+  "lastActionsTab": "Последние действия",
   "noActivities": "Пока нет активности",
+  "noLastActions": "Нет недавних действий для отображения",
+  "noLastActionsSubtext": "Действия пользователей будут появляться здесь по мере их взаимодействия с платформой",
   "authRequired": "Войдите, чтобы просмотреть этот контент",
   "loadMore": "Загрузить ещё",
   "newItemsAvailable": "Доступны новые записи. Нажмите для обновления.",
@@ -12,6 +15,19 @@
     "book": "Новая книга",
     "comment": "Новый комментарий",
     "review": "Новый отзыв"
+  },
+  "actionTypes": {
+    "navigate_home": "Посетил главную страницу",
+    "navigate_stream": "Посетил ленту",
+    "navigate_search": "Использовал поиск",
+    "navigate_shelves": "Просмотрел свои полки",
+    "navigate_about": "Посетил страницу О проекте",
+    "navigate_messages": "Проверил сообщения",
+    "navigate_profile": "Посмотрел профиль",
+    "navigate_news": "Прочитал новость",
+    "navigate_book": "Посмотрел книгу",
+    "navigate_reader": "Начал читать",
+    "send_group_message": "Отправил сообщение в"
   },
   "by": "от",
   "author": "Автор",

@@ -21,11 +21,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from 'react-i18next';
+import { usePageView } from '@/hooks/usePageView';
 
 export default function Shelves() {
   const { user } = useAuth();
   const { shelves, loading, error, createShelf, updateShelf, deleteShelf, addBookToShelf, removeBookFromShelf } = useShelves();
   const { fetchBooksByIds } = useBooks();
+  
+  // Track page view for navigation logging
+  usePageView('shelves');
   const [searchQuery, setSearchQuery] = useState('');
   const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);

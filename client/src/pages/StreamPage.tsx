@@ -3,12 +3,14 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityCard } from "@/components/stream/ActivityCard";
+import { LastActionsActivityCard } from "@/components/stream/LastActionsActivityCard";
 import { ShelfFilters } from "@/components/stream/ShelfFilters";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Bell } from "lucide-react";
+import { RefreshCw, Zap } from "lucide-react";
 import { getSocket } from "@/lib/socket";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+import { usePageView } from "@/hooks/usePageView";
 
 interface Activity {
   id: string;
@@ -33,10 +35,13 @@ export default function StreamPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'global' | 'personal' | 'shelves'>('global');
+  const [activeTab, setActiveTab] = useState<'global' | 'personal' | 'shelves' | 'last-actions'>('global');
   const [filters, setFilters] = useState<ShelfFiltersData>({ selectedShelf: null, selectedBooks: [] });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const socketRef = useRef<any>(null);
+  
+  // Track page view for navigation logging
+  usePageView('stream');
 
   // Set document title
   useEffect(() => {
@@ -111,14 +116,33 @@ export default function StreamPage() {
     },
     enabled: activeTab === 'shelves' && isAuthenticated,
   });
+  
+  // Fetch last actions stream
+  const { data: lastActionsData, isLoading: lastActionsLoading, refetch: refetchLastActions } = useQuery<any>({
+    queryKey: ['api', 'stream', 'last-actions'],
+    queryFn: async () => {
+      const response = await fetch('/api/stream/last-actions?limit=50');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch last actions: ${response.status}`);
+      }
+      
+      return await response.json();
+    },
+    enabled: activeTab === 'last-actions',
+  });
+  
+  const lastActions = lastActionsData?.activities || [];
 
   // Get current activities based on active tab
-  const currentActivities = activeTab === 'global' ? globalActivities : 
+  const currentActivities: any[] = activeTab === 'global' ? globalActivities : 
                            activeTab === 'personal' ? personalActivities : 
+                           activeTab === 'last-actions' ? lastActions :
                            shelfActivities;
   
   const isLoading = activeTab === 'global' ? globalLoading : 
-                   activeTab === 'personal' ? personalLoading : 
+                   activeTab === 'personal' ? personalLoading :
+                   activeTab === 'last-actions' ? lastActionsLoading :
                    shelfLoading;
 
   // Page Visibility API: Refetch data when user returns to the browser tab
@@ -135,6 +159,8 @@ export default function StreamPage() {
           refetchPersonal();
         } else if (activeTab === 'shelves' && isAuthenticated) {
           refetchShelf();
+        } else if (activeTab === 'last-actions') {
+          refetchLastActions();
         }
       }
     };
@@ -144,7 +170,7 @@ export default function StreamPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [activeTab, isAuthenticated, refetchGlobal, refetchPersonal, refetchShelf]);
+  }, [activeTab, isAuthenticated, refetchGlobal, refetchPersonal, refetchShelf, refetchLastActions]);
 
   // WebSocket connection and event handlers
   useEffect(() => {
@@ -170,6 +196,10 @@ export default function StreamPage() {
       // regardless of which tab is active
       console.log('[STREAM PAGE] Joining global stream room (always active)');
       socket.emit('join:stream:global');
+      
+      // ALWAYS join last-actions room - we need to receive all last actions
+      console.log('[STREAM PAGE] Joining last actions stream room (always active)');
+      socket.emit('join:stream:last-actions');
       
       // Join tab-specific rooms based on active tab
       if (activeTab === 'personal' && isAuthenticated) {
@@ -214,6 +244,25 @@ export default function StreamPage() {
           return oldData;
         }
         return [activity, ...oldData];
+      });
+      
+      // Last Actions - also add global activities here since they're part of merged stream
+      queryClient.setQueryData<any>(['api', 'stream', 'last-actions'], (oldData: any) => {
+        if (!oldData) {
+          return { activities: [activity] };
+        }
+        
+        const activities = oldData.activities || [];
+        
+        // Check if activity already exists to avoid duplicates
+        if (activities.some((a: any) => a.id === activity.id)) {
+          return oldData;
+        }
+        
+        return {
+          ...oldData,
+          activities: [activity, ...activities]
+        };
       });
       
       // Personal stream - update if activity was created by current user
@@ -347,12 +396,42 @@ export default function StreamPage() {
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'personal'], updateActivities);
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'shelves', filters], updateActivities);
     };
+    
+    const handleLastAction = (action: any) => {
+      console.log('[STREAM] New last action received:', action);
+      
+      // Update the last actions query cache
+      queryClient.setQueryData<any>(['api', 'stream', 'last-actions'], (oldData: any) => {
+        if (!oldData) {
+          return { activities: [action] };
+        }
+        
+        const activities = oldData.activities || [];
+        
+        // Check if action already exists to avoid duplicates
+        if (activities.some((a: any) => a.id === action.id)) {
+          return oldData;
+        }
+        
+        return {
+          ...oldData,
+          activities: [action, ...activities]
+        };
+      });
+      
+      // Show toast notification for last action
+      toast({
+        title: t('stream:newActivity'),
+        description: t(`stream:actionTypes.${action.action_type}`),
+      });
+    };
 
     socket.on('stream:new-activity', handleNewActivity);
     socket.on('stream:activity-updated', handleActivityUpdated);
     socket.on('stream:activity-deleted', handleActivityDeleted);
     socket.on('stream:reaction-update', handleReactionUpdate);
     socket.on('stream:counter-update', handleCounterUpdate);
+    socket.on('stream:last-action', handleLastAction);
 
     // Cleanup
     return () => {
@@ -362,22 +441,23 @@ export default function StreamPage() {
       socket.off('stream:activity-deleted', handleActivityDeleted);
       socket.off('stream:reaction-update', handleReactionUpdate);
       socket.off('stream:counter-update', handleCounterUpdate);
+      socket.off('stream:last-action', handleLastAction);
       
-      // Leave tab-specific rooms only - NEVER leave global room
-      // Global room should stay active to receive updates even when on other tabs
+      // Leave tab-specific rooms only - NEVER leave global room or last-actions room
+      // Global room and last-actions room should stay active to receive updates even when on other tabs
       console.log('[STREAM PAGE] Cleanup: leaving tab-specific room for tab:', currentTab);
       if (currentTab === 'personal' && wasAuthenticated) {
         socket.emit('leave:stream:personal');
       } else if (currentTab === 'shelves' && wasAuthenticated) {
         socket.emit('leave:stream:shelves');
       }
-      // Note: We don't leave global room - it stays active throughout the session
+      // Note: We don't leave global room or last-actions room - they stay active throughout the session
     };
   }, [activeTab, isAuthenticated, queryClient, filters, toast, t, currentUser]);
 
   // Handle tab change
   const handleTabChange = useCallback((value: string) => {
-    setActiveTab(value as 'global' | 'personal' | 'shelves');
+    setActiveTab(value as 'global' | 'personal' | 'shelves' | 'last-actions');
   }, []);
 
   // Handle refresh
@@ -386,10 +466,12 @@ export default function StreamPage() {
       refetchGlobal();
     } else if (activeTab === 'personal') {
       refetchPersonal();
+    } else if (activeTab === 'last-actions') {
+      refetchLastActions();
     } else {
       refetchShelf();
     }
-  }, [activeTab, refetchGlobal, refetchPersonal, refetchShelf]);
+  }, [activeTab, refetchGlobal, refetchPersonal, refetchShelf, refetchLastActions]);
 
   // Handle filter change
   const handleFilterChange = useCallback((newFilters: ShelfFiltersData) => {
@@ -403,7 +485,7 @@ export default function StreamPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
           <TabsTrigger value="global">
             {t('stream:globalTab')}
           </TabsTrigger>
@@ -411,8 +493,11 @@ export default function StreamPage() {
             {t('stream:myShelvesTab')}
           </TabsTrigger>
           <TabsTrigger value="personal" disabled={!isAuthenticated}>
-            <Bell className="w-4 h-4 mr-2" />
             {t('stream:myTab')}
+          </TabsTrigger>
+          <TabsTrigger value="last-actions">
+            <Zap className="w-4 h-4 mr-2" />
+            {t('stream:lastActionsTab')}
           </TabsTrigger>
         </TabsList>
 
@@ -428,7 +513,7 @@ export default function StreamPage() {
                 {t('stream:noActivities')}
               </div>
             ) : (
-              currentActivities.map((activity) => (
+              currentActivities.map((activity: any) => (
                 <ActivityCard key={activity.id} activity={activity} />
               ))
             )}
@@ -458,7 +543,7 @@ export default function StreamPage() {
                     {t('stream:noActivities')}
                   </div>
                 ) : (
-                  currentActivities.map((activity) => (
+                  currentActivities.map((activity: any) => (
                     <ActivityCard key={activity.id} activity={activity} />
                   ))
                 )}
@@ -484,12 +569,42 @@ export default function StreamPage() {
                   {t('stream:noActivities')}
                 </div>
               ) : (
-                currentActivities.map((activity) => (
+                currentActivities.map((activity: any) => (
                   <ActivityCard key={activity.id} activity={activity} />
                 ))
               )}
             </div>
           )}
+        </TabsContent>
+        
+        {/* Last Actions Tab */}
+        <TabsContent value="last-actions" className="mt-0">
+          <div className="space-y-4">
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading...
+              </div>
+            ) : currentActivities.length === 0 ? (
+              <div className="text-center py-12">
+                <Zap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-lg font-medium text-muted-foreground mb-2">
+                  {t('stream:noLastActions')}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {t('stream:noLastActionsSubtext')}
+                </p>
+              </div>
+            ) : (
+              currentActivities.map((action: any) => {
+                // Regular activities from global stream
+                if (action.type !== 'user_action') {
+                  return <ActivityCard key={action.id} activity={action} />;
+                }
+                // User actions (navigation, group messages)
+                return <LastActionsActivityCard key={action.id} activity={action} />;
+              })
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

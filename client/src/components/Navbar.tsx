@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileMenu } from '@/components/MobileMenu';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { onSocketEvent } from '@/lib/socket';
-import { useTranslation } from 'react-i18next';
+import { onSocketEvent } from "@/lib/socket";
+import { useTranslation } from "react-i18next";
 
 export function Navbar() {
   const { user, isLoading } = useAuth();
@@ -106,24 +106,42 @@ export function Navbar() {
           <div className="flex items-center gap-4">
             {user ? (
               <div className="flex items-center gap-4">
-                <Link href="/home" className="text-sm hover:text-primary transition-colors cursor-pointer">
+                <Link 
+                  href="/home" 
+                  className="text-sm hover:text-primary transition-colors cursor-pointer"
+                >
                   {t('navigation:home')}
                 </Link>
-                <Link href="/stream" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
+                <Link 
+                  href="/stream" 
+                  className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer"
+                >
                   <Rss className="w-4 h-4" />
                   <span className="hidden sm:inline">{t('navigation:stream')}</span>
                 </Link>
-                <Link href="/search" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
+                <Link 
+                  href="/search" 
+                  className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer"
+                >
                   <Search className="w-4 h-4" />
                   <span className="hidden sm:inline">{t('navigation:search')}</span>
                 </Link>
-                <Link href="/shelves" className="text-sm hover:text-primary transition-colors cursor-pointer">
+                <Link 
+                  href="/shelves" 
+                  className="text-sm hover:text-primary transition-colors cursor-pointer"
+                >
                   {t('navigation:shelves')}
                 </Link>
-                <Link href="/" className="text-sm hover:text-primary transition-colors cursor-pointer">
+                <Link 
+                  href="/" 
+                  className="text-sm hover:text-primary transition-colors cursor-pointer"
+                >
                   {t('navigation:about')}
                 </Link>
-                <Link href="/messages" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer relative">
+                <Link 
+                  href="/messages" 
+                  className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer relative"
+                >
                   <div className="relative">
                     <MessageCircle className="w-4 h-4" />
                     {unreadCount > 0 && (

@@ -24,6 +24,7 @@ import { BookCard } from '@/components/BookCard';
 import { PageHeader } from '@/components/PageHeader';
 import { useMainPageData } from '@/hooks/useMainPageData';
 import { BookListSortSelector, sortBooks, type SortOption, type SortDirection } from '@/components/BookListSortSelector';
+import { usePageView } from '@/hooks/usePageView';
 
 
 
@@ -31,6 +32,9 @@ export default function Library() {
   const { user } = useAuth();
   const { t } = useTranslation(['home', 'common']);
   const { data, loading, error, refresh } = useMainPageData();
+  
+  // Track page view for navigation logging
+  usePageView('home');
   // Filters State
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);

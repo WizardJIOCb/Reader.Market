@@ -10,6 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
+import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
 
 // Import db from storage module
 import { db } from './storage';
@@ -348,6 +349,13 @@ export async function registerRoutes(
       console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined shelves stream room`);
     });
     
+    socket.on('join:stream:last-actions', () => {
+      // Last actions stream is accessible to everyone (authenticated and unauthenticated)
+      console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} joining last actions stream`);
+      socket.join('stream:last-actions');
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Joined last actions stream room`);
+    });
+    
     // Handle leaving stream rooms
     socket.on('leave:stream:global', () => {
       console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} leaving global stream`);
@@ -358,6 +366,11 @@ export async function registerRoutes(
       if (!isAuthenticated) return;
       console.log(`User ${userId} leaving shelves stream`);
       socket.leave(`stream:shelves:${userId}`);
+    });
+    
+    socket.on('leave:stream:last-actions', () => {
+      console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} leaving last actions stream`);
+      socket.leave('stream:last-actions');
     });
     
     // Handle disconnection
@@ -376,6 +389,31 @@ export async function registerRoutes(
   app.get("/api/health", (req, res) => {
     console.log("Health check endpoint called");
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+  
+  // Navigation tracking endpoints (lightweight, just for logging)
+  app.get("/api/page-view/home", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "home" });
+  });
+  
+  app.get("/api/page-view/stream", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "stream" });
+  });
+  
+  app.get("/api/page-view/search", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "search" });
+  });
+  
+  app.get("/api/page-view/shelves", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "shelves" });
+  });
+  
+  app.get("/api/page-view/messages", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "messages" });
+  });
+  
+  app.get("/api/page-view/about", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "about" });
   });
   
   // User registration
@@ -464,7 +502,7 @@ export async function registerRoutes(
   });
 
   // Get current user profile
-  app.get("/api/profile", authenticateToken, async (req, res) => {
+  app.get("/api/profile", authenticateToken, logUserAction, async (req, res) => {
     console.log("Profile endpoint called");
     try {
       const userId = (req as any).user.userId;
@@ -482,7 +520,7 @@ export async function registerRoutes(
   });
   
   // Get specific user profile by ID
-  app.get("/api/profile/:userId", authenticateToken, async (req, res) => {
+  app.get("/api/profile/:userId", authenticateToken, logUserAction, async (req, res) => {
     console.log("Get specific user profile endpoint called");
     try {
       const { userId: targetUserId } = req.params;
@@ -721,7 +759,7 @@ export async function registerRoutes(
   });
   
   // Get specific news item
-  app.get("/api/news/:id", authenticateToken, async (req, res) => {
+  app.get("/api/news/:id", authenticateToken, logUserAction, async (req, res) => {
     console.log("Get news by ID endpoint called");
     try {
       const { id } = req.params;
@@ -1620,6 +1658,7 @@ export async function registerRoutes(
     try {
       const { id } = req.params;
       const { viewType } = req.body;
+      const userId = (req as any).user?.userId;
       
       if (!id) {
         return res.status(400).json({ error: "Book ID is required" });
@@ -1630,6 +1669,54 @@ export async function registerRoutes(
       }
       
       await storage.incrementBookViewCount(id, viewType);
+      
+      // Log navigate_reader action if viewType is reader_open
+      if (viewType === 'reader_open' && userId && process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+        try {
+          const user = await storage.getUser(userId);
+          const book = await storage.getBook(id);
+          
+          if (user && book) {
+            const actionData = {
+              userId,
+              actionType: 'navigate_reader',
+              targetType: 'book',
+              targetId: id,
+              metadata: {
+                book_title: book.title
+              }
+            };
+            
+            const action = await storage.createUserAction(actionData);
+            
+            // Broadcast to WebSocket
+            const io = (app as any).io;
+            if (io && action) {
+              const broadcastData = {
+                id: action.id,
+                type: 'user_action',
+                action_type: action.actionType,
+                user: {
+                  id: user.id,
+                  username: user.username,
+                  avatar_url: user.avatarUrl
+                },
+                target: {
+                  type: 'book',
+                  id: id,
+                  title: book.title
+                },
+                metadata: action.metadata,
+                timestamp: action.createdAt.toISOString()
+              };
+              
+              io.to('stream:last-actions').emit('stream:last-action', broadcastData);
+            }
+          }
+        } catch (actionLogError) {
+          console.error('[Action Logging] Failed to log reader action:', actionLogError);
+        }
+      }
       
       res.status(200).json({ success: true });
     } catch (error) {
@@ -1658,7 +1745,7 @@ export async function registerRoutes(
   });
   
   // Get a single book by ID
-  app.get("/api/books/:id", authenticateToken, async (req, res) => {
+  app.get("/api/books/:id", authenticateToken, logUserAction, async (req, res) => {
     console.log("Get book by ID endpoint called");
     try {
       const { id } = req.params;
@@ -4134,7 +4221,7 @@ export async function registerRoutes(
     }
   });
   
-  // Mark channel as read (update user's last activity timestamp in group)
+  // Mark channel as read (update user's last read timestamp)
   app.put("/api/groups/:groupId/channels/:channelId/mark-read", authenticateToken, async (req, res) => {
     const userId = (req as any).user.userId;
     const { groupId, channelId } = req.params;
@@ -4145,15 +4232,8 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied" });
       }
       
-      // Insert a dummy "read marker" message to update user's last activity timestamp
-      // This allows the backend's existing unread count logic to work correctly
-      await storage.createMessage({
-        senderId: userId,
-        channelId,
-        content: `[SYSTEM: User viewed channel at ${new Date().toISOString()}]`,
-        readStatus: true,
-        deletedAt: new Date() // Immediately mark as deleted so it doesn't appear in chat
-      });
+      // Update or create read position record for this user and channel
+      await storage.upsertChannelReadPosition(userId, channelId);
       
       console.log(`User ${userId} marked channel ${channelId} in group ${groupId} as read`);
       
@@ -4219,6 +4299,9 @@ export async function registerRoutes(
       
       const message = await storage.createMessage(messageData);
       
+      // Get WebSocket instance
+      const io = (app as any).io;
+      
       // Update file upload entity IDs with the message ID
       if (attachments && Array.isArray(attachments) && attachments.length > 0) {
         for (const uploadId of attachments) {
@@ -4226,8 +4309,24 @@ export async function registerRoutes(
         }
       }
       
+      // Log action for public group messages
+      try {
+        const group = await storage.getGroup(groupId);
+        if (group && group.privacy === 'public') {
+          await logGroupMessageAction(
+            userId,
+            groupId,
+            group.name,
+            content.trim(),
+            io
+          );
+        }
+      } catch (actionLogError) {
+        console.error('[Action Logging] Failed to log group message action:', actionLogError);
+        // Don't fail the request if action logging fails
+      }
+      
       // Broadcast message via WebSocket
-      const io = (app as any).io;
       if (io) {
         io.to(`channel:${channelId}`).emit('channel:message:new', {
           message,
@@ -4693,6 +4792,34 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get shelf filters error:", error);
       res.status(500).json({ error: "Failed to get shelf filters" });
+    }
+  });
+  
+  // Get last actions stream (includes global activities + navigation actions)
+  app.get("/api/stream/last-actions", async (req, res) => {
+    console.log("Get last actions endpoint called");
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      // Validate limits
+      const validatedLimit = Math.min(Math.max(1, limit), 100);
+      const validatedOffset = Math.max(0, offset);
+      
+      const activities = await storage.getLastActions(validatedLimit, validatedOffset);
+      
+      res.json({
+        activities,
+        pagination: {
+          limit: validatedLimit,
+          offset: validatedOffset,
+          total: activities.length,
+          has_more: activities.length === validatedLimit
+        }
+      });
+    } catch (error) {
+      console.error("Get last actions error:", error);
+      res.status(500).json({ error: "Failed to get last actions" });
     }
   });
   

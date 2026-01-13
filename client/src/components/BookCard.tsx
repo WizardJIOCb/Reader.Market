@@ -58,7 +58,6 @@ export const BookCard: React.FC<BookCardProps> = ({
 
   // Update local reactions when book changes
   React.useEffect(() => {
-    console.log('BookCard rendered with book:', book);
     setLocalReactions(book.reactions || []);
   }, [book]);
 
@@ -163,7 +162,7 @@ export const BookCard: React.FC<BookCardProps> = ({
                 target.onerror = null; // Prevent infinite loop
               }}
               onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                console.log('Cover image loaded successfully:', book.coverImage || book.coverImageUrl);
+                // Image loaded successfully
               }}
             />
           ) : (

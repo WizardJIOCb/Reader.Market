@@ -224,6 +224,16 @@ export const messages = pgTable("messages", {
   deletedBy: varchar("deleted_by").references(() => users.id),
 });
 
+// Table for tracking user channel read positions
+export const userChannelReadPositions = pgTable("user_channel_read_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  channelId: varchar("channel_id").notNull().references(() => channels.id),
+  lastReadAt: timestamp("last_read_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Table for message reactions
 export const messageReactions = pgTable("message_reactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -298,6 +308,18 @@ export const activityFeed = pgTable("activity_feed", {
   metadata: jsonb("metadata").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+// Table for user actions (navigation and interaction tracking)
+export const userActions = pgTable("user_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  actionType: text("action_type").notNull(), // 'navigate_home', 'navigate_stream', etc.
+  targetType: text("target_type"), // 'user', 'book', 'news', 'group'
+  targetId: varchar("target_id"),
+  metadata: jsonb("metadata").default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
 });
 

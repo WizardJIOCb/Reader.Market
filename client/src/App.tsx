@@ -25,7 +25,6 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
 import { initializeSocket, disconnectSocket } from "@/lib/socket";
-
 function Router() {
   return (
     <Switch>

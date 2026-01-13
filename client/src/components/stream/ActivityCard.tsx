@@ -141,10 +141,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
   // Handle reaction on activity items
   const handleReact = async (emoji: string) => {
-    console.log('[ActivityCard] handleReact called:', { emoji, currentUser, isReacting });
-    
     if (isReacting || !currentUser) {
-      console.log('[ActivityCard] Reaction blocked:', { isReacting, hasCurrentUser: !!currentUser });
       return;
     }
     
@@ -164,11 +161,8 @@ export function ActivityCard({ activity }: ActivityCardProps) {
         body.reviewId = activity.entityId;
       } else {
         // Books don't have reactions
-        console.log('[ActivityCard] Books dont have reactions');
         return;
       }
-      
-      console.log('[ActivityCard] Posting reaction:', { endpoint, body });
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -179,8 +173,6 @@ export function ActivityCard({ activity }: ActivityCardProps) {
         body: JSON.stringify(body)
       });
       
-      console.log('[ActivityCard] Response status:', response.status);
-      
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[ActivityCard] Failed to add reaction:', errorText);
@@ -189,7 +181,6 @@ export function ActivityCard({ activity }: ActivityCardProps) {
       
       // The WebSocket will handle updating the UI via stream:reaction-update event
       // But we can also optimistically update the local state
-      console.log('[ActivityCard] Reaction added successfully');
       toast({
         title: t('stream:reactionAdded'),
         description: t('stream:reactionAddedDescription'),
@@ -333,14 +324,15 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
   // Format date display based on how long ago it was
   const activityDate = new Date(activity.createdAt);
-  const hoursSinceCreated = differenceInHours(new Date(), activityDate);
+  const isValidDate = !isNaN(activityDate.getTime());
+  const hoursSinceCreated = isValidDate ? differenceInHours(new Date(), activityDate) : 0;
   const showFullDate = hoursSinceCreated >= 24;
   
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3 flex-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1">
             <div className="flex items-center gap-2">
               {getActivityIcon()}
               <span className="text-sm font-medium">
@@ -349,30 +341,35 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-xs text-muted-foreground cursor-help">
-                    {showFullDate 
-                      ? format(activityDate, 'dd.MM.yyyy HH:mm', { locale: dateLocale })
-                      : formatDistanceToNow(activityDate, { addSuffix: true, locale: dateLocale })
-                    }
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{format(activityDate, 'dd.MM.yyyy HH:mm', { locale: dateLocale })}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {isValidDate && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs text-muted-foreground cursor-help">
+                      {showFullDate 
+                        ? format(activityDate, 'dd.MM.yyyy HH:mm', { locale: dateLocale })
+                        : formatDistanceToNow(activityDate, { addSuffix: true, locale: dateLocale })
+                      }
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{format(activityDate, 'dd.MM.yyyy HH:mm', { locale: dateLocale })}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {!isValidDate && (
+              <span className="text-xs text-muted-foreground">Invalid date</span>
+            )}
             {isAdminOrModer && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="h-8 w-8 p-0"
+                className="h-6 w-6 min-h-6 p-0"
               >
-                <Trash2 className="w-4 h-4 text-destructive" />
+                <Trash2 className="w-3.5 h-3.5 text-destructive" />
               </Button>
             )}
           </div>
