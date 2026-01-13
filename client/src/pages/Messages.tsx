@@ -23,6 +23,7 @@ import { AttachmentPreview } from '@/components/AttachmentPreview';
 import { AttachmentDisplay } from '@/components/AttachmentDisplay';
 import { QuotedMessagePreview } from '@/components/QuotedMessagePreview';
 import { QuotedMessageDisplay } from '@/components/QuotedMessageDisplay';
+import { MessageContextMenu } from '@/components/MessageContextMenu';
 import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
 import { formatMessageTimestamp } from '@/lib/dateUtils';
 import { ru, enUS } from 'date-fns/locale';
@@ -133,6 +134,13 @@ export default function Messages() {
     content: string;
     quotedText?: string;
   } | null>(null);
+  
+  // Context menu state for mobile long-press
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenuTarget, setContextMenuTarget] = useState<Message | null>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   
   // Scroll to a specific message
   const scrollToMessage = (messageId: string) => {
@@ -1220,6 +1228,67 @@ export default function Messages() {
     selection?.removeAllRanges();
   };
   
+  // Long-press handlers for mobile context menu
+  const handleTouchStart = (e: React.TouchEvent, message: Message, isOwn: boolean) => {
+    // Only enable on mobile (< 640px)
+    if (window.innerWidth >= 640) return;
+    
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    
+    // Start long-press timer
+    longPressTimerRef.current = setTimeout(() => {
+      // Trigger haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      
+      // Show context menu
+      setContextMenuTarget(message);
+      setContextMenuPosition({ x: touch.clientX, y: touch.clientY });
+      setContextMenuOpen(true);
+    }, 500);
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current || !longPressTimerRef.current) return;
+    
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
+    
+    // Cancel long-press if moved more than 10px (scrolling)
+    if (deltaX > 10 || deltaY > 10) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+  
+  const handleTouchEnd = () => {
+    // Cancel long-press timer if touch ends before threshold
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+  };
+  
+  // Cleanup long-press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+  
+  // Close context menu handler
+  const handleCloseContextMenu = () => {
+    setContextMenuOpen(false);
+    setContextMenuPosition(null);
+    setContextMenuTarget(null);
+  };
+  
   // Handle typing indicator
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
@@ -1536,8 +1605,8 @@ export default function Messages() {
                   const shareUrl = `${window.location.origin}/messages?user=${selectedConversation.otherUser?.id}`;
                   navigator.clipboard.writeText(shareUrl);
                   toast({
-                    title: "Link copied!",
-                    description: "Conversation link copied to clipboard"
+                    title: t('messages:linkCopied'),
+                    description: t('messages:conversationLinkCopied')
                   });
                 }}
                 title="Share conversation link"
@@ -1590,11 +1659,14 @@ export default function Messages() {
                               ? 'bg-slate-100 dark:bg-slate-800 text-foreground'
                               : 'bg-muted'
                           }`}
+                          onTouchStart={(e) => handleTouchStart(e, message, isOwn)}
+                          onTouchMove={handleTouchMove}
+                          onTouchEnd={handleTouchEnd}
                         >
                           {isOwn && (
                             <button
                               onClick={() => deleteMessage(message.id)}
-                              className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10 bg-background/80 sm:bg-transparent"
+                              className="absolute top-1 right-1 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10 sm:bg-transparent"
                               title={t('messages:deleteMessage')}
                             >
                               <XIcon className="w-3 h-3" />
@@ -1603,10 +1675,13 @@ export default function Messages() {
                           {!isOwn && (
                             <button
                               onClick={() => handleReplyWithSelection(message)}
-                              className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-accent bg-background/80 sm:bg-transparent"
+                              className="absolute top-1 right-1 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md sm:bg-transparent"
+                              style={{ backgroundColor: 'transparent' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1680c'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                               title="Reply"
                             >
-                              <Reply className="w-3 h-3" />
+                              <Reply className="w-3 h-3 text-white" />
                             </button>
                           )}
                           {message.quotedMessageId && (
@@ -1749,8 +1824,8 @@ export default function Messages() {
                       const shareUrl = `${window.location.origin}/messages?group=${selectedGroup.id}`;
                       navigator.clipboard.writeText(shareUrl);
                       toast({
-                        title: "Link copied!",
-                        description: "Group link copied to clipboard"
+                        title: t('messages:linkCopied'),
+                        description: t('messages:groupLinkCopied')
                       });
                     }}
                     title="Share group link"
@@ -1831,12 +1906,15 @@ export default function Messages() {
                                   ? 'bg-slate-100 dark:bg-slate-800 text-foreground'
                                   : 'bg-muted'
                               }`}
+                              onTouchStart={(e) => handleTouchStart(e, message, isOwn)}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={handleTouchEnd}
                             >
                               {canDelete && (
                                 <button
                                   onClick={() => deleteMessage(message.id)}
-                                  className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10 bg-background/80 sm:bg-transparent"
-                                  title="Удалить сообщение"
+                                  className="absolute top-1 right-1 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/10 sm:bg-transparent"
+                                  title={t('messages:deleteMessage')}
                                 >
                                   <XIcon className="w-3 h-3" />
                                 </button>
@@ -1844,10 +1922,13 @@ export default function Messages() {
                               {!isOwn && (
                                 <button
                                   onClick={() => handleReplyWithSelection(message)}
-                                  className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-accent bg-background/80 sm:bg-transparent"
+                                  className="absolute top-1 right-1 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-md sm:bg-transparent"
+                                  style={{ backgroundColor: 'transparent' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1680c'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                   title="Reply"
                                 >
-                                  <Reply className="w-3 h-3" />
+                                  <Reply className="w-3 h-3 text-white" />
                                 </button>
                               )}
                               {message.quotedMessageId && (
@@ -2042,6 +2123,34 @@ export default function Messages() {
           }}
         />
       )}
+      
+      {/* Mobile Context Menu for Long-Press Actions */}
+      <MessageContextMenu
+        isOpen={contextMenuOpen}
+        onClose={handleCloseContextMenu}
+        position={contextMenuPosition}
+        actions={
+          contextMenuTarget
+            ? contextMenuTarget.senderId === user?.id
+              ? [
+                  {
+                    label: t('messages:deleteMessageAction'),
+                    icon: <XIcon className="w-4 h-4" />,
+                    onClick: () => deleteMessage(contextMenuTarget.id),
+                    variant: 'destructive' as const
+                  }
+                ]
+              : [
+                  {
+                    label: t('messages:replyToMessage'),
+                    icon: <Reply className="w-4 h-4" />,
+                    onClick: () => handleReplyWithSelection(contextMenuTarget),
+                    variant: 'default' as const
+                  }
+                ]
+            : []
+        }
+      />
     </>
   );
 }

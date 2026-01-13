@@ -112,5 +112,10 @@
   "unreadMessage": "unread message",
   "unreadMessages": "unread messages",
   "authRequired": "Authentication Required",
-  "authRequiredDescription": "Please log in or register to access messages and conversations"
+  "authRequiredDescription": "Please log in or register to access messages and conversations",
+  "linkCopied": "Link copied!",
+  "conversationLinkCopied": "Conversation link copied to clipboard",
+  "groupLinkCopied": "Group link copied to clipboard",
+  "deleteMessageAction": "Delete",
+  "replyToMessage": "Reply"
 }
