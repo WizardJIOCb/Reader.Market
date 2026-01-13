@@ -683,7 +683,7 @@ export default function StreamPage() {
                 onOpenChange={setFilterPanelOpen}
               />
               
-              <div className="space-y-4 mt-6">
+              <div className="space-y-4">
                 {isLoading ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Loading...
