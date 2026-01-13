@@ -175,160 +175,129 @@ export function MobileMenu() {
           </SheetClose>
         </div>
         <div className="flex flex-col py-4">
-          {user ? (
-            <>
-              <SheetClose asChild>
-                <Link 
-                  href="/home" 
-                  className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  {t('navigation:home')}
-                </Link>
-              </SheetClose>
-              <SheetClose asChild>
-                <Link 
-                  href="/stream" 
-                  className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
-                >
-                  <Rss className="w-4 h-4" />
-                  {t('navigation:stream')}
-                </Link>
-              </SheetClose>
-              <SheetClose asChild>
-                <Link 
-                  href="/search" 
-                  className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
-                >
-                  <Search className="w-4 h-4" />
-                  {t('navigation:search')}
-                </Link>
-              </SheetClose>
-              <SheetClose asChild>
-                <Link 
-                  href="/shelves" 
-                  className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  {t('navigation:shelves')}
-                </Link>
-              </SheetClose>
-              {user && (user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
-                <SheetClose asChild>
-                  <Link 
-                    href="/admin" 
-                    className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
-                  >
-                    <Shield className="w-4 h-4" />
-                    {t('navigation:adminPanel')}
-                  </Link>
-                </SheetClose>
-              )}
-              <SheetClose asChild>
-                <Link 
-                  href="/messages" 
-                  className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
-                >
-                  <div className="relative">
-                    <MessageCircle className="w-4 h-4" />
-                    {unreadCount > 0 && (
-                      <Badge variant="destructive" className="absolute -top-2 -right-2 px-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] p-0">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </Badge>
-                    )}
-                  </div>
-                  {t('navigation:messages')}
-                </Link>
-              </SheetClose>
-              <SheetClose asChild>
-                <Link 
-                  href="/" 
-                  className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  {t('navigation:about')}
-                </Link>
-              </SheetClose>
-              <SheetClose asChild>
-                <Link 
-                  href={`/profile/${user.id}`} 
-                  className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
-                >
-                  <User className="w-4 h-4" />
-                  {t('navigation:profile')} ({user.username})
-                </Link>
-              </SheetClose>
-              
-              {/* Language Switcher Section */}
-              <div className="px-6 py-3 text-sm font-medium text-muted-foreground border-b border-muted flex items-center gap-2">
-                <Globe className="w-4 h-4" />
-                {t('navigation:language')}
-              </div>
-              {LANGUAGES.map((lang) => {
-                return (
-                  <button
-                    key={lang.code}
-                    onClick={() => handleLanguageChange(lang.code)}
-                    className={`w-full px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center justify-between ${
-                      i18n.language === lang.code ? 'bg-accent/50' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {lang.icon}
-                      <span>{lang.name}</span>
-                    </div>
-                    {i18n.language === lang.code && (
-                      <Check className="w-4 h-4 text-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </>
-          ) : (
-            <div className="space-y-2 px-4">
-              <SheetClose asChild>
-                <Button variant="outline" asChild className="w-full justify-start">
-                  <Link href="/login" className="cursor-pointer">
-                    {t('common:login')}
-                  </Link>
-                </Button>
-              </SheetClose>
-              <SheetClose asChild>
-                <Button asChild className="w-full justify-start">
-                  <Link href="/register" className="cursor-pointer">
-                    {t('common:register')}
-                  </Link>
-                </Button>
-              </SheetClose>
-              
-              {/* Language Switcher Section for non-authenticated users */}
-              <div className="pt-4 border-t mt-4">
-                <div className="px-2 py-2 text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Globe className="w-4 h-4" />
-                  {t('navigation:language')}
-                </div>
-                {LANGUAGES.map((lang) => {
-                  return (
-                    <button
-                      key={lang.code}
-                      onClick={() => handleLanguageChange(lang.code)}
-                      className={`w-full px-2 py-2 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer rounded-md flex items-center justify-between ${
-                        i18n.language === lang.code ? 'bg-accent/50' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {lang.icon}
-                        <span>{lang.name}</span>
-                      </div>
-                      {i18n.language === lang.code && (
-                        <Check className="w-4 h-4 text-primary" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          {/* Show navigation menu for all users */}
+          <SheetClose asChild>
+            <Link 
+              href="/home" 
+              className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              {t('navigation:home')}
+            </Link>
+          </SheetClose>
+          <SheetClose asChild>
+            <Link 
+              href="/stream" 
+              className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+            >
+              <Rss className="w-4 h-4" />
+              {t('navigation:stream')}
+            </Link>
+          </SheetClose>
+          <SheetClose asChild>
+            <Link 
+              href="/search" 
+              className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+            >
+              <Search className="w-4 h-4" />
+              {t('navigation:search')}
+            </Link>
+          </SheetClose>
+          {user && (
+            <SheetClose asChild>
+              <Link 
+                href="/shelves" 
+                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              >
+                <BookOpen className="w-4 h-4" />
+                {t('navigation:shelves')}
+              </Link>
+            </SheetClose>
           )}
+          {user && (user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
+            <SheetClose asChild>
+              <Link 
+                href="/admin" 
+                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              >
+                <Shield className="w-4 h-4" />
+                {t('navigation:adminPanel')}
+              </Link>
+            </SheetClose>
+          )}
+          {user && (
+            <SheetClose asChild>
+              <Link 
+                href="/messages" 
+                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              >
+                <div className="relative">
+                  <MessageCircle className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-2 -right-2 px-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] p-0">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Badge>
+                  )}
+                </div>
+                {t('navigation:messages')}
+              </Link>
+            </SheetClose>
+          )}
+          <SheetClose asChild>
+            <Link 
+              href="/" 
+              className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              {t('navigation:about')}
+            </Link>
+          </SheetClose>
+          {user ? (
+            <SheetClose asChild>
+              <Link 
+                href={`/profile/${user.id}`} 
+                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              >
+                <User className="w-4 h-4" />
+                {t('navigation:profile')} ({user.username})
+              </Link>
+            </SheetClose>
+          ) : (
+            <SheetClose asChild>
+              <Link 
+                href="/login" 
+                className="px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2"
+              >
+                <User className="w-4 h-4" />
+                {t('navigation:profile')}
+              </Link>
+            </SheetClose>
+          )}
+          
+          {/* Language Switcher Section */}
+          <div className="px-6 py-3 text-sm font-medium text-muted-foreground border-b border-muted flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            {t('navigation:language')}
+          </div>
+          {LANGUAGES.map((lang) => {
+            return (
+              <button
+                key={lang.code}
+                onClick={() => handleLanguageChange(lang.code)}
+                className={`w-full px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center justify-between ${
+                  i18n.language === lang.code ? 'bg-accent/50' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {lang.icon}
+                  <span>{lang.name}</span>
+                </div>
+                {i18n.language === lang.code && (
+                  <Check className="w-4 h-4 text-primary" />
+                )}
+              </button>
+            );
+          })}
         </div>
         </SheetPrimitive.Content>
       </SheetPortal>

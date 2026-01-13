@@ -110,5 +110,7 @@
   "previous": "Previous",
   "next": "Next",
   "unreadMessage": "unread message",
-  "unreadMessages": "unread messages"
+  "unreadMessages": "unread messages",
+  "authRequired": "Authentication Required",
+  "authRequiredDescription": "Please log in or register to access messages and conversations"
 }

@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ReactionBar } from '@/components/ReactionBar';
+import { AuthPrompt } from '@/components/AuthPrompt';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
@@ -51,7 +52,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { t, i18n } = useTranslation(['books', 'common']);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -64,10 +65,11 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     const fetchComments = async () => {
       try {
         setLoading(true);
+        const token = localStorage.getItem('authToken');
         const response = await fetch(`/api/books/${bookId}/comments`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
+          headers: token ? {
+            'Authorization': `Bearer ${token}`
+          } : {}
         });
         
         if (response.ok) {
@@ -265,59 +267,70 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
 
   return (
     <div className="space-y-8">
-      <div className="flex gap-4">
-        <Avatar>
-          {user?.avatarUrl ? (
-            <AvatarImage src={user.avatarUrl} alt={user.fullName || user.username} />
-          ) : null}
-          <AvatarFallback>Вы</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 space-y-2">
-          <Textarea
-            placeholder={t('books:commentPlaceholder')}
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                // Only submit if validation passes (same as button disabled state)
-                if (newComment.trim() && user && !(attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)) {
-                  handlePostComment();
+      {authLoading ? (
+        <div className="text-center py-4">
+          <p>{t('common:loading')}</p>
+        </div>
+      ) : user ? (
+        <div className="flex gap-4">
+          <Avatar>
+            {user?.avatarUrl ? (
+              <AvatarImage src={user.avatarUrl} alt={user.fullName || user.username} />
+            ) : null}
+            <AvatarFallback>Вы</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 space-y-2">
+            <Textarea
+              placeholder={t('books:commentPlaceholder')}
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  // Only submit if validation passes (same as button disabled state)
+                  if (newComment.trim() && user && !(attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)) {
+                    handlePostComment();
+                  }
                 }
-              }
-            }}
-            className="min-h-[100px] resize-none"
-          />
-          {attachmentFiles.length > 0 && (
-            <AttachmentPreview
-              files={attachmentFiles}
-              onRemove={(index) => {
-                setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
-                setUploadedFiles(prev => prev.filter((_, i) => i !== index));
               }}
-              onUploadComplete={(files) => setUploadedFiles(files)}
-              autoUpload={true}
+              className="min-h-[100px] resize-none"
             />
-          )}
-          <div className="flex justify-between items-center">
-            <div className="flex gap-1">
-              <EmojiPicker onEmojiSelect={(emoji) => setNewComment(prev => prev + emoji)} />
-              <AttachmentButton 
-                onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
-                maxFiles={5}
+            {attachmentFiles.length > 0 && (
+              <AttachmentPreview
+                files={attachmentFiles}
+                onRemove={(index) => {
+                  setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+                  setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                }}
+                onUploadComplete={(files) => setUploadedFiles(files)}
+                autoUpload={true}
               />
+            )}
+            <div className="flex justify-between items-center">
+              <div className="flex gap-1">
+                <EmojiPicker onEmojiSelect={(emoji) => setNewComment(prev => prev + emoji)} />
+                <AttachmentButton 
+                  onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
+                  maxFiles={5}
+                />
+              </div>
+              <Button 
+                onClick={handlePostComment} 
+                disabled={!newComment.trim() || !user || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
+                className="gap-2"
+              >
+                <Send className="w-4 h-4" />
+                {t('books:send')}
+              </Button>
             </div>
-            <Button 
-              onClick={handlePostComment} 
-              disabled={!newComment.trim() || !user || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
-              className="gap-2"
-            >
-              <Send className="w-4 h-4" />
-              {t('books:send')}
-            </Button>
           </div>
         </div>
-      </div>
+      ) : (
+        <AuthPrompt 
+          message={t('common:authPromptComments')} 
+          variant="card"
+        />
+      )}
 
       <div className="space-y-6">
         {loading ? (

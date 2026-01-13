@@ -101,5 +101,7 @@
   "yourReview": "Your Review",
   "reviewsTitle": "Reviews",
   "loadingComments": "Loading comments...",
-  "loadingReviews": "Loading reviews..."
+  "loadingReviews": "Loading reviews...",
+  "authRequiredForShelves": "Please log in or register to add books to your shelves",
+  "authRequiredForReviews": "Please log in or register to write a review"
 }

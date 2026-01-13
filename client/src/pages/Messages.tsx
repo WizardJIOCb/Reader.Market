@@ -1248,6 +1248,35 @@ export default function Messages() {
     );
   }
 
+  // Show login/register prompt if user is not authenticated
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Card className="p-8 max-w-md w-full mx-4">
+          <div className="text-center space-y-4">
+            <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <h2 className="text-2xl font-bold">{t('messages:authRequired')}</h2>
+            <p className="text-muted-foreground">
+              {t('messages:authRequiredDescription')}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+              <Link href="/register">
+                <Button className="w-full sm:w-auto">
+                  {t('common:register')}
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  {t('common:login')}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex h-[calc(100vh-4rem)] bg-background overflow-hidden">

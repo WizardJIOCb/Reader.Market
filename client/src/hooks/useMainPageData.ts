@@ -30,23 +30,14 @@ export function useMainPageData() {
 
   // Fetch all main page data
   const fetchMainPageData = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch shelves first
-      await fetchShelves();
-
-      // Fetch all data in parallel
-      const [popularBooks, recentlyReviewedBooks, currentUserBooks, newReleases] = await Promise.all([
+      // Fetch public data even without user
+      const [popularBooks, recentlyReviewedBooks, newReleases] = await Promise.all([
         fetchPopularBooks(),
         fetchRecentlyReviewedBooks(),
-        fetchCurrentUserBooks(),
         fetchNewReleases()
       ]);
 
@@ -61,28 +52,46 @@ export function useMainPageData() {
 
       const booksByGenre = await Promise.all(booksByGenrePromises);
 
-      // Get books from shelves
-      const shelfBookIds = shelves.flatMap(shelf => shelf.bookIds || []);
-      const uniqueShelfBookIds = [...new Set(shelfBookIds)];
+      // User-specific data only if logged in
+      let currentUserBooks: Book[] = [];
+      let shelfBooks: Book[] = [];
       
-      // Fetch shelf books
-      let shelfBooks = [];
-      if (uniqueShelfBookIds.length > 0) {
-        shelfBooks = await fetchBooksByIds(uniqueShelfBookIds);
-      }
+      if (user) {
+        // Fetch shelves first
+        await fetchShelves();
+        
+        // Fetch current user books
+        currentUserBooks = await fetchCurrentUserBooks();
+        
+        // Get books from shelves
+        const shelfBookIds = shelves.flatMap(shelf => shelf.bookIds || []);
+        const uniqueShelfBookIds: string[] = [];
+        const seenIds = new Set<string>();
+        for (const id of shelfBookIds) {
+          if (!seenIds.has(id)) {
+            seenIds.add(id);
+            uniqueShelfBookIds.push(id);
+          }
+        }
+        
+        // Fetch shelf books
+        if (uniqueShelfBookIds.length > 0) {
+          shelfBooks = await fetchBooksByIds(uniqueShelfBookIds);
+        }
 
-      // Combine current user books with shelf books
-      const allUserBooks = [...currentUserBooks, ...shelfBooks];
-      // Remove duplicates
-      const uniqueUserBooks = allUserBooks.filter((book, index, self) => 
-        index === self.findIndex(b => b.id === book.id)
-      );
+        // Combine current user books with shelf books
+        const allUserBooks = [...currentUserBooks, ...shelfBooks];
+        // Remove duplicates
+        currentUserBooks = allUserBooks.filter((book, index, self) => 
+          index === self.findIndex(b => b.id === book.id)
+        );
+      }
 
       setData({
         popularBooks: popularBooks.slice(0, 4), // Limit to 4 popular books
         booksByGenre,
         recentlyReviewedBooks: recentlyReviewedBooks.slice(0, 4), // Limit to 4 recently reviewed books
-        currentUserBooks: uniqueUserBooks.slice(0, 4), // Limit to 4 current books (combined with shelf books)
+        currentUserBooks: currentUserBooks.slice(0, 4), // Limit to 4 current books (combined with shelf books)
         newReleases: newReleases.slice(0, 4), // Limit to 4 new releases
         shelfBooks: shelfBooks.slice(0, 4) // Shelf books for reference
       });

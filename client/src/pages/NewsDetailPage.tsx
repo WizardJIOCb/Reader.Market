@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { apiCall } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { ReactionBar } from '@/components/ReactionBar';
+import { AuthPrompt } from '@/components/AuthPrompt';
 import { User, Eye, MessageCircle, Heart, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatAbsoluteDateTime } from '@/lib/dateUtils';
@@ -54,7 +55,7 @@ const NewsDetailPage: React.FC = () => {
   const [location, setLocation] = useLocation();
   const [match, params] = useRoute('/news/:id');
   const id = params?.id;
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { t, i18n } = useTranslation(['common', 'news']);
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
   const [newsItem, setNewsItem] = useState<NewsItem | null>(null);
@@ -439,7 +440,11 @@ const NewsDetailPage: React.FC = () => {
           </h3>
 
           {/* Add Comment */}
-          {user && (
+          {authLoading ? (
+            <div className="text-center py-4">
+              <p>{t('common:loading')}...</p>
+            </div>
+          ) : user ? (
             <Card>
               <CardContent className="pt-6">
                 <div className="flex gap-4">
@@ -474,6 +479,11 @@ const NewsDetailPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          ) : (
+            <AuthPrompt 
+              message={t('common:authPromptDefault')} 
+              variant="card"
+            />
           )}
 
           {/* Comments List */}

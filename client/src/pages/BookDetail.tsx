@@ -232,15 +232,12 @@ export default function BookDetail() {
           try {
             setLoading(true);
             const token = localStorage.getItem('authToken');
-            if (!token) {
-              throw new Error('No authentication token found');
-            }
             
             // Fetch book data
             const bookResponse = await fetch(`/api/books/${bookId}`, {
-              headers: {
+              headers: token ? {
                 'Authorization': `Bearer ${token}`,
-              },
+              } : {},
             });
             
             if (!bookResponse.ok) {
@@ -272,15 +269,12 @@ export default function BookDetail() {
         try {
           setLoading(true);
           const token = localStorage.getItem('authToken');
-          if (!token) {
-            throw new Error('No authentication token found');
-          }
           
           // Fetch book data
           const bookResponse = await fetch(`/api/books/${bookId}`, {
-            headers: {
+            headers: token ? {
               'Authorization': `Bearer ${token}`,
-            },
+            } : {},
           });
           
           if (!bookResponse.ok) {
@@ -297,21 +291,25 @@ export default function BookDetail() {
           // Track card view (where reviews and comments are shown)
           // Mark as tracked to prevent double counting in React Strict Mode
           viewTrackedRef.current.add(bookId);
-          try {
-            const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ viewType: 'card_view' }),
-            });
-            
-            if (!trackResponse.ok) {
-              console.error('Failed to track book view:', await trackResponse.json());
+          
+          // Only track view if user is authenticated
+          if (token) {
+            try {
+              const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ viewType: 'card_view' }),
+              });
+              
+              if (!trackResponse.ok) {
+                console.error('Failed to track book view:', await trackResponse.json());
+              }
+            } catch (trackErr) {
+              console.error('Error tracking book view:', trackErr);
             }
-          } catch (trackErr) {
-            console.error('Error tracking book view:', trackErr);
           }
         } catch (err) {
           console.error('Error fetching book data:', err);

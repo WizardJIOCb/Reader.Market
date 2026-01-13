@@ -104,71 +104,69 @@ export function Navbar() {
           <MobileMenu />
         ) : (
           <div className="flex items-center gap-4">
-            {user ? (
-              <div className="flex items-center gap-4">
-                <Link 
-                  href="/home" 
-                  className="text-sm hover:text-primary transition-colors cursor-pointer"
-                >
-                  {t('navigation:home')}
-                </Link>
-                <Link 
-                  href="/stream" 
-                  className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer"
-                >
-                  <Rss className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t('navigation:stream')}</span>
-                </Link>
-                <Link 
-                  href="/search" 
-                  className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer"
-                >
-                  <Search className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t('navigation:search')}</span>
-                </Link>
-                <Link 
-                  href="/shelves" 
-                  className="text-sm hover:text-primary transition-colors cursor-pointer"
-                >
-                  {t('navigation:shelves')}
-                </Link>
-                <Link 
-                  href="/" 
-                  className="text-sm hover:text-primary transition-colors cursor-pointer"
-                >
-                  {t('navigation:about')}
-                </Link>
-                <Link 
-                  href="/messages" 
-                  className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer relative"
-                >
-                  <div className="relative">
-                    <MessageCircle className="w-4 h-4" />
-                    {unreadCount > 0 && (
-                      <Badge variant="destructive" className="absolute -top-2 -right-2 px-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] p-0">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </Badge>
-                    )}
-                  </div>
-                  <span className="hidden sm:inline">{t('navigation:messages')}</span>
-                </Link>
-                <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
-                  <User className="w-4 h-4" />
-                  <span>{t('navigation:profile')} ({user.username})</span>
-                </Link>
-                <LanguageSwitcher />
-              </div>
-            ) : (
-              <div className="flex gap-2 items-center">
-                <Button variant="outline" asChild>
-                  <Link href="/login" className="cursor-pointer">{t('common:login')}</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/register" className="cursor-pointer">{t('common:register')}</Link>
-                </Button>
-                <LanguageSwitcher />
-              </div>
+            {/* Show navigation menu for all users */}
+            <Link 
+              href="/home" 
+              className="text-sm hover:text-primary transition-colors cursor-pointer"
+            >
+              {t('navigation:home')}
+            </Link>
+            <Link 
+              href="/stream" 
+              className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer"
+            >
+              <Rss className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('navigation:stream')}</span>
+            </Link>
+            <Link 
+              href="/search" 
+              className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer"
+            >
+              <Search className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('navigation:search')}</span>
+            </Link>
+            {user && (
+              <Link 
+                href="/shelves" 
+                className="text-sm hover:text-primary transition-colors cursor-pointer"
+              >
+                {t('navigation:shelves')}
+              </Link>
             )}
+            <Link 
+              href="/" 
+              className="text-sm hover:text-primary transition-colors cursor-pointer"
+            >
+              {t('navigation:about')}
+            </Link>
+            {user && (
+              <Link 
+                href="/messages" 
+                className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer relative"
+              >
+                <div className="relative">
+                  <MessageCircle className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-2 -right-2 px-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] p-0">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Badge>
+                  )}
+                </div>
+                <span className="hidden sm:inline">{t('navigation:messages')}</span>
+              </Link>
+            )}
+            {user ? (
+              <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
+                <User className="w-4 h-4" />
+                <span>{t('navigation:profile')} ({user.username})</span>
+              </Link>
+            ) : (
+              <Link href="/login" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
+                <User className="w-4 h-4" />
+                <span>{t('navigation:profile')}</span>
+              </Link>
+            )}
+            <LanguageSwitcher />
           </div>
         )}
       </div>

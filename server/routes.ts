@@ -163,6 +163,50 @@ const authenticateToken = async (req: Request, res: Response, next: Function) =>
   }
 };
 
+// Optional authentication middleware - allows both authenticated and unauthenticated requests
+const optionalAuthenticateToken = async (req: Request, res: Response, next: Function) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  // If no token, continue without user data
+  if (!token) {
+    (req as any).user = null;
+    return next();
+  }
+
+  // Promisify jwt.verify
+  const verifyToken = (token: string, secret: string) => {
+    return new Promise((resolve, reject) => {
+      jwt.verify(token, secret, (err, decoded) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(decoded);
+        }
+      });
+    });
+  };
+
+  try {
+    const decoded = await verifyToken(token, process.env.JWT_SECRET || "default_secret") as any;
+    
+    // Verify that the user actually exists in the database
+    const userData = await storage.getUser(decoded.userId);
+    if (!userData) {
+      // If user not found, continue without user data instead of returning error
+      (req as any).user = null;
+      return next();
+    }
+    (req as any).user = decoded;
+    next();
+  } catch (err) {
+    // If token is invalid, continue without user data instead of returning error
+    console.log("Optional auth: Invalid token, continuing as unauthenticated");
+    (req as any).user = null;
+    next();
+  }
+};
+
 // Middleware to check if user has admin or moder access level
 const requireAdminOrModerator = async (req: Request, res: Response, next: Function) => {
   const userId = (req as any).user.userId;
@@ -519,8 +563,8 @@ export async function registerRoutes(
     }
   });
   
-  // Get specific user profile by ID
-  app.get("/api/profile/:userId", authenticateToken, logUserAction, async (req, res) => {
+  // Get specific user profile by ID (open to all users)
+  app.get("/api/profile/:userId", optionalAuthenticateToken, logUserAction, async (req, res) => {
     console.log("Get specific user profile endpoint called");
     try {
       const { userId: targetUserId } = req.params;
@@ -715,8 +759,8 @@ export async function registerRoutes(
     }
   });
   
-  // Get user statistics
-  app.get("/api/users/:userId/statistics", authenticateToken, async (req, res) => {
+  // Get user statistics (open to all users)
+  app.get("/api/users/:userId/statistics", optionalAuthenticateToken, async (req, res) => {
     console.log("Get user statistics endpoint called");
     try {
       const { userId } = req.params;
@@ -759,7 +803,7 @@ export async function registerRoutes(
   });
   
   // Get specific news item
-  app.get("/api/news/:id", authenticateToken, logUserAction, async (req, res) => {
+  app.get("/api/news/:id", optionalAuthenticateToken, logUserAction, async (req, res) => {
     console.log("Get news by ID endpoint called");
     try {
       const { id } = req.params;
@@ -769,7 +813,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "News item not found" });
       }
       
-      // Increment view count
+      // Increment view count (works for both authenticated and unauthenticated users)
       await storage.incrementNewsViewCount(id);
       
       res.json(newsItem);
@@ -780,11 +824,11 @@ export async function registerRoutes(
   });
   
   // Get news comments
-  app.get("/api/news/:id/comments", authenticateToken, async (req, res) => {
+  app.get("/api/news/:id/comments", optionalAuthenticateToken, async (req, res) => {
     console.log("Get news comments endpoint called for news ID:", req.params.id);
     try {
       const { id } = req.params;
-      const userId = (req as any).user.userId;
+      const userId = (req as any).user?.userId; // Optional userId
       const comments = await storage.getNewsComments(id, userId);
       console.log("Returning", comments.length, "comments for news ID:", id);
       res.json(comments);
@@ -893,7 +937,7 @@ export async function registerRoutes(
   });
   
   // Get news reactions
-  app.get("/api/news/:id/reactions", authenticateToken, async (req, res) => {
+  app.get("/api/news/:id/reactions", optionalAuthenticateToken, async (req, res) => {
     console.log("Get news reactions endpoint called for news ID:", req.params.id);
     try {
       const { id } = req.params;
@@ -1492,8 +1536,8 @@ export async function registerRoutes(
     }
   });
   
-  // Get shelves for a specific user (for profile viewing)
-  app.get("/api/users/:userId/shelves", authenticateToken, async (req, res) => {
+  // Get shelves for a specific user (for profile viewing) - open to all users
+  app.get("/api/users/:userId/shelves", optionalAuthenticateToken, async (req, res) => {
     console.log("Get user shelves endpoint called");
     try {
       const { userId } = req.params;
@@ -1516,8 +1560,8 @@ export async function registerRoutes(
     }
   });
   
-  // Get shelves for a specific user (alternative endpoint)
-  app.get("/api/shelves/user/:userId", authenticateToken, async (req, res) => {
+  // Get shelves for a specific user (alternative endpoint) - open to all users
+  app.get("/api/shelves/user/:userId", optionalAuthenticateToken, async (req, res) => {
     console.log("Get user shelves endpoint called");
     try {
       const { userId } = req.params;
@@ -1540,8 +1584,8 @@ export async function registerRoutes(
     }
   });
   
-  // Get books by IDs
-  app.post("/api/books/by-ids", authenticateToken, async (req, res) => {
+  // Get books by IDs - open to all users
+  app.post("/api/books/by-ids", optionalAuthenticateToken, async (req, res) => {
     console.log("Get books by IDs endpoint called");
     try {
       const { bookIds } = req.body;
@@ -1558,7 +1602,7 @@ export async function registerRoutes(
   });
 
   // Get popular books (sorted by rating)
-  app.get("/api/books/popular", authenticateToken, async (req, res) => {
+  app.get("/api/books/popular", optionalAuthenticateToken, async (req, res) => {
     console.log("Get popular books endpoint called");
     try {
       const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
@@ -1571,7 +1615,7 @@ export async function registerRoutes(
   });
 
   // Get books by genre
-  app.get("/api/books/genre/:genre", authenticateToken, async (req, res) => {
+  app.get("/api/books/genre/:genre", optionalAuthenticateToken, async (req, res) => {
     console.log("Get books by genre endpoint called");
     try {
       const { genre } = req.params;
@@ -1585,7 +1629,7 @@ export async function registerRoutes(
   });
 
   // Get recently reviewed books
-  app.get("/api/books/recently-reviewed", authenticateToken, async (req, res) => {
+  app.get("/api/books/recently-reviewed", optionalAuthenticateToken, async (req, res) => {
     console.log("Get recently reviewed books endpoint called");
     try {
       const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
@@ -1611,7 +1655,7 @@ export async function registerRoutes(
   });
 
   // Get new releases
-  app.get("/api/books/new-releases", authenticateToken, async (req, res) => {
+  app.get("/api/books/new-releases", optionalAuthenticateToken, async (req, res) => {
     console.log("Get new releases endpoint called");
     try {
       const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
@@ -1625,7 +1669,7 @@ export async function registerRoutes(
   });
 
   // Search books
-  app.get("/api/books/search", authenticateToken, async (req, res) => {
+  app.get("/api/books/search", optionalAuthenticateToken, async (req, res) => {
     console.log("Search books endpoint called");
     try {
       const query = req.query.query ? String(req.query.query) : '';
@@ -1653,7 +1697,7 @@ export async function registerRoutes(
   });
 
   // Track book view when user visits book detail page
-  app.post("/api/books/:id/track-view", authenticateToken, async (req, res) => {
+  app.post("/api/books/:id/track-view", optionalAuthenticateToken, async (req, res) => {
     console.log("Track book view endpoint called");
     try {
       const { id } = req.params;
@@ -1670,7 +1714,7 @@ export async function registerRoutes(
       
       await storage.incrementBookViewCount(id, viewType);
       
-      // Log navigate_reader action if viewType is reader_open
+      // Log navigate_reader action if viewType is reader_open (only for authenticated users)
       if (viewType === 'reader_open' && userId && process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
         try {
           const user = await storage.getUser(userId);
@@ -1745,7 +1789,7 @@ export async function registerRoutes(
   });
   
   // Get a single book by ID
-  app.get("/api/books/:id", authenticateToken, logUserAction, async (req, res) => {
+  app.get("/api/books/:id", optionalAuthenticateToken, logUserAction, async (req, res) => {
     console.log("Get book by ID endpoint called");
     try {
       const { id } = req.params;
@@ -2225,11 +2269,11 @@ export async function registerRoutes(
   });
 
   // Get comments for a book
-  app.get("/api/books/:bookId/comments", authenticateToken, async (req, res) => {
+  app.get("/api/books/:bookId/comments", optionalAuthenticateToken, async (req, res) => {
     console.log("Get comments endpoint called");
     try {
       const { bookId } = req.params;
-      const userId = (req as any).user.userId;
+      const userId = (req as any).user?.userId; // Optional userId
       let comments = await storage.getComments(bookId);
       
       // Get comment IDs
@@ -2544,11 +2588,11 @@ export async function registerRoutes(
   });
 
   // Get reviews for a book
-  app.get("/api/books/:bookId/reviews", authenticateToken, async (req, res) => {
+  app.get("/api/books/:bookId/reviews", optionalAuthenticateToken, async (req, res) => {
     console.log("Get reviews endpoint called");
     try {
       const { bookId } = req.params;
-      const userId = (req as any).user.userId;
+      const userId = (req as any).user?.userId; // Optional userId
       let reviews = await storage.getReviews(bookId);
       
       // Get review IDs

@@ -41,21 +41,18 @@ export function useBooks() {
 
   // Fetch books by IDs
   const fetchBooksByIds = async (bookIds: string[]) => {
-    if (!user || bookIds.length === 0) {
+    if (bookIds.length === 0) {
       return [];
     }
 
     try {
       const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       
       const response = await fetch('/api/books/by-ids', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ bookIds }),
       });
@@ -75,22 +72,15 @@ export function useBooks() {
 
   // Fetch popular books
   const fetchPopularBooks = async (sortBy?: SortOption) => {
-    if (!user) {
-      return [];
-    }
-
     try {
       const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       
       const url = sortBy ? `/api/books/popular?sortBy=${sortBy}` : '/api/books/popular';
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
+        headers: token ? {
           'Authorization': `Bearer ${token}`,
-        },
+        } : {},
       });
 
       if (response.ok) {
@@ -108,24 +98,21 @@ export function useBooks() {
 
   // Fetch books by genre
   const fetchBooksByGenre = async (genre: string, sortBy?: SortOption) => {
-    if (!user || !genre) {
+    if (!genre) {
       return [];
     }
 
     try {
       const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       
       const url = sortBy 
         ? `/api/books/genre/${encodeURIComponent(genre)}?sortBy=${sortBy}` 
         : `/api/books/genre/${encodeURIComponent(genre)}`;
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
+        headers: token ? {
           'Authorization': `Bearer ${token}`,
-        },
+        } : {},
       });
 
       if (response.ok) {
@@ -143,22 +130,15 @@ export function useBooks() {
 
   // Fetch recently reviewed books
   const fetchRecentlyReviewedBooks = async (sortBy?: SortOption) => {
-    if (!user) {
-      return [];
-    }
-
     try {
       const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       
       const url = sortBy ? `/api/books/recently-reviewed?sortBy=${sortBy}` : '/api/books/recently-reviewed';
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
+        headers: token ? {
           'Authorization': `Bearer ${token}`,
-        },
+        } : {},
       });
 
       if (response.ok) {
@@ -208,22 +188,15 @@ export function useBooks() {
 
   // Fetch new releases
   const fetchNewReleases = async (sortBy?: SortOption) => {
-    if (!user) {
-      return [];
-    }
-
     try {
       const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       
       const url = sortBy ? `/api/books/new-releases?sortBy=${sortBy}` : '/api/books/new-releases';
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
+        headers: token ? {
           'Authorization': `Bearer ${token}`,
-        },
+        } : {},
       });
 
       if (response.ok) {
@@ -261,7 +234,7 @@ export function useBook(bookId: string | undefined): UseBookReturn {
 
   const fetchBook = async () => {
     console.log('Fetching book data for book ID:', bookId);
-    if (!bookId || !user) {
+    if (!bookId) {
       setLoading(false);
       return;
     }
@@ -271,15 +244,12 @@ export function useBook(bookId: string | undefined): UseBookReturn {
       setError(null);
       
       const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       
       const response = await fetch(`/api/books/${bookId}`, {
         method: 'GET',
-        headers: {
+        headers: token ? {
           'Authorization': `Bearer ${token}`,
-        },
+        } : {},
       });
 
       if (response.ok) {

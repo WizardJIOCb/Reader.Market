@@ -113,11 +113,8 @@ export default function Reader() {
         setLoading(true);
         setError(null); // Clear previous errors
         const token = localStorage.getItem('authToken');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
         
-        // Fetch book data
+        // Fetch book data (works with or without auth token)
         const bookResponse = await booksApi.getBookById(bookId);
         
         if (!bookResponse.ok) {
@@ -129,7 +126,8 @@ export default function Reader() {
         setBook(bookData);
         
         // Track reader open (when user opens book in reader) only if not already tracked
-        if (!readerOpenTrackedRef.current.has(bookId)) {
+        // and user is authenticated
+        if (token && !readerOpenTrackedRef.current.has(bookId)) {
           readerOpenTrackedRef.current.add(bookId);
           try {
             const trackResponse = await fetch(`/api/books/${bookId}/track-view`, {

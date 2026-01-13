@@ -467,10 +467,11 @@ export default function Profile() {
       
       try {
         setLoading(true);
+        const token = localStorage.getItem('authToken');
         const response = await fetch(`/api/profile/${userId}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
+          headers: token ? {
+            'Authorization': `Bearer ${token}`
+          } : {}
         });
         
         if (!response.ok) {
@@ -482,11 +483,11 @@ export default function Profile() {
         // Format the user data to match the expected structure
         // Fetch user's shelves based on whether it's the current user or another user
         let shelves = [];
-        if (isOwnProfile) {
+        if (isOwnProfile && token) {
           // Fetch current user's shelves
           const shelvesResponse = await fetch(`/api/shelves`, {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              'Authorization': `Bearer ${token}`
             }
           });
           
@@ -496,9 +497,9 @@ export default function Profile() {
         } else {
           // Fetch other user's shelves
           const userShelvesResponse = await fetch(`/api/shelves/user/${userId}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
+            headers: token ? {
+              'Authorization': `Bearer ${token}`
+            } : {}
           });
           
           if (userShelvesResponse.ok) {
@@ -515,7 +516,7 @@ export default function Profile() {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                   },
                   body: JSON.stringify({ bookIds: shelf.bookIds })
                 });
@@ -552,9 +553,9 @@ export default function Profile() {
         
         try {
           const statsResponse = await fetch(`/api/users/${userData.id}/statistics`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
+            headers: token ? {
+              'Authorization': `Bearer ${token}`
+            } : {}
           });
           
           if (statsResponse.ok) {
@@ -570,23 +571,25 @@ export default function Profile() {
           // Use default values if stats fetch fails
         }
         
-        // Fetch recently read books
+        // Fetch recently read books (only for own profile)
         let recentlyReadIds: string[] = [];
         
-        try {
-          const recentlyReadResponse = await fetch(`/api/books/currently-reading`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        if (isOwnProfile && token) {
+          try {
+            const recentlyReadResponse = await fetch(`/api/books/currently-reading`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (recentlyReadResponse.ok) {
+              const recentlyReadBooks = await recentlyReadResponse.json();
+              recentlyReadIds = recentlyReadBooks.slice(0, 5).map((book: any) => book.id);
             }
-          });
-          
-          if (recentlyReadResponse.ok) {
-            const recentlyReadBooks = await recentlyReadResponse.json();
-            recentlyReadIds = recentlyReadBooks.slice(0, 5).map((book: any) => book.id);
+          } catch (error) {
+            console.error('Error fetching recently read books:', error);
+            // Use empty array if fetch fails
           }
-        } catch (error) {
-          console.error('Error fetching recently read books:', error);
-          // Use empty array if fetch fails
         }
         
         // Format the user data to match the expected structure

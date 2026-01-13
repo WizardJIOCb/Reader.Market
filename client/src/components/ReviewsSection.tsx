@@ -42,6 +42,8 @@ import { AttachmentButton } from '@/components/AttachmentButton';
 import { AttachmentPreview } from '@/components/AttachmentPreview';
 import { AttachmentDisplay } from '@/components/AttachmentDisplay';
 import { type UploadedFile } from '@/lib/fileUploadManager';
+import { AuthPrompt } from '@/components/AuthPrompt';
+import { Link } from 'wouter';
 
 interface ReviewsProps {
   bookId: string;
@@ -436,8 +438,13 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
 
   return (
     <div className="space-y-8">
-      {!userReview && !isFormOpen ? (
-        <Button onClick={() => setIsFormOpen(true)} className="w-full gap-2" variant="outline" disabled={!user}>
+      {!user ? (
+        <AuthPrompt 
+          message={t('books:authRequiredForReviews')} 
+          variant="card"
+        />
+      ) : !userReview && !isFormOpen ? (
+        <Button onClick={() => setIsFormOpen(true)} className="w-full gap-2" variant="outline">
           <Star className="w-4 h-4" />
           {t('books:writeReview')}
         </Button>

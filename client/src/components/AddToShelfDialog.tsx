@@ -6,6 +6,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Check } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/lib/auth';
+import { Link } from 'wouter';
+import { Card, CardContent } from '@/components/ui/card';
+import { useTranslation } from 'react-i18next';
 
 interface AddToShelfDialogProps {
   bookId: string;
@@ -18,6 +22,8 @@ interface AddToShelfDialogProps {
 
 export function AddToShelfDialog({ bookId, shelves, onToggleShelf, trigger, isOpen, onOpenChange }: AddToShelfDialogProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const { user } = useAuth();
+  const { t } = useTranslation(['common', 'books']);
   
   const isControlled = isOpen !== undefined;
   const openState = isControlled ? isOpen : internalOpen;
@@ -40,36 +46,60 @@ export function AddToShelfDialog({ bookId, shelves, onToggleShelf, trigger, isOp
           <DialogTitle>Полки</DialogTitle>
         </DialogHeader>
         <div className="py-4">
-          <ScrollArea className="h-[300px] pr-4">
-            <div className="space-y-4">
-              {shelves.map((shelf) => {
-                const isAdded = shelf.bookIds.includes(bookId);
-                
-                return (
-                  <div key={shelf.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                    <Checkbox 
-                      id={`shelf-${shelf.id}`} 
-                      checked={isAdded}
-                      onCheckedChange={(checked) => onToggleShelf(shelf.id, bookId, checked as boolean)}
-                    />
-                    <div className="grid gap-1.5 leading-none">
-                      <Label
-                        htmlFor={`shelf-${shelf.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {shelf.name}
-                      </Label>
-                      {shelf.description && (
-                        <p className="text-xs text-muted-foreground">
-                          {shelf.description}
-                        </p>
-                      )}
-                    </div>
+          {!user ? (
+            <Card className="bg-muted/30">
+              <CardContent className="pt-6">
+                <div className="flex flex-col gap-3 text-base py-4 px-6">
+                  <p className="text-center text-muted-foreground">
+                    {t('books:authRequiredForShelves')}
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+                    <Link href="/register">
+                      <Button className="w-full sm:w-auto">
+                        {t('common:register')}
+                      </Button>
+                    </Link>
+                    <Link href="/login">
+                      <Button variant="outline" className="w-full sm:w-auto">
+                        {t('common:login')}
+                      </Button>
+                    </Link>
                   </div>
-                );
-              })}
-            </div>
-          </ScrollArea>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <ScrollArea className="h-[300px] pr-4">
+              <div className="space-y-4">
+                {shelves.map((shelf) => {
+                  const isAdded = shelf.bookIds.includes(bookId);
+                  
+                  return (
+                    <div key={shelf.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                      <Checkbox 
+                        id={`shelf-${shelf.id}`} 
+                        checked={isAdded}
+                        onCheckedChange={(checked) => onToggleShelf(shelf.id, bookId, checked as boolean)}
+                      />
+                      <div className="grid gap-1.5 leading-none">
+                        <Label
+                          htmlFor={`shelf-${shelf.id}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          {shelf.name}
+                        </Label>
+                        {shelf.description && (
+                          <p className="text-xs text-muted-foreground">
+                            {shelf.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
         </div>
       </DialogContent>
     </Dialog>
