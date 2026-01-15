@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull } from "drizzle-orm";
 
 // Database connection
@@ -150,6 +150,7 @@ export interface IStorage {
   // Bookmark operations
   createBookmark(bookmarkData: any): Promise<any>;
   getBookmarks(userId: string, bookId: string): Promise<any[]>;
+  updateBookmark(id: string, title: string): Promise<any>;
   deleteBookmark(id: string): Promise<void>;
   
   // Comment operations
@@ -235,6 +236,11 @@ export interface IStorage {
   // Channel read position operations
   upsertChannelReadPosition(userId: string, channelId: string): Promise<void>;
   getChannelReadPosition(userId: string, channelId: string): Promise<Date | null>;
+  
+  // Book chat operations
+  createBookChatMessage(messageData: { bookId: string; userId: string; content: string; mentionedUserId?: string; quotedMessageId?: string; attachmentUrls?: string[]; attachmentMetadata?: any }): Promise<any>;
+  getBookChatMessages(bookId: string, limit?: number, offset?: number): Promise<any[]>;
+  deleteBookChatMessage(id: string, userId: string, isAdminOrModer?: boolean): Promise<boolean>;
 }
 
 export class DBStorage implements IStorage {
@@ -1436,6 +1442,19 @@ export class DBStorage implements IStorage {
       await db.delete(bookmarks).where(eq(bookmarks.id, id));
     } catch (error) {
       console.error("Error deleting bookmark:", error);
+      throw error;
+    }
+  }
+
+  async updateBookmark(id: string, title: string): Promise<any> {
+    try {
+      const result = await db.update(bookmarks)
+        .set({ title })
+        .where(eq(bookmarks.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error updating bookmark:", error);
       throw error;
     }
   }
@@ -5192,6 +5211,175 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting channel read position:", error);
       return null;
+    }
+  }
+  
+  // Book chat operations
+  async createBookChatMessage(messageData: { bookId: string; userId: string; content: string; mentionedUserId?: string; quotedMessageId?: string; attachmentUrls?: string[]; attachmentMetadata?: any }): Promise<any> {
+    try {
+      const result = await db
+        .insert(bookChatMessages)
+        .values({
+          bookId: messageData.bookId,
+          userId: messageData.userId,
+          content: messageData.content,
+          mentionedUserId: messageData.mentionedUserId || null,
+          quotedMessageId: messageData.quotedMessageId || null,
+          attachmentUrls: messageData.attachmentUrls ? sql`${JSON.stringify(messageData.attachmentUrls)}::jsonb` : sql`'[]'::jsonb`,
+          attachmentMetadata: messageData.attachmentMetadata ? sql`${JSON.stringify(messageData.attachmentMetadata)}::jsonb` : null,
+        })
+        .returning();
+      
+      // Get the user info to return with the message
+      const user = await this.getUser(messageData.userId);
+      
+      // Get quoted message if exists
+      let quotedMessage = null;
+      if (messageData.quotedMessageId) {
+        const quotedResult = await db
+          .select({
+            id: bookChatMessages.id,
+            content: bookChatMessages.content,
+            userId: bookChatMessages.userId,
+            username: users.username,
+          })
+          .from(bookChatMessages)
+          .leftJoin(users, eq(bookChatMessages.userId, users.id))
+          .where(eq(bookChatMessages.id, messageData.quotedMessageId));
+        
+        if (quotedResult.length > 0) {
+          const q = quotedResult[0];
+          quotedMessage = {
+            id: q.id,
+            content: q.content,
+            user: {
+              id: q.userId,
+              username: q.username,
+            }
+          };
+        }
+      }
+      
+      return {
+        ...result[0],
+        quotedMessage,
+        attachmentUrls: result[0].attachmentUrls || [],
+        attachmentMetadata: result[0].attachmentMetadata || null,
+        user: user ? {
+          id: user.id,
+          username: user.username,
+          avatarUrl: user.avatarUrl,
+        } : null,
+      };
+    } catch (error) {
+      console.error("Error creating book chat message:", error);
+      throw error;
+    }
+  }
+  
+  async getBookChatMessages(bookId: string, limit: number = 50, offset: number = 0): Promise<any[]> {
+    try {
+      const result = await db
+        .select({
+          id: bookChatMessages.id,
+          bookId: bookChatMessages.bookId,
+          userId: bookChatMessages.userId,
+          content: bookChatMessages.content,
+          mentionedUserId: bookChatMessages.mentionedUserId,
+          quotedMessageId: bookChatMessages.quotedMessageId,
+          attachmentUrls: bookChatMessages.attachmentUrls,
+          attachmentMetadata: bookChatMessages.attachmentMetadata,
+          createdAt: bookChatMessages.createdAt,
+          username: users.username,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(bookChatMessages)
+        .leftJoin(users, eq(bookChatMessages.userId, users.id))
+        .where(
+          and(
+            eq(bookChatMessages.bookId, bookId),
+            isNull(bookChatMessages.deletedAt)
+          )
+        )
+        .orderBy(desc(bookChatMessages.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // Get all quoted messages in one query for efficiency
+      const quotedMessageIds = result
+        .filter(msg => msg.quotedMessageId)
+        .map(msg => msg.quotedMessageId as string);
+      
+      let quotedMessages: Map<string, any> = new Map();
+      
+      if (quotedMessageIds.length > 0) {
+        const quotedResult = await db
+          .select({
+            id: bookChatMessages.id,
+            content: bookChatMessages.content,
+            userId: bookChatMessages.userId,
+            username: users.username,
+          })
+          .from(bookChatMessages)
+          .leftJoin(users, eq(bookChatMessages.userId, users.id))
+          .where(inArray(bookChatMessages.id, quotedMessageIds));
+        
+        quotedResult.forEach(msg => {
+          quotedMessages.set(msg.id, {
+            id: msg.id,
+            content: msg.content,
+            user: {
+              id: msg.userId,
+              username: msg.username,
+            }
+          });
+        });
+      }
+      
+      // Transform to include user object and quoted message
+      return result.map(msg => ({
+        id: msg.id,
+        bookId: msg.bookId,
+        userId: msg.userId,
+        content: msg.content,
+        mentionedUserId: msg.mentionedUserId,
+        quotedMessageId: msg.quotedMessageId,
+        quotedMessage: msg.quotedMessageId ? quotedMessages.get(msg.quotedMessageId) : null,
+        attachmentUrls: msg.attachmentUrls,
+        attachmentMetadata: msg.attachmentMetadata,
+        createdAt: msg.createdAt,
+        user: {
+          id: msg.userId,
+          username: msg.username,
+          avatarUrl: msg.avatarUrl,
+        },
+      })).reverse(); // Reverse to show oldest first
+    } catch (error) {
+      console.error("Error getting book chat messages:", error);
+      return [];
+    }
+  }
+  
+  async deleteBookChatMessage(id: string, userId: string, isAdminOrModer: boolean = false): Promise<boolean> {
+    try {
+      // Soft delete - allow if user owns the message OR if user is admin/moder
+      const whereClause = isAdminOrModer 
+        ? eq(bookChatMessages.id, id)
+        : and(
+            eq(bookChatMessages.id, id),
+            eq(bookChatMessages.userId, userId)
+          );
+      
+      const result = await db
+        .update(bookChatMessages)
+        .set({ deletedAt: new Date() })
+        .where(whereClause)
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting book chat message:", error);
+      return false;
     }
   }
 }

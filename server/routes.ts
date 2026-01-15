@@ -417,6 +417,134 @@ export async function registerRoutes(
       socket.leave('stream:last-actions');
     });
     
+    // Book chat room handlers
+    socket.on('join:book-chat', (bookId: string) => {
+      if (!isAuthenticated) {
+        console.log('[WEBSOCKET] Unauthenticated user tried to join book chat - denied');
+        return;
+      }
+      const roomName = `book-chat:${bookId}`;
+      socket.join(roomName);
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined book chat room: ${roomName}`);
+      
+      // Notify others that user joined
+      socket.to(roomName).emit('book-chat:user-joined', {
+        oderId: userId,
+        bookId,
+      });
+      
+      // Get list of users in the room
+      const room = io.sockets.adapter.rooms.get(roomName);
+      const socketsInRoom = room ? Array.from(room) : [];
+      
+      // Get user IDs from connected sockets
+      const onlineUserIds: string[] = [];
+      socketsInRoom.forEach(socketId => {
+        const s = io.sockets.sockets.get(socketId);
+        if (s && s.data.userId && s.data.userId !== userId) {
+          onlineUserIds.push(s.data.userId);
+        }
+      });
+      
+      // Send current online users to the joining user
+      socket.emit('book-chat:online-users', {
+        bookId,
+        userIds: onlineUserIds,
+      });
+      
+      // Broadcast updated online list to all in room
+      io.to(roomName).emit('book-chat:presence-update', {
+        bookId,
+        userId,
+        action: 'joined',
+      });
+    });
+    
+    socket.on('leave:book-chat', (bookId: string) => {
+      if (!isAuthenticated) return;
+      const roomName = `book-chat:${bookId}`;
+      socket.leave(roomName);
+      console.log(`[WEBSOCKET] User ${userId} left book chat room: ${roomName}`);
+      
+      // Notify others that user left
+      io.to(roomName).emit('book-chat:presence-update', {
+        bookId,
+        userId,
+        action: 'left',
+      });
+    });
+    
+    socket.on('book-chat:send-message', async (data: { bookId: string; content: string; mentionedUserId?: string; quotedMessageId?: string; attachmentUrls?: string[]; attachmentMetadata?: any }) => {
+      if (!isAuthenticated) {
+        console.log('[WEBSOCKET] Unauthenticated user tried to send book chat message - denied');
+        return;
+      }
+      
+      try {
+        // Save message to database
+        const message = await storage.createBookChatMessage({
+          bookId: data.bookId,
+          userId: userId!,
+          content: data.content,
+          mentionedUserId: data.mentionedUserId,
+          quotedMessageId: data.quotedMessageId,
+          attachmentUrls: data.attachmentUrls,
+          attachmentMetadata: data.attachmentMetadata,
+        });
+        
+        // Broadcast to all users in the book chat room
+        const roomName = `book-chat:${data.bookId}`;
+        io.to(roomName).emit('book-chat:new-message', message);
+        
+        console.log(`[WEBSOCKET] Book chat message sent in ${roomName} by user ${userId}`);
+      } catch (error) {
+        console.error('[WEBSOCKET] Error sending book chat message:', error);
+        socket.emit('book-chat:error', { error: 'Failed to send message' });
+      }
+    });
+    
+    socket.on('book-chat:typing', (data: { bookId: string; typing: boolean }) => {
+      if (!isAuthenticated) return;
+      const roomName = `book-chat:${data.bookId}`;
+      socket.to(roomName).emit('book-chat:user-typing', {
+        userId,
+        bookId: data.bookId,
+        typing: data.typing,
+      });
+    });
+    
+
+    socket.on('book-chat:delete-message', async (data: { bookId: string; messageId: string }) => {
+      console.log('[WEBSOCKET] Received book-chat:delete-message', { bookId: data.bookId, messageId: data.messageId, isAuthenticated, userId });
+      if (!isAuthenticated) {
+        console.log('[WEBSOCKET] Unauthenticated user tried to delete book chat message - denied');
+        return;
+      }
+      
+      try {
+        // Get user to check if admin/moder
+        const user = await storage.getUser(userId!);
+        const isAdminOrModer = user && (user.accessLevel === 'admin' || user.accessLevel === 'moder');
+        console.log('[WEBSOCKET] User access level:', user?.accessLevel, 'isAdminOrModer:', isAdminOrModer);
+        
+        // Delete message
+        const deleted = await storage.deleteBookChatMessage(data.messageId, userId!, isAdminOrModer || false);
+        console.log('[WEBSOCKET] Delete result:', deleted);
+        
+        if (deleted) {
+          // Broadcast deletion to all users in the book chat room
+          const roomName = `book-chat:${data.bookId}`;
+          io.to(roomName).emit('book-chat:message-deleted', { messageId: data.messageId });
+          console.log(`[WEBSOCKET] Book chat message ${data.messageId} deleted by user ${userId}`);
+        } else {
+          console.log('[WEBSOCKET] Delete failed - broadcasting error');
+          socket.emit('book-chat:error', { error: 'Failed to delete message or permission denied' });
+        }
+      } catch (error) {
+        console.error('[WEBSOCKET] Error deleting book chat message:', error);
+        socket.emit('book-chat:error', { error: 'Failed to delete message' });
+      }
+    });
     // Handle disconnection
     socket.on('disconnect', () => {
       console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} disconnected from WebSocket`);
@@ -2012,6 +2140,79 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting bookmark:", error);
       res.status(500).json({ error: "Failed to delete bookmark" });
+    }
+  });
+  
+  // Update a bookmark (rename)
+  app.put("/api/bookmarks/:bookmarkId", authenticateToken, async (req, res) => {
+    try {
+      const { bookmarkId } = req.params;
+      const { title } = req.body;
+      
+      if (!title) {
+        return res.status(400).json({ error: "Bookmark title is required" });
+      }
+      
+      const bookmark = await storage.updateBookmark(bookmarkId, title);
+      res.json(bookmark);
+    } catch (error) {
+      console.error("Error updating bookmark:", error);
+      res.status(500).json({ error: "Failed to update bookmark" });
+    }
+  });
+  
+  // Book chat endpoints
+  
+  // Get book chat messages
+  app.get("/api/books/:bookId/chat", authenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      const messages = await storage.getBookChatMessages(bookId, limit, offset);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error getting book chat messages:", error);
+      res.status(500).json({ error: "Failed to get chat messages" });
+    }
+  });
+  
+  // Get online users for a book chat room
+  app.get("/api/books/:bookId/chat/online", authenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const io = (app as any).io;
+      const roomName = `book-chat:${bookId}`;
+      
+      const room = io.sockets.adapter.rooms.get(roomName);
+      const socketsInRoom = room ? Array.from(room) : [];
+      
+      // Get user IDs and fetch user info
+      const onlineUsers: any[] = [];
+      for (const socketId of socketsInRoom) {
+        const s = io.sockets.sockets.get(socketId);
+        if (s && s.data.userId) {
+          const user = await storage.getUser(s.data.userId);
+          if (user) {
+            onlineUsers.push({
+              id: user.id,
+              username: user.username,
+              avatarUrl: user.avatarUrl,
+            });
+          }
+        }
+      }
+      
+      // Remove duplicates (same user may have multiple connections)
+      const uniqueUsers = onlineUsers.filter((user, index, self) =>
+        index === self.findIndex(u => u.id === user.id)
+      );
+      
+      res.json(uniqueUsers);
+    } catch (error) {
+      console.error("Error getting online users:", error);
+      res.status(500).json({ error: "Failed to get online users" });
     }
   });
   

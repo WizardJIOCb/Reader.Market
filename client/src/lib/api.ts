@@ -178,6 +178,22 @@ export const readerApi = {
   deleteBookmark: (bookmarkId: string) => apiCall(`/api/bookmarks/${bookmarkId}`, {
     method: 'DELETE',
   }),
+  
+  updateBookmark: (bookmarkId: string, title: string) => apiCall(`/api/bookmarks/${bookmarkId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ title }),
+  }),
+  
+  // Book Chat
+  getChatMessages: (bookId: string, limit?: number, offset?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    const query = params.toString();
+    return apiCall(`/api/books/${bookId}/chat${query ? '?' + query : ''}`);
+  },
+  
+  getOnlineUsers: (bookId: string) => apiCall(`/api/books/${bookId}/chat/online`),
 };
 
 export const commentsApi = {

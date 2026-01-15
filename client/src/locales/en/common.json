@@ -33,6 +33,61 @@
   "authPromptComments": "Want to join the conversation? Register or log in to comment.",
   "authPromptReviews": "Share your thoughts! Register or log in to write a review.",
   "authPromptBooks": "Register to read books and manage your library",
+  "reader": {
+    "panelToc": "Table of Contents",
+    "panelSearch": "Search",
+    "panelBookmarks": "Bookmarks",
+    "panelSettings": "Settings",
+    "panelAI": "AI Analysis",
+    "panelChat": "Book Chat",
+    "progressBook": "of book, p.",
+    "progressChapter": "Chapter",
+    "progressPage": "p.",
+    "progressOf": "of"
+  },
+  "settings": {
+    "font": "Font",
+    "fontSize": "Font size",
+    "lineHeight": "Line height",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSepia": "Sepia",
+    "textAlign": "Text alignment",
+    "textAlignLeft": "Left",
+    "textAlignJustify": "Justify",
+    "textAlignCenter": "Center",
+    "margins": "Margins",
+    "showProgressBar": "Show progress bar",
+    "autoCloseBookmarksPanel": "Auto-close panel when navigating to bookmark",
+    "navigationZones": "Navigation zones",
+    "navigationInside": "Inside book",
+    "navigationOutside": "Outside book"
+  },
+  "ai": {
+    "comingSoon": "Feature in Development",
+    "comingSoonDescription": "AI Analysis feature is currently under development. Coming soon!"
+  },
+  "search": {
+    "placeholder": "Search in book..."
+  },
+  "bookmarks": {
+    "addBookmark": "Add Bookmark"
+  },
+  "bookChat": {
+    "tabMessages": "Messages",
+    "tabOnline": "Online",
+    "replyTo": "Reply to",
+    "writeMessage": "Write a message...",
+    "noMessages": "No messages yet",
+    "beFirstToStart": "Be the first to start the discussion!",
+    "noOnlineUsers": "No users online",
+    "readingBook": "Reading the book",
+    "online": "Online",
+    "typing": "is typing...",
+    "addressedToYou": "Addressed to you",
+    "authRequired": "You need to log in to send messages"
+  },
   "sort": {
     "label": "Sort by",
     "byViews": "By Views",

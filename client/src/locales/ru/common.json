@@ -33,6 +33,61 @@
   "authPromptComments": "Хотите присоединиться к обсуждению? Зарегистрируйтесь или войдите.",
   "authPromptReviews": "Поделитесь своим мнением! Зарегистрируйтесь или войдите, чтобы написать рецензию.",
   "authPromptBooks": "Зарегистрируйтесь, чтобы читать книги и управлять библиотекой",
+  "reader": {
+    "panelToc": "Содержание",
+    "panelSearch": "Поиск",
+    "panelBookmarks": "Закладки",
+    "panelSettings": "Настройки",
+    "panelAI": "AI Анализ",
+    "panelChat": "Чат книги",
+    "progressBook": "книги, стр.",
+    "progressChapter": "Глава",
+    "progressPage": "стр.",
+    "progressOf": "из"
+  },
+  "settings": {
+    "font": "Шрифт",
+    "fontSize": "Размер шрифта",
+    "lineHeight": "Межстрочный интервал",
+    "theme": "Тема",
+    "themeLight": "Светлая",
+    "themeDark": "Тёмная",
+    "themeSepia": "Сепия",
+    "textAlign": "Выравнивание текста",
+    "textAlignLeft": "По левому краю",
+    "textAlignJustify": "По ширине",
+    "textAlignCenter": "По центру",
+    "margins": "Поля",
+    "showProgressBar": "Показывать полосу прогресса",
+    "autoCloseBookmarksPanel": "Скрывать панель при переходе к закладке",
+    "navigationZones": "Зоны перелистывания",
+    "navigationInside": "Внутри книги",
+    "navigationOutside": "За пределами книги"
+  },
+  "ai": {
+    "comingSoon": "Функция в разработке",
+    "comingSoonDescription": "Функция AI Анализа находится в разработке. Скоро появится!"
+  },
+  "search": {
+    "placeholder": "Поиск по книге..."
+  },
+  "bookmarks": {
+    "addBookmark": "Добавить закладку"
+  },
+  "bookChat": {
+    "tabMessages": "Сообщения",
+    "tabOnline": "Онлайн",
+    "replyTo": "Ответ на",
+    "writeMessage": "Написать сообщение...",
+    "noMessages": "Пока нет сообщений",
+    "beFirstToStart": "Будьте первым, кто начнёт обсуждение!",
+    "noOnlineUsers": "Нет пользователей онлайн",
+    "readingBook": "Читает книгу",
+    "online": "Онлайн",
+    "typing": "печатает...",
+    "addressedToYou": "Адресовано Вам",
+    "authRequired": "Необходимо авторизоваться для отправки сообщений"
+  },
   "sort": {
     "label": "Сортировка",
     "byViews": "По просмотрам",

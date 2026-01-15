@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Link } from 'wouter';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeft,
@@ -54,7 +55,7 @@ interface ReaderToolbarProps {
   isSettingsOpen?: boolean;
   isAIOpen?: boolean;
   isChatOpen?: boolean;
-  activeReadersCount?: number;
+  unreadChatCount?: number;
 }
 
 export function ReaderToolbar({
@@ -82,8 +83,9 @@ export function ReaderToolbar({
   isSettingsOpen = false,
   isAIOpen = false,
   isChatOpen = false,
-  activeReadersCount = 0,
+  unreadChatCount = 0,
 }: ReaderToolbarProps) {
+  const { t } = useTranslation();
   const chapterNumber = currentChapter ? currentChapter.index + 1 : 1;
   const totalChapters = content?.chapters.length || 1;
 
@@ -150,9 +152,9 @@ export function ReaderToolbar({
                 title="Чат книги"
               >
                 <MessageCircle className="w-4 h-4" />
-                {activeReadersCount > 0 && (
+                {unreadChatCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-medium rounded-full w-3 h-3 flex items-center justify-center">
-                    {activeReadersCount > 9 ? '9+' : activeReadersCount}
+                    {unreadChatCount > 9 ? '9+' : unreadChatCount}
                   </span>
                 )}
               </Button>
@@ -182,10 +184,10 @@ export function ReaderToolbar({
 
             <div className="text-xs text-muted-foreground text-center leading-tight">
               <div className="font-medium">
-                {Math.round(overallPercentage)}% книги, стр. {currentPageOverall}/{totalPagesOverall}
+                {Math.round(overallPercentage)}% {t('reader.progressBook')} {currentPageOverall}/{totalPagesOverall}
               </div>
               <div className="text-[10px] opacity-75">
-                Глава {chapterNumber}/{totalChapters}, стр. {currentPageInChapter}/{totalPagesInChapter}
+                {t('reader.progressChapter')} {chapterNumber}/{totalChapters}, {t('reader.progressPage')} {currentPageInChapter}/{totalPagesInChapter}
               </div>
             </div>
 
@@ -231,11 +233,11 @@ export function ReaderToolbar({
             {/* Progress indicator */}
             <div className="text-xs text-muted-foreground min-w-[160px] text-center leading-tight">
               <div className="font-medium">
-                {Math.round(overallPercentage)}% книги, стр. {currentPageOverall}/{totalPagesOverall}
+                {Math.round(overallPercentage)}% {t('reader.progressBook')} {currentPageOverall}/{totalPagesOverall}
               </div>
               {/* Chapter info with chapter-specific page */}
               <div className="text-[10px] opacity-75">
-                Глава {chapterNumber} из {totalChapters}, стр. {currentPageInChapter}/{totalPagesInChapter}
+                {t('reader.progressChapter')} {chapterNumber} {t('reader.progressOf')} {totalChapters}, {t('reader.progressPage')} {currentPageInChapter}/{totalPagesInChapter}
               </div>
             </div>
 
@@ -300,9 +302,9 @@ export function ReaderToolbar({
               className="relative"
             >
               <MessageCircle className="w-5 h-5" />
-              {activeReadersCount > 0 && (
+              {unreadChatCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-medium rounded-full w-4 h-4 flex items-center justify-center">
-                  {activeReadersCount > 9 ? '9+' : activeReadersCount}
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
                 </span>
               )}
             </Button>

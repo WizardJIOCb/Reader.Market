@@ -326,5 +326,19 @@ export const userActions = pgTable("user_actions", {
   deletedAt: timestamp("deleted_at"),
 });
 
+// Table for book chat messages (real-time chat within book reader)
+export const bookChatMessages = pgTable("book_chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookId: varchar("book_id").notNull().references(() => books.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  mentionedUserId: varchar("mentioned_user_id").references(() => users.id), // For direct @mentions
+  quotedMessageId: varchar("quoted_message_id").references(() => bookChatMessages.id), // For replies
+  attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
+  attachmentMetadata: jsonb("attachment_metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
 // Create unique constraint for conversations to prevent duplicate user pairs
 // Note: We'll handle this in the migration file

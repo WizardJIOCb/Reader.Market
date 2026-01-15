@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -16,9 +17,11 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
+import { useTranslation } from 'react-i18next';
 import { booksApi, readerApi } from '@/lib/api';
 import { useBookSplash } from '@/lib/bookSplashContext';
-import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings } from 'lucide-react';
+import { getSocket, joinBookChat, leaveBookChat, sendBookChatMessage, startBookChatTyping, stopBookChatTyping, deleteBookChatMessage, onSocketEvent } from '@/lib/socket';
+import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Reader Components
 import {
@@ -75,6 +78,7 @@ export default function Reader() {
   const [match, params] = useRoute('/read/:bookId/:position');
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { user } = useAuth();
   
   const readerRef = useRef<ReaderCoreHandle>(null);
@@ -113,6 +117,15 @@ export default function Reader() {
     return () => clearTimeout(safetyTimeout);
   }, [isSplashVisible, hideSplash]);
   
+  // Mobile viewport detection effect
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   // UI state - single panel, no multiple selection
   type PanelType = 'toc' | 'search' | 'bookmarks' | 'settings' | 'ai' | 'chat' | null;
   const [activePanel, setActivePanel] = useState<PanelType>(null);
@@ -136,6 +149,29 @@ export default function Reader() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  
+  // Mobile viewport detection
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  
+  // Bookmark editing state
+  const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
+  const [editBookmarkTitle, setEditBookmarkTitle] = useState('');
+  
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [chatTab, setChatTab] = useState<'messages' | 'users'>('messages');
+  const [replyingTo, setReplyingTo] = useState<any | null>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentMessageImages, setCurrentMessageImages] = useState<string[]>([]);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
   
   // Debounce refs for saving progress and settings
   const lastProgressSaveRef = useRef<number>(0);
@@ -165,7 +201,8 @@ export default function Reader() {
     if (!bookId) return;
     
     const loadBookmarks = async () => {
-      if (user) {
+      const authToken = localStorage.getItem('authToken');
+      if (authToken) {
         // Authenticated: fetch from API
         try {
           const response = await readerApi.getBookmarks(bookId);
@@ -197,7 +234,124 @@ export default function Reader() {
     };
     
     loadBookmarks();
-  }, [bookId, user]);
+  }, [bookId]);
+  
+  // Load chat messages and setup WebSocket listeners when chat panel opens
+  useEffect(() => {
+    if (!bookId) return;
+    
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) return; // Chat requires authentication
+    
+    // Join book chat room immediately when reader opens
+    const socket = getSocket();
+    if (socket?.connected) {
+      joinBookChat(bookId);
+    }
+    
+    // Load online users helper (used by presence update handlers)
+    const loadOnlineUsers = async () => {
+      try {
+        const response = await readerApi.getOnlineUsers(bookId);
+        if (response.ok) {
+          const data = await response.json();
+          setOnlineUsers(data);
+        }
+      } catch (e) {
+        console.error('Failed to load online users:', e);
+      }
+    };
+    
+    const cleanupNewMessage = onSocketEvent('book-chat:new-message', (message) => {
+      console.log('[BOOK CHAT] New message received:', message);
+      console.log('[BOOK CHAT] attachmentUrls:', message.attachmentUrls);
+      console.log('[BOOK CHAT] attachmentMetadata:', message.attachmentMetadata);
+      console.log('[BOOK CHAT] quotedMessage:', message.quotedMessage);
+      setChatMessages(prev => [...prev, message]);
+      
+      // Increment unread counter if chat panel is closed and message is from another user
+      if (activePanel !== 'chat' && message.userId !== user?.id) {
+        setUnreadChatCount(prev => prev + 1);
+      }
+    });
+    
+    const cleanupPresenceUpdate = onSocketEvent('book-chat:presence-update', async (data) => {
+      if (data.action === 'joined') {
+        // Reload online users to get updated list
+        loadOnlineUsers();
+      } else if (data.action === 'left') {
+        setOnlineUsers(prev => prev.filter(u => u.id !== data.userId));
+      }
+    });
+    
+    const cleanupOnlineUsers = onSocketEvent('book-chat:online-users', (data) => {
+      // Received initial online users list when joining
+      loadOnlineUsers();
+    });
+    
+    const cleanupTyping = onSocketEvent('book-chat:user-typing', (data) => {
+      setTypingUsers(prev => {
+        const updated = new Set(prev);
+        if (data.typing) {
+          updated.add(data.userId);
+        } else {
+          updated.delete(data.userId);
+        }
+        return updated;
+      });
+    });
+    
+    const cleanupDeleteMessage = onSocketEvent('book-chat:message-deleted', (data) => {
+      setChatMessages(prev => prev.filter(msg => msg.id !== data.messageId));
+    });
+    
+    return () => {
+      // Leave chat room when panel closes
+      leaveBookChat(bookId);
+      cleanupNewMessage();
+      cleanupPresenceUpdate();
+      cleanupOnlineUsers();
+      cleanupDeleteMessage();
+      cleanupTyping();
+    };
+  }, [bookId, activePanel, user?.id]);
+  
+  // Load messages and users when chat panel is opened
+  useEffect(() => {
+    if (!bookId || activePanel !== 'chat') return;
+    
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) return;
+    
+    // Load initial messages
+    const loadChatMessages = async () => {
+      try {
+        const response = await readerApi.getChatMessages(bookId);
+        if (response.ok) {
+          const data = await response.json();
+          setChatMessages(data);
+        }
+      } catch (e) {
+        console.error('Failed to load chat messages:', e);
+      }
+    };
+    
+    // Load online users
+    const loadOnlineUsers = async () => {
+      try {
+        const response = await readerApi.getOnlineUsers(bookId);
+        if (response.ok) {
+          const data = await response.json();
+          setOnlineUsers(data);
+        }
+      } catch (e) {
+        console.error('Failed to load online users:', e);
+      }
+    };
+    
+    loadChatMessages();
+    loadOnlineUsers();
+  }, [bookId, activePanel]);
   
   // Load reading progress and settings on mount (for authenticated users)
   useEffect(() => {
@@ -737,7 +891,8 @@ export default function Reader() {
       pageInChapter: position.pageInChapter,
     };
     
-    if (user && bookId) {
+    const authToken = localStorage.getItem('authToken');
+    if (authToken && bookId) {
       // Authenticated: create via API
       try {
         const response = await readerApi.createBookmark(bookId, bookmarkData);
@@ -778,10 +933,11 @@ export default function Reader() {
       title: "Закладка добавлена",
       description: title,
     });
-  }, [currentChapter, selectedText, user, bookId, bookmarks]);
+  }, [currentChapter, selectedText, bookId, bookmarks]);
   
   const handleRemoveBookmark = useCallback(async (id: string) => {
-    if (user && bookId && !id.startsWith('local-')) {
+    const authToken = localStorage.getItem('authToken');
+    if (authToken && bookId && !id.startsWith('local-')) {
       // Authenticated with server bookmark: delete via API
       try {
         const response = await readerApi.deleteBookmark(id);
@@ -810,7 +966,165 @@ export default function Reader() {
       localStorage.setItem(`${BOOKMARKS_KEY}-${bookId}`, JSON.stringify(updated));
       return updated;
     });
-  }, [user, bookId]);
+  }, [bookId]);
+  
+  const handleRenameBookmark = useCallback(async (id: string, newTitle: string) => {
+    if (!newTitle.trim()) {
+      setEditingBookmarkId(null);
+      setEditBookmarkTitle('');
+      return;
+    }
+    
+    const authToken = localStorage.getItem('authToken');
+    if (authToken && bookId && !id.startsWith('local-')) {
+      // Authenticated with server bookmark: update via API
+      try {
+        const response = await readerApi.updateBookmark(id, newTitle.trim());
+        if (response.ok) {
+          setBookmarks((prev) => {
+            const updated = prev.map((b) => 
+              b.id === id ? { ...b, title: newTitle.trim() } : b
+            );
+            localStorage.setItem(`${BOOKMARKS_KEY}-${bookId}`, JSON.stringify(updated));
+            return updated;
+          });
+          setEditingBookmarkId(null);
+          setEditBookmarkTitle('');
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to update bookmark via API:', e);
+        toastRef.current({
+          title: "Ошибка",
+          description: "Не удалось переименовать закладку",
+          variant: "destructive",
+        });
+        setEditingBookmarkId(null);
+        setEditBookmarkTitle('');
+        return;
+      }
+    }
+    
+    // Guest or local bookmark: update locally
+    setBookmarks((prev) => {
+      const updated = prev.map((b) => 
+        b.id === id ? { ...b, title: newTitle.trim() } : b
+      );
+      localStorage.setItem(`${BOOKMARKS_KEY}-${bookId}`, JSON.stringify(updated));
+      return updated;
+    });
+    setEditingBookmarkId(null);
+    setEditBookmarkTitle('');
+  }, [bookId]);
+  
+  const startEditingBookmark = useCallback((bookmark: BookmarkItem) => {
+    setEditingBookmarkId(bookmark.id);
+    setEditBookmarkTitle(bookmark.title);
+  }, []);
+  
+  // Chat handlers
+  const handleSendMessage = useCallback(async () => {
+    if ((!chatInput.trim() && attachments.length === 0) || !bookId) return;
+    
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      toastRef.current({
+        title: "Ошибка",
+        description: "Необходимо авторизоваться для отправки сообщений",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if message mentions a user (@username)
+    const mentionMatch = chatInput.match(/@(\w+)/);
+    let mentionedUserId: string | undefined;
+    
+    if (mentionMatch) {
+      const mentionedUsername = mentionMatch[1];
+      const mentionedUser = onlineUsers.find(u => u.username === mentionedUsername);
+      if (mentionedUser) {
+        mentionedUserId = mentionedUser.id;
+      }
+    }
+    
+    let attachmentUrls: string[] = [];
+    let attachmentMetadata: any = null;
+    
+    // Upload attachments if any
+    if (attachments.length > 0) {
+      setUploadingFiles(true);
+      try {
+        const { fileUploadManager } = await import('@/lib/fileUploadManager');
+        const uploadPromises = attachments.map(file => fileUploadManager.uploadFile(file));
+        const uploads = await Promise.all(uploadPromises);
+        
+        attachmentUrls = uploads.map(u => u.url);
+        attachmentMetadata = uploads.map(u => ({
+          uploadId: u.uploadId,
+          filename: u.filename,
+          fileSize: u.fileSize,
+          mimeType: u.mimeType,
+          thumbnailUrl: u.thumbnailUrl,
+        }));
+      } catch (error) {
+        console.error('Failed to upload attachments:', error);
+        toastRef.current({
+          title: "Ошибка",
+          description: "Не удалось загрузить файлы",
+          variant: "destructive",
+        });
+        setUploadingFiles(false);
+        return;
+      }
+      setUploadingFiles(false);
+    }
+    
+    // Send via WebSocket
+    sendBookChatMessage(
+      bookId, 
+      chatInput, 
+      mentionedUserId, 
+      replyingTo?.id,
+      attachmentUrls,
+      attachmentMetadata
+    );
+    
+    setChatInput('');
+    setAttachments([]);
+    setReplyingTo(null);
+    
+    // Stop typing indicator
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    stopBookChatTyping(bookId);
+  }, [chatInput, bookId, onlineUsers, attachments, replyingTo]);
+  
+  const handleChatInputChange = useCallback((value: string) => {
+    setChatInput(value);
+    
+    if (!bookId) return;
+    
+    // Start typing indicator
+    startBookChatTyping(bookId);
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      stopBookChatTyping(bookId);
+    }, 2000);
+  }, [bookId]);
+  
+  const handleAddUserMention = useCallback((username: string) => {
+    setChatInput(prev => `${prev}@${username} `.trim() + ' ');
+    setChatTab('messages'); // Switch to messages tab
+  }, []);
   
   const handleGoToBookmark = useCallback(async (bookmark: BookmarkItem) => {
     // If bookmark has selected text, use text search to find correct page
@@ -839,8 +1153,15 @@ export default function Reader() {
         setBookmarkHighlight(null);
       }, 1500);
     } else {
-      // No selected text, just navigate to chapter
-      readerRef.current?.goToChapter(bookmark.chapterIndex);
+      // No selected text - navigate to chapter and specific page
+      const position: Position = {
+        charOffset: 0,
+        chapterIndex: bookmark.chapterIndex,
+        pageInChapter: bookmark.pageInChapter || 0,
+        totalPagesInChapter: 1,
+        percentage: bookmark.percentage,
+      };
+      readerRef.current?.goToPosition(position);
     }
     
     // Close bookmarks panel if setting is enabled OR on mobile (always close on mobile)
@@ -954,14 +1275,14 @@ export default function Reader() {
         onOpenBookmarks={() => setActivePanel(activePanel === 'bookmarks' ? null : 'bookmarks')}
         onOpenSettings={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
         onOpenAI={() => setActivePanel(activePanel === 'ai' ? null : 'ai')}
-        onOpenChat={() => setActivePanel(activePanel === 'chat' ? null : 'chat')}
+        onOpenChat={() => { setActivePanel(activePanel === 'chat' ? null : 'chat'); if (activePanel !== 'chat') setUnreadChatCount(0); }}
         isTocOpen={activePanel === 'toc'}
         isSearchOpen={activePanel === 'search'}
         isBookmarksOpen={activePanel === 'bookmarks'}
         isSettingsOpen={activePanel === 'settings'}
         isAIOpen={activePanel === 'ai'}
         isChatOpen={activePanel === 'chat'}
-        activeReadersCount={0}
+        unreadChatCount={unreadChatCount}
       />
       
       {/* Main content - full height */}
@@ -1065,12 +1386,12 @@ export default function Reader() {
                   {activePanel === 'ai' && <Brain className="w-5 h-5" />}
                   {activePanel === 'chat' && <MessageCircle className="w-5 h-5" />}
                   <h3 className="font-semibold">
-                    {activePanel === 'toc' && 'Содержание'}
-                    {activePanel === 'search' && 'Поиск'}
-                    {activePanel === 'bookmarks' && 'Закладки'}
-                    {activePanel === 'settings' && 'Настройки'}
-                    {activePanel === 'ai' && 'AI Анализ'}
-                    {activePanel === 'chat' && 'Чат книги'}
+                    {activePanel === 'toc' && t('reader.panelToc')}
+                    {activePanel === 'search' && t('reader.panelSearch')}
+                    {activePanel === 'bookmarks' && t('reader.panelBookmarks')}
+                    {activePanel === 'settings' && t('reader.panelSettings')}
+                    {activePanel === 'ai' && t('reader.panelAI')}
+                    {activePanel === 'chat' && t('reader.panelChat')}
                   </h3>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setActivePanel(null)}>
@@ -1103,7 +1424,7 @@ export default function Reader() {
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        placeholder="Поиск по книге..."
+                        placeholder={t('search.placeholder')}
                         value={searchQuery}
                         onChange={(e) => handleSearchInput(e.target.value)}
                         className="pl-9"
@@ -1176,7 +1497,7 @@ export default function Reader() {
                       onClick={handleAddBookmark}
                     >
                       <Plus className="w-4 h-4 mr-2" />
-                      Добавить закладку
+                      {t('bookmarks.addBookmark')}
                     </Button>
                     
                     {bookmarks.length === 0 ? (
@@ -1192,23 +1513,73 @@ export default function Reader() {
                             key={bookmark.id}
                             className="flex items-center gap-2 p-3 rounded-lg hover:bg-muted group"
                           >
-                            <button
-                              className="flex-1 text-left"
-                              onClick={() => handleGoToBookmark(bookmark)}
-                            >
-                              <p className="font-medium text-sm line-clamp-1">{bookmark.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {Math.round(bookmark.percentage)}% • {bookmark.createdAt.toLocaleDateString()}
-                              </p>
-                            </button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => handleRemoveBookmark(bookmark.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-muted-foreground" />
-                            </Button>
+                            {editingBookmarkId === bookmark.id ? (
+                              // Inline editing mode
+                              <div className="flex-1 flex items-center gap-2">
+                                <Input
+                                  value={editBookmarkTitle}
+                                  onChange={(e) => setEditBookmarkTitle(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleRenameBookmark(bookmark.id, editBookmarkTitle);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingBookmarkId(null);
+                                      setEditBookmarkTitle('');
+                                    }
+                                  }}
+                                  autoFocus
+                                  className="h-8 text-sm"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0"
+                                  onClick={() => handleRenameBookmark(bookmark.id, editBookmarkTitle)}
+                                >
+                                  <span className="text-xs">OK</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0"
+                                  onClick={() => {
+                                    setEditingBookmarkId(null);
+                                    setEditBookmarkTitle('');
+                                  }}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              // Normal display mode
+                              <>
+                                <button
+                                  className="flex-1 text-left"
+                                  onClick={() => handleGoToBookmark(bookmark)}
+                                >
+                                  <p className="font-medium text-sm line-clamp-1">{bookmark.title}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {Math.round(bookmark.percentage)}% • {bookmark.createdAt.toLocaleDateString()}
+                                  </p>
+                                </button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={`transition-opacity ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                  onClick={() => startEditingBookmark(bookmark)}
+                                >
+                                  <Pencil className="w-4 h-4 text-muted-foreground" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={`transition-opacity ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                  onClick={() => handleRemoveBookmark(bookmark.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-muted-foreground" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1221,7 +1592,7 @@ export default function Reader() {
                   <div className="p-4 space-y-6">
                     {/* Font Family */}
                     <div className="space-y-2">
-                      <Label>Шрифт</Label>
+                      <Label>{t('settings.font')}</Label>
                       <Select
                         value={settings.fontFamily}
                         onValueChange={(value) => updateSettings({ fontFamily: value })}
@@ -1243,7 +1614,7 @@ export default function Reader() {
                     
                     {/* Font Size */}
                     <div className="space-y-2">
-                      <Label>Размер шрифта: {settings.fontSize}px</Label>
+                      <Label>{t('settings.fontSize')}: {settings.fontSize}px</Label>
                       <Slider
                         value={[settings.fontSize]}
                         onValueChange={([value]) => updateSettings({ fontSize: value })}
@@ -1267,7 +1638,7 @@ export default function Reader() {
                     
                     {/* Theme */}
                     <div className="space-y-2">
-                      <Label>Тема</Label>
+                      <Label>{t('settings.theme')}</Label>
                       <Select
                         value={settings.theme}
                         onValueChange={(value: 'light' | 'dark' | 'sepia') => updateSettings({ theme: value })}
@@ -1276,16 +1647,16 @@ export default function Reader() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="light">Светлая</SelectItem>
-                          <SelectItem value="dark">Тёмная</SelectItem>
-                          <SelectItem value="sepia">Сепия</SelectItem>
+                          <SelectItem value="light">{t('settings.themeLight')}</SelectItem>
+                          <SelectItem value="dark">{t('settings.themeDark')}</SelectItem>
+                          <SelectItem value="sepia">{t('settings.themeSepia')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     
                     {/* Text Align */}
                     <div className="space-y-2">
-                      <Label>Выравнивание текста</Label>
+                      <Label>{t('settings.textAlign')}</Label>
                       <Select
                         value={settings.textAlign}
                         onValueChange={(value: 'left' | 'justify' | 'center') => updateSettings({ textAlign: value })}
@@ -1294,16 +1665,16 @@ export default function Reader() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="left">По левому краю</SelectItem>
-                          <SelectItem value="justify">По ширине</SelectItem>
-                          <SelectItem value="center">По центру</SelectItem>
+                          <SelectItem value="left">{t('settings.textAlignLeft')}</SelectItem>
+                          <SelectItem value="justify">{t('settings.textAlignJustify')}</SelectItem>
+                          <SelectItem value="center">{t('settings.textAlignCenter')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     
                     {/* Margins */}
                     <div className="space-y-2">
-                      <Label>Поля: {settings.margins}px</Label>
+                      <Label>{t('settings.margins')}: {settings.margins}px</Label>
                       <Slider
                         value={[settings.margins]}
                         onValueChange={([value]) => updateSettings({ margins: value })}
@@ -1321,7 +1692,7 @@ export default function Reader() {
                         onCheckedChange={(checked) => updateSettings({ showProgressBar: checked === true })}
                       />
                       <Label htmlFor="showProgressBar" className="cursor-pointer">
-                        Показывать полосу прогресса
+                        {t('settings.showProgressBar')}
                       </Label>
                     </div>
                     
@@ -1333,13 +1704,13 @@ export default function Reader() {
                         onCheckedChange={(checked) => updateSettings({ autoCloseBookmarksPanel: checked === true })}
                       />
                       <Label htmlFor="autoCloseBookmarksPanel" className="cursor-pointer">
-                        Скрывать панель при переходе к закладке
+                        {t('settings.autoCloseBookmarksPanel')}
                       </Label>
                     </div>
                     
                     {/* Navigation Zone Position */}
                     <div className="space-y-2">
-                      <Label>Зоны перелистывания</Label>
+                      <Label>{t('settings.navigationZones')}</Label>
                       <Select
                         value={settings.navigationZonePosition || 'inside'}
                         onValueChange={(value: 'inside' | 'outside') => updateSettings({ navigationZonePosition: value })}
@@ -1348,8 +1719,8 @@ export default function Reader() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="inside">Внутри книги</SelectItem>
-                          <SelectItem value="outside">За пределами книги</SelectItem>
+                          <SelectItem value="inside">{t('settings.navigationInside')}</SelectItem>
+                          <SelectItem value="outside">{t('settings.navigationOutside')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1359,28 +1730,346 @@ export default function Reader() {
                 {/* AI Panel */}
                 {activePanel === 'ai' && (
                   <div className="p-4 space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Выделите текст в книге для анализа с помощью AI.
-                    </p>
-                    {selectedText && (
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground mb-1">Выделенный текст:</p>
-                        <p className="text-sm line-clamp-4">{selectedText.text}</p>
-                      </div>
-                    )}
+                    <div className="p-4 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/30">
+                      <p className="text-sm font-medium text-center mb-2">
+                        {t('ai.comingSoon')}
+                      </p>
+                      <p className="text-xs text-muted-foreground text-center">
+                        {t('ai.comingSoonDescription')}
+                      </p>
+                    </div>
                   </div>
                 )}
                 
                 {/* Chat Panel */}
                 {activePanel === 'chat' && (
-                  <div className="p-4 flex flex-col items-center justify-center h-full text-center">
-                    <Users className="w-12 h-12 text-muted-foreground/50 mb-4" />
-                    <p className="text-sm text-muted-foreground">
-                      Чат для обсуждения книги с другими читателями.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Скоро будет доступно
-                    </p>
+                  <div className="flex flex-col h-full">
+                    <Tabs value={chatTab} onValueChange={(v) => setChatTab(v as 'messages' | 'users')} className="flex-1 flex flex-col">
+                      <TabsList className="grid w-full grid-cols-2 px-4 mb-0 py-1 mt-2 rounded-none bg-background">
+                        <TabsTrigger value="messages">{t('bookChat.tabMessages')}</TabsTrigger>
+                        <TabsTrigger value="users">{t('bookChat.tabOnline')} ({onlineUsers.length})</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="messages" className="flex-1 flex flex-col mt-0">
+                        {/* Message input at top */}
+                        <div className="p-4 pb-2">
+                          {replyingTo && (
+                            <div className="mb-2 p-2 bg-muted/50 rounded-lg flex items-start gap-2">
+                              <Reply className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-muted-foreground">
+                                  Ответ на {replyingTo.user?.username}:
+                                </p>
+                                <p className="text-sm truncate">{replyingTo.content}</p>
+                              </div>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => setReplyingTo(null)}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                          
+                          <div className="flex gap-2">
+                            <Input
+                              value={chatInput}
+                              onChange={(e) => handleChatInputChange(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSendMessage();
+                                }
+                              }}
+                              placeholder={t('bookChat.writeMessage')}
+                              className="flex-1"
+                              disabled={uploadingFiles}
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => document.getElementById('chat-file-input')?.click()}
+                              disabled={uploadingFiles}
+                            >
+                              <Paperclip className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              onClick={handleSendMessage}
+                              disabled={(!chatInput.trim() && attachments.length === 0) || uploadingFiles}
+                            >
+                              <Send className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          
+                          {attachments.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {attachments.map((file, idx) => (
+                                <div key={idx} className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs">
+                                  <Paperclip className="w-3 h-3" />
+                                  <span className="max-w-[100px] truncate">{file.name}</span>
+                                  <button onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}>
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <input
+                            id="chat-file-input"
+                            type="file"
+                            multiple
+                            accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,.doc,.docx,text/plain"
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              if (files.length > 0) {
+                                setAttachments(prev => [...prev, ...files.slice(0, 5 - prev.length)]);
+                              }
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                          />
+                        </div>
+                        
+                        {/* Typing indicator */}
+                        {typingUsers.size > 0 && (
+                          <div className="px-4 py-1 text-xs text-muted-foreground border-b">
+                            {Array.from(typingUsers).slice(0, 3).map((userId, idx, arr) => {
+                              const typingUser = onlineUsers.find(u => u.id === userId);
+                              return typingUser ? (
+                                <span key={userId}>
+                                  {typingUser.username}
+                                  {idx < arr.length - 1 ? ', ' : ''}
+                                </span>
+                              ) : null;
+                            })}
+                            {' печатает...'}
+                          </div>
+                        )}
+                        
+                        {/* Messages list - newest on top */}
+                        <div className="flex-1 overflow-y-auto px-4">
+                          {chatMessages.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                              <MessageCircle className="w-12 h-12 text-muted-foreground/50 mb-4" />
+                              <p className="text-sm text-muted-foreground">
+                                Пока нет сообщений
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Будьте первым, кто начнёт обсуждение!
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3 py-4">
+                              {[...chatMessages].reverse().map((msg) => {
+                                const isCurrentUser = user?.id === msg.userId;
+                                const isMentioned = user?.id === msg.mentionedUserId;
+                                
+                                return (
+                                  <div
+                                    key={msg.id}
+                                    className={`p-3 rounded-lg ${
+                                      isMentioned
+                                        ? 'bg-orange-500/10 border border-orange-500/30'
+                                        : isCurrentUser
+                                        ? 'bg-primary/10'
+                                        : 'bg-muted/50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {msg.user?.avatarUrl ? (
+                                        <img
+                                          src={msg.user.avatarUrl}
+                                          alt={msg.user.username}
+                                          className="w-6 h-6 rounded-full"
+                                        />
+                                      ) : (
+                                        <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                                          <span className="text-xs font-semibold">
+                                            {msg.user?.username?.[0]?.toUpperCase() || '?'}
+                                          </span>
+                                        </div>
+                                      )}
+                                      <button
+                                        onClick={() => {
+                                          setChatInput(prev => `${prev}@${msg.user?.username} `.trim() + ' ');
+                                        }}
+                                        className="text-sm font-semibold hover:underline"
+                                      >
+                                        {msg.user?.username || 'Unknown'}
+                                      </button>
+                                      <a
+                                        href={`/profile/${msg.userId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        title="Открыть профиль"
+                                      >
+                                        <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-primary" />
+                                      </a>
+                                      <span className="text-xs text-muted-foreground ml-auto">
+                                        {new Date(msg.createdAt).toLocaleTimeString('ru-RU', {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })}
+                                      </span>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-6 w-6 ml-1"
+                                        onClick={() => setReplyingTo(msg)}
+                                        title="Ответить"
+                                      >
+                                        <Reply className="w-3 h-3" />
+                                      </Button>
+                                      {(isCurrentUser || user?.accessLevel === 'admin' || user?.accessLevel === 'moder') && (
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-6 w-6 ml-1 hover:bg-destructive/10 hover:text-destructive"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            console.log('[DELETE] Attempting to delete message:', msg.id, 'in book:', bookId);
+                                            deleteBookChatMessage(bookId, msg.id);
+                                          }}
+                                          title="Удалить"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    
+                                    {msg.quotedMessage && (
+                                      <div className="mb-2 ml-8 p-2 bg-background/50 rounded border-l-2 border-primary/30">
+                                        <p className="text-xs text-muted-foreground mb-1">
+                                          Ответ на {msg.quotedMessage.user?.username}:
+                                        </p>
+                                        <p className="text-xs line-clamp-2">
+                                          {msg.quotedMessage.content}
+                                        </p>
+                                      </div>
+                                    )}
+                                    
+                                    <p className="text-sm whitespace-pre-wrap break-words ml-8">
+                                      {msg.content}
+                                    </p>
+                                    
+                                    {msg.attachmentUrls && Array.isArray(msg.attachmentUrls) && msg.attachmentUrls.length > 0 && (
+                                      <div className="mt-2 ml-8 space-y-1">
+                                        {msg.attachmentUrls.map((url: string, idx: number) => {
+                                          const metadata = Array.isArray(msg.attachmentMetadata) ? msg.attachmentMetadata[idx] : null;
+                                          const isImage = metadata?.mimeType?.startsWith('image/');
+                                          
+                                          return (
+                                            <div key={idx}>
+                                              {isImage ? (
+                                                <img
+                                                  src={url}
+                                                  alt={metadata?.filename || 'Изображение'}
+                                                  className="max-w-full max-h-48 rounded cursor-pointer hover:opacity-80 transition-opacity"
+                                                  onClick={() => {
+                                                    // Get all image URLs from this message
+                                                    const imageUrls = msg.attachmentUrls.filter((_: string, i: number) => {
+                                                      const meta = Array.isArray(msg.attachmentMetadata) ? msg.attachmentMetadata[i] : null;
+                                                      return meta?.mimeType?.startsWith('image/');
+                                                    });
+                                                    setCurrentMessageImages(imageUrls);
+                                                    setCurrentImageIndex(imageUrls.indexOf(url));
+                                                    setImageViewerOpen(true);
+                                                  }}
+                                                />
+                                              ) : (
+                                                <a
+                                                  href={url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="flex items-center gap-2 text-xs text-primary hover:underline"
+                                                >
+                                                  <Paperclip className="w-3 h-3" />
+                                                  {metadata?.filename || 'Файл'}
+                                                </a>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                    
+                                    {isMentioned && (
+                                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 ml-8">
+                                        {t('bookChat.addressedToYou')}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="users" className="flex-1 mt-0">
+                        <div className="h-full overflow-y-auto px-4">
+                          {onlineUsers.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                              <Users className="w-12 h-12 text-muted-foreground/50 mb-4" />
+                              <p className="text-sm text-muted-foreground">
+                                Нет пользователей онлайн
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 py-4">
+                              {onlineUsers.map((onlineUser) => (
+                                <div
+                                  key={onlineUser.id}
+                                  className="w-full p-3 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-3"
+                                >
+                                  {onlineUser.avatarUrl ? (
+                                    <img
+                                      src={onlineUser.avatarUrl}
+                                      alt={onlineUser.username}
+                                      className="w-10 h-10 rounded-full"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                      <span className="text-lg font-semibold">
+                                        {onlineUser.username[0].toUpperCase()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="flex-1">
+                                    <button
+                                      onClick={() => {
+                                        setChatInput(prev => `${prev}@${onlineUser.username} `.trim() + ' ');
+                                        setChatTab('messages');
+                                      }}
+                                      className="font-medium hover:underline text-left"
+                                    >
+                                      {onlineUser.username}
+                                    </button>
+                                    <p className="text-xs text-muted-foreground">{t('bookChat.readingBook')}</p>
+                                  </div>
+                                  <a
+                                    href={`/profile/${onlineUser.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="Открыть профиль"
+                                  >
+                                    <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                                  </a>
+                                  <div className="w-2 h-2 rounded-full bg-green-500" title="Онлайн" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 )}
               </ScrollArea>
@@ -1477,6 +2166,62 @@ export default function Reader() {
               Копировать
             </Button>
           </div>
+        </div>
+      )}
+      
+      {/* Image Viewer Popup */}
+      {imageViewerOpen && currentMessageImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
+          onClick={() => setImageViewerOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+            onClick={() => setImageViewerOpen(false)}
+          >
+            <X className="w-8 h-8" />
+          </button>
+          
+          {currentMessageImages.length > 1 && (
+            <>
+              <button
+                className="absolute left-4 text-white hover:text-gray-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex(prev => Math.max(0, prev - 1));
+                }}
+                disabled={currentImageIndex === 0}
+              >
+                <ChevronLeft className="w-12 h-12" />
+              </button>
+              
+              <button
+                className="absolute right-4 text-white hover:text-gray-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex(prev => Math.min(currentMessageImages.length - 1, prev + 1));
+                }}
+                disabled={currentImageIndex === currentMessageImages.length - 1}
+              >
+                <ChevronRight className="w-12 h-12" />
+              </button>
+            </>
+          )}
+          
+          <div className="max-w-[90vw] max-h-[90vh] flex items-center justify-center">
+            <img
+              src={currentMessageImages[currentImageIndex]}
+              alt={`Изображение ${currentImageIndex + 1} из ${currentMessageImages.length}`}
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          
+          {currentMessageImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm bg-black/50 px-3 py-1 rounded">
+              {currentImageIndex + 1} / {currentMessageImages.length}
+            </div>
+          )}
         </div>
       )}
     </div>

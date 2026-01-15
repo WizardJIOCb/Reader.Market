@@ -21,6 +21,15 @@ export interface SocketEvents {
   
   // Notification events
   'notification:new': (data: { type: string; conversationId?: string; senderId?: string }) => void;
+  
+  // Book chat events
+  'book-chat:new-message': (data: any) => void;
+  'book-chat:user-joined': (data: { userId: string; bookId: string }) => void;
+  'book-chat:presence-update': (data: { bookId: string; userId: string; action: 'joined' | 'left' }) => void;
+  'book-chat:online-users': (data: { bookId: string; userIds: string[] }) => void;
+  'book-chat:user-typing': (data: { userId: string; bookId: string; typing: boolean }) => void;
+  'book-chat:message-deleted': (data: { messageId: string }) => void;
+  'book-chat:error': (data: { error: string }) => void;
 }
 
 export function initializeSocket(token?: string): Socket {
@@ -127,6 +136,47 @@ export function startChannelTyping(channelId: string): void {
 export function stopChannelTyping(channelId: string): void {
   if (socket?.connected) {
     socket.emit('channel:typing:stop', { channelId });
+  }
+}
+
+// Book chat helpers
+export function joinBookChat(bookId: string): void {
+  if (socket?.connected) {
+    socket.emit('join:book-chat', bookId);
+  }
+}
+
+export function leaveBookChat(bookId: string): void {
+  if (socket?.connected) {
+    socket.emit('leave:book-chat', bookId);
+  }
+}
+
+export function sendBookChatMessage(bookId: string, content: string, mentionedUserId?: string, quotedMessageId?: string, attachmentUrls?: string[], attachmentMetadata?: any): void {
+  if (socket?.connected) {
+    socket.emit('book-chat:send-message', { bookId, content, mentionedUserId, quotedMessageId, attachmentUrls, attachmentMetadata });
+  }
+}
+
+export function startBookChatTyping(bookId: string): void {
+  if (socket?.connected) {
+    socket.emit('book-chat:typing', { bookId, typing: true });
+  }
+}
+
+export function stopBookChatTyping(bookId: string): void {
+  if (socket?.connected) {
+    socket.emit('book-chat:typing', { bookId, typing: false });
+  }
+}
+
+export function deleteBookChatMessage(bookId: string, messageId: string): void {
+  console.log('[SOCKET] deleteBookChatMessage called with:', { bookId, messageId, socketConnected: socket?.connected });
+  if (socket?.connected) {
+    console.log('[SOCKET] Emitting book-chat:delete-message', { bookId, messageId });
+    socket.emit('book-chat:delete-message', { bookId, messageId });
+  } else {
+    console.error('[SOCKET] Cannot delete message - socket not connected');
   }
 }
 
