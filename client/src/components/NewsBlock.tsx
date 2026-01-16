@@ -12,7 +12,9 @@ import { Link } from 'wouter';
 interface NewsItem {
   id: string;
   title: string;
+  titleEn?: string;
   content: string;
+  contentEn?: string;
   slug?: string;
   author: string;
   authorId: string;
@@ -115,7 +117,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                       href={`/news/${newsItem.slug || newsItem.id}`}
                       className="text-primary hover:underline"
                     >
-                      {newsItem.title}
+                      {i18n.language === 'en' && newsItem.titleEn ? newsItem.titleEn : newsItem.title}
                     </a>
                   </CardTitle>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -144,7 +146,9 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground whitespace-pre-line mb-3">{newsItem.content}</p>
+                  <p className="text-muted-foreground whitespace-pre-line mb-3">
+                    {i18n.language === 'en' && newsItem.contentEn ? newsItem.contentEn : newsItem.content}
+                  </p>
                   <div className="flex gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       👁️ {newsItem.viewCount} {t('common:views')}

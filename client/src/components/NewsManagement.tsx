@@ -12,7 +12,9 @@ import { apiCall } from '@/lib/api';
 interface NewsItem {
   id: string;
   title: string;
+  titleEn?: string;
   content: string;
+  contentEn?: string;
   slug?: string;
   author: string;
   authorId: string;
@@ -31,8 +33,10 @@ const NewsManagement: React.FC = () => {
   
   // Form state
   const [title, setTitle] = useState('');
+  const [titleEn, setTitleEn] = useState('');
   const [slug, setSlug] = useState('');
   const [content, setContent] = useState('');
+  const [contentEn, setContentEn] = useState('');
   const [published, setPublished] = useState(false);
   const isInitialMount = useRef(true);
 
@@ -64,8 +68,10 @@ const NewsManagement: React.FC = () => {
     try {
       const newsData = {
         title,
+        titleEn: titleEn || undefined,
         slug: slug || undefined,
         content,
+        contentEn: contentEn || undefined,
         published
       };
       
@@ -94,8 +100,10 @@ const NewsManagement: React.FC = () => {
   const handleEdit = (newsItem: NewsItem) => {
     setEditingNews(newsItem);
     setTitle(newsItem.title);
+    setTitleEn(newsItem.titleEn || '');
     setSlug(newsItem.slug || '');
     setContent(newsItem.content);
+    setContentEn(newsItem.contentEn || '');
     setPublished(newsItem.published);
     setShowForm(true);
   };
@@ -116,8 +124,10 @@ const NewsManagement: React.FC = () => {
 
   const resetForm = () => {
     setTitle('');
+    setTitleEn('');
     setSlug('');
     setContent('');
+    setContentEn('');
     setPublished(false);
     setEditingNews(null);
     setShowForm(false);
@@ -164,12 +174,22 @@ const NewsManagement: React.FC = () => {
           <CardContent>
             <form onSubmit={handleCreateNews} className="space-y-4">
               <div>
-                <Label htmlFor="title">Title</Label>
+                <Label htmlFor="title">Title (Russian)</Label>
                 <Input
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
+                  placeholder="Заголовок на русском"
+                />
+              </div>
+              <div>
+                <Label htmlFor="titleEn">Title (English)</Label>
+                <Input
+                  id="titleEn"
+                  value={titleEn}
+                  onChange={(e) => setTitleEn(e.target.value)}
+                  placeholder="Title in English (optional)"
                 />
               </div>
               <div>
@@ -185,13 +205,24 @@ const NewsManagement: React.FC = () => {
                 </p>
               </div>
               <div>
-                <Label htmlFor="content">Content</Label>
+                <Label htmlFor="content">Content (Russian)</Label>
                 <Textarea
                   id="content"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   required
                   rows={6}
+                  placeholder="Содержание на русском"
+                />
+              </div>
+              <div>
+                <Label htmlFor="contentEn">Content (English)</Label>
+                <Textarea
+                  id="contentEn"
+                  value={contentEn}
+                  onChange={(e) => setContentEn(e.target.value)}
+                  rows={6}
+                  placeholder="Content in English (optional)"
                 />
               </div>
               <div className="flex items-center space-x-2">

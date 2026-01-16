@@ -273,7 +273,9 @@ export const bookViewStatistics = pgTable("book_view_statistics", {
 export const news = pgTable("news", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
+  titleEn: text("title_en"),
   content: text("content").notNull(),
+  contentEn: text("content_en"),
   slug: varchar("slug", { length: 255 }),
   authorId: varchar("author_id").notNull().references(() => users.id),
   published: boolean("published").default(false),

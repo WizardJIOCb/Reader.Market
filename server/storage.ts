@@ -2698,7 +2698,9 @@ export class DBStorage implements IStorage {
       const result = await db.select({
         id: news.id,
         title: news.title,
+        titleEn: news.titleEn,
         content: news.content,
+        contentEn: news.contentEn,
         slug: news.slug,
         authorId: news.authorId,
         published: news.published,
@@ -2724,7 +2726,9 @@ export class DBStorage implements IStorage {
       return {
         id: newsItem.id,
         title: newsItem.title,
+        titleEn: newsItem.titleEn,
         content: newsItem.content,
+        contentEn: newsItem.contentEn,
         slug: newsItem.slug,
         authorId: newsItem.authorId,
         published: newsItem.published,
@@ -2756,10 +2760,28 @@ export class DBStorage implements IStorage {
   
   async createNewsComment(commentData: any): Promise<any> {
     try {
+      // First, resolve newsId (could be slug or UUID) to actual UUID
+      const newsItem = await this.getNews(commentData.newsId);
+      if (!newsItem) {
+        throw new Error('News item not found');
+      }
+      
+      // Process attachments if provided
+      let attachmentUrls = [];
+      let attachmentMetadata = null;
+      
+      if (commentData.attachments && commentData.attachments.length > 0) {
+        const fileData = await this.processAttachments(commentData.attachments);
+        attachmentUrls = fileData.attachmentUrls;
+        attachmentMetadata = fileData.attachmentMetadata;
+      }
+      
       const result = await db.insert(comments).values({
         userId: commentData.userId,
-        newsId: commentData.newsId,
+        newsId: newsItem.id, // Use resolved UUID
         content: commentData.content,
+        attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
+        attachmentMetadata: attachmentMetadata ? attachmentMetadata : undefined,
         createdAt: new Date(),
         updatedAt: new Date()
       }).returning();
@@ -2767,7 +2789,7 @@ export class DBStorage implements IStorage {
       // Increment comment count in news
       await db.update(news)
         .set({ commentCount: sql`${news.commentCount} + 1`, updatedAt: new Date() })
-        .where(eq(news.id, commentData.newsId));
+        .where(eq(news.id, newsItem.id)); // Use resolved UUID
       
       return result[0];
     } catch (error) {
@@ -2783,6 +2805,8 @@ export class DBStorage implements IStorage {
         userId: comments.userId,
         newsId: comments.newsId,
         content: comments.content,
+        attachmentUrls: comments.attachmentUrls,
+        attachmentMetadata: comments.attachmentMetadata,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         username: users.username,
@@ -2830,6 +2854,8 @@ export class DBStorage implements IStorage {
           userId: item.userId,
           newsId: item.newsId,
           content: item.content,
+          attachmentUrls: item.attachmentUrls,
+          attachmentMetadata: item.attachmentMetadata,
           createdAt: item.createdAt.toISOString(),
           updatedAt: item.updatedAt.toISOString(),
           author: item.fullName || item.username || 'Anonymous',
@@ -2960,7 +2986,9 @@ export class DBStorage implements IStorage {
       const result = await db.select({
         id: news.id,
         title: news.title,
+        titleEn: news.titleEn,
         content: news.content,
+        contentEn: news.contentEn,
         slug: news.slug,
         authorId: news.authorId,
         published: news.published,
@@ -2983,7 +3011,9 @@ export class DBStorage implements IStorage {
       return result.map(item => ({
         id: item.id,
         title: item.title,
+        titleEn: item.titleEn,
         content: item.content,
+        contentEn: item.contentEn,
         slug: item.slug,
         authorId: item.authorId,
         published: item.published,
@@ -3008,7 +3038,9 @@ export class DBStorage implements IStorage {
       const result = await db.select({
         id: news.id,
         title: news.title,
+        titleEn: news.titleEn,
         content: news.content,
+        contentEn: news.contentEn,
         slug: news.slug,
         authorId: news.authorId,
         published: news.published,
@@ -3030,7 +3062,9 @@ export class DBStorage implements IStorage {
       return result.map(item => ({
         id: item.id,
         title: item.title,
+        titleEn: item.titleEn,
         content: item.content,
+        contentEn: item.contentEn,
         slug: item.slug,
         authorId: item.authorId,
         published: item.published,

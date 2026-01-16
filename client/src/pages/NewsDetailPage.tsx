@@ -11,15 +11,23 @@ import { apiCall } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { ReactionBar } from '@/components/ReactionBar';
 import { AuthPrompt } from '@/components/AuthPrompt';
-import { User, Eye, MessageCircle, Heart, X } from 'lucide-react';
+import { EmojiPicker } from '@/components/EmojiPicker';
+import { AttachmentButton } from '@/components/AttachmentButton';
+import { AttachmentPreview } from '@/components/AttachmentPreview';
+import { AttachmentDisplay } from '@/components/AttachmentDisplay';
+import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
+import { User, Eye, MessageCircle, Heart, X, Send } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatAbsoluteDateTime } from '@/lib/dateUtils';
+import { linkifyText } from '@/lib/linkify';
 import { ru, enUS } from 'date-fns/locale';
 
 interface NewsItem {
   id: string;
   title: string;
+  titleEn?: string;
   content: string;
+  contentEn?: string;
   author: string;
   authorId: string;
   avatarUrl?: string | null;
@@ -38,6 +46,13 @@ interface Comment {
   author: string;
   avatarUrl?: string | null;
   createdAt: string;
+  attachments?: {
+    url: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    thumbnailUrl?: string;
+  }[];
   reactions: {
     emoji: string;
     count: number;
@@ -61,6 +76,8 @@ const NewsDetailPage: React.FC = () => {
   const [newsItem, setNewsItem] = useState<NewsItem | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [reactions, setReactions] = useState<Reaction[]>([]);
@@ -139,7 +156,10 @@ const NewsDetailPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content: newComment }),
+        body: JSON.stringify({ 
+          content: newComment,
+          attachments: uploadedFiles.map(f => f.uploadId)
+        }),
       });
 
       if (response.ok) {
@@ -149,12 +169,15 @@ const NewsDetailPage: React.FC = () => {
         const formattedComment = {
           ...newCommentObj,
           author: newCommentObj.author || user.fullName || user.username || 'Вы',
-          avatarUrl: newCommentObj.avatarUrl || user.avatarUrl || null
+          avatarUrl: newCommentObj.avatarUrl || user.avatarUrl || null,
+          attachments: newCommentObj.attachmentMetadata?.attachments || []
         };
         
         // Add the new comment to the list
         setComments([formattedComment, ...comments]);
         setNewComment('');
+        setAttachmentFiles([]);
+        setUploadedFiles([]);
         
         // Update the news item comment count
         if (newsItem) {
@@ -359,7 +382,9 @@ const NewsDetailPage: React.FC = () => {
 
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="text-3xl">{newsItem.title}</CardTitle>
+            <CardTitle className="text-3xl">
+              {i18n.language === 'en' && newsItem.titleEn ? newsItem.titleEn : newsItem.title}
+            </CardTitle>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Avatar className="w-8 h-8">
@@ -396,7 +421,11 @@ const NewsDetailPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="prose max-w-none dark:prose-invert">
-              <p className="whitespace-pre-line text-lg">{newsItem.content}</p>
+              <p className="whitespace-pre-line text-lg">
+                {linkifyText(
+                  i18n.language === 'en' && newsItem.contentEn ? newsItem.contentEn : newsItem.content
+                )}
+              </p>
             </div>
             
             <div className="mt-6 pt-4 border-t">
@@ -445,8 +474,50 @@ const NewsDetailPage: React.FC = () => {
                       }}
                       className="min-h-[100px]"
                     />
-                    <div className="flex justify-end">
-                      <Button onClick={handlePostComment} disabled={!newComment.trim()}>
+                    
+                    {/* Attachment previews */}
+                    {attachmentFiles.length > 0 && (
+                      <AttachmentPreview 
+                        files={attachmentFiles}
+                        onRemove={(index) => {
+                          const newFiles = attachmentFiles.filter((_, i) => i !== index);
+                          const newUploaded = uploadedFiles.filter((_, i) => i !== index);
+                          setAttachmentFiles(newFiles);
+                          setUploadedFiles(newUploaded);
+                        }}
+                      />
+                    )}
+                    
+                    <div className="flex justify-between items-center">
+                      <div className="flex gap-2">
+                        <EmojiPicker
+                          onEmojiSelect={(emoji) => {
+                            setNewComment(prev => prev + emoji);
+                          }}
+                        />
+                        <AttachmentButton
+                          onFilesSelected={async (files) => {
+                            setAttachmentFiles(prev => [...prev, ...files].slice(0, 5));
+                            
+                            // Auto-upload files
+                            for (const file of files) {
+                              try {
+                                const uploaded = await fileUploadManager.uploadFile(file, 'comment');
+                                setUploadedFiles(prev => [...prev, uploaded]);
+                              } catch (error) {
+                                console.error('Failed to upload file:', error);
+                              }
+                            }
+                          }}
+                          disabled={attachmentFiles.length >= 5}
+                        />
+                      </div>
+                      <Button 
+                        onClick={handlePostComment} 
+                        disabled={!newComment.trim()}
+                        className="gap-2"
+                      >
+                        <Send className="w-4 h-4" />
                         {t('common:postComment')}
                       </Button>
                     </div>
@@ -506,6 +577,13 @@ const NewsDetailPage: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-foreground/90 whitespace-pre-line">{comment.content}</p>
+                        
+                        {/* Attachments display */}
+                        {comment.attachments && comment.attachments.length > 0 && (
+                          <div className="mt-2">
+                            <AttachmentDisplay attachments={comment.attachments} />
+                          </div>
+                        )}
                         
                         <div className="mt-2">
                           <ReactionBar 

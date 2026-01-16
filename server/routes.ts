@@ -1045,10 +1045,10 @@ export async function registerRoutes(
     console.log("Post news comment endpoint called for news ID:", req.params.id);
     try {
       const { id } = req.params;
-      const { content } = req.body;
+      const { content, attachments } = req.body;
       const userId = (req as any).user.userId;
       
-      console.log("Received comment data - userId:", userId, "newsId:", id, "content:", content);
+      console.log("Received comment data - userId:", userId, "newsId:", id, "content:", content, "attachments:", attachments);
       
       if (!content) {
         return res.status(400).json({ error: "Content is required" });
@@ -1057,7 +1057,8 @@ export async function registerRoutes(
       const comment = await storage.createNewsComment({
         userId,
         newsId: id,
-        content
+        content,
+        attachments
       });
       
       console.log("Created comment with ID:", comment.id);
@@ -1381,7 +1382,7 @@ export async function registerRoutes(
     console.log("Create news endpoint called");
     try {
       const userId = (req as any).user.userId;
-      const { title, slug, content, published } = req.body;
+      const { title, titleEn, slug, content, contentEn, published } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ error: "Title and content are required" });
@@ -1389,8 +1390,10 @@ export async function registerRoutes(
       
       const newsData = {
         title,
+        titleEn: titleEn || undefined,
         slug: slug || undefined,
         content,
+        contentEn: contentEn || undefined,
         authorId: userId,
         published: published || false,
         publishedAt: published ? new Date() : null
@@ -1468,7 +1471,7 @@ export async function registerRoutes(
     console.log("Update news endpoint called");
     try {
       const { id } = req.params;
-      const { title, slug, content, published } = req.body;
+      const { title, titleEn, slug, content, contentEn, published } = req.body;
       
       const existingNews = await storage.getNews(id);
       if (!existingNews) {
@@ -1477,8 +1480,10 @@ export async function registerRoutes(
       
       const newsData = {
         title: title !== undefined ? title : existingNews.title,
+        titleEn: titleEn !== undefined ? (titleEn || undefined) : existingNews.titleEn,
         slug: slug !== undefined ? (slug || undefined) : existingNews.slug,
         content: content !== undefined ? content : existingNews.content,
+        contentEn: contentEn !== undefined ? (contentEn || undefined) : existingNews.contentEn,
         published: published !== undefined ? published : existingNews.published,
         publishedAt: (() => {
           const isPublishing = published !== undefined ? published : existingNews.published;

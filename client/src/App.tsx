@@ -27,6 +27,8 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
 import { initializeSocket, disconnectSocket } from "@/lib/socket";
+import { useTranslation } from "react-i18next";
+import { apiCall } from "@/lib/api";
 function Router() {
   return (
     <Switch>
@@ -55,6 +57,50 @@ function Router() {
 
 function App() {
   const [location] = useLocation();
+  const { i18n } = useTranslation();
+  
+  // Handle language parameter from URL - must run BEFORE other effects
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const langParam = params.get('lang');
+    
+    console.log('[Language] URL lang param:', langParam);
+    console.log('[Language] Current i18n language:', i18n.language);
+    console.log('[Language] localStorage i18nextLng:', localStorage.getItem('i18nextLng'));
+    
+    if (langParam && (langParam === 'ru' || langParam === 'en')) {
+      console.log('[Language] Valid lang param detected:', langParam);
+      
+      // Check if i18n has already loaded with this language
+      if (i18n.language !== langParam) {
+        console.log('[Language] Language mismatch, i18n.language:', i18n.language, 'param:', langParam);
+        
+        // Save to localStorage FIRST (i18next uses 'i18nextLng' key)
+        localStorage.setItem('i18nextLng', langParam);
+        localStorage.setItem('language', langParam);
+        
+        // Save to user profile if authenticated
+        const authToken = localStorage.getItem('authToken');
+        if (authToken) {
+          apiCall('/api/user/preferences', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ language: langParam }),
+          }).catch((error) => {
+            console.error('Failed to save language preference:', error);
+          });
+        }
+        
+        // Reload page to apply language change
+        console.log('[Language] Reloading page to apply language change');
+        window.location.reload();
+      } else {
+        console.log('[Language] Language already correct:', langParam);
+      }
+    }
+  }, []); // Empty dependency array - run only once on mount
   
   // Track page views in Yandex Metrika on route change
   useEffect(() => {

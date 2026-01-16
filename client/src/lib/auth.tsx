@@ -43,16 +43,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
         
-        // Set language from user preference if available
-        if (parsedUser.language) {
+        // Check if URL has lang parameter - it takes priority
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlLang = urlParams.get('lang');
+        
+        // Set language from user preference if available, but only if no URL param
+        if (!urlLang && parsedUser.language) {
           console.log('AuthProvider: Setting language from user data:', parsedUser.language);
           i18n.changeLanguage(parsedUser.language);
           // Ensure i18nextLng is in sync with user preference
           localStorage.setItem('i18nextLng', parsedUser.language);
-        } else {
-          // If user has no language preference, use i18n's detected language
+        } else if (!urlLang) {
+          // If user has no language preference and no URL param, use i18n's detected language
           const detectedLanguage = i18n.language || 'en';
           console.log('AuthProvider: No user language preference, using detected:', detectedLanguage);
+        } else {
+          console.log('AuthProvider: URL lang parameter detected, skipping user language preference');
         }
       } catch (e) {
         // If there's an error parsing, remove the invalid data
