@@ -47,17 +47,33 @@ const LandingPage = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.split('?')[1]);
     setIsEarlyAdopter(location.includes('/early') || urlParams.get('early') === '1');
-    
-    // Handle scrolling to section if hash is present in URL
-    if (location.includes('#how-it-works')) {
-      setTimeout(() => {
-        const element = document.getElementById('how-it-works');
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
-    }
   }, [location]);
+  
+  // Handle hash scrolling separately (wouter doesn't handle hash)
+  useEffect(() => {
+    const handleHashScroll = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash) {
+        // Use a longer delay to ensure the component has fully rendered
+        setTimeout(() => {
+          const element = document.getElementById(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 300);
+      }
+    };
+    
+    // Scroll on mount if hash exists
+    handleHashScroll();
+    
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashScroll);
+    
+    return () => {
+      window.removeEventListener('hashchange', handleHashScroll);
+    };
+  }, []);
   
   // Fetch popular books
   useEffect(() => {

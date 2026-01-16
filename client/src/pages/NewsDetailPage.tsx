@@ -353,7 +353,7 @@ const NewsDetailPage: React.FC = () => {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        <Button variant="outline" onClick={() => window.history.back()} className="mb-6">
+        <Button variant="outline" onClick={() => setLocation('/#news')} className="mb-6">
           ← {t('common:back')}
         </Button>
 
