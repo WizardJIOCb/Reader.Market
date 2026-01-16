@@ -383,7 +383,7 @@ const NewsDetailPage: React.FC = () => {
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="text-3xl">
-              {i18n.language === 'en' && newsItem.titleEn ? newsItem.titleEn : newsItem.title}
+              {i18n.language === 'ru' ? newsItem.title : (newsItem.titleEn || newsItem.title)}
             </CardTitle>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
@@ -423,7 +423,7 @@ const NewsDetailPage: React.FC = () => {
             <div className="prose max-w-none dark:prose-invert">
               <p className="whitespace-pre-line text-lg">
                 {linkifyText(
-                  i18n.language === 'en' && newsItem.contentEn ? newsItem.contentEn : newsItem.content
+                  i18n.language === 'ru' ? newsItem.content : (newsItem.contentEn || newsItem.content)
                 )}
               </p>
             </div>

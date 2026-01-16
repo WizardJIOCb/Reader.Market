@@ -46,6 +46,18 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
           throw new Error(`Failed to fetch news: ${response.status} ${response.statusText}`);
         }
         const data = await response.json();
+        
+        console.log('[NewsBlock] Fetched news:', data);
+        console.log('[NewsBlock] Current i18n.language:', i18n.language);
+        if (data.length > 0) {
+          console.log('[NewsBlock] First news item:', {
+            title: data[0].title,
+            titleEn: data[0].titleEn,
+            content: data[0].content?.substring(0, 50),
+            contentEn: data[0].contentEn?.substring(0, 50)
+          });
+        }
+        
         const newsToDisplay = limit ? data.slice(0, limit) : data;
         setNewsItems(newsToDisplay);
         setLoading(false);
@@ -57,7 +69,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
     };
 
     fetchNews();
-  }, []);
+  }, [limit, i18n.language]);
 
   if (loading) {
     return (
@@ -117,7 +129,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                       href={`/news/${newsItem.slug || newsItem.id}`}
                       className="text-primary hover:underline"
                     >
-                      {i18n.language === 'en' && newsItem.titleEn ? newsItem.titleEn : newsItem.title}
+                      {i18n.language === 'ru' ? newsItem.title : (newsItem.titleEn || newsItem.title)}
                     </a>
                   </CardTitle>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -147,7 +159,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground whitespace-pre-line mb-3">
-                    {i18n.language === 'en' && newsItem.contentEn ? newsItem.contentEn : newsItem.content}
+                    {i18n.language === 'ru' ? newsItem.content : (newsItem.contentEn || newsItem.content)}
                   </p>
                   <div className="flex gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
