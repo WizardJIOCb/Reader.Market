@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts } from "@shared/schema";
-import { eq, and, inArray, desc, asc, sql, or, ilike, isNull } from "drizzle-orm";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments } from "@shared/schema";
+import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne } from "drizzle-orm";
 
 // Database connection
 console.log("Connecting to database with URL:", process.env.DATABASE_URL);
@@ -208,6 +208,21 @@ export interface IStorage {
   getNewsCountSince(date: Date): Promise<number>;
   getCommentsCountSince(date: Date): Promise<number>;
   getReviewsCountSince(date: Date): Promise<number>;
+  
+  // Profile ratings operations
+  createProfileRating(ratingData: {userId: string, profileId: string, rating: number}): Promise<any>;
+  getProfileRatings(profileId: string): Promise<any[]>;
+  getUserProfileRating(userId: string, profileId: string): Promise<any | undefined>;
+  updateProfileRating(id: string, rating: number): Promise<any>;
+  deleteProfileRating(id: string, userId: string | null): Promise<boolean>;
+  updateProfileAverageRating(profileId: string): Promise<void>;
+  
+  // Profile comments operations
+  createProfileComment(commentData: {userId: string, profileId: string, content: string, attachments?: any}): Promise<any>;
+  getProfileComments(profileId: string, options: {limit: number, offset: number, currentUserId?: string}): Promise<{comments: any[], total: number}>;
+  getUserProfileComment(userId: string, profileId: string): Promise<any | undefined>;
+  updateProfileComment(id: string, content: string): Promise<any>;
+  deleteProfileComment(id: string, userId: string | null): Promise<boolean>;
   
   // Admin book operations
   getAllBooksWithUploader(limit: number, offset: number, search?: string, sortBy?: string, sortOrder?: string): Promise<{books: any[], total: number}>;
@@ -5566,6 +5581,396 @@ export class DBStorage implements IStorage {
     const oauthTotal = Number(oauthCount[0]?.count || 0);
     
     return hasPassword + oauthTotal;
+  }
+
+  // ========== Profile Ratings Methods ==========
+
+  async createProfileRating(ratingData: {userId: string, profileId: string, rating: number}): Promise<any> {
+    try {
+      // Check if rating already exists
+      const existing = await this.getUserProfileRating(ratingData.userId, ratingData.profileId);
+      
+      if (existing) {
+        // Update existing rating
+        return await this.updateProfileRating(existing.id, ratingData.rating);
+      }
+      
+      // Create new rating
+      const result = await db.insert(profileRatings)
+        .values({
+          userId: ratingData.userId,
+          profileId: ratingData.profileId,
+          rating: ratingData.rating,
+        })
+        .returning();
+      
+      // Update average rating for the profile
+      await this.updateProfileAverageRating(ratingData.profileId);
+      
+      // Get rating with user info
+      const ratingWithUser = await db.select({
+        id: profileRatings.id,
+        userId: profileRatings.userId,
+        profileId: profileRatings.profileId,
+        rating: profileRatings.rating,
+        createdAt: profileRatings.createdAt,
+        updatedAt: profileRatings.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(profileRatings)
+      .leftJoin(users, eq(profileRatings.userId, users.id))
+      .where(eq(profileRatings.id, result[0].id));
+      
+      return ratingWithUser[0];
+    } catch (error) {
+      console.error("Error creating profile rating:", error);
+      throw error;
+    }
+  }
+
+  async getProfileRatings(profileId: string): Promise<any[]> {
+    try {
+      const ratings = await db.select({
+        id: profileRatings.id,
+        userId: profileRatings.userId,
+        profileId: profileRatings.profileId,
+        rating: profileRatings.rating,
+        createdAt: profileRatings.createdAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(profileRatings)
+      .leftJoin(users, eq(profileRatings.userId, users.id))
+      .where(eq(profileRatings.profileId, profileId))
+      .orderBy(desc(profileRatings.createdAt));
+      
+      return ratings;
+    } catch (error) {
+      console.error("Error getting profile ratings:", error);
+      throw error;
+    }
+  }
+
+  async getUserProfileRating(userId: string, profileId: string): Promise<any | undefined> {
+    try {
+      const result = await db.select()
+        .from(profileRatings)
+        .where(
+          and(
+            eq(profileRatings.userId, userId),
+            eq(profileRatings.profileId, profileId)
+          )
+        )
+        .limit(1);
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error getting user profile rating:", error);
+      throw error;
+    }
+  }
+
+  async updateProfileRating(id: string, rating: number): Promise<any> {
+    try {
+      const result = await db.update(profileRatings)
+        .set({ 
+          rating,
+          updatedAt: new Date()
+        })
+        .where(eq(profileRatings.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Rating not found');
+      }
+      
+      // Update average rating for the profile
+      await this.updateProfileAverageRating(result[0].profileId);
+      
+      // Get rating with user info
+      const ratingWithUser = await db.select({
+        id: profileRatings.id,
+        userId: profileRatings.userId,
+        profileId: profileRatings.profileId,
+        rating: profileRatings.rating,
+        createdAt: profileRatings.createdAt,
+        updatedAt: profileRatings.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(profileRatings)
+      .leftJoin(users, eq(profileRatings.userId, users.id))
+      .where(eq(profileRatings.id, result[0].id));
+      
+      return ratingWithUser[0];
+    } catch (error) {
+      console.error("Error updating profile rating:", error);
+      throw error;
+    }
+  }
+
+  async deleteProfileRating(id: string, userId: string | null): Promise<boolean> {
+    try {
+      // Get the rating first to check ownership and get profileId
+      const rating = await db.select()
+        .from(profileRatings)
+        .where(eq(profileRatings.id, id))
+        .limit(1);
+      
+      if (rating.length === 0) {
+        return false;
+      }
+      
+      // Verify ownership (userId = null means admin/moder bypass)
+      if (userId !== null && rating[0].userId !== userId) {
+        throw new Error('Unauthorized');
+      }
+      
+      const profileId = rating[0].profileId;
+      
+      // Find and delete linked comment (CASCADE will handle this, but we need to know for the return)
+      const linkedComment = await db.select()
+        .from(profileComments)
+        .where(eq(profileComments.linkedRatingId, id))
+        .limit(1);
+      
+      if (linkedComment.length > 0) {
+        await db.delete(profileComments)
+          .where(eq(profileComments.id, linkedComment[0].id));
+      }
+      
+      // Delete the rating
+      await db.delete(profileRatings)
+        .where(eq(profileRatings.id, id));
+      
+      // Update average rating
+      await this.updateProfileAverageRating(profileId);
+      
+      return true;
+    } catch (error) {
+      console.error("Error deleting profile rating:", error);
+      throw error;
+    }
+  }
+
+  async updateProfileAverageRating(profileId: string): Promise<void> {
+    try {
+      // Calculate average rating
+      const result = await db.select({
+        avgRating: sql<number>`AVG(${profileRatings.rating})`,
+        count: sql<number>`COUNT(*)`
+      })
+      .from(profileRatings)
+      .where(eq(profileRatings.profileId, profileId));
+      
+      const avgRating = result[0].avgRating;
+      const count = Number(result[0].count);
+      
+      // Update user's profile rating
+      await db.update(users)
+        .set({
+          profileRating: count > 0 && avgRating ? Math.round(avgRating * 10) / 10 : null
+        })
+        .where(eq(users.id, profileId));
+    } catch (error) {
+      console.error("Error updating profile average rating:", error);
+      throw error;
+    }
+  }
+
+  // ========== Profile Comments Methods ==========
+
+  async createProfileComment(commentData: {userId: string, profileId: string, content: string, attachments?: any}): Promise<any> {
+    try {
+      // Get user's rating if exists to link it
+      const userRating = await this.getUserProfileRating(commentData.userId, commentData.profileId);
+      
+      // Always create new comment (allow multiple comments per user)
+      const result = await db.insert(profileComments)
+        .values({
+          userId: commentData.userId,
+          profileId: commentData.profileId,
+          content: commentData.content,
+          attachmentMetadata: commentData.attachments || null,
+          linkedRatingId: userRating?.id || null,
+        })
+        .returning();
+      
+      // Get comment with user info
+      const commentWithUser = await db.select({
+        id: profileComments.id,
+        userId: profileComments.userId,
+        profileId: profileComments.profileId,
+        content: profileComments.content,
+        attachmentMetadata: profileComments.attachmentMetadata,
+        linkedRatingId: profileComments.linkedRatingId,
+        createdAt: profileComments.createdAt,
+        updatedAt: profileComments.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(profileComments)
+      .leftJoin(users, eq(profileComments.userId, users.id))
+      .where(eq(profileComments.id, result[0].id));
+      
+      return commentWithUser[0];
+    } catch (error) {
+      console.error("Error creating profile comment:", error);
+      throw error;
+    }
+  }
+
+  async getProfileComments(profileId: string, options: {limit: number, offset: number, currentUserId?: string}): Promise<{comments: any[], total: number}> {
+    try {
+      // Get total count
+      const countResult = await db.select({
+        count: sql<number>`COUNT(*)`
+      })
+      .from(profileComments)
+      .where(eq(profileComments.profileId, profileId));
+      
+      const total = Number(countResult[0].count);
+      
+      // Get all comments, ordered by most recent first
+      const allComments = await db.select({
+        id: profileComments.id,
+        userId: profileComments.userId,
+        profileId: profileComments.profileId,
+        content: profileComments.content,
+        attachmentMetadata: profileComments.attachmentMetadata,
+        linkedRatingId: profileComments.linkedRatingId,
+        createdAt: profileComments.createdAt,
+        updatedAt: profileComments.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+        rating: profileRatings.rating,
+      })
+      .from(profileComments)
+      .leftJoin(users, eq(profileComments.userId, users.id))
+      .leftJoin(profileRatings, eq(profileComments.linkedRatingId, profileRatings.id))
+      .where(eq(profileComments.profileId, profileId))
+      .orderBy(desc(profileComments.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+      
+      const commentsWithFlag = allComments.map(comment => ({
+        ...comment,
+        isOwnComment: options.currentUserId ? comment.userId === options.currentUserId : false
+      }));
+      
+      return {
+        comments: commentsWithFlag,
+        total
+      };
+    } catch (error) {
+      console.error("Error getting profile comments:", error);
+      throw error;
+    }
+  }
+
+  async getUserProfileComment(userId: string, profileId: string): Promise<any | undefined> {
+    try {
+      const result = await db.select()
+        .from(profileComments)
+        .where(
+          and(
+            eq(profileComments.userId, userId),
+            eq(profileComments.profileId, profileId)
+          )
+        )
+        .limit(1);
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error getting user profile comment:", error);
+      throw error;
+    }
+  }
+
+  async updateProfileComment(id: string, content: string): Promise<any> {
+    try {
+      const result = await db.update(profileComments)
+        .set({ 
+          content,
+          updatedAt: new Date()
+        })
+        .where(eq(profileComments.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Comment not found');
+      }
+      
+      // Get comment with user info
+      const commentWithUser = await db.select({
+        id: profileComments.id,
+        userId: profileComments.userId,
+        profileId: profileComments.profileId,
+        content: profileComments.content,
+        attachmentMetadata: profileComments.attachmentMetadata,
+        linkedRatingId: profileComments.linkedRatingId,
+        createdAt: profileComments.createdAt,
+        updatedAt: profileComments.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(profileComments)
+      .leftJoin(users, eq(profileComments.userId, users.id))
+      .where(eq(profileComments.id, result[0].id));
+      
+      return commentWithUser[0];
+    } catch (error) {
+      console.error("Error updating profile comment:", error);
+      throw error;
+    }
+  }
+
+  async deleteProfileComment(id: string, userId: string | null): Promise<boolean> {
+    try {
+      // Get the comment first to check ownership and get linked rating
+      const comment = await db.select()
+        .from(profileComments)
+        .where(eq(profileComments.id, id))
+        .limit(1);
+      
+      if (comment.length === 0) {
+        return false;
+      }
+      
+      // Verify ownership or profile ownership (userId = null means admin/moder bypass)
+      // Allow deletion if user is comment author OR if user owns the profile where comment is posted
+      if (userId !== null && comment[0].userId !== userId && comment[0].profileId !== userId) {
+        throw new Error('Unauthorized');
+      }
+      
+      const linkedRatingId = comment[0].linkedRatingId;
+      const profileId = comment[0].profileId;
+      
+      // Delete the comment
+      await db.delete(profileComments)
+        .where(eq(profileComments.id, id));
+      
+      // Delete linked rating if exists
+      if (linkedRatingId) {
+        await db.delete(profileRatings)
+          .where(eq(profileRatings.id, linkedRatingId));
+        
+        // Update average rating after rating deletion
+        await this.updateProfileAverageRating(profileId);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error deleting profile comment:", error);
+      throw error;
+    }
   }
 }
 export const storage = new DBStorage();

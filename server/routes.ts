@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import { sql } from "drizzle-orm/sql";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Ollama } from "ollama";
@@ -12,6 +13,7 @@ import path from "path";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
 import { createOAuthRoutes } from "./oauth/routes";
+import { profileComments } from "@shared/schema";
 
 // Import db from storage module
 import { db } from './storage';
@@ -806,9 +808,27 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       
+      // Fetch profile rating and add to response
+      let profileRating = null;
+      let ratingCount = 0;
+      try {
+        const ratings = await storage.getProfileRatings(user.id);
+        if (ratings.length > 0) {
+          const avgRating = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
+          profileRating = Math.round(avgRating * 10) / 10;
+          ratingCount = ratings.length;
+        }
+      } catch (error) {
+        console.error("Error fetching profile ratings:", error);
+      }
+      
       // Return user profile without sensitive information
       const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json({
+        ...userWithoutPassword,
+        profileRating,
+        ratingCount
+      });
     } catch (error) {
       console.error("Get specific user profile error:", error);
       res.status(500).json({ error: "Failed to get user profile" });
@@ -5695,6 +5715,234 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Update activity error:", error);
       res.status(500).json({ error: "Failed to update activity" });
+    }
+  });
+
+  // ========== Profile Rating Endpoints ==========
+
+  // Create or update a profile rating
+  app.post("/api/profile/:profileId/rating", authenticateToken, async (req, res) => {
+    console.log("Create/update profile rating endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { profileId } = req.params;
+      const { rating } = req.body;
+      
+      // Validate rating
+      if (rating === undefined || rating === null) {
+        return res.status(400).json({ error: "Rating is required" });
+      }
+      
+      if (typeof rating !== 'number' || rating < 1 || rating > 10) {
+        return res.status(400).json({ error: "Rating must be a number between 1 and 10" });
+      }
+      
+      // Prevent self-rating
+      if (userId === profileId) {
+        return res.status(400).json({ error: "You cannot rate your own profile" });
+      }
+      
+      const result = await storage.createProfileRating({
+        userId,
+        profileId,
+        rating
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Create profile rating error:", error);
+      res.status(500).json({ error: "Failed to create profile rating" });
+    }
+  });
+
+  // Get all ratings for a profile
+  app.get("/api/profile/:profileId/ratings", async (req, res) => {
+    console.log("Get profile ratings endpoint called");
+    try {
+      const { profileId } = req.params;
+      
+      const ratings = await storage.getProfileRatings(profileId);
+      
+      res.json(ratings);
+    } catch (error) {
+      console.error("Get profile ratings error:", error);
+      res.status(500).json({ error: "Failed to get profile ratings" });
+    }
+  });
+
+  // Delete a profile rating
+  app.delete("/api/profile/rating/:ratingId", authenticateToken, async (req, res) => {
+    console.log("Delete profile rating endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { ratingId } = req.params;
+      const user = (req as any).user;
+      
+      // Allow deletion by owner or admin/moderator
+      const isAdminOrModer = user.accessLevel === 'admin' || user.accessLevel === 'moder';
+      const userIdToPass = isAdminOrModer ? null : userId;
+      
+      const success = await storage.deleteProfileRating(ratingId, userIdToPass);
+      
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ error: "Rating not found" });
+      }
+    } catch (error) {
+      console.error("Delete profile rating error:", error);
+      if (error instanceof Error && error.message === 'Unauthorized') {
+        res.status(403).json({ error: "You can only delete your own ratings" });
+      } else {
+        res.status(500).json({ error: "Failed to delete profile rating" });
+      }
+    }
+  });
+
+  // ========== Profile Comment Endpoints ==========
+
+  // Create or update a profile comment
+  app.post("/api/profile/:profileId/comment", authenticateToken, async (req, res) => {
+    console.log("Create/update profile comment endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { profileId } = req.params;
+      const { content, attachments } = req.body;
+      
+      // Validate content
+      if (!content || content.trim() === '') {
+        return res.status(400).json({ error: "Content is required" });
+      }
+      
+      // Allow self-commenting (removed restriction)
+      
+      // Process attachments if provided
+      let attachmentMetadata = null;
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        const uploadedAttachments = [];
+        for (const uploadId of attachments) {
+          const fileUpload = await storage.getFileUpload(uploadId);
+          if (fileUpload && fileUpload.uploaderId === userId && fileUpload.entityType === 'temp') {
+            uploadedAttachments.push({
+              url: fileUpload.fileUrl,
+              filename: fileUpload.filename,
+              fileSize: fileUpload.fileSize,
+              mimeType: fileUpload.mimeType,
+              thumbnailUrl: fileUpload.thumbnailUrl
+            });
+          }
+        }
+        if (uploadedAttachments.length > 0) {
+          attachmentMetadata = { attachments: uploadedAttachments };
+        }
+      }
+      
+      const comment = await storage.createProfileComment({
+        userId,
+        profileId,
+        content,
+        attachments: attachmentMetadata
+      });
+      
+      res.json(comment);
+    } catch (error) {
+      console.error("Create profile comment error:", error);
+      res.status(500).json({ error: "Failed to create profile comment" });
+    }
+  });
+
+  // Get paginated comments for a profile
+  app.get("/api/profile/:profileId/comments", async (req, res) => {
+    console.log("Get profile comments endpoint called");
+    try {
+      const { profileId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 5;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const userId = (req as any).user?.userId;
+      
+      const result = await storage.getProfileComments(profileId, {
+        limit,
+        offset,
+        currentUserId: userId
+      });
+      
+      const totalPages = Math.ceil(result.total / limit);
+      
+      res.json({
+        comments: result.comments,
+        total: result.total,
+        limit,
+        offset,
+        totalPages
+      });
+    } catch (error) {
+      console.error("Get profile comments error:", error);
+      res.status(500).json({ error: "Failed to get profile comments" });
+    }
+  });
+
+  // Update a profile comment
+  app.put("/api/profile/comment/:commentId", authenticateToken, async (req, res) => {
+    console.log("Update profile comment endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { commentId } = req.params;
+      const { content } = req.body;
+      
+      // Validate content
+      if (!content || content.trim() === '') {
+        return res.status(400).json({ error: "Content is required" });
+      }
+      
+      // Check ownership
+      const comment = await db.select()
+        .from(profileComments)
+        .where(eq(profileComments.id, commentId))
+        .limit(1);
+      
+      if (comment.length === 0) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      
+      if (comment[0].userId !== userId) {
+        return res.status(403).json({ error: "You can only update your own comments" });
+      }
+      
+      const updated = await storage.updateProfileComment(commentId, content);
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Update profile comment error:", error);
+      res.status(500).json({ error: "Failed to update profile comment" });
+    }
+  });
+
+  // Delete a profile comment
+  app.delete("/api/profile/comment/:commentId", authenticateToken, async (req, res) => {
+    console.log("Delete profile comment endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { commentId } = req.params;
+      const user = (req as any).user;
+      
+      // Allow deletion by owner or admin/moderator
+      const isAdminOrModer = user.accessLevel === 'admin' || user.accessLevel === 'moder';
+      const userIdToPass = isAdminOrModer ? null : userId;
+      
+      const success = await storage.deleteProfileComment(commentId, userIdToPass);
+      
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ error: "Comment not found" });
+      }
+    } catch (error) {
+      console.error("Delete profile comment error:", error);
+      if (error instanceof Error && error.message === 'Unauthorized') {
+        res.status(403).json({ error: "You can only delete your own comments" });
+      } else {
+        res.status(500).json({ error: "Failed to delete profile comment" });
+      }
     }
   });
   

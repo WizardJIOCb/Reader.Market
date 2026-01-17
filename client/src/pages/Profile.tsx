@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import { BookCard } from '@/components/BookCard';
+import ProfileRatingsSection from '@/components/ProfileRatingsSection';
 import { useAuth } from '@/lib/auth';
 import { 
   BookOpen, 
@@ -127,6 +128,10 @@ export default function Profile() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const languageSectionRef = useRef<HTMLDivElement>(null);
+  
+  // Profile ratings state
+  const [profileRating, setProfileRating] = useState<number | null>(null);
+  const [ratingCount, setRatingCount] = useState(0);
   
   // State for expanded book lists (carousel vs full view)
   const [expandedRecentlyRead, setExpandedRecentlyRead] = useState(false);
@@ -601,6 +606,10 @@ export default function Profile() {
         
         const userData = await response.json();
         
+        // Profile rating is now included in the userData response
+        const profileRating = userData.profileRating || null;
+        const ratingCount = userData.ratingCount || 0;
+        
         // Format the user data to match the expected structure
         // Fetch user's shelves based on whether it's the current user or another user
         let shelves = [];
@@ -728,6 +737,8 @@ export default function Profile() {
         };
         
         setProfile(formattedProfile);
+        setProfileRating(profileRating);
+        setRatingCount(ratingCount);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load profile');
         toast({
@@ -799,8 +810,12 @@ export default function Profile() {
         <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
             <div className="flex flex-col items-center md:items-start relative group">
-              <Avatar className="w-48 h-48 border-4 border-background shadow-xl flex-shrink-0">
-                <AvatarImage src={profile.avatar} alt={profile.name} />
+              <Avatar className="w-48 h-48 border-4 border-background shadow-xl flex-shrink-0 overflow-hidden">
+                <AvatarImage 
+                  src={profile.avatar} 
+                  alt={profile.name}
+                  className="w-full h-auto object-contain"
+                />
                 <AvatarFallback className="bg-muted flex items-center justify-center">
                   <User className="w-24 h-24 text-muted-foreground" />
                 </AvatarFallback>
@@ -856,6 +871,18 @@ export default function Profile() {
                     </Link>
                   )}
                 </div>
+                
+                {/* Profile Rating Display - moved here */}
+                {profileRating !== null && typeof profileRating === 'number' && (
+                  <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
+                    <Badge variant={profileRating >= 8 ? 'default' : profileRating >= 5 ? 'secondary' : 'destructive'}>
+                      ⭐ {profileRating.toFixed(1)}/10
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {t('profile:ratings.from')} {ratingCount} {ratingCount === 1 ? t('profile:ratings.rating') : t('profile:ratings.ratingsPlural')}
+                    </span>
+                  </div>
+                )}
               </div>
               
               {/* Bio - displayed to the right of avatar */}
@@ -901,6 +928,33 @@ export default function Profile() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Profile Ratings & Comments Section */}
+        <div className="mt-4 mb-8">
+          <ProfileRatingsSection
+            profileId={profile.id}
+            profileUsername={profile.username}
+            isOwnProfile={isOwnProfile}
+            averageRating={profileRating}
+            ratingCount={ratingCount}
+            onRatingChange={(newRating) => {
+              // Refetch ratings when changed
+              fetch(`/api/profile/${profile.id}/ratings`)
+                .then(res => res.json())
+                .then(ratings => {
+                  if (ratings.length > 0) {
+                    const avgRating = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
+                    setProfileRating(Math.round(avgRating * 10) / 10);
+                    setRatingCount(ratings.length);
+                  } else {
+                    setProfileRating(null);
+                    setRatingCount(0);
+                  }
+                })
+                .catch(err => console.error('Error refetching ratings:', err));
+            }}
+          />
         </div>
 
         {/* Stats Grid - Hidden for now */}

@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   accessLevel: text("access_level").default('user'), // 'admin', 'moder', 'user'
   isBlocked: boolean("is_blocked").default(false), // Whether user is blocked
   blockReason: text("block_reason"), // Reason for blocking (supports markdown/links)
+  profileRating: numeric("profile_rating", { precision: 3, scale: 1 }), // Average profile rating from profile_ratings
   language: varchar("language", { length: 10 }).default('en'), // User's preferred language
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -140,6 +141,29 @@ export const reviews = pgTable("reviews", {
   content: text("content").notNull(),
   attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
   attachmentMetadata: jsonb("attachment_metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for profile ratings
+export const profileRatings = pgTable("profile_ratings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // The rater
+  profileId: varchar("profile_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // The profile being rated
+  rating: integer("rating").notNull(), // Rating from 1-10
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for profile comments
+export const profileComments = pgTable("profile_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // The commenter
+  profileId: varchar("profile_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // The profile being commented on
+  content: text("content").notNull(),
+  attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
+  attachmentMetadata: jsonb("attachment_metadata"),
+  linkedRatingId: varchar("linked_rating_id").references(() => profileRatings.id, { onDelete: 'cascade' }), // Links comment to rating
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
