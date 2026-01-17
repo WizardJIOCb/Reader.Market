@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { Star, ChevronDown, ChevronUp, Trash2, User } from 'lucide-react';
+import { EmojiPicker } from './EmojiPicker';
 
 interface ProfileRatingsSectionProps {
   profileId: string;
@@ -370,12 +371,20 @@ export default function ProfileRatingsSection({
               {/* Comment Input - available for all authenticated users */}
               {canComment && (
                 <div className="space-y-2 mt-4">
-                  <Textarea
-                    placeholder={`${t('profile:ratings.yourComment')}...`}
-                    value={userComment}
-                    onChange={(e) => setUserComment(e.target.value)}
-                    rows={3}
-                  />
+                  <div className="relative">
+                    <Textarea
+                      placeholder={`${t('profile:ratings.yourComment')}...`}
+                      value={userComment}
+                      onChange={(e) => setUserComment(e.target.value)}
+                      rows={3}
+                      className="pr-12"
+                    />
+                    <div className="absolute bottom-2 right-2">
+                      <EmojiPicker
+                        onEmojiSelect={(emoji) => setUserComment(prev => prev + emoji)}
+                      />
+                    </div>
+                  </div>
                   <Button
                     onClick={handleSubmitComment}
                     disabled={submitting || !userComment.trim()}
