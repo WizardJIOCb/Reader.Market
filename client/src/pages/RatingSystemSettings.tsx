@@ -53,7 +53,10 @@ export default function RatingSystemSettings() {
     try {
       setLoading(true);
       const response = await fetch('/api/admin/rating-config', {
-        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       if (response.ok) {
@@ -88,9 +91,9 @@ export default function RatingSystemSettings() {
       const response = await fetch('/api/admin/rating-config', {
         method: 'PUT',
         headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(config),
       });
 
@@ -123,7 +126,10 @@ export default function RatingSystemSettings() {
       setRecalculating(true);
       const response = await fetch('/api/admin/recalculate-ratings', {
         method: 'POST',
-        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (response.ok) {
