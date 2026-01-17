@@ -2762,9 +2762,10 @@ export class DBStorage implements IStorage {
   
   async incrementNewsViewCount(newsId: string): Promise<void> {
     try {
+      // Support both slug and UUID
       await db.update(news)
         .set({ viewCount: sql`${news.viewCount} + 1`, updatedAt: new Date() })
-        .where(eq(news.id, newsId));
+        .where(or(eq(news.id, newsId), eq(news.slug, newsId)));
     } catch (error) {
       console.error("Error incrementing news view count:", error);
       throw error;
@@ -2813,6 +2814,12 @@ export class DBStorage implements IStorage {
   
   async getNewsComments(newsId: string, userId?: string): Promise<any[]> {
     try {
+      // First, resolve newsId (could be slug or UUID) to actual UUID
+      const newsItem = await this.getNews(newsId);
+      if (!newsItem) {
+        return [];
+      }
+      
       const result = await db.select({
         id: comments.id,
         userId: comments.userId,
@@ -2828,7 +2835,7 @@ export class DBStorage implements IStorage {
       })
       .from(comments)
       .leftJoin(users, eq(comments.userId, users.id))
-      .where(eq(comments.newsId, newsId))
+      .where(eq(comments.newsId, newsItem.id)) // Use resolved UUID
       .orderBy(desc(comments.createdAt));
       
       // For each comment, get its reactions
@@ -2886,13 +2893,19 @@ export class DBStorage implements IStorage {
   
   async createNewsReaction(reactionData: any): Promise<any> {
     try {
+      // First, resolve newsId (could be slug or UUID) to actual UUID
+      const newsItem = await this.getNews(reactionData.newsId);
+      if (!newsItem) {
+        throw new Error('News item not found');
+      }
+      
       // Check if user already reacted to this news with the same emoji
       const existingReaction = await db.select()
         .from(reactions)
         .where(
           and(
             eq(reactions.userId, reactionData.userId),
-            eq(reactions.newsId, reactionData.newsId),
+            eq(reactions.newsId, newsItem.id), // Use resolved UUID
             eq(reactions.emoji, reactionData.emoji)
           )
         );
@@ -2905,14 +2918,14 @@ export class DBStorage implements IStorage {
         // Decrement reaction count in news
         await db.update(news)
           .set({ reactionCount: sql`${news.reactionCount} - 1`, updatedAt: new Date() })
-          .where(eq(news.id, reactionData.newsId));
+          .where(eq(news.id, newsItem.id)); // Use resolved UUID
         
-        return { success: true, action: 'removed' };
+        return { success: true, action: 'removed', removed: true };
       } else {
         // Create new reaction
         const result = await db.insert(reactions).values({
           userId: reactionData.userId,
-          newsId: reactionData.newsId,
+          newsId: newsItem.id, // Use resolved UUID
           emoji: reactionData.emoji,
           createdAt: new Date()
         }).returning();
@@ -2920,7 +2933,7 @@ export class DBStorage implements IStorage {
         // Increment reaction count in news
         await db.update(news)
           .set({ reactionCount: sql`${news.reactionCount} + 1`, updatedAt: new Date() })
-          .where(eq(news.id, reactionData.newsId));
+          .where(eq(news.id, newsItem.id)); // Use resolved UUID
         
         return { ...result[0], action: 'added' };
       }
@@ -2932,6 +2945,12 @@ export class DBStorage implements IStorage {
   
   async getNewsReactions(newsId: string): Promise<any[]> {
     try {
+      // First, resolve newsId (could be slug or UUID) to actual UUID
+      const newsItem = await this.getNews(newsId);
+      if (!newsItem) {
+        return [];
+      }
+      
       // Get all reactions for this news grouped by emoji
       const allReactions = await db.select({
         emoji: reactions.emoji,
@@ -2939,7 +2958,7 @@ export class DBStorage implements IStorage {
         createdAt: reactions.createdAt
       })
       .from(reactions)
-      .where(eq(reactions.newsId, newsId));
+      .where(eq(reactions.newsId, newsItem.id)); // Use resolved UUID
       
       // Group reactions by emoji and count them
       const reactionsMap: { [key: string]: any[] } = {};
@@ -2963,6 +2982,12 @@ export class DBStorage implements IStorage {
   
   async getReactionsForNews(newsId: string): Promise<any[]> {
     try {
+      // First, resolve newsId (could be slug or UUID) to actual UUID
+      const newsItem = await this.getNews(newsId);
+      if (!newsItem) {
+        return [];
+      }
+      
       // Get all reactions for this news article with user information
       const result = await db.select({
         id: reactions.id,
@@ -2975,7 +3000,7 @@ export class DBStorage implements IStorage {
       })
       .from(reactions)
       .leftJoin(users, eq(reactions.userId, users.id))
-      .where(eq(reactions.newsId, newsId));
+      .where(eq(reactions.newsId, newsItem.id)); // Use resolved UUID
       
       // Format the response
       return result.map(reaction => ({
