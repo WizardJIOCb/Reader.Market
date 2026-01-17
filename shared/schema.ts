@@ -394,5 +394,23 @@ export const oauthStates = pgTable("oauth_states", {
   expiresAt: timestamp("expires_at").notNull(),
 });
 
+// Table for system-wide rating algorithm configuration
+export const ratingSystemConfig = pgTable("rating_system_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  algorithmType: varchar("algorithm_type", { length: 50 }).notNull().default('simple_average'), // 'simple_average', 'bayesian_average', 'weighted_bayesian', 'confidence_weighted'
+  priorMean: numeric("prior_mean", { precision: 3, scale: 1 }).default('7.4'), // μ0 - Average rating across service
+  priorWeight: integer("prior_weight").default(30), // m - Number of "virtual votes"
+  likesAlpha: numeric("likes_alpha", { precision: 2, scale: 1 }).default('0.4'), // α - Likes weight coefficient
+  likesMaxWeight: numeric("likes_max_weight", { precision: 2, scale: 1 }).default('3.0'), // Max weight from likes
+  minTextWeight: numeric("min_text_weight", { precision: 2, scale: 1 }).default('0.3'), // Min weight for short reviews
+  timeDecayEnabled: boolean("time_decay_enabled").default(false), // Enable time decay
+  timeDecayHalfLife: integer("time_decay_half_life").default(180), // Half-life in days
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Add likes count to reviews table for weighted rating calculations
+// Note: This will be tracked via reactions table count
+
 // Create unique constraint for conversations to prevent duplicate user pairs
 // Note: We'll handle this in the migration file

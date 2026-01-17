@@ -4087,6 +4087,58 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to delete book" });
     }
   });
+
+  // Rating system configuration endpoints
+  app.get("/api/admin/rating-config", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    try {
+      const config = await storage.getRatingSystemConfig();
+      res.json(config);
+    } catch (error) {
+      console.error("Error getting rating config:", error);
+      res.status(500).json({ error: "Failed to get rating configuration" });
+    }
+  });
+
+  app.put("/api/admin/rating-config", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    try {
+      const {
+        algorithmType,
+        priorMean,
+        priorWeight,
+        likesAlpha,
+        likesMaxWeight,
+        minTextWeight,
+        timeDecayEnabled,
+        timeDecayHalfLife,
+      } = req.body;
+
+      const config = await storage.updateRatingSystemConfig({
+        algorithmType,
+        priorMean,
+        priorWeight,
+        likesAlpha,
+        likesMaxWeight,
+        minTextWeight,
+        timeDecayEnabled,
+        timeDecayHalfLife,
+      });
+
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating rating config:", error);
+      res.status(500).json({ error: "Failed to update rating configuration" });
+    }
+  });
+
+  app.post("/api/admin/recalculate-ratings", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    try {
+      const result = await storage.recalculateAllBookRatings();
+      res.json(result);
+    } catch (error) {
+      console.error("Error recalculating ratings:", error);
+      res.status(500).json({ error: "Failed to recalculate ratings" });
+    }
+  });
   
   // ========================================
   // MESSAGING SYSTEM ROUTES

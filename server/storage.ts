@@ -1,7 +1,8 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne } from "drizzle-orm";
+import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
 
 // Database connection
 console.log("Connecting to database with URL:", process.env.DATABASE_URL);
@@ -1810,25 +1811,91 @@ export class DBStorage implements IStorage {
   async updateBookAverageRating(bookId: string): Promise<void> {
     try {
       console.log(`Updating average rating for book ${bookId}`);
-      // Get all reviews for this book
-      const bookReviews = await db.select().from(reviews).where(eq(reviews.bookId, bookId));
+      
+      // Get current rating algorithm configuration
+      const configResult = await db.select().from(ratingSystemConfig).limit(1);
+      const config = configResult[0];
+      
+      if (!config) {
+        console.error("No rating system configuration found, using simple average");
+      }
+      
+      // Get all reviews for this book with reaction counts
+      const bookReviews = await db.select({
+        id: reviews.id,
+        userId: reviews.userId,
+        bookId: reviews.bookId,
+        rating: reviews.rating,
+        content: reviews.content,
+        createdAt: reviews.createdAt,
+      })
+      .from(reviews)
+      .where(eq(reviews.bookId, bookId));
         
       console.log(`Found ${bookReviews.length} reviews for book ${bookId}`);
+      
       if (bookReviews.length > 0) {
-        // Calculate average rating
-        const totalRating = bookReviews.reduce((sum, review) => sum + review.rating, 0);
-        const averageRating = totalRating / bookReviews.length;
+        // Get reaction counts (likes) for all reviews
+        const reviewIds = bookReviews.map(r => r.id);
+        const reactionCounts = await db.select({
+          reviewId: reactions.reviewId,
+          count: sql<number>`count(*)::int`
+        })
+        .from(reactions)
+        .where(inArray(reactions.reviewId, reviewIds))
+        .groupBy(reactions.reviewId);
         
-        console.log(`Calculated average rating: ${averageRating} for book ${bookId}`);
+        // Create a map of review ID to like count
+        const likesMap = new Map<string, number>();
+        for (const rc of reactionCounts) {
+          if (rc.reviewId) {
+            likesMap.set(rc.reviewId, rc.count);
+          }
+        }
+        
+        // Format reviews for rating calculation
+        const reviewsForCalc: Review[] = bookReviews.map(r => ({
+          id: r.id,
+          rating: r.rating,
+          content: r.content,
+          createdAt: r.createdAt,
+          likes: likesMap.get(r.id) || 0,
+          userId: r.userId
+        }));
+        
+        // Build rating algorithm config from database settings
+        const ratingConfig: RatingAlgorithmConfig = {
+          type: (config?.algorithmType as any) || 'simple_average',
+          params: {
+            priorMean: config ? Number(config.priorMean) : 7.4,
+            priorWeight: config?.priorWeight || 30,
+            likesAlpha: config ? Number(config.likesAlpha) : 0.4,
+            likesMaxWeight: config ? Number(config.likesMaxWeight) : 3,
+            minTextWeight: config ? Number(config.minTextWeight) : 0.3,
+            timeDecayEnabled: config?.timeDecayEnabled || false,
+            timeDecayHalfLife: config?.timeDecayHalfLife || 180,
+          }
+        };
+        
+        // Calculate rating using the configured algorithm
+        const { rating: calculatedRating, confidence } = calculateRating(reviewsForCalc, ratingConfig);
+        
+        console.log(`Calculated rating: ${calculatedRating} (confidence: ${confidence.toFixed(2)}) for book ${bookId} using ${ratingConfig.type}`);
           
         // Update the book's rating field
-        // Ensure the rating is properly formatted for the database
-        const formattedRating = Math.round(averageRating * 10) / 10; // Round to 1 decimal place
-        await db.update(books)
-          .set({ rating: sql`${formattedRating}` })
-          .where(eq(books.id, bookId));
-          
-        console.log(`Updated book ${bookId} rating to ${formattedRating}`);
+        if (calculatedRating !== null) {
+          await db.update(books)
+            .set({ rating: sql`${calculatedRating}` })
+            .where(eq(books.id, bookId));
+            
+          console.log(`Updated book ${bookId} rating to ${calculatedRating}`);
+        } else {
+          await db.update(books)
+            .set({ rating: null })
+            .where(eq(books.id, bookId));
+            
+          console.log(`Set book ${bookId} rating to null`);
+        }
       } else {
         // If no reviews, set rating to null
         await db.update(books)
@@ -5969,6 +6036,99 @@ export class DBStorage implements IStorage {
       return true;
     } catch (error) {
       console.error("Error deleting profile comment:", error);
+      throw error;
+    }
+  }
+
+  // Rating system configuration methods
+  async getRatingSystemConfig(): Promise<any> {
+    try {
+      const result = await db.select().from(ratingSystemConfig).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error getting rating system config:", error);
+      return null;
+    }
+  }
+
+  async updateRatingSystemConfig(configData: {
+    algorithmType?: string;
+    priorMean?: number;
+    priorWeight?: number;
+    likesAlpha?: number;
+    likesMaxWeight?: number;
+    minTextWeight?: number;
+    timeDecayEnabled?: boolean;
+    timeDecayHalfLife?: number;
+  }): Promise<any> {
+    try {
+      // Get existing config
+      const existing = await db.select().from(ratingSystemConfig).limit(1);
+      
+      if (existing.length === 0) {
+        // Create new config
+        const result = await db.insert(ratingSystemConfig)
+          .values({
+            ...configData,
+            updatedAt: new Date(),
+          })
+          .returning();
+        return result[0];
+      } else {
+        // Update existing config
+        const result = await db.update(ratingSystemConfig)
+          .set({
+            ...configData,
+            updatedAt: new Date(),
+          })
+          .where(eq(ratingSystemConfig.id, existing[0].id))
+          .returning();
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error updating rating system config:", error);
+      throw error;
+    }
+  }
+
+  async recalculateAllBookRatings(): Promise<{ success: boolean; booksUpdated: number }> {
+    try {
+      console.log("Starting recalculation of all book ratings...");
+      
+      // Get all books that have reviews
+      const booksWithReviews = await db.select({
+        bookId: reviews.bookId,
+      })
+      .from(reviews)
+      .groupBy(reviews.bookId);
+      
+      console.log(`Found ${booksWithReviews.length} books with reviews`);
+      
+      let updatedCount = 0;
+      
+      // Update rating for each book
+      for (const book of booksWithReviews) {
+        await this.updateBookAverageRating(book.bookId);
+        updatedCount++;
+      }
+      
+      // Also reset rating to null for books without reviews
+      const allBooks = await db.select({ id: books.id }).from(books);
+      const bookIdsWithReviews = new Set(booksWithReviews.map(b => b.bookId));
+      
+      for (const book of allBooks) {
+        if (!bookIdsWithReviews.has(book.id)) {
+          await db.update(books)
+            .set({ rating: null })
+            .where(eq(books.id, book.id));
+        }
+      }
+      
+      console.log(`Recalculation complete. Updated ${updatedCount} books.`);
+      
+      return { success: true, booksUpdated: updatedCount };
+    } catch (error) {
+      console.error("Error recalculating all book ratings:", error);
       throw error;
     }
   }
