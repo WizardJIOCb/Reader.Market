@@ -435,83 +435,137 @@ async function processTranslation(job: TranslationJob) {
     const translatedFileName = `${targetLanguage}_${timestamp}${originalExt}`;
     const translatedFilePath = path.join(translationsDir, translatedFileName);
     
-    // If original was PDF, generate proper PDF for translation
+    // If original was PDF, copy pages and add translated text
     if (fileType.includes('pdf') || originalExt.toLowerCase() === '.pdf') {
-      console.log(`[Worker] Generating PDF from translated text...`);
+      console.log(`[Worker] Copying original PDF pages and adding translated text...`);
+      
+      // Load the original PDF to copy pages from
+      const originalPdfBuffer = await fs.promises.readFile(originalFilePath);
+      const originalPdfDoc = await PDFDocument.load(originalPdfBuffer);
       
       // Create a new PDF document
-      const pdfDoc = await PDFDocument.create();
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const fontSize = 12;
-      const lineHeight = fontSize * 1.5;
-      const margin = 50;
+      const translatedPdfDoc = await PDFDocument.create();
+      const font = await translatedPdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontSize = 10;
+      const lineHeight = fontSize * 1.4;
+      const margin = 40;
       
-      // Split text into paragraphs
+      // Copy all pages from original PDF
+      const copiedPages = await translatedPdfDoc.copyPages(originalPdfDoc, originalPdfDoc.getPageIndices());
+      copiedPages.forEach(page => translatedPdfDoc.addPage(page));
+      
+      console.log(`[Worker] Copied ${copiedPages.length} pages from original PDF`);
+      
+      // Split translated text into paragraphs
       const paragraphs = translatedText.split('\n\n').filter(p => p.trim());
       
-      let currentPage = pdfDoc.addPage();
-      let { width, height } = currentPage.getSize();
-      let yPosition = height - margin;
+      // Add translated text to pages (overlay on top of original)
+      const pages = translatedPdfDoc.getPages();
+      let pageIndex = 0;
+      let yPosition = 0;
       
-      for (const paragraph of paragraphs) {
-        // Wrap text to fit page width
-        const maxWidth = width - 2 * margin;
-        const words = paragraph.split(' ');
-        let currentLine = '';
+      if (pages.length > 0) {
+        const currentPage = pages[pageIndex];
+        const { width, height } = currentPage.getSize();
+        yPosition = height - margin;
         
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+        // Draw semi-transparent white background for text readability
+        for (const paragraph of paragraphs) {
+          const maxWidth = width - 2 * margin;
+          const words = paragraph.split(' ');
+          let currentLine = '';
           
-          if (textWidth > maxWidth && currentLine) {
-            // Draw current line
-            if (yPosition < margin) {
-              // Need new page
-              currentPage = pdfDoc.addPage();
-              yPosition = height - margin;
+          for (const word of words) {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+            
+            if (textWidth > maxWidth && currentLine) {
+              // Draw current line with white background
+              if (yPosition < margin + lineHeight) {
+                // Move to next page
+                pageIndex++;
+                if (pageIndex >= pages.length) break;
+                const nextPage = pages[pageIndex];
+                const { height: nextHeight } = nextPage.getSize();
+                yPosition = nextHeight - margin;
+              }
+              
+              const currentPageToDraw = pages[pageIndex];
+              const lineWidth = font.widthOfTextAtSize(currentLine, fontSize);
+              
+              // Draw white background rectangle
+              currentPageToDraw.drawRectangle({
+                x: margin - 2,
+                y: yPosition - 2,
+                width: lineWidth + 4,
+                height: lineHeight,
+                color: rgb(1, 1, 1),
+                opacity: 0.85,
+              });
+              
+              // Draw text
+              currentPageToDraw.drawText(currentLine, {
+                x: margin,
+                y: yPosition,
+                size: fontSize,
+                font: font,
+                color: rgb(0, 0, 0),
+              });
+              
+              yPosition -= lineHeight;
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+          }
+          
+          // Draw remaining line
+          if (currentLine && pageIndex < pages.length) {
+            if (yPosition < margin + lineHeight) {
+              pageIndex++;
+              if (pageIndex < pages.length) {
+                const nextPage = pages[pageIndex];
+                const { height: nextHeight } = nextPage.getSize();
+                yPosition = nextHeight - margin;
+              }
             }
             
-            currentPage.drawText(currentLine, {
-              x: margin,
-              y: yPosition,
-              size: fontSize,
-              font: font,
-              color: rgb(0, 0, 0),
-            });
-            
-            yPosition -= lineHeight;
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        }
-        
-        // Draw remaining line
-        if (currentLine) {
-          if (yPosition < margin) {
-            currentPage = pdfDoc.addPage();
-            yPosition = height - margin;
+            if (pageIndex < pages.length) {
+              const currentPageToDraw = pages[pageIndex];
+              const lineWidth = font.widthOfTextAtSize(currentLine, fontSize);
+              
+              // Draw white background rectangle
+              currentPageToDraw.drawRectangle({
+                x: margin - 2,
+                y: yPosition - 2,
+                width: lineWidth + 4,
+                height: lineHeight,
+                color: rgb(1, 1, 1),
+                opacity: 0.85,
+              });
+              
+              // Draw text
+              currentPageToDraw.drawText(currentLine, {
+                x: margin,
+                y: yPosition,
+                size: fontSize,
+                font: font,
+                color: rgb(0, 0, 0),
+              });
+              
+              yPosition -= lineHeight;
+            }
           }
           
-          currentPage.drawText(currentLine, {
-            x: margin,
-            y: yPosition,
-            size: fontSize,
-            font: font,
-            color: rgb(0, 0, 0),
-          });
-          
-          yPosition -= lineHeight;
+          // Add paragraph spacing
+          yPosition -= lineHeight * 0.3;
         }
-        
-        // Add paragraph spacing
-        yPosition -= lineHeight * 0.5;
       }
       
       // Save PDF
-      const pdfBytes = await pdfDoc.save();
+      const pdfBytes = await translatedPdfDoc.save();
       await fs.promises.writeFile(translatedFilePath, pdfBytes);
-      console.log(`[Worker] PDF generated and saved to: ${translatedFilePath}`);
+      console.log(`[Worker] PDF with images and translated text saved to: ${translatedFilePath}`);
     } else {
       // For non-PDF files, save as text
       await fs.promises.writeFile(translatedFilePath, translatedText, 'utf-8');
