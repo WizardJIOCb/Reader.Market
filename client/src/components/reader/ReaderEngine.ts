@@ -13,13 +13,11 @@ import {
   BookMetadata,
 } from './types';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Configure PDF.js worker - use local worker from node_modules
+// Configure PDF.js worker - use Vite's static asset import
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
-  ).toString();
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 }
 
 export class ReaderEngine {
