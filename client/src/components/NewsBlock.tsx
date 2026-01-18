@@ -122,63 +122,81 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
         
         <div className="max-w-4xl mx-auto space-y-6">
           {newsItems.length > 0 ? (
-            newsItems.map((newsItem) => (
-              <Card key={newsItem.id}>
-                <CardHeader>
-                  <CardTitle>
-                    <a 
-                      href={`/news/${newsItem.slug || newsItem.id}`}
-                      className="text-primary hover:underline"
-                      style={{ lineHeight: '21px' }}
-                    >
-                      {i18n.language === 'ru' ? newsItem.title : (newsItem.titleEn || newsItem.title)}
-                    </a>
-                  </CardTitle>
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <Avatar className="w-8 h-8">
-                      {newsItem.avatarUrl ? (
-                        <AvatarImage src={newsItem.avatarUrl} alt={newsItem.author} />
-                      ) : null}
-                      <AvatarFallback>
-                        <User className="w-4 h-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex items-center">
-                      <span>{t('common:by')}{' '}
-                        <a 
-                          href={`/profile/${newsItem.authorId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          {newsItem.author}
-                        </a>
-                      </span>
-                      <span className="mx-2">•</span>
-                      <span>{formatAbsoluteDate(newsItem.createdAt, dateLocale)}</span>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-muted-foreground whitespace-pre-line mb-3">
-                    {linkifyText(
-                      i18n.language === 'ru' ? newsItem.content : (newsItem.contentEn || newsItem.content)
-                    )}
-                  </div>
-                  <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      👁️ {newsItem.viewCount} {t('common:views')}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      💬 {newsItem.commentCount} {t('common:comments')}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      ❤️ {newsItem.reactionCount} {t('common:reactions')}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+            newsItems.map((newsItem) => {
+              const content = i18n.language === 'ru' ? newsItem.content : (newsItem.contentEn || newsItem.content);
+              const title = i18n.language === 'ru' ? newsItem.title : (newsItem.titleEn || newsItem.title);
+              
+              // Extract first 2 sentences or ~200 characters as preview
+              const getPreview = (text: string) => {
+                const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+                if (sentences.length >= 2) {
+                  return sentences.slice(0, 2).join(' ');
+                }
+                // Fallback: truncate to ~200 chars at word boundary
+                if (text.length > 200) {
+                  return text.substring(0, 200).split(' ').slice(0, -1).join(' ') + '...';
+                }
+                return text;
+              };
+              
+              return (
+                <a 
+                  key={newsItem.id}
+                  href={`/news/${newsItem.slug || newsItem.id}`}
+                  className="block transition-transform hover:scale-[1.01]"
+                >
+                  <Card className="cursor-pointer hover:shadow-lg transition-shadow h-[340px] md:h-[320px] flex flex-col">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="line-clamp-2" style={{ lineHeight: '21px' }}>
+                        {title}
+                      </CardTitle>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-2">
+                        <Avatar className="w-8 h-8">
+                          {newsItem.avatarUrl ? (
+                            <AvatarImage src={newsItem.avatarUrl} alt={newsItem.author} />
+                          ) : null}
+                          <AvatarFallback>
+                            <User className="w-4 h-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex items-center flex-wrap gap-1">
+                          <span>{t('common:by')}{' '}
+                            <span className="text-primary">
+                              {newsItem.author}
+                            </span>
+                          </span>
+                          <span className="mx-1">•</span>
+                          <span>{formatAbsoluteDate(newsItem.createdAt, dateLocale)}</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col justify-between overflow-hidden pt-0">
+                      <div className="text-muted-foreground line-clamp-4 md:line-clamp-5 mb-3 whitespace-pre-line">
+                        {getPreview(content)}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex gap-4 items-center text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            👁️ {newsItem.viewCount}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            ❤️ {newsItem.reactionCount}
+                          </span>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          💬 {newsItem.commentCount} {t('common:comments')}
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-primary hover:underline font-medium">
+                            {t('common:readMore')}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </a>
+              );
+            })
           ) : (
             <Card>
               <CardContent className="p-8 text-center">
