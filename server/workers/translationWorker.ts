@@ -13,6 +13,7 @@ import path from 'path';
 import fs from 'fs';
 // Use legacy build for Node.js environment
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 // Flag to track if worker should stop
 let shouldStop = false;
@@ -434,8 +435,88 @@ async function processTranslation(job: TranslationJob) {
     const translatedFileName = `${targetLanguage}_${timestamp}${originalExt}`;
     const translatedFilePath = path.join(translationsDir, translatedFileName);
     
-    await fs.promises.writeFile(translatedFilePath, translatedText, 'utf-8');
-    console.log(`[Worker] Saved to: ${translatedFilePath}`);
+    // If original was PDF, generate proper PDF for translation
+    if (fileType.includes('pdf') || originalExt.toLowerCase() === '.pdf') {
+      console.log(`[Worker] Generating PDF from translated text...`);
+      
+      // Create a new PDF document
+      const pdfDoc = await PDFDocument.create();
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontSize = 12;
+      const lineHeight = fontSize * 1.5;
+      const margin = 50;
+      
+      // Split text into paragraphs
+      const paragraphs = translatedText.split('\n\n').filter(p => p.trim());
+      
+      let currentPage = pdfDoc.addPage();
+      let { width, height } = currentPage.getSize();
+      let yPosition = height - margin;
+      
+      for (const paragraph of paragraphs) {
+        // Wrap text to fit page width
+        const maxWidth = width - 2 * margin;
+        const words = paragraph.split(' ');
+        let currentLine = '';
+        
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+          
+          if (textWidth > maxWidth && currentLine) {
+            // Draw current line
+            if (yPosition < margin) {
+              // Need new page
+              currentPage = pdfDoc.addPage();
+              yPosition = height - margin;
+            }
+            
+            currentPage.drawText(currentLine, {
+              x: margin,
+              y: yPosition,
+              size: fontSize,
+              font: font,
+              color: rgb(0, 0, 0),
+            });
+            
+            yPosition -= lineHeight;
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        
+        // Draw remaining line
+        if (currentLine) {
+          if (yPosition < margin) {
+            currentPage = pdfDoc.addPage();
+            yPosition = height - margin;
+          }
+          
+          currentPage.drawText(currentLine, {
+            x: margin,
+            y: yPosition,
+            size: fontSize,
+            font: font,
+            color: rgb(0, 0, 0),
+          });
+          
+          yPosition -= lineHeight;
+        }
+        
+        // Add paragraph spacing
+        yPosition -= lineHeight * 0.5;
+      }
+      
+      // Save PDF
+      const pdfBytes = await pdfDoc.save();
+      await fs.promises.writeFile(translatedFilePath, pdfBytes);
+      console.log(`[Worker] PDF generated and saved to: ${translatedFilePath}`);
+    } else {
+      // For non-PDF files, save as text
+      await fs.promises.writeFile(translatedFilePath, translatedText, 'utf-8');
+      console.log(`[Worker] Saved to: ${translatedFilePath}`);
+    }
     
     const stats = await fs.promises.stat(translatedFilePath);
     const relativePath = path.relative(process.cwd(), translatedFilePath).replace(/\\/g, '/');
