@@ -113,7 +113,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
   }
 
   return (
-    <section id="news" className="py-20 bg-muted">
+    <section id="news" className="py-20" style={{ backgroundColor: '#fd6c0b04' }}>
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('common:latestNews')}</h2>
@@ -145,7 +145,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                   href={`/news/${newsItem.slug || newsItem.id}`}
                   className="block transition-transform hover:scale-[1.01]"
                 >
-                  <Card className="cursor-pointer hover:shadow-lg transition-shadow h-[340px] md:h-[320px] flex flex-col">
+                  <Card className="cursor-pointer hover:shadow-lg transition-shadow h-[340px] md:h-[320px] flex flex-col bg-gradient-to-br from-stone-50 to-neutral-100/80 dark:from-stone-900/40 dark:to-neutral-900/30 border-stone-200 dark:border-stone-700/50">
                     <CardHeader className="pb-3">
                       <CardTitle className="line-clamp-2" style={{ lineHeight: '21px' }}>
                         {title}
