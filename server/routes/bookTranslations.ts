@@ -8,13 +8,8 @@ import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import { spawn, ChildProcess } from 'child_process';
 import { translationService } from '../services/translationService';
-import { fileURLToPath } from 'url';
 
 const router = Router();
-
-// Get __dirname equivalent for ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // In-memory store for active translation worker processes (for cancellation support)
 interface ActiveTranslation {
