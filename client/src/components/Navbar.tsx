@@ -129,6 +129,16 @@ export function Navbar() {
               {t('navigation:home')}
             </Link>
             <Link 
+              href="/" 
+              className={`text-sm hover:text-primary transition-colors cursor-pointer ${
+                isActive('/') ? 'font-semibold' : ''
+              }`}
+              style={isActive('/') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/') ? 'page' : undefined}
+            >
+              {t('navigation:about')}
+            </Link>
+            <Link 
               href="/stream" 
               className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
                 isActive('/stream') ? 'font-semibold' : ''
@@ -162,16 +172,6 @@ export function Navbar() {
                 {t('navigation:shelves')}
               </Link>
             )}
-            <Link 
-              href="/" 
-              className={`text-sm hover:text-primary transition-colors cursor-pointer ${
-                isActive('/') ? 'font-semibold' : ''
-              }`}
-              style={isActive('/') ? { color: '#f1680c' } : {}}
-              aria-current={isActive('/') ? 'page' : undefined}
-            >
-              {t('navigation:about')}
-            </Link>
             {user && (
               <Link 
                 href="/messages" 

@@ -200,6 +200,19 @@ export function MobileMenu() {
           </SheetClose>
           <SheetClose asChild>
             <Link 
+              href="/" 
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/') ? 'font-semibold bg-accent/10' : ''
+              }`}
+              style={isActive('/') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/') ? 'page' : undefined}
+            >
+              <BookOpen className="w-4 h-4" />
+              {t('navigation:about')}
+            </Link>
+          </SheetClose>
+          <SheetClose asChild>
+            <Link 
               href="/stream" 
               className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
                 isActive('/stream') ? 'font-semibold bg-accent/10' : ''
@@ -239,21 +252,6 @@ export function MobileMenu() {
               </Link>
             </SheetClose>
           )}
-          {user && (user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
-            <SheetClose asChild>
-              <Link 
-                href="/admin" 
-                className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                  isActive('/admin', false) ? 'font-semibold bg-accent/10' : ''
-                }`}
-                style={isActive('/admin', false) ? { color: '#f1680c' } : {}}
-                aria-current={isActive('/admin', false) ? 'page' : undefined}
-              >
-                <Shield className="w-4 h-4" />
-                {t('navigation:adminPanel')}
-              </Link>
-            </SheetClose>
-          )}
           {user && (
             <SheetClose asChild>
               <Link 
@@ -276,19 +274,6 @@ export function MobileMenu() {
               </Link>
             </SheetClose>
           )}
-          <SheetClose asChild>
-            <Link 
-              href="/" 
-              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                isActive('/') ? 'font-semibold bg-accent/10' : ''
-              }`}
-              style={isActive('/') ? { color: '#f1680c' } : {}}
-              aria-current={isActive('/') ? 'page' : undefined}
-            >
-              <BookOpen className="w-4 h-4" />
-              {t('navigation:about')}
-            </Link>
-          </SheetClose>
           {user ? (
             <SheetClose asChild>
               <Link 
@@ -311,6 +296,21 @@ export function MobileMenu() {
               >
                 <User className="w-4 h-4" />
                 {t('navigation:profile')}
+              </Link>
+            </SheetClose>
+          )}
+          {user && (user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
+            <SheetClose asChild>
+              <Link 
+                href="/admin" 
+                className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                  isActive('/admin', false) ? 'font-semibold bg-accent/10' : ''
+                }`}
+                style={isActive('/admin', false) ? { color: '#f1680c' } : {}}
+                aria-current={isActive('/admin', false) ? 'page' : undefined}
+              >
+                <Shield className="w-4 h-4" />
+                {t('navigation:adminPanel')}
               </Link>
             </SheetClose>
           )}
