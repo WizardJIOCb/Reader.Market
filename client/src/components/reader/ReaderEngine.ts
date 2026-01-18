@@ -13,11 +13,11 @@ import {
   BookMetadata,
 } from './types';
 import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Configure PDF.js worker - use Vite's static asset import
+// Configure PDF.js worker using absolute path to bundled worker
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+  // Use absolute path from assets directory
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/pdf.worker.min-LyOxJPrg.mjs';
 }
 
 export class ReaderEngine {
