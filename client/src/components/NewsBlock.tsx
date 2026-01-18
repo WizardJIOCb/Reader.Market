@@ -171,8 +171,15 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                       </div>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col justify-between overflow-hidden pt-0">
-                      <div className="text-muted-foreground line-clamp-4 md:line-clamp-5 mb-3 whitespace-pre-line">
-                        {getPreview(content)}
+                      <div className="mb-3">
+                        <div className="text-muted-foreground line-clamp-4 md:line-clamp-5 whitespace-pre-line">
+                          {getPreview(content)}
+                        </div>
+                        <div className="text-sm mt-2">
+                          <span className="text-primary hover:underline font-medium">
+                            {t('common:readMore')}
+                          </span>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <div className="flex gap-4 items-center text-sm text-muted-foreground">
@@ -185,11 +192,6 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                         </div>
                         <div className="text-sm text-muted-foreground">
                           💬 {newsItem.commentCount} {t('common:comments')}
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-primary hover:underline font-medium">
-                            {t('common:readMore')}
-                          </span>
                         </div>
                       </div>
                     </CardContent>
