@@ -39,9 +39,6 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    rollupOptions: {
-      external: ['pdfjs-dist'],
-    },
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],
