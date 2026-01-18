@@ -90,6 +90,10 @@ export default function Reader() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Translation state
+  const [availableLanguages, setAvailableLanguages] = useState<Array<{ language: string; status: string }>>([]);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('original');
+  
   // Reader state
   const [bookContent, setBookContent] = useState<BookContent | null>(null);
   const [currentPosition, setCurrentPosition] = useState<Position | null>(null);
@@ -473,14 +477,64 @@ export default function Reader() {
     };
   }, [user, bookId]);
   
-  // Update bookUrl when book changes
+  // Fetch available translations
   useEffect(() => {
-    if (book?.filePath) {
-      setBookUrl(`/${book.filePath}`);
-    } else {
+    const fetchTranslations = async () => {
+      if (!bookId) return;
+      
+      try {
+        const response = await fetch(`/api/books/${bookId}/translations`);
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableLanguages(data.filter((t: any) => t.status === 'completed'));
+          
+          // Load saved language preference
+          const savedLang = localStorage.getItem(`reader_language_${bookId}`);
+          if (savedLang && (savedLang === 'original' || data.some((t: any) => t.language === savedLang && t.status === 'completed'))) {
+            setSelectedLanguage(savedLang);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching translations:', error);
+      }
+    };
+    
+    fetchTranslations();
+  }, [bookId]);
+  
+  // Update bookUrl when book or selected language changes
+  useEffect(() => {
+    if (!book) {
       setBookUrl('');
+      return;
     }
-  }, [book]);
+    
+    if (selectedLanguage === 'original') {
+      setBookUrl(book.filePath ? `/${book.filePath}` : '');
+    } else {
+      setBookUrl(`/api/books/${bookId}/content/${selectedLanguage}`);
+    }
+  }, [book, bookId, selectedLanguage]);
+  
+  // Handle language change
+  const handleLanguageChange = useCallback((newLanguage: string) => {
+    if (newLanguage === selectedLanguage) return;
+    
+    // Store current position
+    const currentPos = readerRef.current?.getPosition();
+    
+    // Update language
+    setSelectedLanguage(newLanguage);
+    localStorage.setItem(`reader_language_${bookId}`, newLanguage);
+    
+    // Show toast
+    toast({
+      title: t('books:reader.languageSwitched', { language: newLanguage === 'original' ? 'English' : newLanguage }),
+    });
+    
+    // Position will be restored after book reloads via bookUrl change
+    // The ReaderCore component will detect the URL change and reload
+  }, [selectedLanguage, bookId, toast, t]);
   
   // Tracking refs
   const readerOpenTrackedRef = useRef<Set<string>>(new Set());
@@ -1289,6 +1343,9 @@ export default function Reader() {
         isAIOpen={activePanel === 'ai'}
         isChatOpen={activePanel === 'chat'}
         unreadChatCount={unreadChatCount}
+        availableLanguages={availableLanguages}
+        currentLanguage={selectedLanguage}
+        onLanguageChange={handleLanguageChange}
       />
       
       {/* Main content - full height */}

@@ -14,6 +14,7 @@ import { createCommentActivity, createReviewActivity, createBookActivity, create
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
 import { createOAuthRoutes } from "./oauth/routes";
 import { profileComments } from "@shared/schema";
+import bookTranslationRoutes from "./routes/bookTranslations";
 
 // Import db from storage module
 import { db } from './storage';
@@ -122,8 +123,8 @@ const avatarUpload = multer({
 });
 
 // Helper function to generate JWT token
-const generateToken = (userId: string) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET || "default_secret", {
+const generateToken = (userId: string, accessLevel?: string) => {
+  return jwt.sign({ userId, accessLevel }, process.env.JWT_SECRET || "default_secret", {
     expiresIn: "7d",
   });
 };
@@ -561,6 +562,9 @@ export async function registerRoutes(
   // Must be after io is attached so registration activity can be broadcasted
   app.use(createOAuthRoutes(app));
   
+  // Register book translation routes
+  app.use('/api', bookTranslationRoutes);
+  
   // put application routes here
   // prefix all routes with /api
   
@@ -634,7 +638,7 @@ export async function registerRoutes(
       });
       
       // Generate token
-      const token = generateToken(user.id);
+      const token = generateToken(user.id, user.accessLevel);
       
       // Create default "My books" shelf for new user
       try {
@@ -754,7 +758,7 @@ export async function registerRoutes(
       
       // Generate token
       console.log("Generating token for user ID:", user.id);
-      const token = generateToken(user.id);
+      const token = generateToken(user.id, user.accessLevel);
       console.log("Token generated successfully");
       
       // Return user data without password

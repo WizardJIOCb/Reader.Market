@@ -53,6 +53,31 @@ export const books = pgTable("books", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const bookTranslations = pgTable("book_translations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookId: varchar("book_id").notNull().references(() => books.id, { onDelete: 'cascade' }),
+  language: varchar("language", { length: 10 }).notNull(), // ISO 639-1 codes: 'en', 'ru', 'es', etc.
+  translationType: varchar("translation_type", { length: 20 }).notNull(), // 'automated' | 'manual'
+  translationService: varchar("translation_service", { length: 50 }), // 'ollama' | 'libretranslate' | 'google' | 'deepl' | null
+  filePath: text("file_path").notNull(),
+  fileSize: integer("file_size").notNull(),
+  fileType: text("file_type").notNull(), // 'pdf' | 'epub' | 'fb2' | 'txt'
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // 'pending' | 'processing' | 'completed' | 'failed' | 'paused'
+  progress: integer("progress").default(0), // 0-100 for automated translations
+  statusDetails: jsonb("status_details"), // Detailed status: { step: string, currentChunk: number, totalChunks: number, message: string }
+  errorMessage: text("error_message"),
+  translatedBy: varchar("translated_by").references(() => users.id),
+  partialFilePath: text("partial_file_path"), // Path to temporary file with partial translation
+  lastCompletedChunk: integer("last_completed_chunk").default(0), // Index of last successfully translated chunk
+  totalChunks: integer("total_chunks").default(0), // Total number of chunks for this translation
+  totalCharacters: integer("total_characters").default(0), // Total characters in original text
+  translatedCharacters: integer("translated_characters").default(0), // Characters translated so far
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+
 export const shelves = pgTable("shelves", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),

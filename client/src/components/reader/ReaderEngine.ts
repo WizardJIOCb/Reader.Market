@@ -1,7 +1,7 @@
 /**
  * ReaderEngine - Book parsing and content management
  * 
- * Supports: FB2, EPUB, TXT, with fallback for other formats
+ * Supports: FB2, EPUB, TXT, PDF, with fallback for other formats
  */
 
 import {
@@ -12,6 +12,15 @@ import {
   SearchResult,
   BookMetadata,
 } from './types';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker - use local worker from node_modules
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+  ).toString();
+}
 
 export class ReaderEngine {
   private content: BookContent | null = null;
@@ -42,6 +51,10 @@ export class ReaderEngine {
       case 'epub':
         const epubBlob = await response.blob();
         content = await this.parseEPUB(epubBlob);
+        break;
+      case 'pdf':
+        const pdfBlob = await response.blob();
+        content = await this.parsePDF(pdfBlob);
         break;
       default:
         throw new Error(`Unsupported format: ${format}`);
@@ -464,6 +477,127 @@ export class ReaderEngine {
         format: 'txt',
       },
     };
+  }
+
+  /**
+   * Parse PDF format using PDF.js
+   */
+  private async parsePDF(blob: Blob): Promise<BookContent> {
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      
+      const numPages = pdf.numPages;
+      let allContent = '';
+      let allPlainText = '';
+
+      // Extract text and images from all pages continuously
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        
+        // Extract text content
+        const textContent = await page.getTextContent();
+        const textItems = textContent.items as any[];
+        
+        let pageText = '';
+        for (const item of textItems) {
+          if ('str' in item && item.str) {
+            const text = item.str;
+            pageText += text + ' ';
+          }
+        }
+        
+        // Extract images from the page
+        const operatorList = await page.getOperatorList();
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        
+        if (context) {
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          
+          // Render the page to canvas
+          await page.render({
+            canvasContext: context,
+            viewport: viewport,
+          }).promise;
+          
+          // Check if page has images by looking for image operations
+          const hasImages = operatorList.fnArray.some((fn: number) => 
+            fn === pdfjsLib.OPS.paintImageXObject || 
+            fn === pdfjsLib.OPS.paintJpegXObject ||
+            fn === pdfjsLib.OPS.paintInlineImageXObject
+          );
+          
+          // If page has images, capture the entire page as image
+          if (hasImages) {
+            const imageDataUrl = canvas.toDataURL('image/png');
+            allContent += `<div class="pdf-page-image" style="margin: 20px auto; text-align: center; display: flex; justify-content: center;">
+              <img src="${imageDataUrl}" alt="Page ${pageNum}" style="max-width: 100%; height: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); object-fit: contain;" />
+            </div>\n`;
+          }
+        }
+        
+        // Add text content
+        if (pageText.trim()) {
+          // Split into paragraphs by double newlines or significant breaks
+          const paragraphs = pageText.split(/\s{3,}/).filter(p => p.trim().length > 20);
+          
+          if (paragraphs.length > 0) {
+            for (const para of paragraphs) {
+              const cleanPara = para.trim();
+              if (cleanPara) {
+                allContent += `<p>${this.escapeHTML(cleanPara)}</p>\n`;
+                allPlainText += cleanPara + '\n\n';
+              }
+            }
+          } else {
+            // If no clear paragraphs, just add as one block
+            const cleanText = pageText.trim();
+            if (cleanText) {
+              allContent += `<p>${this.escapeHTML(cleanText)}</p>\n`;
+              allPlainText += cleanText + '\n\n';
+            }
+          }
+        }
+      }
+
+      // Get metadata
+      const metadata = await pdf.getMetadata();
+      const info = metadata.info as any;
+      
+      const title = info?.Title || 'Untitled PDF';
+      const author = info?.Author || 'Unknown Author';
+      const description = info?.Subject || undefined;
+
+      // Create one continuous chapter with all content
+      const chapters: Chapter[] = [{
+        index: 0,
+        title: title,
+        content: allContent || '<p>No text content found in PDF</p>',
+        plainText: allPlainText.trim(),
+        charCount: allPlainText.length,
+        startOffset: 0,
+        endOffset: allPlainText.length,
+      }];
+
+      return {
+        title,
+        author,
+        description,
+        chapters,
+        totalChars: allPlainText.length,
+        metadata: {
+          format: 'pdf',
+          pageCount: numPages,
+        },
+      };
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**

@@ -104,5 +104,11 @@
   "loadingComments": "Loading comments...",
   "loadingReviews": "Loading reviews...",
   "authRequiredForShelves": "Please log in or register to add books to your shelves",
-  "authRequiredForReviews": "Please log in or register to write a review"
+  "authRequiredForReviews": "Please log in or register to write a review",
+  "reader": {
+    "language": "Book Language",
+    "switchLanguage": "Switch Language",
+    "translationNotReady": "{{language}} translation is not ready yet",
+    "languageSwitched": "Language switched to {{language}}"
+  }
 }

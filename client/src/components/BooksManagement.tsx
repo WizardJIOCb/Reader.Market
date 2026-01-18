@@ -294,17 +294,19 @@ const BooksManagement = () => {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium max-w-xs">
+                        <TableCell className="font-medium w-48 min-w-[120px]">
                           <a
                             href={`/book/${book.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="hover:underline text-primary cursor-pointer block truncate"
+                            className="hover:underline text-primary cursor-pointer block line-clamp-2"
                           >
                             {book.title}
                           </a>
                         </TableCell>
-                        <TableCell className="max-w-xs truncate">{book.author}</TableCell>
+                        <TableCell className="max-w-[120px]">
+                          <span className="line-clamp-2">{book.author}</span>
+                        </TableCell>
                         <TableCell>{book.genre || t('admin:common.na')}</TableCell>
                         <TableCell>{book.publishedYear || t('admin:common.na')}</TableCell>
                         <TableCell>

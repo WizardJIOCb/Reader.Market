@@ -104,5 +104,11 @@
   "loadingComments": "Загрузка комментариев...",
   "loadingReviews": "Загрузка рецензий...",
   "authRequiredForShelves": "Пожалуйста, войдите или зарегистрируйтесь для добавления книг на полки",
-  "authRequiredForReviews": "Пожалуйста, войдите или зарегистрируйтесь для написания рецензии"
+  "authRequiredForReviews": "Пожалуйста, войдите или зарегистрируйтесь для написания рецензии",
+  "reader": {
+    "language": "Язык книги",
+    "switchLanguage": "Сменить язык",
+    "translationNotReady": "Перевод на {{language}} ещё не готов",
+    "languageSwitched": "Язык изменён на {{language}}"
+  }
 }

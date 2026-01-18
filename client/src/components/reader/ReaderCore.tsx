@@ -855,6 +855,14 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
               -webkit-user-select: text !important;
               -webkit-user-drag: none !important;
             }
+            .reader-content img {
+              max-width: 100%;
+              max-height: 80%;
+              height: auto;
+              object-fit: contain;
+              display: block;
+              margin: 1em auto;
+            }
             .reader-content p {
               margin-bottom: 1em;
               text-indent: ${settings.paragraphIndent}em;
@@ -932,6 +940,14 @@ function paginateHTML(
   // Add the same styles that are applied in the reader
   const styleEl = document.createElement('style');
   styleEl.textContent = `
+    .reader-content img {
+      max-width: 100%;
+      max-height: 80%;
+      height: auto;
+      object-fit: contain;
+      display: block;
+      margin: 1em auto;
+    }
     .reader-content p {
       margin-bottom: 1em;
       text-indent: ${settings.paragraphIndent}em;

@@ -11,9 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { adminBooksApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Upload } from 'lucide-react';
+import { TranslationManagement } from './TranslationManagement';
+import { useTranslation } from 'react-i18next';
 
 interface Book {
   id: string;
@@ -44,6 +47,7 @@ interface BookEditDialogProps {
 }
 
 export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: BookEditDialogProps) {
+  const { t } = useTranslation('admin');
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -94,7 +98,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
       if (!allowedTypes.includes(file.type)) {
         setErrors((prev) => ({
           ...prev,
-          coverImage: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.',
+          coverImage: t('books.invalidImageType'),
         }));
         return;
       }
@@ -102,7 +106,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
       if (file.size > 5 * 1024 * 1024) {
         setErrors((prev) => ({
           ...prev,
-          coverImage: 'File size must be less than 5MB.',
+          coverImage: t('books.imageSizeError'),
         }));
         return;
       }
@@ -138,7 +142,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
       if (!allowedTypes.includes(file.type) && !isFB2File) {
         setErrors((prev) => ({
           ...prev,
-          bookFile: 'Invalid file type. Supported formats: PDF, DOC, DOCX, EPUB, TXT, FB2',
+          bookFile: t('books.invalidBookType'),
         }));
         return;
       }
@@ -146,7 +150,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
       if (file.size > 100 * 1024 * 1024) {
         setErrors((prev) => ({
           ...prev,
-          bookFile: 'File size must be less than 100MB.',
+          bookFile: t('books.bookFileSizeError'),
         }));
         return;
       }
@@ -164,18 +168,18 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
     const newErrors: Record<string, string> = {};
 
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = t('books.titleRequiredError');
     }
 
     if (!formData.author.trim()) {
-      newErrors.author = 'Author is required';
+      newErrors.author = t('books.authorRequiredError');
     }
 
     if (formData.publishedYear) {
       const year = parseInt(formData.publishedYear);
       const currentYear = new Date().getFullYear();
       if (isNaN(year) || year < 1000 || year > currentYear) {
-        newErrors.publishedYear = `Year must be between 1000 and ${currentYear}`;
+        newErrors.publishedYear = t('books.yearRangeError', { currentYear });
       }
     }
 
@@ -215,20 +219,20 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
 
       if (response.ok) {
         toast({
-          title: 'Book updated',
-          description: `"${formData.title}" has been successfully updated.`,
+          title: t('books.bookUpdated'),
+          description: t('books.bookUpdatedMessage', { title: formData.title }),
         });
         onBookUpdated();
         onOpenChange(false);
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update book');
+        throw new Error(errorData.error || t('books.failedToUpdate'));
       }
     } catch (error) {
       console.error('Error updating book:', error);
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update book',
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : t('books.failedToUpdate'),
         variant: 'destructive',
       });
     } finally {
@@ -240,122 +244,158 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Book</DialogTitle>
+          <DialogTitle>{t('books.editBook')}: {book.title}</DialogTitle>
           <DialogDescription>
-            Update book information and optionally replace the book file.
+            {t('books.updateBookInfo')}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">
-                Title <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                disabled={saving}
-                className={errors.title ? 'border-destructive' : ''}
-              />
-              {errors.title && (
-                <p className="text-sm text-destructive">{errors.title}</p>
-              )}
-            </div>
+        <Tabs defaultValue="info" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="info">{t('books.bookInfo')}</TabsTrigger>
+            <TabsTrigger value="translations">{t('books.translationsTab')}</TabsTrigger>
+          </TabsList>
 
-            <div className="space-y-2">
-              <Label htmlFor="author">
-                Author <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="author"
-                name="author"
-                value={formData.author}
-                onChange={handleChange}
-                disabled={saving}
-                className={errors.author ? 'border-destructive' : ''}
-              />
-              {errors.author && (
-                <p className="text-sm text-destructive">{errors.author}</p>
-              )}
-            </div>
+          <TabsContent value="info" className="space-y-4 mt-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">
+                    {t('books.titleRequired')}
+                  </Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleChange}
+                    disabled={saving}
+                    className={errors.title ? 'border-destructive' : ''}
+                  />
+                  {errors.title && (
+                    <p className="text-sm text-destructive">{errors.title}</p>
+                  )}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="genre">Genre</Label>
-              <Input
-                id="genre"
-                name="genre"
-                value={formData.genre}
-                onChange={handleChange}
-                disabled={saving}
-                placeholder="e.g., Fiction, Mystery"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="author">
+                    {t('books.authorRequired')}
+                  </Label>
+                  <Input
+                    id="author"
+                    name="author"
+                    value={formData.author}
+                    onChange={handleChange}
+                    disabled={saving}
+                    className={errors.author ? 'border-destructive' : ''}
+                  />
+                  {errors.author && (
+                    <p className="text-sm text-destructive">{errors.author}</p>
+                  )}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="publishedYear">Publication Year</Label>
-              <Input
-                id="publishedYear"
-                name="publishedYear"
-                type="number"
-                min="1000"
-                max={new Date().getFullYear()}
-                value={formData.publishedYear}
-                onChange={handleChange}
-                disabled={saving}
-                className={errors.publishedYear ? 'border-destructive' : ''}
-              />
-              {errors.publishedYear && (
-                <p className="text-sm text-destructive">{errors.publishedYear}</p>
-              )}
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="genre">{t('books.genreLabel')}</Label>
+                  <Input
+                    id="genre"
+                    name="genre"
+                    value={formData.genre}
+                    onChange={handleChange}
+                    disabled={saving}
+                    placeholder={t('books.genrePlaceholder')}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="publishedAt">Publication Date</Label>
-              <Input
-                id="publishedAt"
-                name="publishedAt"
-                type="date"
-                value={formData.publishedAt}
-                onChange={handleChange}
-                disabled={saving}
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="publishedYear">{t('books.publicationYear')}</Label>
+                  <Input
+                    id="publishedYear"
+                    name="publishedYear"
+                    type="number"
+                    min="1000"
+                    max={new Date().getFullYear()}
+                    value={formData.publishedYear}
+                    onChange={handleChange}
+                    disabled={saving}
+                    className={errors.publishedYear ? 'border-destructive' : ''}
+                  />
+                  {errors.publishedYear && (
+                    <p className="text-sm text-destructive">{errors.publishedYear}</p>
+                  )}
+                </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              disabled={saving}
-              rows={4}
-              placeholder="Book description..."
-            />
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="publishedAt">{t('books.publicationDate')}</Label>
+                  <Input
+                    id="publishedAt"
+                    name="publishedAt"
+                    type="date"
+                    value={formData.publishedAt}
+                    onChange={handleChange}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label>Cover Image</Label>
-            <div className="flex items-center gap-4">
-              {book.coverImageUrl && (
-                <img
-                  src={book.coverImageUrl}
-                  alt="Current cover"
-                  className="w-20 h-28 object-cover rounded border"
+              <div className="space-y-2">
+                <Label htmlFor="description">{t('books.descriptionLabel')}</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  disabled={saving}
+                  rows={4}
+                  placeholder={t('books.descriptionPlaceholder')}
                 />
-              )}
-              <div className="flex-1">
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t('books.coverImage')}</Label>
+                <div className="flex items-center gap-4">
+                  {book.coverImageUrl && (
+                    <img
+                      src={book.coverImageUrl}
+                      alt="Current cover"
+                      className="w-20 h-28 object-cover rounded border"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <div className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverImageChange}
+                        disabled={saving}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Upload className="w-8 h-8 text-muted-foreground" />
+                        <div className="text-center">
+                          <p className="text-sm font-medium">
+                            {coverImage ? coverImage.name : t('books.uploadNewCover')}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {t('books.imageFormats')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    {errors.coverImage && (
+                      <p className="text-sm text-destructive mt-1">{errors.coverImage}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t('books.bookFileLabel')}</Label>
                 <div className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors relative">
                   <input
                     type="file"
-                    accept="image/*"
-                    onChange={handleCoverImageChange}
+                    accept=".pdf,.doc,.docx,.epub,.txt,.fb2"
+                    onChange={handleBookFileChange}
                     disabled={saving}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
@@ -363,92 +403,69 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
                     <Upload className="w-8 h-8 text-muted-foreground" />
                     <div className="text-center">
                       <p className="text-sm font-medium">
-                        {coverImage ? coverImage.name : 'Upload new cover (optional)'}
+                        {bookFile ? bookFile.name : t('books.replaceBookFile')}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        JPEG, PNG, GIF, WebP (max 5MB)
+                        {t('books.bookFormats')}
                       </p>
                     </div>
                   </div>
                 </div>
-                {errors.coverImage && (
-                  <p className="text-sm text-destructive mt-1">{errors.coverImage}</p>
+                {errors.bookFile && (
+                  <p className="text-sm text-destructive">{errors.bookFile}</p>
+                )}
+                {bookFile && (
+                  <p className="text-sm text-muted-foreground">
+                    {t('books.newFile')}: {bookFile.name} ({(bookFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
                 )}
               </div>
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Book File</Label>
-            <div className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors relative">
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.epub,.txt,.fb2"
-                onChange={handleBookFileChange}
-                disabled={saving}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              <div className="flex flex-col items-center justify-center gap-2">
-                <Upload className="w-8 h-8 text-muted-foreground" />
-                <div className="text-center">
-                  <p className="text-sm font-medium">
-                    {bookFile ? bookFile.name : 'Replace book file (optional)'}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    PDF, DOC, DOCX, EPUB, TXT, FB2 (max 100MB)
-                  </p>
+              <div className="border-t pt-4 space-y-2">
+                <h3 className="font-semibold text-sm">{t('books.currentBookInfo')}</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">{t('books.fileType')}:</span> {book.fileType || 'N/A'}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t('books.fileSizeLabel')}:</span>{' '}
+                    {(book.fileSize / (1024 * 1024)).toFixed(2)} MB
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t('books.uploadedBy')}:</span>{' '}
+                    {book.uploaderFullName || book.uploaderUsername || 'Unknown'}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t('books.uploadedDate')}:</span>{' '}
+                    {new Date(book.uploadedAt).toLocaleDateString()}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t('books.ratingLabel')}:</span>{' '}
+                    {book.rating ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
+                  </div>
                 </div>
               </div>
-            </div>
-            {errors.bookFile && (
-              <p className="text-sm text-destructive">{errors.bookFile}</p>
-            )}
-            {bookFile && (
-              <p className="text-sm text-muted-foreground">
-                New file: {bookFile.name} ({(bookFile.size / 1024 / 1024).toFixed(2)} MB)
-              </p>
-            )}
-          </div>
 
-          <div className="border-t pt-4 space-y-2">
-            <h3 className="font-semibold text-sm">Current Book Information</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">File Type:</span> {book.fileType || 'N/A'}
-              </div>
-              <div>
-                <span className="text-muted-foreground">File Size:</span>{' '}
-                {(book.fileSize / (1024 * 1024)).toFixed(2)} MB
-              </div>
-              <div>
-                <span className="text-muted-foreground">Uploaded By:</span>{' '}
-                {book.uploaderFullName || book.uploaderUsername || 'Unknown'}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Uploaded:</span>{' '}
-                {new Date(book.uploadedAt).toLocaleDateString()}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Rating:</span>{' '}
-                {book.rating ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
-              </div>
-            </div>
-          </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={saving}
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? t('books.saving') : t('books.saveChanges')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </TabsContent>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </form>
+          <TabsContent value="translations" className="mt-4">
+            <TranslationManagement bookId={book.id} bookFileType={book.fileType} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

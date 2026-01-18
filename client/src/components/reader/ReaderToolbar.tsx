@@ -9,6 +9,11 @@ import { Link } from 'wouter';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
@@ -18,6 +23,7 @@ import {
   MessageCircle,
   Settings,
   List,
+  Globe,
 } from 'lucide-react';
 import { BookContent, Chapter, Position } from './types';
 import { ReaderSettings as ReaderSettingsType } from './types';
@@ -56,6 +62,10 @@ interface ReaderToolbarProps {
   isAIOpen?: boolean;
   isChatOpen?: boolean;
   unreadChatCount?: number;
+  // Language selector
+  availableLanguages?: Array<{ language: string; status: string }>;
+  currentLanguage?: string;
+  onLanguageChange?: (language: string) => void;
 }
 
 export function ReaderToolbar({
@@ -84,10 +94,17 @@ export function ReaderToolbar({
   isAIOpen = false,
   isChatOpen = false,
   unreadChatCount = 0,
+  availableLanguages = [],
+  currentLanguage = 'original',
+  onLanguageChange,
 }: ReaderToolbarProps) {
   const { t } = useTranslation();
   const chapterNumber = currentChapter ? currentChapter.index + 1 : 1;
   const totalChapters = content?.chapters.length || 1;
+
+  const LanguageSelectorComponent = React.lazy(() => 
+    import('./LanguageSelector').then(module => ({ default: module.LanguageSelector }))
+  );
 
   return (
     <div className="bg-card border-b sticky top-0 z-40">
@@ -167,6 +184,30 @@ export function ReaderToolbar({
               >
                 <Settings className="w-4 h-4" />
               </Button>
+              {availableLanguages.length > 0 && onLanguageChange && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Language / Язык"
+                    >
+                      <Globe className="w-4 h-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="p-0">
+                    <React.Suspense fallback={<div className="p-4">Loading...</div>}>
+                      <LanguageSelectorComponent
+                        bookId={book.id}
+                        currentLanguage={currentLanguage}
+                        availableLanguages={availableLanguages}
+                        onLanguageChange={onLanguageChange}
+                      />
+                    </React.Suspense>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           </div>
 
@@ -318,6 +359,31 @@ export function ReaderToolbar({
             >
               <Settings className="w-5 h-5" />
             </Button>
+
+            {/* Language Selector */}
+            {availableLanguages.length > 0 && onLanguageChange && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Language / Язык"
+                  >
+                    <Globe className="w-5 h-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="p-0">
+                  <React.Suspense fallback={<div className="p-4">Loading...</div>}>
+                    <LanguageSelectorComponent
+                      bookId={book.id}
+                      currentLanguage={currentLanguage}
+                      availableLanguages={availableLanguages}
+                      onLanguageChange={onLanguageChange}
+                    />
+                  </React.Suspense>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         </div>
       </div>
