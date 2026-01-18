@@ -14,10 +14,10 @@ import {
 } from './types';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker using absolute path to bundled worker
+// Configure PDF.js worker - use CDN for reliable cross-environment support
 if (typeof window !== 'undefined') {
-  // Use absolute path from assets directory
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/pdf.worker.min-LyOxJPrg.mjs';
+  // Use CDN version to avoid MIME type and bundling issues
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 }
 
 export class ReaderEngine {
