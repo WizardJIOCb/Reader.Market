@@ -33,6 +33,7 @@ interface ReaderToolbarProps {
     id: string;
     title: string;
     author: string;
+    language?: string; // Original book language
   };
   content: BookContent | null;
   currentChapter: Chapter | null;
@@ -203,6 +204,7 @@ export function ReaderToolbar({
                         currentLanguage={currentLanguage}
                         availableLanguages={availableLanguages}
                         onLanguageChange={onLanguageChange}
+                        originalLanguage={book.language || 'en'}
                       />
                     </React.Suspense>
                   </PopoverContent>
@@ -379,6 +381,7 @@ export function ReaderToolbar({
                       currentLanguage={currentLanguage}
                       availableLanguages={availableLanguages}
                       onLanguageChange={onLanguageChange}
+                      originalLanguage={book.language || 'en'}
                     />
                   </React.Suspense>
                 </PopoverContent>

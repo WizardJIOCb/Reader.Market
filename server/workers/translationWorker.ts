@@ -72,22 +72,37 @@ interface TranslationJob {
 /**
  * Cancel an ongoing Ollama generation by unloading model
  */
-async function cancelOllamaGeneration(apiUrl: string): Promise<void> {
+async function cancelOllamaGeneration(apiUrl: string, model?: string): Promise<void> {
   try {
-    console.log(`[Worker] Sending model unload request to Ollama...`);
+    console.log(`[Worker] Sending model unload requests to Ollama...`);
     
-    // Send empty request to trigger model unload after timeout
+    // Attempt 1: Unload specific model if provided
+    if (model) {
+      await fetch(`${apiUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: model,
+          prompt: '',
+          keep_alive: 0
+        }),
+        signal: AbortSignal.timeout(3000)
+      }).catch(() => {});
+    }
+    
+    // Attempt 2: Force general cleanup
     await fetch(`${apiUrl}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: '', // Empty model to force cleanup
+        model: '',
         prompt: '',
-        keep_alive: 0 // Unload immediately
-      })
-    }).catch(() => {}); // Ignore errors
+        keep_alive: 0
+      }),
+      signal: AbortSignal.timeout(3000)
+    }).catch(() => {});
     
-    console.log(`[Worker] Sent model unload signal to Ollama`);
+    console.log(`[Worker] Sent model unload signals to Ollama`);
   } catch (error) {
     console.error(`[Worker] Failed to unload Ollama model:`, error);
   }
@@ -114,13 +129,18 @@ async function translateText(
     it: 'Italian',
   };
 
-  const prompt = `Translate the following text from ${languageNames[sourceLang] || sourceLang} to ${languageNames[targetLang] || targetLang}. 
-Only output the translated text, no explanations or additional comments.
+  const prompt = `Translate the following text from ${languageNames[sourceLang] || sourceLang} to ${languageNames[targetLang] || targetLang}.
+
+CRITICAL INSTRUCTIONS:
+- Translate ALL text character-by-character
+- Keep URLs, hexadecimal values, and technical IDs unchanged
+- DO NOT add explanations, comments, or descriptions
+- DO NOT skip any content
+- DO NOT interpret or analyze the text
+- Output ONLY the translated text
 
 Text to translate:
-${text}
-
-Translation:`;
+${text}`;
   
   // Create new AbortController for this request
   currentAbortController = new AbortController();
@@ -136,6 +156,7 @@ Translation:`;
         options: {
           temperature: 0.3,
           top_p: 0.9,
+          num_predict: -1, // No limit on output tokens
         }
       }),
       signal: currentAbortController.signal
@@ -674,13 +695,12 @@ async function processTranslation(job: TranslationJob) {
               .ele('lang').txt(targetLanguage).up()
             .up()
           .up()
-          .ele('body');
+          .ele('body')
+            .ele('section');
       
-      // Add translated paragraphs as sections
+      // Add all translated paragraphs within a single section
       for (const paragraph of paragraphs) {
-        fb2Doc.ele('section')
-          .ele('p').txt(paragraph).up()
-        .up();
+        fb2Doc.ele('p').txt(paragraph).up();
       }
       
       const fb2Xml = fb2Doc.end({ prettyPrint: true });
@@ -720,6 +740,14 @@ async function processTranslation(job: TranslationJob) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[Worker] Translation ${translationId} error:`, error);
     
+    // Unload Ollama model on error
+    try {
+      console.log(`[Worker] Unloading Ollama model due to error...`);
+      await cancelOllamaGeneration(ollamaUrl, ollamaModel);
+    } catch (cleanupError) {
+      console.error(`[Worker] Error during Ollama cleanup:`, cleanupError);
+    }
+    
     // Don't mark as failed if it's resumable - keep partial file
     await db
       .update(bookTranslations)
@@ -736,6 +764,14 @@ async function processTranslation(job: TranslationJob) {
       process.send({ type: 'failed', translationId, error: errorMessage });
     }
   } finally {
+    // Final cleanup: Unload Ollama model
+    try {
+      console.log(`[Worker] Final Ollama cleanup...`);
+      await cancelOllamaGeneration(ollamaUrl, ollamaModel);
+    } catch (finalCleanupError) {
+      console.error(`[Worker] Error during final Ollama cleanup:`, finalCleanupError);
+    }
+    
     // Close database connection and exit
     await pool.end();
     process.exit(0);

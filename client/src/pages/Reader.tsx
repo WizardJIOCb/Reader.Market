@@ -51,6 +51,7 @@ interface Book {
   filePath?: string;
   fileSize?: number;
   fileType?: string;
+  language?: string; // Original book language (ISO 639-1 code)
   genre?: string;
   publishedYear?: number;
   rating?: number;

@@ -17,6 +17,7 @@ interface LanguageSelectorProps {
   currentLanguage: string;
   availableLanguages: Translation[];
   onLanguageChange: (language: string) => void;
+  originalLanguage?: string; // Original book language (e.g., 'en', 'ru', 'es')
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -38,8 +39,12 @@ export function LanguageSelector({
   currentLanguage,
   availableLanguages,
   onLanguageChange,
+  originalLanguage = 'en',
 }: LanguageSelectorProps) {
   const { t } = useTranslation('books');
+
+  // Get the display name for the original language
+  const originalLanguageName = LANGUAGE_NAMES[originalLanguage] || 'English';
 
   return (
     <div className="w-64 p-2">
@@ -57,7 +62,7 @@ export function LanguageSelector({
           }`}
         >
           <span>
-            {LANGUAGE_NAMES['original']} {' '}
+            {originalLanguageName} {' '}
             <span className="text-xs text-muted-foreground">({t('admin:books.translations.original')})</span>
           </span>
           {currentLanguage === 'original' && <Check className="w-4 h-4" />}

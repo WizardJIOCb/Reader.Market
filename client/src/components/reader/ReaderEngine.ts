@@ -28,12 +28,14 @@ export class ReaderEngine {
    * Load and parse a book from URL
    */
   async loadBook(url: string, fileType: string): Promise<BookContent> {
-    const format = this.detectFormat(url, fileType);
-    
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch book: ${response.status} ${response.statusText}`);
     }
+
+    // Use actual Content-Type from response for better detection (especially for translations)
+    const contentType = response.headers.get('content-type') || fileType;
+    const format = this.detectFormat(url, contentType);
 
     let content: BookContent;
 
@@ -70,7 +72,7 @@ export class ReaderEngine {
   private detectFormat(url: string, mimeType: string): BookFormat {
     const urlLower = url.toLowerCase();
     
-    if (urlLower.endsWith('.fb2') || mimeType.includes('fictionbook')) {
+    if (urlLower.endsWith('.fb2') || mimeType.includes('fictionbook') || mimeType.includes('application/x-fictionbook')) {
       return 'fb2';
     }
     if (urlLower.endsWith('.epub') || mimeType.includes('epub')) {

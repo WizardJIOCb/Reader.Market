@@ -6,8 +6,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, exec } from 'child_process';
+import { promisify } from 'util';
 import { translationService } from '../services/translationService';
+
+const execAsync = promisify(exec);
 
 const router = Router();
 
@@ -540,22 +543,63 @@ router.post('/admin/books/:bookId/translations/:translationId/pause',
         active.worker.kill('SIGTERM');
         activeTranslations.delete(translationId);
         
-        // Force Ollama to unload model immediately
-        try {
-          const apiUrl = process.env.OLLAMA_API_URL || 'http://localhost:11434';
-          await fetch(`${apiUrl}/api/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: '',
-              prompt: '',
-              keep_alive: 0
-            })
-          }).catch(() => {}); // Ignore errors
-          console.log(`[Translation ${translationId}] Sent Ollama model unload request`);
-        } catch (ollamaError) {
-          console.error(`[Translation ${translationId}] Failed to unload Ollama model:`, ollamaError);
+        // Force Ollama to unload model immediately with multiple attempts
+        const apiUrl = process.env.OLLAMA_API_URL || 'http://localhost:11434';
+        const modelName = translation.model || '';
+        
+        console.log(`[Translation ${translationId}] Attempting to stop Ollama processes...`);
+        
+        // Attempt 1: Send unload request to Ollama API
+        const unloadPromises = [];
+        for (let i = 0; i < 3; i++) {
+          unloadPromises.push(
+            (async () => {
+              await new Promise(resolve => setTimeout(resolve, i * 500));
+              try {
+                console.log(`[Translation ${translationId}] Ollama unload attempt ${i + 1}...`);
+                await fetch(`${apiUrl}/api/generate`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    model: i === 0 ? modelName : '',
+                    prompt: '',
+                    keep_alive: 0
+                  }),
+                  signal: AbortSignal.timeout(3000)
+                }).catch(() => {});
+              } catch (err) {
+                console.log(`[Translation ${translationId}] Unload attempt ${i + 1} error`);
+              }
+            })()
+          );
         }
+        
+        // Attempt 2: Force kill Ollama process on Windows
+        if (process.platform === 'win32') {
+          setTimeout(async () => {
+            try {
+              console.log(`[Translation ${translationId}] Force stopping Ollama.exe on Windows...`);
+              // Use taskkill to stop ollama.exe processes
+              await execAsync('taskkill /F /IM ollama.exe /T').catch(() => {
+                console.log(`[Translation ${translationId}] No ollama.exe processes to kill or access denied`);
+              });
+              
+              // Restart Ollama service if it was killed
+              setTimeout(async () => {
+                try {
+                  console.log(`[Translation ${translationId}] Restarting Ollama...`);
+                  exec('ollama serve', { detached: true, stdio: 'ignore' });
+                } catch (restartErr) {
+                  console.log(`[Translation ${translationId}] Could not restart Ollama:`, restartErr);
+                }
+              }, 1000);
+            } catch (killErr) {
+              console.error(`[Translation ${translationId}] Error killing Ollama:`, killErr);
+            }
+          }, 3000);
+        }
+        
+        await Promise.all(unloadPromises);
       }
       
       // Update status to paused
@@ -667,7 +711,7 @@ router.get('/books/:bookId/content/:language', async (req: Request, res: Respons
     const contentTypes: Record<string, string> = {
       '.pdf': 'application/pdf',
       '.epub': 'application/epub+zip',
-      '.fb2': 'application/xml',
+      '.fb2': 'application/x-fictionbook+xml',
       '.txt': 'text/plain',
     };
     

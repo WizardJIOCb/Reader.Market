@@ -43,6 +43,7 @@ export const books = pgTable("books", {
   filePath: text("file_path"),
   fileSize: integer("file_size"),
   fileType: text("file_type"),
+  language: varchar("language", { length: 10 }).default('en'), // Original book language (ISO 639-1: 'en', 'ru', 'es', etc.)
   genre: text("genre"),
   publishedYear: integer("published_year"),
   rating: numeric("rating", { precision: 3, scale: 1 }),
