@@ -16,6 +16,7 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { parseStringPromise } from 'xml2js';
+import { create } from 'xmlbuilder2';
 
 // Flag to track if worker should stop
 let shouldStop = false;
@@ -615,8 +616,43 @@ async function processTranslation(job: TranslationJob) {
       const pdfBytes = await translatedPdfDoc.save();
       await fs.promises.writeFile(translatedFilePath, pdfBytes);
       console.log(`[Worker] Interleaved PDF saved: ${translatedFilePath}`);
+    } else if (fileType.includes('fb2') || fileType.includes('fictionbook') || originalExt.toLowerCase() === '.fb2') {
+      // For FB2 files, generate proper FB2 XML with translated text
+      console.log(`[Worker] Generating FB2 with translated text...`);
+      
+      const paragraphs = translatedText.split('\n\n').filter(p => p.trim());
+      
+      // Create FB2 XML structure
+      const fb2Doc = create({ version: '1.0', encoding: 'UTF-8' })
+        .ele('FictionBook', { 
+          xmlns: 'http://www.gribuser.ru/xml/fictionbook/2.0',
+          'xmlns:l': 'http://www.w3.org/1999/xlink'
+        })
+          .ele('description')
+            .ele('title-info')
+              .ele('genre').txt('unknown').up()
+              .ele('author')
+                .ele('first-name').txt('Unknown').up()
+                .ele('last-name').txt('Author').up()
+              .up()
+              .ele('book-title').txt('Translated').up()
+              .ele('lang').txt(targetLanguage).up()
+            .up()
+          .up()
+          .ele('body');
+      
+      // Add translated paragraphs as sections
+      for (const paragraph of paragraphs) {
+        fb2Doc.ele('section')
+          .ele('p').txt(paragraph).up()
+        .up();
+      }
+      
+      const fb2Xml = fb2Doc.end({ prettyPrint: true });
+      await fs.promises.writeFile(translatedFilePath, fb2Xml, 'utf-8');
+      console.log(`[Worker] FB2 saved: ${translatedFilePath}`);
     } else {
-      // For non-PDF files, save as text
+      // For other text files, save as text
       await fs.promises.writeFile(translatedFilePath, translatedText, 'utf-8');
       console.log(`[Worker] Saved to: ${translatedFilePath}`);
     }
