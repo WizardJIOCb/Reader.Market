@@ -14,6 +14,7 @@ import fs from 'fs';
 // Use legacy build for Node.js environment
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 
 // Flag to track if worker should stop
 let shouldStop = false;
@@ -445,7 +446,37 @@ async function processTranslation(job: TranslationJob) {
       
       // Create a new PDF document
       const translatedPdfDoc = await PDFDocument.create();
-      const font = await translatedPdfDoc.embedFont(StandardFonts.Helvetica);
+      
+      // Register fontkit for custom font support
+      translatedPdfDoc.registerFontkit(fontkit);
+      
+      // Try to embed a Unicode-supporting font (DejaVuSans supports Cyrillic)
+      // First, try to use system fonts or download one
+      let font;
+      const dejaVuPath = 'C:\\Windows\\Fonts\\DejaVuSans.ttf';
+      const arialPath = 'C:\\Windows\\Fonts\\arial.ttf';
+      
+      try {
+        // Try DejaVu first (best Cyrillic support)
+        if (fs.existsSync(dejaVuPath)) {
+          const fontBytes = await fs.promises.readFile(dejaVuPath);
+          font = await translatedPdfDoc.embedFont(fontBytes);
+          console.log(`[Worker] Using DejaVuSans font for Cyrillic support`);
+        } else if (fs.existsSync(arialPath)) {
+          // Fallback to Arial (has Cyrillic support)
+          const fontBytes = await fs.promises.readFile(arialPath);
+          font = await translatedPdfDoc.embedFont(fontBytes);
+          console.log(`[Worker] Using Arial font for Cyrillic support`);
+        } else {
+          // Last resort: use standard font (will fail for Cyrillic)
+          font = await translatedPdfDoc.embedFont(StandardFonts.Helvetica);
+          console.warn(`[Worker] Using Helvetica - may not support Cyrillic characters`);
+        }
+      } catch (fontError) {
+        console.error(`[Worker] Font embedding error:`, fontError);
+        font = await translatedPdfDoc.embedFont(StandardFonts.Helvetica);
+      }
+      
       const fontSize = 10;
       const lineHeight = fontSize * 1.4;
       const margin = 40;
