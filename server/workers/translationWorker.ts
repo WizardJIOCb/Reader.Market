@@ -21,6 +21,7 @@ import { create } from 'xmlbuilder2';
 // Flag to track if worker should stop
 let shouldStop = false;
 let currentAbortController: AbortController | null = null;
+let currentGenerationId: string | null = null; // Track current generation for cancellation
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
@@ -30,6 +31,11 @@ process.on('SIGTERM', () => {
   if (currentAbortController) {
     currentAbortController.abort();
   }
+  // Try to cancel ongoing Ollama generation
+  if (currentGenerationId) {
+    const apiUrl = process.env.OLLAMA_API_URL || 'http://localhost:11434';
+    cancelOllamaGeneration(apiUrl).catch(console.error);
+  }
 });
 
 process.on('SIGINT', () => {
@@ -38,6 +44,11 @@ process.on('SIGINT', () => {
   // Abort any ongoing HTTP request
   if (currentAbortController) {
     currentAbortController.abort();
+  }
+  // Try to cancel ongoing Ollama generation
+  if (currentGenerationId) {
+    const apiUrl = process.env.OLLAMA_API_URL || 'http://localhost:11434';
+    cancelOllamaGeneration(apiUrl).catch(console.error);
   }
 });
 
@@ -56,6 +67,30 @@ interface TranslationJob {
   targetLanguage: string;
   service: string;
   model?: string;
+}
+
+/**
+ * Cancel an ongoing Ollama generation by unloading model
+ */
+async function cancelOllamaGeneration(apiUrl: string): Promise<void> {
+  try {
+    console.log(`[Worker] Sending model unload request to Ollama...`);
+    
+    // Send empty request to trigger model unload after timeout
+    await fetch(`${apiUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: '', // Empty model to force cleanup
+        prompt: '',
+        keep_alive: 0 // Unload immediately
+      })
+    }).catch(() => {}); // Ignore errors
+    
+    console.log(`[Worker] Sent model unload signal to Ollama`);
+  } catch (error) {
+    console.error(`[Worker] Failed to unload Ollama model:`, error);
+  }
 }
 
 // Simple translation service for worker
