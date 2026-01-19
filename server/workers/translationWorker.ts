@@ -436,13 +436,9 @@ async function processTranslation(job: TranslationJob) {
     const translatedFileName = `${targetLanguage}_${timestamp}${originalExt}`;
     const translatedFilePath = path.join(translationsDir, translatedFileName);
     
-    // If original was PDF, copy pages and add translated text
+    // If original was PDF, create clean PDF with translated text only
     if (fileType.includes('pdf') || originalExt.toLowerCase() === '.pdf') {
-      console.log(`[Worker] Copying original PDF pages and adding translated text...`);
-      
-      // Load the original PDF to copy pages from
-      const originalPdfBuffer = await fs.promises.readFile(originalFilePath);
-      const originalPdfDoc = await PDFDocument.load(originalPdfBuffer);
+      console.log(`[Worker] Creating clean PDF with translated text...`);
       
       // Create a new PDF document
       const translatedPdfDoc = await PDFDocument.create();
@@ -451,7 +447,6 @@ async function processTranslation(job: TranslationJob) {
       translatedPdfDoc.registerFontkit(fontkit);
       
       // Try to embed a Unicode-supporting font (DejaVuSans supports Cyrillic)
-      // First, try to use system fonts or download one
       let font;
       const dejaVuPath = 'C:\\Windows\\Fonts\\DejaVuSans.ttf';
       const arialPath = 'C:\\Windows\\Fonts\\arial.ttf';
@@ -477,126 +472,80 @@ async function processTranslation(job: TranslationJob) {
         font = await translatedPdfDoc.embedFont(StandardFonts.Helvetica);
       }
       
-      const fontSize = 10;
-      const lineHeight = fontSize * 1.4;
-      const margin = 40;
-      
-      // Copy all pages from original PDF
-      const copiedPages = await translatedPdfDoc.copyPages(originalPdfDoc, originalPdfDoc.getPageIndices());
-      copiedPages.forEach(page => translatedPdfDoc.addPage(page));
-      
-      console.log(`[Worker] Copied ${copiedPages.length} pages from original PDF`);
+      const fontSize = 11;
+      const lineHeight = fontSize * 1.5;
+      const margin = 60;
       
       // Split translated text into paragraphs
       const paragraphs = translatedText.split('\n\n').filter(p => p.trim());
       
-      // Add translated text to pages (overlay on top of original)
-      const pages = translatedPdfDoc.getPages();
-      let pageIndex = 0;
-      let yPosition = 0;
+      // Create pages and add translated text
+      let currentPage = translatedPdfDoc.addPage();
+      let { width, height } = currentPage.getSize();
+      let yPosition = height - margin;
       
-      if (pages.length > 0) {
-        const currentPage = pages[pageIndex];
-        const { width, height } = currentPage.getSize();
-        yPosition = height - margin;
+      console.log(`[Worker] Generating pages with translated text...`);
+      
+      for (const paragraph of paragraphs) {
+        const maxWidth = width - 2 * margin;
+        const words = paragraph.split(' ');
+        let currentLine = '';
         
-        // Draw semi-transparent white background for text readability
-        for (const paragraph of paragraphs) {
-          const maxWidth = width - 2 * margin;
-          const words = paragraph.split(' ');
-          let currentLine = '';
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const textWidth = font.widthOfTextAtSize(testLine, fontSize);
           
-          for (const word of words) {
-            const testLine = currentLine ? `${currentLine} ${word}` : word;
-            const textWidth = font.widthOfTextAtSize(testLine, fontSize);
-            
-            if (textWidth > maxWidth && currentLine) {
-              // Draw current line with white background
-              if (yPosition < margin + lineHeight) {
-                // Move to next page
-                pageIndex++;
-                if (pageIndex >= pages.length) break;
-                const nextPage = pages[pageIndex];
-                const { height: nextHeight } = nextPage.getSize();
-                yPosition = nextHeight - margin;
-              }
-              
-              const currentPageToDraw = pages[pageIndex];
-              const lineWidth = font.widthOfTextAtSize(currentLine, fontSize);
-              
-              // Draw white background rectangle
-              currentPageToDraw.drawRectangle({
-                x: margin - 2,
-                y: yPosition - 2,
-                width: lineWidth + 4,
-                height: lineHeight,
-                color: rgb(1, 1, 1),
-                opacity: 0.85,
-              });
-              
-              // Draw text
-              currentPageToDraw.drawText(currentLine, {
-                x: margin,
-                y: yPosition,
-                size: fontSize,
-                font: font,
-                color: rgb(0, 0, 0),
-              });
-              
-              yPosition -= lineHeight;
-              currentLine = word;
-            } else {
-              currentLine = testLine;
-            }
-          }
-          
-          // Draw remaining line
-          if (currentLine && pageIndex < pages.length) {
+          if (textWidth > maxWidth && currentLine) {
+            // Draw current line
             if (yPosition < margin + lineHeight) {
-              pageIndex++;
-              if (pageIndex < pages.length) {
-                const nextPage = pages[pageIndex];
-                const { height: nextHeight } = nextPage.getSize();
-                yPosition = nextHeight - margin;
-              }
+              // Need new page
+              currentPage = translatedPdfDoc.addPage();
+              const { height: newHeight } = currentPage.getSize();
+              yPosition = newHeight - margin;
             }
             
-            if (pageIndex < pages.length) {
-              const currentPageToDraw = pages[pageIndex];
-              const lineWidth = font.widthOfTextAtSize(currentLine, fontSize);
-              
-              // Draw white background rectangle
-              currentPageToDraw.drawRectangle({
-                x: margin - 2,
-                y: yPosition - 2,
-                width: lineWidth + 4,
-                height: lineHeight,
-                color: rgb(1, 1, 1),
-                opacity: 0.85,
-              });
-              
-              // Draw text
-              currentPageToDraw.drawText(currentLine, {
-                x: margin,
-                y: yPosition,
-                size: fontSize,
-                font: font,
-                color: rgb(0, 0, 0),
-              });
-              
-              yPosition -= lineHeight;
-            }
+            currentPage.drawText(currentLine, {
+              x: margin,
+              y: yPosition,
+              size: fontSize,
+              font: font,
+              color: rgb(0, 0, 0),
+            });
+            
+            yPosition -= lineHeight;
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        
+        // Draw remaining line
+        if (currentLine) {
+          if (yPosition < margin + lineHeight) {
+            currentPage = translatedPdfDoc.addPage();
+            const { height: newHeight } = currentPage.getSize();
+            yPosition = newHeight - margin;
           }
           
-          // Add paragraph spacing
-          yPosition -= lineHeight * 0.3;
+          currentPage.drawText(currentLine, {
+            x: margin,
+            y: yPosition,
+            size: fontSize,
+            font: font,
+            color: rgb(0, 0, 0),
+          });
+          
+          yPosition -= lineHeight;
         }
+        
+        // Add paragraph spacing
+        yPosition -= lineHeight * 0.5;
       }
       
       // Save PDF
       const pdfBytes = await translatedPdfDoc.save();
       await fs.promises.writeFile(translatedFilePath, pdfBytes);
-      console.log(`[Worker] PDF with images and translated text saved to: ${translatedFilePath}`);
+      console.log(`[Worker] Clean PDF with translated text saved to: ${translatedFilePath}`);
     } else {
       // For non-PDF files, save as text
       await fs.promises.writeFile(translatedFilePath, translatedText, 'utf-8');
