@@ -539,6 +539,23 @@ router.post('/admin/books/:bookId/translations/:translationId/pause',
       if (active) {
         active.worker.kill('SIGTERM');
         activeTranslations.delete(translationId);
+        
+        // Force Ollama to unload model immediately
+        try {
+          const apiUrl = process.env.OLLAMA_API_URL || 'http://localhost:11434';
+          await fetch(`${apiUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: '',
+              prompt: '',
+              keep_alive: 0
+            })
+          }).catch(() => {}); // Ignore errors
+          console.log(`[Translation ${translationId}] Sent Ollama model unload request`);
+        } catch (ollamaError) {
+          console.error(`[Translation ${translationId}] Failed to unload Ollama model:`, ollamaError);
+        }
       }
       
       // Update status to paused
