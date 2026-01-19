@@ -15,6 +15,7 @@ import fs from 'fs';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { parseStringPromise } from 'xml2js';
 
 // Flag to track if worker should stop
 let shouldStop = false;
@@ -274,8 +275,57 @@ async function processTranslation(job: TranslationJob) {
     } else if (fileType.includes('text/plain') || path.extname(originalFilePath).toLowerCase() === '.txt') {
       const fileContent = await fs.promises.readFile(originalFilePath, 'utf-8');
       textToTranslate = fileContent;
+    } else if (fileType.includes('fb2') || fileType.includes('fictionbook') || path.extname(originalFilePath).toLowerCase() === '.fb2') {
+      console.log(`[Worker] Extracting text from FB2...`);
+      try {
+        const fb2Content = await fs.promises.readFile(originalFilePath, 'utf-8');
+        const parsedXml = await parseStringPromise(fb2Content);
+        
+        // Extract text from FB2 structure (body -> section -> p)
+        const extractTextFromNode = (node: any): string => {
+          if (!node) return '';
+          
+          let text = '';
+          
+          // Handle text content
+          if (typeof node === 'string') {
+            return node;
+          }
+          
+          // Handle arrays
+          if (Array.isArray(node)) {
+            return node.map(extractTextFromNode).join('\n\n');
+          }
+          
+          // Handle objects
+          if (typeof node === 'object') {
+            // Direct text content
+            if (node._) {
+              text += node._;
+            }
+            
+            // Recursively process children
+            for (const key in node) {
+              if (key !== '_' && key !== '$') {
+                text += extractTextFromNode(node[key]);
+              }
+            }
+          }
+          
+          return text;
+        };
+        
+        // Extract from body sections
+        const body = parsedXml?.FictionBook?.body || [];
+        textToTranslate = extractTextFromNode(body);
+        
+        console.log(`[Worker] Extracted ${textToTranslate.length} characters from FB2`);
+      } catch (fb2Error) {
+        console.error(`[Worker] FB2 extraction failed:`, fb2Error);
+        throw new Error(`Failed to extract text from FB2: ${fb2Error}`);
+      }
     } else {
-      throw new Error(`Unsupported file type: ${fileType}. Only PDF and TXT files are supported for translation.`);
+      throw new Error(`Unsupported file type: ${fileType}. Supported formats: PDF, TXT, FB2`);
     }
     
     console.log(`[Worker] Extracted ${textToTranslate.length} characters`);
