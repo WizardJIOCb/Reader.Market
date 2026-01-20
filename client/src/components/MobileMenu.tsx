@@ -13,7 +13,7 @@ import {
   SheetPortal,
   SheetOverlay,
 } from '@/components/ui/sheet';
-import { Menu, BookOpen, Search, User, X, MessageCircle, Globe, Check, Rss, Shield } from 'lucide-react';
+import { Menu, BookOpen, Search, User, X, MessageCircle, Globe, Check, Rss, Shield, Home, Info, BookMarked, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { onSocketEvent } from '@/lib/socket';
 
@@ -194,7 +194,7 @@ export function MobileMenu() {
               style={isActive('/home') ? { color: '#f1680c' } : {}}
               aria-current={isActive('/home') ? 'page' : undefined}
             >
-              <BookOpen className="w-4 h-4" />
+              <Home className="w-4 h-4" />
               {t('navigation:home')}
             </Link>
           </SheetClose>
@@ -207,7 +207,7 @@ export function MobileMenu() {
               style={isActive('/') ? { color: '#f1680c' } : {}}
               aria-current={isActive('/') ? 'page' : undefined}
             >
-              <BookOpen className="w-4 h-4" />
+              <Info className="w-4 h-4" />
               {t('navigation:about')}
             </Link>
           </SheetClose>
@@ -233,7 +233,7 @@ export function MobileMenu() {
               style={isActive('/users') ? { color: '#f1680c' } : {}}
               aria-current={isActive('/users') ? 'page' : undefined}
             >
-              <User className="w-4 h-4" />
+              <Users className="w-4 h-4" />
               {t('navigation:users')}
             </Link>
           </SheetClose>
@@ -260,7 +260,7 @@ export function MobileMenu() {
                 style={isActive('/shelves') ? { color: '#f1680c' } : {}}
                 aria-current={isActive('/shelves') ? 'page' : undefined}
               >
-                <BookOpen className="w-4 h-4" />
+                <BookMarked className="w-4 h-4" />
                 {t('navigation:shelves')}
               </Link>
             </SheetClose>
