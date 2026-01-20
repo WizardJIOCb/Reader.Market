@@ -148,6 +148,15 @@ export function logUserAction(req: Request, res: Response, next: NextFunction): 
     return;
   }
 
+  // Update last activity timestamp for any authenticated request
+  setImmediate(async () => {
+    try {
+      await storage.updateUserLastActivity(user.userId);
+    } catch (error) {
+      console.error('[Action Logging] Failed to update last activity:', error);
+    }
+  });
+
   // Only log GET requests (navigation)
   if (req.method !== 'GET') {
     next();

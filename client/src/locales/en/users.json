@@ -1,0 +1,29 @@
+{
+  "title": "Users",
+  "searchPlaceholder": "Search by username or name...",
+  "sortBy": "Sort by",
+  "sortOptions": {
+    "rating": "Rating",
+    "shelves": "Shelves",
+    "books": "Books",
+    "comments": "Comments",
+    "reviews": "Reviews",
+    "lastActivity": "Last Activity"
+  },
+  "itemsPerPage": "Items per page",
+  "stats": {
+    "shelves": "Shelves",
+    "books": "Books",
+    "comments": "Comments",
+    "reviews": "Reviews"
+  },
+  "actions": {
+    "viewProfile": "View Profile",
+    "sendMessage": "Send Message"
+  },
+  "blocked": "Blocked",
+  "registeredAt": "Registered",
+  "lastActivity": "Last active",
+  "noUsers": "No users found",
+  "loading": "Loading users..."
+}

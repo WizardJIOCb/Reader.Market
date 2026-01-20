@@ -150,7 +150,13 @@ export default function Profile() {
   // Redirect to own profile if no userId specified and user is logged in
   useEffect(() => {
     if (!userId && currentUser?.username) {
-      setLocation(`/profile/${currentUser.username}`, { replace: true });
+      // Check if we came from /users page - if so, don't redirect
+      const referrer = document.referrer;
+      const isFromUsersPage = referrer.includes('/users');
+      
+      if (!isFromUsersPage) {
+        setLocation(`/profile/${currentUser.username}`, { replace: true });
+      }
     }
   }, [userId, currentUser, setLocation]);
 

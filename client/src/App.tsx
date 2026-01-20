@@ -26,6 +26,7 @@ import Messages from "@/pages/Messages";
 import NewsDetailPage from "@/pages/NewsDetailPage";
 import NewsListPage from "@/pages/NewsListPage";
 import StreamPage from "@/pages/StreamPage";
+import PublicUsers from "@/pages/PublicUsers";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/add-book" component={AddBook} />
       <Route path="/search" component={SearchPage} />
       <Route path="/stream" component={StreamPage} />
+      <Route path="/users" component={PublicUsers} />
       <Route path="/book/:bookId" component={BookDetail} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
       <Route path="/news" component={NewsListPage} />

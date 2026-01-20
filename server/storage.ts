@@ -127,6 +127,8 @@ export interface IStorage {
   getUserByUsernameCaseInsensitive(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, userData: Partial<InsertUser>): Promise<User>;
+  updateUserLastLogin(userId: string): Promise<void>;
+  updateUserLastActivity(userId: string): Promise<void>;
   
   // Book operations
   createBook(bookData: any): Promise<any>;
@@ -331,6 +333,15 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error updating user last login:", error);
       throw error;
+    }
+  }
+
+  async updateUserLastActivity(userId: string): Promise<void> {
+    try {
+      await db.update(users).set({ lastActivityAt: new Date() }).where(eq(users.id, userId));
+    } catch (error) {
+      console.error("Error updating user last activity:", error);
+      // Don't throw - this is a non-critical background operation
     }
   }
 
@@ -3309,6 +3320,7 @@ export class DBStorage implements IStorage {
         blockReason: users.blockReason,
         createdAt: users.createdAt,
         lastLoginAt: users.lastLoginAt,
+        lastActivityAt: users.lastActivityAt,
       })
       .from(users)
       .orderBy(desc(users.createdAt))
@@ -3342,6 +3354,7 @@ export class DBStorage implements IStorage {
         return {
           ...user,
           lastLogin: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+          lastActivity: user.lastActivityAt ? user.lastActivityAt.toISOString() : null,
           shelvesCount,
           booksOnShelvesCount,
           commentsCount,
@@ -3356,6 +3369,117 @@ export class DBStorage implements IStorage {
     }
   }
   
+  async getPublicUsers(
+    page: number = 1,
+    limit: number = 15,
+    search?: string,
+    sortBy: 'rating' | 'shelves' | 'books' | 'comments' | 'reviews' | 'lastActivity' = 'rating',
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): Promise<{ users: any[]; total: number }> {
+    try {
+      const offset = (page - 1) * limit;
+      
+      // Build the ORDER BY clause based on sortBy parameter and order
+      let orderByClause;
+      const orderDirection = sortOrder === 'asc' ? asc : desc;
+      
+      switch (sortBy) {
+        case 'shelves':
+          orderByClause = orderDirection(sql`shelves_count`);
+          break;
+        case 'books':
+          orderByClause = orderDirection(sql`books_count`);
+          break;
+        case 'comments':
+          orderByClause = orderDirection(sql`comments_count`);
+          break;
+        case 'reviews':
+          orderByClause = orderDirection(sql`reviews_count`);
+          break;
+        case 'lastActivity':
+          orderByClause = orderDirection(users.lastActivityAt);
+          break;
+        case 'rating':
+        default:
+          // Sort by rating, but put NULL values last regardless of order
+          if (sortOrder === 'asc') {
+            orderByClause = sql`${users.profileRating} ASC NULLS LAST`;
+          } else {
+            orderByClause = sql`${users.profileRating} DESC NULLS LAST`;
+          }
+          break;
+      }
+      
+      // Build WHERE clause for search
+      const whereClause = search
+        ? or(
+            ilike(users.username, `%${search}%`),
+            ilike(users.fullName, `%${search}%`)
+          )
+        : undefined;
+      
+      // Get users with aggregated statistics in a single query
+      const usersResult = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          fullName: users.fullName,
+          avatar: users.avatarUrl,
+          profileRating: users.profileRating,
+          registeredAt: users.createdAt,
+          lastActivityAt: users.lastActivityAt,
+          bio: users.bio,
+          isBlocked: users.isBlocked,
+          shelvesCount: sql<number>`COALESCE(COUNT(DISTINCT ${shelves.id}), 0)`.as('shelves_count'),
+          booksCount: sql<number>`COALESCE(COUNT(DISTINCT ${shelfBooks.id}), 0)`.as('books_count'),
+          commentsCount: sql<number>`COALESCE(COUNT(DISTINCT ${comments.id}), 0)`.as('comments_count'),
+          reviewsCount: sql<number>`COALESCE(COUNT(DISTINCT ${reviews.id}), 0)`.as('reviews_count'),
+        })
+        .from(users)
+        .leftJoin(shelves, eq(shelves.userId, users.id))
+        .leftJoin(shelfBooks, eq(shelfBooks.shelfId, shelves.id))
+        .leftJoin(comments, eq(comments.userId, users.id))
+        .leftJoin(reviews, eq(reviews.userId, users.id))
+        .where(whereClause)
+        .groupBy(users.id)
+        .orderBy(orderByClause)
+        .limit(limit)
+        .offset(offset);
+      
+      // Get total count for pagination
+      const countResult = await db
+        .select({
+          count: sql<number>`COUNT(DISTINCT ${users.id})`.as('count'),
+        })
+        .from(users)
+        .where(whereClause);
+      
+      const total = Number(countResult[0]?.count || 0);
+      
+      // Format the response
+      const formattedUsers = usersResult.map(user => ({
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        avatar: user.avatar,
+        profileRating: user.profileRating,
+        registeredAt: user.registeredAt,
+        lastActivityAt: user.lastActivityAt,
+        bio: user.bio,
+        isBlocked: user.isBlocked,
+        commentsCount: Number(user.commentsCount),
+        reviewsCount: Number(user.reviewsCount),
+        shelvesCount: Number(user.shelvesCount),
+        booksCount: Number(user.booksCount),
+      }));
+      
+      return { users: formattedUsers, total };
+    } catch (error) {
+      console.error("Error getting public users:", error);
+      throw error;
+    }
+  }
+
   async getRecentActivity(limit: number = 10): Promise<any[]> {
     try {
       // Get recent comments and reviews together, ordered by creation date

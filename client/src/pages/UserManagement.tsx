@@ -65,6 +65,7 @@ interface User {
   blockReason?: string | null;
   createdAt: string;
   lastLogin: string | null;
+  lastActivity: string | null;
   shelvesCount: number;
   booksOnShelvesCount: number;
   commentsCount: number;
@@ -431,6 +432,7 @@ const UserManagement: React.FC = () => {
                 <TableHead>{t('admin:users.status')}</TableHead>
                 <TableHead>{t('admin:users.registrationDate')}</TableHead>
                 <TableHead>{t('admin:users.lastLogin')}</TableHead>
+                <TableHead>{t('admin:users.lastActivity')}</TableHead>
                 <TableHead>{t('admin:users.shelves')}</TableHead>
                 <TableHead>{t('admin:users.books')}</TableHead>
                 <TableHead>{t('admin:users.comments')}</TableHead>
@@ -478,6 +480,7 @@ const UserManagement: React.FC = () => {
                   </TableCell>
                   <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>{formatDate(user.lastLogin)}</TableCell>
+                  <TableCell>{formatDate(user.lastActivity)}</TableCell>
                   <TableCell>{user.shelvesCount}</TableCell>
                   <TableCell>{user.booksOnShelvesCount}</TableCell>
                   <TableCell>{user.commentsCount}</TableCell>

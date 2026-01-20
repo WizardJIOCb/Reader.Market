@@ -150,6 +150,16 @@ export function Navbar() {
               <span className="hidden sm:inline">{t('navigation:stream')}</span>
             </Link>
             <Link 
+              href="/users" 
+              className={`text-sm hover:text-primary transition-colors cursor-pointer ${
+                isActive('/users') ? 'font-semibold' : ''
+              }`}
+              style={isActive('/users') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/users') ? 'page' : undefined}
+            >
+              {t('navigation:users')}
+            </Link>
+            <Link 
               href="/search" 
               className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
                 isActive('/search') ? 'font-semibold' : ''

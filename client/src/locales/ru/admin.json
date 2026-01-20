@@ -255,6 +255,7 @@
     "status": "Статус",
     "registrationDate": "Дата регистрации",
     "lastLogin": "Последний вход",
+    "lastActivity": "Последнее действие",
     "shelves": "Полки",
     "books": "Книги",
     "comments": "Комментарии",

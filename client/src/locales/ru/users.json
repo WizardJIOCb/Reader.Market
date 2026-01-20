@@ -1,0 +1,29 @@
+{
+  "title": "Пользователи",
+  "searchPlaceholder": "Поиск по имени или логину...",
+  "sortBy": "Сортировать по",
+  "sortOptions": {
+    "rating": "Рейтингу",
+    "shelves": "Полкам",
+    "books": "Книгам",
+    "comments": "Комментариям",
+    "reviews": "Рецензиям",
+    "lastActivity": "Последней активности"
+  },
+  "itemsPerPage": "Записей на странице",
+  "stats": {
+    "shelves": "Полок",
+    "books": "Книг",
+    "comments": "Комментариев",
+    "reviews": "Рецензий"
+  },
+  "actions": {
+    "viewProfile": "Перейти в профиль",
+    "sendMessage": "Написать сообщение"
+  },
+  "blocked": "Заблокирован",
+  "registeredAt": "Регистрация",
+  "lastActivity": "Последний визит",
+  "noUsers": "Пользователи не найдены",
+  "loading": "Загрузка пользователей..."
+}

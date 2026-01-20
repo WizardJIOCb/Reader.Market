@@ -610,6 +610,42 @@ export async function registerRoutes(
     }
   });
   
+  // Get public users list with search, sort, and pagination
+  app.get("/api/public/users", async (req, res) => {
+    try {
+      // Parse and validate query parameters
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const rawLimit = parseInt(req.query.limit as string) || 9;
+      const limit = [3, 6, 9, 12].includes(rawLimit) ? rawLimit : 9; // Validate limit
+      const search = req.query.search as string | undefined;
+      const rawSortBy = req.query.sortBy as string || 'rating';
+      const sortOrder = (req.query.order as string) === 'asc' ? 'asc' : 'desc';
+      
+      // Whitelist sortBy parameter to prevent SQL injection
+      const allowedSortOptions = ['rating', 'shelves', 'books', 'comments', 'reviews', 'lastActivity'];
+      const sortBy = allowedSortOptions.includes(rawSortBy) 
+        ? rawSortBy as 'rating' | 'shelves' | 'books' | 'comments' | 'reviews' | 'lastActivity'
+        : 'rating';
+      
+      const { users, total } = await storage.getPublicUsers(page, limit, search, sortBy, sortOrder);
+      
+      const pages = Math.ceil(total / limit);
+      
+      res.json({
+        users,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages
+        }
+      });
+    } catch (error) {
+      console.error('[API] Error fetching public users:', error);
+      res.status(500).json({ error: 'Failed to fetch users' });
+    }
+  });
+  
   // User registration
   app.post("/api/auth/register", async (req, res) => {
     console.log("Registration endpoint called");
@@ -3823,6 +3859,7 @@ export async function registerRoutes(
             u.block_reason as "blockReason",
             u.created_at as "createdAt",
             u.last_login_at as "lastLogin",
+            u.last_activity_at as "lastActivity",
             COUNT(DISTINCT s.id)::text as "shelvesCount",
             COUNT(DISTINCT sb.book_id)::text as "booksOnShelvesCount",
             COUNT(DISTINCT c.id)::text as "commentsCount",
@@ -3836,7 +3873,7 @@ export async function registerRoutes(
             LOWER(u.username) LIKE LOWER(${searchPattern}) OR
             LOWER(u.full_name) LIKE LOWER(${searchPattern}) OR
             LOWER(u.email) LIKE LOWER(${searchPattern})
-          GROUP BY u.id, u.username, u.full_name, u.email, u.access_level, u.is_blocked, u.block_reason, u.created_at, u.updated_at
+          GROUP BY u.id, u.username, u.full_name, u.email, u.access_level, u.is_blocked, u.block_reason, u.created_at, u.updated_at, u.last_login_at, u.last_activity_at
           ORDER BY u.created_at DESC
           LIMIT ${limit} OFFSET ${offset}
         `);

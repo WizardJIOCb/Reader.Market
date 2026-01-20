@@ -217,6 +217,7 @@
     "status": "Status",
     "registrationDate": "Registration Date",
     "lastLogin": "Last Login",
+    "lastActivity": "Last Activity",
     "shelves": "Shelves",
     "books": "Books",
     "comments": "Comments",

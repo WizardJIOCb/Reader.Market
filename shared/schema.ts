@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   profileRating: numeric("profile_rating", { precision: 3, scale: 1 }), // Average profile rating from profile_ratings
   language: varchar("language", { length: 10 }).default('en'), // User's preferred language
   lastLoginAt: timestamp("last_login_at"), // Last successful login timestamp
+  lastActivityAt: timestamp("last_activity_at"), // Last user activity (any action on site)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
