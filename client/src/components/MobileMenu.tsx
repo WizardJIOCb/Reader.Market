@@ -189,7 +189,7 @@ export function MobileMenu() {
             <Link 
               href="/home" 
               className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                isActive('/home') ? 'font-semibold bg-accent/10' : ''
+                isActive('/home') ? 'bg-[#f1680c]/10' : ''
               }`}
               style={isActive('/home') ? { color: '#f1680c' } : {}}
               aria-current={isActive('/home') ? 'page' : undefined}
@@ -202,7 +202,7 @@ export function MobileMenu() {
             <Link 
               href="/stream" 
               className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                isActive('/stream') ? 'font-semibold bg-accent/10' : ''
+                isActive('/stream') ? 'bg-[#f1680c]/10' : ''
               }`}
               style={isActive('/stream') ? { color: '#f1680c' } : {}}
               aria-current={isActive('/stream') ? 'page' : undefined}
@@ -215,7 +215,7 @@ export function MobileMenu() {
             <Link 
               href="/users" 
               className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                isActive('/users') ? 'font-semibold bg-accent/10' : ''
+                isActive('/users') ? 'bg-[#f1680c]/10' : ''
               }`}
               style={isActive('/users') ? { color: '#f1680c' } : {}}
               aria-current={isActive('/users') ? 'page' : undefined}
@@ -228,7 +228,7 @@ export function MobileMenu() {
             <Link 
               href="/search" 
               className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                isActive('/search') ? 'font-semibold bg-accent/10' : ''
+                isActive('/search') ? 'bg-[#f1680c]/10' : ''
               }`}
               style={isActive('/search') ? { color: '#f1680c' } : {}}
               aria-current={isActive('/search') ? 'page' : undefined}
@@ -242,7 +242,7 @@ export function MobileMenu() {
               <Link 
                 href="/shelves" 
                 className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                  isActive('/shelves') ? 'font-semibold bg-accent/10' : ''
+                  isActive('/shelves') ? 'bg-[#f1680c]/10' : ''
                 }`}
                 style={isActive('/shelves') ? { color: '#f1680c' } : {}}
                 aria-current={isActive('/shelves') ? 'page' : undefined}
@@ -256,7 +256,7 @@ export function MobileMenu() {
             <Link 
               href="/" 
               className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                isActive('/') ? 'font-semibold bg-accent/10' : ''
+                isActive('/') ? 'bg-[#f1680c]/10' : ''
               }`}
               style={isActive('/') ? { color: '#f1680c' } : {}}
               aria-current={isActive('/') ? 'page' : undefined}
@@ -270,7 +270,7 @@ export function MobileMenu() {
               <Link 
                 href="/messages" 
                 className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                  isActive('/messages', false) ? 'font-semibold bg-accent/10' : ''
+                  isActive('/messages', false) ? 'bg-[#f1680c]/10' : ''
                 }`}
                 style={isActive('/messages', false) ? { color: '#f1680c' } : {}}
                 aria-current={isActive('/messages', false) ? 'page' : undefined}
@@ -292,7 +292,7 @@ export function MobileMenu() {
               <Link 
                 href={`/profile/${user.username}`} 
                 className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                  isActive('/profile', false) ? 'font-semibold bg-accent/10' : ''
+                  isActive('/profile', false) ? 'bg-[#f1680c]/10' : ''
                 }`}
                 style={isActive('/profile', false) ? { color: '#f1680c' } : {}}
                 aria-current={isActive('/profile', false) ? 'page' : undefined}
@@ -317,7 +317,7 @@ export function MobileMenu() {
               <Link 
                 href="/admin" 
                 className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                  isActive('/admin', false) ? 'font-semibold bg-accent/10' : ''
+                  isActive('/admin', false) ? 'bg-[#f1680c]/10' : ''
                 }`}
                 style={isActive('/admin', false) ? { color: '#f1680c' } : {}}
                 aria-current={isActive('/admin', false) ? 'page' : undefined}
@@ -339,7 +339,7 @@ export function MobileMenu() {
                 key={lang.code}
                 onClick={() => handleLanguageChange(lang.code)}
                 className={`w-full px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center justify-between ${
-                  i18n.language === lang.code ? 'bg-accent/50' : ''
+                  i18n.language === lang.code ? 'bg-[#f1680c]/10' : ''
                 }`}
               >
                 <div className="flex items-center gap-2">
