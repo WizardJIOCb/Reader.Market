@@ -102,16 +102,26 @@
     @apply border-border;
   }
   html {
-    @apply h-full overflow-y-scroll;
+    @apply h-full;
+    overflow-y: scroll;
+    width: 100vw;
+    overflow-x: hidden;
   }
   body {
-    @apply h-full;
+    @apply h-full font-sans antialiased bg-background text-foreground;
+    overflow-x: hidden;
   }
+  
+  /* Prevent layout shift when body scroll is locked */
+  body[style*="overflow: hidden"],
+  body[style*="overflow:hidden"] {
+    overflow-y: scroll !important;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+  }
+  
   #root {
     @apply h-full;
-  }
-  body {
-    @apply font-sans antialiased bg-background text-foreground;
   }
   
   /* Ensure all interactive elements have pointer cursor */

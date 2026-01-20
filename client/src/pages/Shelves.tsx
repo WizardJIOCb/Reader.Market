@@ -295,6 +295,8 @@ export default function Shelves() {
         <div className="mb-8 flex justify-between items-center">
           <h1 className="font-serif text-2xl font-bold">{t('shelves:title')}</h1>
           <div className="flex items-center gap-2">
+            <BookListSortSelector value={shelfSortBy} direction={shelfSortDir} onDirectionChange={setShelfSortDir} onChange={setShelfSortBy} />
+            
             <Link href="/add-book">
               <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
                 <BookPlus className="w-4 h-4" />
@@ -360,7 +362,6 @@ export default function Shelves() {
                 <Search className="w-4 h-4" />
                 {t('shelves:globalSearchResults')}
               </h2>
-              <BookListSortSelector value={searchSortBy} direction={searchSortDir} onDirectionChange={setSearchSortDir} onChange={setSearchSortBy} />
             </div>
             {isSearching ? (
               <div className="flex justify-center py-8">
@@ -527,11 +528,6 @@ export default function Shelves() {
 
         {/* Shelves Grid */}
         <div className="space-y-12">
-          {!searchQuery && shelves.length > 0 && (
-            <div className="flex justify-end mb-4">
-              <BookListSortSelector value={shelfSortBy} direction={shelfSortDir} onDirectionChange={setShelfSortDir} onChange={setShelfSortBy} />
-            </div>
-          )}
           {shelves.map((shelf) => (
             <section key={shelf.id} className="relative group">
               <div className="flex items-baseline justify-between mb-4">
