@@ -79,7 +79,7 @@ export function Navbar() {
   if (isLoading) {
     return (
       <nav className="bg-background border-b">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">
             <img src="/favicon.png" alt="Reader.Market Logo" className="w-6 h-6" />
             Reader.Market
@@ -92,7 +92,7 @@ export function Navbar() {
 
   return (
     <nav className="bg-background border-b">
-      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">
             <img src="/favicon.png" alt="Reader.Market Logo" className="w-6 h-6" />
@@ -224,7 +224,9 @@ export function Navbar() {
                 <span className="hidden 2xl:inline">{t('navigation:profile')}</span>
               </Link>
             )}
-            <LanguageSwitcher />
+            <div className="-ml-2 -mt-0.5">
+              <LanguageSwitcher />
+            </div>
           </div>
         )}
       </div>

@@ -102,7 +102,7 @@ export function LanguageSwitcher({ variant = 'icon', className = '' }: LanguageS
         <Button
           variant="ghost"
           size={variant === 'icon' ? 'icon' : 'sm'}
-          className={`cursor-pointer overflow-visible ${className}`}
+          className={`cursor-pointer overflow-visible pl-0 ${className}`}
           aria-label={t('navigation:language')}
         >
           {currentLanguage.icon}
