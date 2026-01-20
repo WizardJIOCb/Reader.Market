@@ -168,7 +168,7 @@ const LandingPage = () => {
       <NewsBlock limit={3} showViewAllButton={true} />
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 bg-muted/30">
+      <section id="how-it-works" className="py-20 bg-[#f7f4f0]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('landing:howItWorksTitle')}</h2>
@@ -258,7 +258,7 @@ const LandingPage = () => {
       </section>
 
       {/* Popular Books Section */}
-      <section className="py-20 bg-muted/30">
+      <section className="py-20 bg-[#f7f4f0]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <div className="flex items-center justify-center gap-3 mb-4">
@@ -386,7 +386,7 @@ const LandingPage = () => {
       </section>
 
       {/* Format Support Section */}
-      <section className="py-20 bg-muted/30">
+      <section className="py-20 bg-[#f7f4f0]">
         <div className="container mx-auto px-4 text-center max-w-3xl">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('landing:formatsTitle')}</h2>
           
