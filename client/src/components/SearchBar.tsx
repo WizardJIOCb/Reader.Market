@@ -116,7 +116,6 @@ export function SearchBar({
             className="w-full pr-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            autoFocus={initialQuery === ''}
           />
           {searchQuery && (
             <button 

@@ -292,40 +292,21 @@ export default function Shelves() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="mb-8">
-          <h1 className="font-serif text-2xl font-bold mb-2">{t('shelves:title')}</h1>
-        </div>
-        
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8 flex justify-between items-center">
+          <h1 className="font-serif text-2xl font-bold">{t('shelves:title')}</h1>
           <div className="flex items-center gap-2">
-            <Link href="/profile/user1">
-               <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
-                 <User className="w-5 h-5" />
-               </Button>
-            </Link>
-
-            <div className="relative w-full max-w-xs hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder={t('shelves:searchBooks')} 
-                className="pl-9 bg-muted/30 border-none focus-visible:ring-1"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
             <Link href="/add-book">
-              <Button className="gap-2">
+              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
                 <BookPlus className="w-4 h-4" />
-                <span className="sm:inline">{t('shelves:newBook')}</span>
+                <span className="hidden sm:inline">{t('shelves:newBook')}</span>
               </Button>
             </Link>
             
             <Dialog open={isAddShelfOpen} onOpenChange={setIsAddShelfOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
                   <Library className="w-4 h-4" />
-                  <span className="sm:inline">{t('shelves:newShelf')}</span>
+                  <span className="hidden sm:inline">{t('shelves:newShelf')}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -348,18 +329,27 @@ export default function Shelves() {
             </Dialog>
           </div>
         </div>
-
-        {/* Mobile Search */}
-        <div className="md:hidden mb-8">
-           <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder={t('shelves:searchBooks')} 
-                className="pl-9 bg-muted/30 border-none"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+        
+        {/* Controls */}
+        <div className="mb-6 flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Input 
+              type="text"
+              placeholder={t('shelves:searchBooks')} 
+              className="w-full pr-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Global Search Results (if search query exists) */}
