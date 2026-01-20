@@ -130,17 +130,6 @@ export function Navbar() {
               <span className="hidden sm:inline">{t('navigation:home')}</span>
             </Link>
             <Link 
-              href="/" 
-              className={`flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer ${
-                isActive('/') ? 'font-semibold' : ''
-              }`}
-              style={isActive('/') ? { color: '#f1680c' } : {}}
-              aria-current={isActive('/') ? 'page' : undefined}
-            >
-              <Info className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('navigation:about')}</span>
-            </Link>
-            <Link 
               href="/stream" 
               className={`flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer ${
                 isActive('/stream') ? 'font-semibold' : ''
@@ -186,6 +175,17 @@ export function Navbar() {
                 <span className="hidden sm:inline">{t('navigation:shelves')}</span>
               </Link>
             )}
+            <Link 
+              href="/" 
+              className={`flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer ${
+                isActive('/') ? 'font-semibold' : ''
+              }`}
+              style={isActive('/') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/') ? 'page' : undefined}
+            >
+              <Info className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('navigation:about')}</span>
+            </Link>
             {user && (
               <Link 
                 href="/messages" 
