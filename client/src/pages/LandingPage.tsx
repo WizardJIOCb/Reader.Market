@@ -130,6 +130,11 @@ const LandingPage = () => {
       {/* Hero Section */}
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4 text-center max-w-4xl">
+          <img 
+            src="/reader.market.png" 
+            alt="Reader.Market Logo" 
+            className="w-full max-w-[510px] h-auto mx-auto mb-8"
+          />
           <h1 className="text-4xl md:text-6xl font-bold mb-6 font-serif">
             {isEarlyAdopter ? t('landing:heroTitleEarly') : t('landing:heroTitle')}
           </h1>
@@ -140,7 +145,7 @@ const LandingPage = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">
-              <Button size="lg" className="px-8 py-6 text-lg">
+              <Button size="lg" className="px-8 py-6 text-lg bg-[#7a9a4a] hover:bg-[#6b8b3a] text-white border-none">
                 {isEarlyAdopter ? t('landing:joinEarlyAccess') : t('landing:getStarted')}
               </Button>
             </Link>
@@ -151,7 +156,7 @@ const LandingPage = () => {
                 element.scrollIntoView({ behavior: 'smooth' });
               }
             }}>
-              <Button size="lg" variant="outline" className="px-8 py-6 text-lg">
+              <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#d76b24] hover:bg-[#c25e1f] text-white border-none">
                 {t('landing:seeHowItWorks')}
               </Button>
             </a>
