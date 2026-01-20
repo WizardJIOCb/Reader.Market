@@ -101,7 +101,13 @@
   * {
     @apply border-border;
   }
-  html, body, #root {
+  html {
+    @apply h-full overflow-y-scroll;
+  }
+  body {
+    @apply h-full;
+  }
+  #root {
     @apply h-full;
   }
   body {
