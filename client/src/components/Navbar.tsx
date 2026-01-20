@@ -116,7 +116,7 @@ export function Navbar() {
         {isMobile ? (
           <MobileMenu />
         ) : (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Show navigation menu for all users */}
             <Link 
               href="/home" 
@@ -140,7 +140,7 @@ export function Navbar() {
             </Link>
             <Link 
               href="/stream" 
-              className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
+              className={`flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer ${
                 isActive('/stream') ? 'font-semibold' : ''
               }`}
               style={isActive('/stream') ? { color: '#f1680c' } : {}}
@@ -161,7 +161,7 @@ export function Navbar() {
             </Link>
             <Link 
               href="/search" 
-              className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
+              className={`flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer ${
                 isActive('/search') ? 'font-semibold' : ''
               }`}
               style={isActive('/search') ? { color: '#f1680c' } : {}}
@@ -185,7 +185,7 @@ export function Navbar() {
             {user && (
               <Link 
                 href="/messages" 
-                className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer relative ${
+                className={`flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer relative ${
                   isActive('/messages', false) ? 'font-semibold' : ''
                 }`}
                 style={isActive('/messages', false) ? { color: '#f1680c' } : {}}
@@ -205,19 +205,19 @@ export function Navbar() {
             {user ? (
               <Link 
                 href={`/profile/${user.username}`} 
-                className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
+                className={`flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer ${
                   isActive('/profile', false) ? 'font-semibold' : ''
                 }`}
                 style={isActive('/profile', false) ? { color: '#f1680c' } : {}}
                 aria-current={isActive('/profile', false) ? 'page' : undefined}
               >
                 <User className="w-4 h-4" />
-                <span>{t('navigation:profile')} ({user.username})</span>
+                <span className="hidden 2xl:inline">{t('navigation:profile')} ({user.username})</span>
               </Link>
             ) : (
-              <Link href="/login" className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
+              <Link href="/login" className="flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer">
                 <User className="w-4 h-4" />
-                <span>{t('navigation:profile')}</span>
+                <span className="hidden 2xl:inline">{t('navigation:profile')}</span>
               </Link>
             )}
             <LanguageSwitcher />

@@ -405,18 +405,20 @@ const PublicUsers: React.FC = () => {
                   </div>
 
                   {/* Quick Actions - at bottom */}
-                  <div className="flex gap-2 mt-auto">
-                    <Button asChild variant="outline" className="flex-1" size="sm">
-                      <Link to={`/profile/${user.id}`}>{t('actions.viewProfile')}</Link>
+                  <div className="flex flex-col lg:flex-row gap-2 mt-auto">
+                    <Button asChild variant="outline" className="flex-1 min-w-0" size="sm">
+                      <Link to={`/profile/${user.id}`} className="truncate px-2">
+                        {t('actions.viewProfile')}
+                      </Link>
                     </Button>
                     <Button
                       variant="default"
-                      className="flex-1"
+                      className="flex-1 min-w-0 px-2"
                       size="sm"
                       onClick={() => handleSendMessage(user.id, user.username)}
                     >
-                      <MessageSquare className="h-4 w-4 mr-1" />
-                      {t('actions.sendMessage')}
+                      <MessageSquare className="h-4 w-4 mr-1 shrink-0" />
+                      <span className="truncate">{t('actions.sendMessage')}</span>
                     </Button>
                   </div>
                 </CardContent>
