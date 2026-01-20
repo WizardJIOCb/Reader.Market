@@ -102,14 +102,13 @@
     @apply border-border;
   }
   html {
-    @apply h-full;
     overflow-y: scroll;
-    width: 100vw;
     overflow-x: hidden;
   }
   body {
-    @apply h-full font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background text-foreground;
     overflow-x: hidden;
+    min-height: 100vh;
   }
   
   /* Prevent layout shift when body scroll is locked */
@@ -121,12 +120,7 @@
   }
   
   #root {
-    @apply h-full;
-  }
-  
-  /* Ensure consistent viewport width by always showing scrollbar */
-  main {
-    min-height: calc(100vh + 1px);
+    min-height: 100vh;
   }
   
   /* Ensure all interactive elements have pointer cursor */
