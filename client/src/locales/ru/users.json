@@ -8,7 +8,8 @@
     "books": "Книгам",
     "comments": "Комментариям",
     "reviews": "Рецензиям",
-    "lastActivity": "Последней активности"
+    "lastActivity": "Последней активности",
+    "registered": "Дате регистрации"
   },
   "itemsPerPage": "Записей на странице",
   "stats": {

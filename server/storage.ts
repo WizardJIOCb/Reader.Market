@@ -3373,42 +3373,11 @@ export class DBStorage implements IStorage {
     page: number = 1,
     limit: number = 15,
     search?: string,
-    sortBy: 'rating' | 'shelves' | 'books' | 'comments' | 'reviews' | 'lastActivity' = 'rating',
+    sortBy: 'rating' | 'shelves' | 'books' | 'comments' | 'reviews' | 'lastActivity' | 'registered' = 'rating',
     sortOrder: 'asc' | 'desc' = 'desc'
   ): Promise<{ users: any[]; total: number }> {
     try {
       const offset = (page - 1) * limit;
-      
-      // Build the ORDER BY clause based on sortBy parameter and order
-      let orderByClause;
-      const orderDirection = sortOrder === 'asc' ? asc : desc;
-      
-      switch (sortBy) {
-        case 'shelves':
-          orderByClause = orderDirection(sql`shelves_count`);
-          break;
-        case 'books':
-          orderByClause = orderDirection(sql`books_count`);
-          break;
-        case 'comments':
-          orderByClause = orderDirection(sql`comments_count`);
-          break;
-        case 'reviews':
-          orderByClause = orderDirection(sql`reviews_count`);
-          break;
-        case 'lastActivity':
-          orderByClause = orderDirection(users.lastActivityAt);
-          break;
-        case 'rating':
-        default:
-          // Sort by rating, but put NULL values last regardless of order
-          if (sortOrder === 'asc') {
-            orderByClause = sql`${users.profileRating} ASC NULLS LAST`;
-          } else {
-            orderByClause = sql`${users.profileRating} DESC NULLS LAST`;
-          }
-          break;
-      }
       
       // Build WHERE clause for search
       const whereClause = search
@@ -3418,8 +3387,93 @@ export class DBStorage implements IStorage {
           )
         : undefined;
       
+      // For registered sorting, we need to use raw SQL to ensure correct ordering
+      if (sortBy === 'registered') {
+        const orderDirection = sortOrder === 'asc' ? 'ASC' : 'DESC';
+        const searchCondition = search 
+          ? `WHERE (LOWER(u.username) LIKE LOWER('%${search}%') OR LOWER(u.full_name) LIKE LOWER('%${search}%'))`
+          : '';
+        
+        const rawQuery = `
+          SELECT 
+            u.id,
+            u.username,
+            u.full_name as "fullName",
+            u.avatar_url as avatar,
+            u.profile_rating as "profileRating",
+            u.created_at as "registeredAt",
+            u.last_activity_at as "lastActivityAt",
+            u.bio,
+            u.is_blocked as "isBlocked",
+            COALESCE(COUNT(DISTINCT s.id), 0)::int as "shelvesCount",
+            COALESCE(COUNT(DISTINCT sb.id), 0)::int as "booksCount",
+            COALESCE(COUNT(DISTINCT c.id), 0)::int as "commentsCount",
+            COALESCE(COUNT(DISTINCT r.id), 0)::int as "reviewsCount"
+          FROM users u
+          LEFT JOIN shelves s ON s.user_id = u.id
+          LEFT JOIN shelf_books sb ON sb.shelf_id = s.id
+          LEFT JOIN comments c ON c.user_id = u.id
+          LEFT JOIN reviews r ON r.user_id = u.id
+          ${searchCondition}
+          GROUP BY u.id, u.username, u.full_name, u.avatar_url, u.profile_rating, u.created_at, u.last_activity_at, u.bio, u.is_blocked
+          ORDER BY u.created_at ${orderDirection}
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        
+        console.log('REGISTERED SORT SQL:', rawQuery);
+        console.log('Order direction:', orderDirection, 'sortOrder:', sortOrder);
+        
+        const finalResult = await db.execute(sql.raw(rawQuery));
+        
+        console.log('First 3 results:', finalResult.rows.slice(0, 3).map((r: any) => ({ username: r.username, registeredAt: r.registeredAt })));
+        
+        // Get total count
+        const countQuery = search
+          ? `SELECT COUNT(DISTINCT u.id)::int as count FROM users u WHERE (LOWER(u.username) LIKE LOWER('%${search}%') OR LOWER(u.full_name) LIKE LOWER('%${search}%'))`
+          : `SELECT COUNT(DISTINCT id)::int as count FROM users`;
+        
+        const countResult = await db.execute(sql.raw(countQuery));
+        const total = countResult.rows[0]?.count || 0;
+        
+        const formattedUsers = finalResult.rows.map((user: any) => ({
+          id: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          avatar: user.avatar,
+          profileRating: user.profileRating,
+          registeredAt: user.registeredAt,
+          lastActivityAt: user.lastActivityAt,
+          bio: user.bio,
+          isBlocked: user.isBlocked,
+          commentsCount: user.commentsCount,
+          reviewsCount: user.reviewsCount,
+          shelvesCount: user.shelvesCount,
+          booksCount: user.booksCount,
+        }));
+        
+        return { users: formattedUsers, total };
+      }
+      
+      // For other sorting options, use the ORM
+      let orderByClause;
+      
+      if (sortBy === 'shelves') {
+        orderByClause = sortOrder === 'asc' ? sql`COUNT(DISTINCT ${shelves.id}) ASC` : sql`COUNT(DISTINCT ${shelves.id}) DESC`;
+      } else if (sortBy === 'books') {
+        orderByClause = sortOrder === 'asc' ? sql`COUNT(DISTINCT ${shelfBooks.id}) ASC` : sql`COUNT(DISTINCT ${shelfBooks.id}) DESC`;
+      } else if (sortBy === 'comments') {
+        orderByClause = sortOrder === 'asc' ? sql`COUNT(DISTINCT ${comments.id}) ASC` : sql`COUNT(DISTINCT ${comments.id}) DESC`;
+      } else if (sortBy === 'reviews') {
+        orderByClause = sortOrder === 'asc' ? sql`COUNT(DISTINCT ${reviews.id}) ASC` : sql`COUNT(DISTINCT ${reviews.id}) DESC`;
+      } else if (sortBy === 'lastActivity') {
+        orderByClause = sortOrder === 'asc' ? sql`${users.lastActivityAt} ASC NULLS LAST` : sql`${users.lastActivityAt} DESC NULLS LAST`;
+      } else {
+        // rating
+        orderByClause = sortOrder === 'asc' ? sql`${users.profileRating} ASC NULLS LAST` : sql`${users.profileRating} DESC NULLS LAST`;
+      }
+      
       // Get users with aggregated statistics in a single query
-      const usersResult = await db
+      const finalResult = await db
         .select({
           id: users.id,
           username: users.username,
@@ -3441,7 +3495,17 @@ export class DBStorage implements IStorage {
         .leftJoin(comments, eq(comments.userId, users.id))
         .leftJoin(reviews, eq(reviews.userId, users.id))
         .where(whereClause)
-        .groupBy(users.id)
+        .groupBy(
+          users.id,
+          users.username,
+          users.fullName,
+          users.avatarUrl,
+          users.profileRating,
+          users.createdAt,
+          users.lastActivityAt,
+          users.bio,
+          users.isBlocked
+        )
         .orderBy(orderByClause)
         .limit(limit)
         .offset(offset);
@@ -3457,7 +3521,7 @@ export class DBStorage implements IStorage {
       const total = Number(countResult[0]?.count || 0);
       
       // Format the response
-      const formattedUsers = usersResult.map(user => ({
+      const formattedUsers = finalResult.map(user => ({
         id: user.id,
         username: user.username,
         fullName: user.fullName,

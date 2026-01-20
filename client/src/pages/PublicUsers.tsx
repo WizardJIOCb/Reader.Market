@@ -264,6 +264,7 @@ const PublicUsers: React.FC = () => {
               <SelectItem value="comments">{t('sortOptions.comments')}</SelectItem>
               <SelectItem value="reviews">{t('sortOptions.reviews')}</SelectItem>
               <SelectItem value="lastActivity">{t('sortOptions.lastActivity')}</SelectItem>
+              <SelectItem value="registered">{t('sortOptions.registered')}</SelectItem>
             </SelectContent>
           </Select>
 

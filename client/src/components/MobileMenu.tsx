@@ -226,6 +226,19 @@ export function MobileMenu() {
           </SheetClose>
           <SheetClose asChild>
             <Link 
+              href="/users" 
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/users') ? 'font-semibold bg-accent/10' : ''
+              }`}
+              style={isActive('/users') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/users') ? 'page' : undefined}
+            >
+              <User className="w-4 h-4" />
+              {t('navigation:users')}
+            </Link>
+          </SheetClose>
+          <SheetClose asChild>
+            <Link 
               href="/search" 
               className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
                 isActive('/search') ? 'font-semibold bg-accent/10' : ''

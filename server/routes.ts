@@ -622,9 +622,9 @@ export async function registerRoutes(
       const sortOrder = (req.query.order as string) === 'asc' ? 'asc' : 'desc';
       
       // Whitelist sortBy parameter to prevent SQL injection
-      const allowedSortOptions = ['rating', 'shelves', 'books', 'comments', 'reviews', 'lastActivity'];
+      const allowedSortOptions = ['rating', 'shelves', 'books', 'comments', 'reviews', 'lastActivity', 'registered'];
       const sortBy = allowedSortOptions.includes(rawSortBy) 
-        ? rawSortBy as 'rating' | 'shelves' | 'books' | 'comments' | 'reviews' | 'lastActivity'
+        ? rawSortBy as 'rating' | 'shelves' | 'books' | 'comments' | 'reviews' | 'lastActivity' | 'registered'
         : 'rating';
       
       const { users, total } = await storage.getPublicUsers(page, limit, search, sortBy, sortOrder);
