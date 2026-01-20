@@ -124,6 +124,11 @@
     @apply h-full;
   }
   
+  /* Ensure consistent viewport width by always showing scrollbar */
+  main {
+    min-height: calc(100vh + 1px);
+  }
+  
   /* Ensure all interactive elements have pointer cursor */
   button,
   a,
