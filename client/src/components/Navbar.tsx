@@ -78,7 +78,7 @@ export function Navbar() {
 
   if (isLoading) {
     return (
-      <nav className="bg-background border-b">
+      <nav className="bg-background border-b fixed top-0 left-0 right-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">
             <img src="/favicon.png" alt="Reader.Market Logo" className="w-6 h-6" />
@@ -91,7 +91,7 @@ export function Navbar() {
   }
 
   return (
-    <nav className="bg-background border-b">
+    <nav className="bg-background border-b fixed top-0 left-0 right-0 z-50">
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <Link href="/" className="text-xl font-bold flex items-center gap-2 cursor-pointer">

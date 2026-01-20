@@ -21,6 +21,7 @@ import {
   PaginationPrevious
 } from '../components/ui/pagination';
 import { useToast } from '../hooks/use-toast';
+import { usePageView } from '../hooks/usePageView';
 import { User, MessageSquare, BookMarked, MessageCircle, Star, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { formatAbsoluteDateTime } from '../lib/dateUtils';
 import { ru, enUS } from 'date-fns/locale';
@@ -59,6 +60,9 @@ const PublicUsers: React.FC = () => {
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+  
+  // Track page view for navigation logging
+  usePageView('users');
   
   // Parse URL params helper
   const getUrlParams = () => {

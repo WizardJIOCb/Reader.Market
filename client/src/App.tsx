@@ -140,7 +140,7 @@ function App() {
           <div className="flex flex-col min-h-screen">
             <Toaster />
             <Navbar />
-            <main className="flex-1">
+            <main className="flex-1 pt-14">
               <Router />
             </main>
             {!isReaderPage && !isMessagesPage && <Footer />}

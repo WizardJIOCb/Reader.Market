@@ -13,8 +13,7 @@ import {
   FileText,
   Users,
   GraduationCap,
-  Search,
-  TrendingUp
+  Search
 } from 'lucide-react';
 
 const LandingPage = () => {
@@ -164,8 +163,39 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* News Section */}
-      <NewsBlock limit={3} showViewAllButton={true} />
+      {/* Popular Books Section */}
+      <section className="py-20 bg-[#f7f4f0]">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold font-serif mb-4">{t('landing:popularBooksTitle')}</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              {t('landing:popularBooksSubtitle')}
+            </p>
+          </div>
+          
+          {loadingBooks ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">{t('common:loading')}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {popularBooks.map((book) => (
+                <BookCard key={book.id} book={book} />
+              ))}
+            </div>
+          )}
+          
+          {!loadingBooks && popularBooks.length > 0 && (
+            <div className="text-center mt-8">
+              <Link href="/home">
+                <Button size="lg" variant="outline">
+                  {t('landing:viewAllBooks')}
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 bg-[#f7f4f0]">
@@ -229,6 +259,9 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* News Section */}
+      <NewsBlock limit={3} showViewAllButton={true} />
+
       {/* AI Capabilities Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
@@ -254,43 +287,6 @@ const LandingPage = () => {
               </Card>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Popular Books Section */}
-      <section className="py-20 bg-[#f7f4f0]">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <TrendingUp className="w-8 h-8 text-primary" />
-              <h2 className="text-3xl md:text-4xl font-bold font-serif">{t('landing:popularBooksTitle')}</h2>
-            </div>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              {t('landing:popularBooksSubtitle')}
-            </p>
-          </div>
-          
-          {loadingBooks ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">{t('common:loading')}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {popularBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
-              ))}
-            </div>
-          )}
-          
-          {!loadingBooks && popularBooks.length > 0 && (
-            <div className="text-center mt-8">
-              <Link href="/home">
-                <Button size="lg" variant="outline">
-                  {t('landing:viewAllBooks')}
-                </Button>
-              </Link>
-            </div>
-          )}
         </div>
       </section>
 

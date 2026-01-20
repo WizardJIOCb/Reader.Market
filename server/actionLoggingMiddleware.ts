@@ -18,6 +18,7 @@ const ROUTE_PATTERNS: { pattern: RegExp; actionType: string; targetType?: string
   { pattern: /^\/api\/page-view\/shelves$/, actionType: 'navigate_shelves' },
   { pattern: /^\/api\/page-view\/messages$/, actionType: 'navigate_messages' },
   { pattern: /^\/api\/page-view\/about$/, actionType: 'navigate_about' },
+  { pattern: /^\/api\/page-view\/users$/, actionType: 'navigate_users' },
   { pattern: /^\/api\/profile\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_profile', targetType: 'user' },
   { pattern: /^\/api\/news\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_news', targetType: 'news' },
   { pattern: /^\/api\/books\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_book', targetType: 'book' },

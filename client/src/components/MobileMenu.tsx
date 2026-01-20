@@ -32,6 +32,23 @@ export function MobileMenu() {
     return location.startsWith(path);
   };
 
+  // Get current section name based on location
+  const getCurrentSectionName = () => {
+    if (location === '/') return t('navigation:about');
+    if (location === '/home') return t('navigation:home');
+    if (location === '/stream') return t('navigation:stream');
+    if (location === '/users') return t('navigation:users');
+    if (location === '/search') return t('navigation:search');
+    if (location === '/shelves') return t('navigation:shelves');
+    if (location.startsWith('/messages')) return t('navigation:messages');
+    if (location.startsWith('/profile')) return t('navigation:profile');
+    if (location.startsWith('/admin')) return t('navigation:adminPanel');
+    if (location.startsWith('/book/')) return t('navigation:home');
+    if (location.startsWith('/read/')) return t('navigation:home');
+    if (location.startsWith('/news')) return t('navigation:about');
+    return '';
+  };
+
   // Language configuration with flag indicators using colored blocks
   const LANGUAGES = [
     { 
@@ -162,7 +179,8 @@ export function MobileMenu() {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-foreground">
+        <Button variant="ghost" size="icon" className="text-foreground flex items-center gap-2 w-auto px-2">
+          <span className="text-base font-medium text-[#263542]">{getCurrentSectionName()}</span>
           <Menu className="h-6 w-6" />
           <span className="sr-only">{t('navigation:openMenu')}</span>
         </Button>

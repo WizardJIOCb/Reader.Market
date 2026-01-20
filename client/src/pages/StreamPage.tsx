@@ -533,11 +533,14 @@ export default function StreamPage() {
         };
       });
       
-      // Show toast notification for last action
-      toast({
-        title: t('stream:newActivity'),
-        description: t(`stream:actionTypes.${action.action_type}`),
-      });
+      // Show toast notification for last action, but not for the current user's own actions
+      const actionUserId = action.user?.id || action.userId;
+      if (!currentUser || actionUserId !== currentUser.id) {
+        toast({
+          title: t('stream:newActivity'),
+          description: t(`stream:actionTypes.${action.action_type}`),
+        });
+      }
     };
 
     socket.on('stream:new-activity', handleNewActivity);

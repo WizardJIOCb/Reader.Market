@@ -599,6 +599,10 @@ export async function registerRoutes(
     res.json({ page: "about" });
   });
   
+  app.get("/api/page-view/users", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "users" });
+  });
+  
   // Get popular books for landing page
   app.get("/api/popular-books", async (req, res) => {
     try {
