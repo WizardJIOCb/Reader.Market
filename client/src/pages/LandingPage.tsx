@@ -134,17 +134,17 @@ const LandingPage = () => {
             alt="Reader.Market Logo" 
             className="w-full max-w-[510px] h-auto mx-auto mb-8"
           />
-          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif">
+          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif drop-shadow-md">
             {isEarlyAdopter ? t('landing:heroTitleEarly') : t('landing:heroTitle')}
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto">
+          <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto drop-shadow-sm">
             {isEarlyAdopter 
               ? t('landing:heroDescriptionEarly')
               : t('landing:heroDescription')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">
-              <Button size="lg" className="px-8 py-6 text-lg bg-[#7a9a4a] hover:bg-[#6b8b3a] text-white border-none">
+              <Button size="lg" className="px-8 py-6 text-lg bg-[#7a9a4a] hover:bg-[#6b8b3a] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
                 {isEarlyAdopter ? t('landing:joinEarlyAccess') : t('landing:getStarted')}
               </Button>
             </Link>
@@ -155,7 +155,7 @@ const LandingPage = () => {
                 element.scrollIntoView({ behavior: 'smooth' });
               }
             }}>
-              <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#d76b24] hover:bg-[#c25e1f] text-white border-none">
+              <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#e67e22] hover:bg-[#d35400] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
                 {t('landing:seeHowItWorks')}
               </Button>
             </a>
