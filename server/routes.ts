@@ -5386,8 +5386,13 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Message not found" });
       }
       
+      // Get user to check if admin/moder
+      const user = await storage.getUser(userId);
+      const isGlobalAdminOrModer = user && (user.accessLevel === 'admin' || user.accessLevel === 'moder');
+      
       // Check if user is the sender (can delete own messages)
-      let canDelete = message.senderId === userId;
+      let canDelete = message.senderId === userId || isGlobalAdminOrModer;
+      let isGroupAdminOrModer = false;
       
       // If message is in a channel (group chat), check if user is admin/moderator
       if (!canDelete && message.channelId) {
@@ -5395,7 +5400,8 @@ export async function registerRoutes(
         const channel = await storage.getChannel(message.channelId);
         if (channel) {
           const role = await storage.getGroupMemberRole(channel.groupId, userId);
-          canDelete = role === 'administrator' || role === 'moderator';
+          isGroupAdminOrModer = role === 'administrator' || role === 'moderator';
+          canDelete = isGroupAdminOrModer;
         }
       }
       
@@ -5404,7 +5410,9 @@ export async function registerRoutes(
       }
       
       // Delete the message
-      const deleted = await storage.deleteMessage(messageId, userId);
+      // Pass null for userId if admin/moderator (to bypass sender check in storage)
+      const userIdForDelete = (isGlobalAdminOrModer || isGroupAdminOrModer) ? null : userId;
+      const deleted = await storage.deleteMessage(messageId, userIdForDelete);
       if (!deleted) {
         return res.status(500).json({ error: "Failed to delete message" });
       }

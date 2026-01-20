@@ -134,7 +134,7 @@ const LandingPage = () => {
             alt="Reader.Market Logo" 
             className="w-full max-w-[510px] h-auto mx-auto mb-8"
           />
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 font-serif">
+          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif">
             {isEarlyAdopter ? t('landing:heroTitleEarly') : t('landing:heroTitle')}
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto">

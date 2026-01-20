@@ -1250,6 +1250,16 @@ export default function Messages() {
     }, 500);
   };
   
+  // Right-click handler for desktop context menu
+  const handleContextMenu = (e: React.MouseEvent, message: Message) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setContextMenuTarget(message);
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setContextMenuOpen(true);
+  };
+  
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStartPosRef.current || !longPressTimerRef.current) return;
     
@@ -1662,6 +1672,7 @@ export default function Messages() {
                           onTouchStart={(e) => handleTouchStart(e, message, isOwn)}
                           onTouchMove={handleTouchMove}
                           onTouchEnd={handleTouchEnd}
+                          onContextMenu={(e) => handleContextMenu(e, message)}
                         >
                           {isOwn && (
                             <button
@@ -1909,6 +1920,7 @@ export default function Messages() {
                               onTouchStart={(e) => handleTouchStart(e, message, isOwn)}
                               onTouchMove={handleTouchMove}
                               onTouchEnd={handleTouchEnd}
+                              onContextMenu={(e) => handleContextMenu(e, message)}
                             >
                               {canDelete && (
                                 <button
@@ -2124,30 +2136,41 @@ export default function Messages() {
         />
       )}
       
-      {/* Mobile Context Menu for Long-Press Actions */}
+      {/* Context Menu for Long-Press (mobile) and Right-Click (desktop) */}
       <MessageContextMenu
         isOpen={contextMenuOpen}
         onClose={handleCloseContextMenu}
         position={contextMenuPosition}
         actions={
           contextMenuTarget
-            ? contextMenuTarget.senderId === user?.id
-              ? [
-                  {
+            ? (() => {
+                const isOwn = contextMenuTarget.senderId === user?.id;
+                const isAdmin = user?.accessLevel === 'admin' || user?.accessLevel === 'moder';
+                const canDeleteInGroup = selectedGroup && (userGroupRole === 'administrator' || userGroupRole === 'moderator');
+                const canDelete = isOwn || isAdmin || canDeleteInGroup;
+                
+                const actions = [];
+                
+                // Reply action - always available
+                actions.push({
+                  label: t('messages:replyToMessage'),
+                  icon: <Reply className="w-4 h-4" />,
+                  onClick: () => handleReplyWithSelection(contextMenuTarget),
+                  variant: 'default' as const
+                });
+                
+                // Delete action - for own messages or admin/moder
+                if (canDelete) {
+                  actions.push({
                     label: t('messages:deleteMessageAction'),
                     icon: <XIcon className="w-4 h-4" />,
                     onClick: () => deleteMessage(contextMenuTarget.id),
                     variant: 'destructive' as const
-                  }
-                ]
-              : [
-                  {
-                    label: t('messages:replyToMessage'),
-                    icon: <Reply className="w-4 h-4" />,
-                    onClick: () => handleReplyWithSelection(contextMenuTarget),
-                    variant: 'default' as const
-                  }
-                ]
+                  });
+                }
+                
+                return actions;
+              })()
             : []
         }
       />
