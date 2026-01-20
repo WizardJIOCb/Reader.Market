@@ -217,9 +217,7 @@ export default function SearchPage() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="mb-8">
-          <h1 className="font-serif text-2xl font-bold mb-2">{t('search:title')}</h1>
-        </div>
+        <PageHeader title={t('search:title')} showRibbon={true} />
         
         <div className="mb-8">
           <div className="flex flex-col gap-4">

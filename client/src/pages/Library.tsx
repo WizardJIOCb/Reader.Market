@@ -119,7 +119,7 @@ export default function Library() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title={t('home:title')} />
+          <PageHeader title={t('home:title')} showRibbon={true} />
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
@@ -132,7 +132,7 @@ export default function Library() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title={t('home:title')} />
+          <PageHeader title={t('home:title')} showRibbon={true} />
           <div className="text-center py-12">
             <div className="text-red-500 mb-4">{t('home:error')}: {error}</div>
             <Button onClick={refresh}>{t('home:retry')}</Button>
@@ -145,7 +145,7 @@ export default function Library() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <PageHeader title={t('home:title')} />
+        <PageHeader title={t('home:title')} showRibbon={true} />
         
         {/* Search Bar with Filters */}
         <div className="mb-8">
