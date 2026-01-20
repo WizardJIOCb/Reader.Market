@@ -291,7 +291,7 @@ export default function Shelves() {
           <div className="relative">
             <h1 className="font-serif text-2xl font-bold inline-block relative">
               {t('shelves:title')}
-              <VelvetRibbon titleWidth={100} />
+              {false && (<VelvetRibbon titleWidth={100} />)}
             </h1>
           </div>
           <div className="flex items-center gap-2">
