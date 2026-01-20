@@ -234,7 +234,9 @@ export default function Shelves() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title={t('shelves:title')} />
+          <div className="mb-8">
+            <h1 className="font-serif text-2xl font-bold mb-2">{t('shelves:title')}</h1>
+          </div>
           <div className="flex justify-center items-center h-64">
             <p>{t('common:loading')}</p>
           </div>
@@ -247,7 +249,9 @@ export default function Shelves() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title={t('shelves:title')} />
+          <div className="mb-8">
+            <h1 className="font-serif text-2xl font-bold mb-2">{t('shelves:title')}</h1>
+          </div>
           <div className="flex justify-center items-center h-64">
             <div className="text-center">
               <p className="text-red-500 mb-4">{t('notifications:error.loadFailed')}:</p>
@@ -269,7 +273,9 @@ export default function Shelves() {
     return (
       <div className="min-h-screen bg-background font-sans pb-20">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <PageHeader title={t('shelves:title')} />
+          <div className="mb-8">
+            <h1 className="font-serif text-2xl font-bold mb-2">{t('shelves:title')}</h1>
+          </div>
           <div className="flex justify-center items-center h-64">
             <div className="text-center">
               <p className="text-muted-foreground mb-4">{t('common:loginRequired', 'Please login to view shelves')}</p>
@@ -286,7 +292,9 @@ export default function Shelves() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <PageHeader title={t('shelves:title')} />
+        <div className="mb-8">
+          <h1 className="font-serif text-2xl font-bold mb-2">{t('shelves:title')}</h1>
+        </div>
         
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2">

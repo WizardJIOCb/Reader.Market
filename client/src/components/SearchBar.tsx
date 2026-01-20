@@ -111,30 +111,28 @@ export function SearchBar({
     <div className="w-full">
       <form onSubmit={handleSearch} className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder={t('search:searchPlaceholder')}
-            className="pl-9 h-12 bg-muted/30 border-muted focus-visible:ring-1 text-lg"
+            className="w-full pr-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoFocus={initialQuery === ''}
           />
           {searchQuery && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <button 
               type="button"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               onClick={clearSearch}
+              aria-label="Clear search"
             >
-              <X className="w-4 h-4" />
-            </Button>
+              <X className="h-4 w-4" />
+            </button>
           )}
         </div>
         
         <Button
           variant="outline"
-          className="h-12 px-4 gap-2 border-muted bg-muted/10"
+          className="gap-2"
           type="button"
           onClick={handleFilterClick}
         >
@@ -143,8 +141,7 @@ export function SearchBar({
         </Button>
         
         <Button 
-          type="submit" 
-          className="h-12 px-6"
+          type="submit"
         >
           {t('search:find')}
         </Button>

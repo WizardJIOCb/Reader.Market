@@ -601,9 +601,9 @@ export default function StreamPage() {
   }, [activeTab]);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-3 text-center sm:text-left">
-        <h1 className="text-3xl font-bold mb-2">{t('stream:title')}</h1>
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="mb-8">
+        <h1 className="font-serif text-2xl font-bold mb-2">{t('stream:title')}</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
