@@ -253,9 +253,9 @@ function CommentItem({
 
             {/* Inline reply input */}
             {isReplyingToThis && (
-              <div className="mt-2 space-y-2 p-2 bg-muted/30 rounded-lg border">
+              <div className="mt-2 space-y-1.5 pt-2 border-t border-border/50">
                 {quotedText && (
-                  <div className="text-xs text-muted-foreground italic bg-muted/50 border-l-2 border-muted-foreground/50 pl-2 py-1 rounded-r">
+                  <div className="text-xs text-muted-foreground italic border-l-2 border-primary/50 pl-2 py-0.5">
                     <Quote className="w-3 h-3 inline mr-1" />
                     {quotedText}
                   </div>
@@ -267,35 +267,33 @@ function CommentItem({
                     onChange={(e) => onReplyTextChange(e.target.value)}
                     onKeyDown={handleKeyDown}
                     rows={2}
-                    className="pr-10 text-sm min-h-[60px]"
+                    className="pr-10 text-sm min-h-[50px] bg-background border-muted"
                     autoFocus
                   />
-                  <div className="absolute bottom-1.5 right-1.5">
+                  <div className="absolute bottom-1 right-1">
                     <EmojiPicker
                       onEmojiSelect={(emoji) => onReplyTextChange(replyText + emoji)}
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7"
-                      onClick={onCancelReply}
-                    >
-                      {t('profile:cancel')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-7"
-                      onClick={onSubmitReply}
-                      disabled={submitting || !replyText.trim()}
-                    >
-                      {t('profile:ratings.postReply')}
-                    </Button>
-                  </div>
+                <div className="flex items-center justify-end gap-1.5">
+                  <span className="text-xs text-muted-foreground mr-auto">Ctrl+Enter</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs px-2"
+                    onClick={onCancelReply}
+                  >
+                    {t('profile:cancel')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-6 text-xs px-3"
+                    onClick={onSubmitReply}
+                    disabled={submitting || !replyText.trim()}
+                  >
+                    {t('profile:ratings.postReply')}
+                  </Button>
                 </div>
               </div>
             )}
