@@ -177,14 +177,24 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
         const newsId = activity.metadata?.news_id || activity.newsId;
         const commentText = activity.metadata?.comment_text || activity.metadata?.content_preview || '';
         if (bookTitle && bookId) {
-          title = `${t('stream:newCommentToBook')} "${bookTitle}"`;
+          title = createElement('span', null,
+            t('stream:newCommentToBook'),
+            ' "',
+            createTargetLink(bookTitle, `/book/${bookId}`),
+            '"'
+          );
           description = createElement('span', null,
             createAuthorLink(authorName, authorLink),
             createElement('span', { className: 'text-muted-foreground' }, ': '),
             commentText && `${commentText}`
           );
         } else if (newsTitle && newsId) {
-          title = `${t('stream:newCommentToNews')} "${newsTitle}"`;
+          title = createElement('span', null,
+            t('stream:newCommentToNews'),
+            ' "',
+            createTargetLink(newsTitle, `/news/${newsId}`),
+            '"'
+          );
           description = createElement('span', null,
             createAuthorLink(authorName, authorLink),
             createElement('span', { className: 'text-muted-foreground' }, ': '),
@@ -200,10 +210,10 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
         }
       } else if (activity.type === 'review') {
         title = `${t('stream:activityTypes.review')} - ${authorName}`;
-        const bookTitle = activity.metadata?.book_title || '';
-        const bookId = activity.metadata?.book_id || activity.bookId;
+        const bookTitle = activity.metadata?.bookTitle || activity.metadata?.book_title || '';
+        const bookId = activity.metadata?.bookId || activity.metadata?.book_id || activity.bookId;
         const rating = activity.metadata?.rating || '';
-        const reviewText = activity.metadata?.review_text || '';
+        const reviewText = activity.metadata?.content_preview || activity.metadata?.content || activity.metadata?.review_text || '';
         description = createElement('span', null,
           reviewText && `"${reviewText}"`,
           reviewText && rating && createElement('span', { className: 'text-muted-foreground' }, ' · '),
