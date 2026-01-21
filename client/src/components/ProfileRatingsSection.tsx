@@ -373,12 +373,12 @@ export default function ProfileRatingsSection({
     fetchCommentCount();
   }, [profileId]);
 
-  // Fetch comments when expanded
+  // Fetch comments when expanded or user changes
   useEffect(() => {
     if (isExpanded && !loading) {
       fetchComments();
     }
-  }, [isExpanded, currentPage, commentsPerPage]);
+  }, [isExpanded, currentPage, commentsPerPage, user]);
 
   // Fetch user's existing rating and comment
   useEffect(() => {
@@ -881,7 +881,7 @@ export default function ProfileRatingsSection({
               {/* Star Rating Input - only for other profiles */}
               {canRate && (
                 <div className="space-y-2 mt-2">
-                  <label className="text-sm font-medium">{t('profile:ratings.yourRating')}</label>
+                  <label className="text-sm font-medium">{t('profile:ratings.yourRatingFor', { name: profileUsername })}</label>
                   <div className="flex items-center gap-2">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
                       <button

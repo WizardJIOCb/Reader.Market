@@ -2908,7 +2908,7 @@ export async function registerRoutes(
     try {
       const userId = (req as any).user.userId;
       const { bookId } = req.params;
-      const { content, attachments } = req.body;
+      const { content, attachments, parentCommentId, quotedText } = req.body;
       
       if (!content) {
         return res.status(400).json({ error: "Comment content is required" });
@@ -2939,7 +2939,9 @@ export async function registerRoutes(
         userId,
         bookId,
         content,
-        attachmentMetadata
+        attachmentMetadata,
+        parentCommentId: parentCommentId || null,
+        quotedText: quotedText || null
       });
       
       // Create activity feed entry and broadcast via WebSocket
@@ -3030,59 +3032,58 @@ export async function registerRoutes(
     console.log("Get comments endpoint called");
     try {
       const { bookId } = req.params;
-      const userId = (req as any).user?.userId; // Optional userId
-      let comments = await storage.getComments(bookId);
-      
-      // Get comment IDs
-      const commentIds = comments.map(comment => comment.id);
-      
-      if (commentIds.length > 0) {
-        // Get reactions for all comments
-        const reactions = await storage.getReactionsForItems(commentIds, true);
-        
-        // Group and aggregate reactions by commentId and emoji
-        const reactionsMap: Record<string, any[]> = {};
-        
-        // Group reactions by commentId and emoji
-        const groupedReactions: Record<string, any[]> = {};
-        reactions.forEach(reaction => {
-          const key = `${reaction.commentId}::${reaction.emoji}`;
-          if (!groupedReactions[key]) {
-            groupedReactions[key] = [];
-          }
-          groupedReactions[key].push(reaction);
-        });
-        
-        // Aggregate reactions
-        Object.entries(groupedReactions).forEach(([key, reactionList]) => {
-          const parts = key.split('::');
-          const commentId = parts[0];
-          const emoji = parts[1];
-          if (!reactionsMap[commentId]) {
-            reactionsMap[commentId] = [];
-          }
-          
-          // Check if current user reacted with this emoji
-          const userReacted = reactionList.some(reaction => reaction.userId === userId);
-          
-          reactionsMap[commentId].push({
-            emoji,
-            count: reactionList.length,
-            userReacted
-          });
-        });
-        
-        // Add reactions to comments
-        comments = comments.map(comment => ({
-          ...comment,
-          reactions: reactionsMap[comment.id] || []
-        }));
-      }
-      
+      const userId = (req as any).user?.userId;
+      const comments = await storage.getComments(bookId, userId);
       res.json(comments);
     } catch (error) {
       console.error("Get comments error:", error);
       res.status(500).json({ error: "Failed to get comments" });
+    }
+  });
+
+  // Get replies for a book comment (threaded/nested)
+  app.get("/api/comments/:commentId/replies", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      const userId = (req as any).user?.userId;
+      const replies = await storage.getBookCommentReplies(commentId, userId);
+      res.json(replies);
+    } catch (error) {
+      console.error("Get comment replies error:", error);
+      res.status(500).json({ error: "Failed to get replies" });
+    }
+  });
+
+  // Toggle reaction on a book comment
+  app.post("/api/comments/:commentId/reaction", authenticateToken, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      const userId = (req as any).user.userId;
+      const { emoji } = req.body;
+
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+
+      // Check if user already reacted with this emoji
+      const existingReactions = await storage.getCommentReactions(commentId, userId);
+      const alreadyReacted = existingReactions.some(r => r.emoji === emoji && r.userReacted);
+      
+      let action: 'added' | 'removed';
+      if (alreadyReacted) {
+        await storage.removeBookCommentReaction(userId, commentId, emoji);
+        action = 'removed';
+      } else {
+        await storage.addBookCommentReaction(userId, commentId, emoji);
+        action = 'added';
+      }
+      
+      // Get updated reactions
+      const reactions = await storage.getCommentReactions(commentId, userId);
+      res.json({ action, reactions });
+    } catch (error) {
+      console.error("Toggle comment reaction error:", error);
+      res.status(500).json({ error: "Failed to toggle reaction" });
     }
   });
 
@@ -3157,23 +3158,32 @@ export async function registerRoutes(
     try {
       const userId = (req as any).user.userId;
       const { bookId } = req.params;
-      const { rating, content, attachments } = req.body;
+      const { rating, content, attachments, parentReviewId, quotedText } = req.body;
       
       console.log(`Creating review for book ${bookId} by user ${userId} with rating ${rating}`);
       
-      if (rating === undefined || rating === null || content === undefined || content === null || content.trim() === '') {
-        return res.status(400).json({ error: "Rating and content are required" });
+      // Content is always required
+      if (content === undefined || content === null || content.trim() === '') {
+        return res.status(400).json({ error: "Content is required" });
       }
       
-      // Validate rating is between 1 and 10
-      if (typeof rating !== 'number' || rating < 1 || rating > 10) {
-        return res.status(400).json({ error: "Rating must be a number between 1 and 10" });
+      // Rating is only required for root reviews, not for replies
+      if (!parentReviewId) {
+        if (rating === undefined || rating === null) {
+          return res.status(400).json({ error: "Rating is required for reviews" });
+        }
+        // Validate rating is between 1 and 10
+        if (typeof rating !== 'number' || rating < 1 || rating > 10) {
+          return res.status(400).json({ error: "Rating must be a number between 1 and 10" });
+        }
       }
       
-      // Check if user already reviewed this book
-      const existingReview = await storage.getUserReview(userId, bookId);
-      if (existingReview) {
-        return res.status(400).json({ error: "You have already reviewed this book" });
+      // Only check for existing review if this is not a reply
+      if (!parentReviewId) {
+        const existingReview = await storage.getUserReview(userId, bookId);
+        if (existingReview) {
+          return res.status(400).json({ error: "You have already reviewed this book" });
+        }
       }
       
       // Process attachments if provided
@@ -3202,7 +3212,9 @@ export async function registerRoutes(
         bookId,
         rating,
         content,
-        attachmentMetadata
+        attachmentMetadata,
+        parentReviewId: parentReviewId || null,
+        quotedText: quotedText || null
       });
       
       // Create activity feed entry and broadcast via WebSocket
@@ -3350,53 +3362,9 @@ export async function registerRoutes(
     try {
       const { bookId } = req.params;
       const userId = (req as any).user?.userId; // Optional userId
-      let reviews = await storage.getReviews(bookId);
       
-      // Get review IDs
-      const reviewIds = reviews.map(review => review.id);
-      
-      if (reviewIds.length > 0) {
-        // Get reactions for all reviews
-        const reactions = await storage.getReactionsForItems(reviewIds, false);
-        
-        // Group and aggregate reactions by reviewId and emoji
-        const reactionsMap: Record<string, any[]> = {};
-        
-        // Group reactions by reviewId and emoji
-        const groupedReactions: Record<string, any[]> = {};
-        reactions.forEach(reaction => {
-          const key = `${reaction.reviewId}::${reaction.emoji}`;
-          if (!groupedReactions[key]) {
-            groupedReactions[key] = [];
-          }
-          groupedReactions[key].push(reaction);
-        });
-        
-        // Aggregate reactions
-        Object.entries(groupedReactions).forEach(([key, reactionList]) => {
-          const parts = key.split('::');
-          const reviewId = parts[0];
-          const emoji = parts[1];
-          if (!reactionsMap[reviewId]) {
-            reactionsMap[reviewId] = [];
-          }
-          
-          // Check if current user reacted with this emoji
-          const userReacted = reactionList.some(reaction => reaction.userId === userId);
-          
-          reactionsMap[reviewId].push({
-            emoji,
-            count: reactionList.length,
-            userReacted
-          });
-        });
-        
-        // Add reactions to reviews
-        reviews = reviews.map(review => ({
-          ...review,
-          reactions: reactionsMap[review.id] || []
-        }));
-      }
+      // getReviews now returns only root reviews with reactions and reply counts
+      const reviews = await storage.getReviews(bookId, userId);
       
       res.json(reviews);
     } catch (error) {
@@ -3466,6 +3434,52 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Delete review error:", error);
       res.status(500).json({ error: "Failed to delete review" });
+    }
+  });
+
+  // Get replies for a review
+  app.get("/api/reviews/:reviewId/replies", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { reviewId } = req.params;
+      const userId = (req as any).user?.userId;
+      
+      const replies = await storage.getReviewReplies(reviewId, userId);
+      res.json(replies);
+    } catch (error) {
+      console.error("Get review replies error:", error);
+      res.status(500).json({ error: "Failed to get review replies" });
+    }
+  });
+
+  // Toggle reaction on a review
+  app.post("/api/reviews/:reviewId/reaction", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.userId;
+      const { reviewId } = req.params;
+      const { emoji } = req.body;
+      
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      // Check if user already reacted with this emoji
+      const existingReactions = await storage.getReviewReactions(reviewId, userId);
+      const existingReaction = existingReactions.find(r => r.emoji === emoji && r.userReacted);
+      
+      if (existingReaction) {
+        // Remove the reaction
+        await storage.removeReviewReaction(userId, reviewId, emoji);
+      } else {
+        // Add the reaction
+        await storage.addReviewReaction(userId, reviewId, emoji);
+      }
+      
+      // Return updated reactions
+      const updatedReactions = await storage.getReviewReactions(reviewId, userId);
+      res.json({ reactions: updatedReactions });
+    } catch (error) {
+      console.error("Toggle review reaction error:", error);
+      res.status(500).json({ error: "Failed to toggle reaction" });
     }
   });
 
@@ -6043,7 +6057,7 @@ export async function registerRoutes(
   });
 
   // Get paginated comments for a profile
-  app.get("/api/profile/:profileId/comments", async (req, res) => {
+  app.get("/api/profile/:profileId/comments", optionalAuthenticateToken, async (req, res) => {
     console.log("Get profile comments endpoint called");
     try {
       const { profileId } = req.params;
@@ -6190,11 +6204,10 @@ export async function registerRoutes(
   });
 
   // Get replies for a profile comment (threaded/nested)
-  app.get("/api/profile/comment/:commentId/replies", async (req, res) => {
+  app.get("/api/profile/comment/:commentId/replies", optionalAuthenticateToken, async (req, res) => {
     try {
       const { commentId } = req.params;
-      const userId = req.headers.authorization ? 
-        (req as any).user?.userId : undefined;
+      const userId = (req as any).user?.userId;
       
       const replies = await storage.getCommentReplies(commentId, userId);
       

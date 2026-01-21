@@ -157,6 +157,8 @@ export const comments = pgTable("comments", {
   content: text("content").notNull(),
   attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
   attachmentMetadata: jsonb("attachment_metadata"),
+  parentCommentId: varchar("parent_comment_id"),
+  quotedText: text("quoted_text"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -166,10 +168,12 @@ export const reviews = pgTable("reviews", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   bookId: varchar("book_id").notNull().references(() => books.id),
-  rating: integer("rating").notNull(), // Rating from 1-10
+  rating: integer("rating"), // Rating from 1-10 (nullable for replies)
   content: text("content").notNull(),
   attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
   attachmentMetadata: jsonb("attachment_metadata"),
+  parentReviewId: varchar("parent_review_id"), // Reply to another review (self-reference added via migration)
+  quotedText: text("quoted_text"), // Quoted text from parent review
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

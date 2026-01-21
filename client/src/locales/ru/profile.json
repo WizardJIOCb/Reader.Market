@@ -40,6 +40,7 @@
     "comment": "комментарий",
     "comments": "комментариев",
     "yourRating": "Ваш рейтинг",
+    "yourRatingFor": "Ваш рейтинг для {{name}}",
     "updateRating": "Обновить рейтинг",
     "submitRating": "Отправить рейтинг",
     "yourComment": "Ваш комментарий",

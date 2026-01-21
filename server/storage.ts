@@ -169,14 +169,24 @@ export interface IStorage {
   // Comment operations
   createComment(commentData: any): Promise<any>;
   getCommentById(id: string): Promise<any | undefined>;
-  getComments(bookId: string): Promise<any[]>;
+  getComments(bookId: string, currentUserId?: string): Promise<any[]>;
+  getBookCommentReplies(commentId: string, currentUserId?: string): Promise<any[]>;
+  countBookCommentReplies(commentId: string): Promise<number>;
+  getCommentReactions(commentId: string, currentUserId?: string): Promise<{emoji: string, count: number, userReacted: boolean}[]>;
+  addBookCommentReaction(userId: string, commentId: string, emoji: string): Promise<any>;
+  removeBookCommentReaction(userId: string, commentId: string, emoji: string): Promise<boolean>;
   getAllComments(): Promise<any[]>;
   updateComment(id: string, commentData: any): Promise<any>;
   deleteComment(id: string, userId: string | null): Promise<boolean>;
   
   // Review operations
   createReview(reviewData: any): Promise<any>;
-  getReviews(bookId: string): Promise<any[]>;
+  getReviews(bookId: string, currentUserId?: string): Promise<any[]>;
+  getReviewReplies(reviewId: string, currentUserId?: string): Promise<any[]>;
+  countReviewReplies(reviewId: string): Promise<number>;
+  getReviewReactions(reviewId: string, currentUserId?: string): Promise<{emoji: string, count: number, userReacted: boolean}[]>;
+  addReviewReaction(userId: string, reviewId: string, emoji: string): Promise<any>;
+  removeReviewReaction(userId: string, reviewId: string, emoji: string): Promise<boolean>;
   getAllReviews(): Promise<any[]>;
   getUserReview(userId: string, bookId: string): Promise<any | undefined>;
   updateReview(id: string, reviewData: any): Promise<any>;
@@ -1534,6 +1544,8 @@ export class DBStorage implements IStorage {
         userId: comments.userId,
         bookId: comments.bookId,
         content: comments.content,
+        parentCommentId: comments.parentCommentId,
+        quotedText: comments.quotedText,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         attachmentMetadata: comments.attachmentMetadata,
@@ -1552,9 +1564,12 @@ export class DBStorage implements IStorage {
         userId: comment.userId,
         bookId: comment.bookId,
         content: comment.content,
+        parentCommentId: comment.parentCommentId,
+        quotedText: comment.quotedText,
         createdAt: comment.createdAt.toISOString(),
         updatedAt: comment.updatedAt.toISOString(),
         author: comment.fullName || comment.username || 'Anonymous',
+        username: comment.username,
         avatarUrl: comment.avatarUrl || null,
         attachmentMetadata: comment.attachmentMetadata
       };
@@ -1564,14 +1579,16 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async getComments(bookId: string): Promise<any[]> {
+  async getComments(bookId: string, currentUserId?: string): Promise<any[]> {
     try {
-      // Get comments with user information
+      // Get only root comments (no parent) with user information
       const result = await db.select({
         id: comments.id,
         userId: comments.userId,
         bookId: comments.bookId,
         content: comments.content,
+        parentCommentId: comments.parentCommentId,
+        quotedText: comments.quotedText,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         attachmentMetadata: comments.attachmentMetadata,
@@ -1581,28 +1598,134 @@ export class DBStorage implements IStorage {
       })
       .from(comments)
       .leftJoin(users, eq(comments.userId, users.id))
-      .where(eq(comments.bookId, bookId))
+      .where(and(
+        eq(comments.bookId, bookId),
+        isNull(comments.parentCommentId)
+      ))
       .orderBy(desc(comments.createdAt));
       
-      // Format the response to match what the frontend expects
-      return result.map(comment => {
+      // Get reactions and reply counts for each comment
+      const commentsWithData = await Promise.all(result.map(async (comment) => {
         const metadata = comment.attachmentMetadata as any;
+        const replyCount = await this.countBookCommentReplies(comment.id);
+        const reactions = await this.getCommentReactions(comment.id, currentUserId);
+        
         return {
           id: comment.id,
           userId: comment.userId,
           bookId: comment.bookId,
           content: comment.content,
+          parentCommentId: comment.parentCommentId,
+          quotedText: comment.quotedText,
           createdAt: comment.createdAt.toISOString(),
           updatedAt: comment.updatedAt.toISOString(),
           author: comment.fullName || comment.username || 'Anonymous',
+          username: comment.username,
           avatarUrl: comment.avatarUrl || null,
-          reactions: [],
+          isOwnComment: currentUserId ? comment.userId === currentUserId : false,
+          reactions,
+          replyCount,
           attachments: metadata?.attachments || []
         };
-      });
+      }));
+      
+      return commentsWithData;
     } catch (error) {
       console.error("Error getting comments:", error);
       return [];
+    }
+  }
+
+  async countBookCommentReplies(commentId: string): Promise<number> {
+    // Recursively count all replies (direct and nested)
+    const directReplies = await db.select({
+      id: comments.id
+    })
+    .from(comments)
+    .where(eq(comments.parentCommentId, commentId));
+    
+    let total = directReplies.length;
+    
+    for (const reply of directReplies) {
+      total += await this.countBookCommentReplies(reply.id);
+    }
+    
+    return total;
+  }
+
+  async getBookCommentReplies(commentId: string, currentUserId?: string): Promise<any[]> {
+    try {
+      // Get direct replies to this comment
+      const replies = await db.select({
+        id: comments.id,
+        userId: comments.userId,
+        bookId: comments.bookId,
+        content: comments.content,
+        parentCommentId: comments.parentCommentId,
+        quotedText: comments.quotedText,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        attachmentMetadata: comments.attachmentMetadata,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.parentCommentId, commentId))
+      .orderBy(comments.createdAt); // Oldest first for replies
+      
+      // Get reactions, parent info, and nested replies for each reply
+      const repliesWithData = await Promise.all(replies.map(async (reply) => {
+        const metadata = reply.attachmentMetadata as any;
+        const reactions = await this.getCommentReactions(reply.id, currentUserId);
+        
+        // Get parent comment author name
+        let parentCommentAuthor = null;
+        if (reply.parentCommentId) {
+          const parentComment = await db.select({
+            username: users.username,
+            fullName: users.fullName,
+          })
+          .from(comments)
+          .leftJoin(users, eq(comments.userId, users.id))
+          .where(eq(comments.id, reply.parentCommentId))
+          .limit(1);
+          
+          if (parentComment[0]) {
+            parentCommentAuthor = parentComment[0].fullName || parentComment[0].username;
+          }
+        }
+        
+        // Recursively get nested replies
+        const nestedReplies = await this.getBookCommentReplies(reply.id, currentUserId);
+        const replyCount = await this.countBookCommentReplies(reply.id);
+        
+        return {
+          id: reply.id,
+          userId: reply.userId,
+          bookId: reply.bookId,
+          content: reply.content,
+          parentCommentId: reply.parentCommentId,
+          quotedText: reply.quotedText,
+          createdAt: reply.createdAt.toISOString(),
+          updatedAt: reply.updatedAt.toISOString(),
+          author: reply.fullName || reply.username || 'Anonymous',
+          username: reply.username,
+          avatarUrl: reply.avatarUrl || null,
+          isOwnComment: currentUserId ? reply.userId === currentUserId : false,
+          reactions,
+          parentCommentAuthor,
+          replies: nestedReplies,
+          replyCount,
+          attachments: metadata?.attachments || []
+        };
+      }));
+      
+      return repliesWithData;
+    } catch (error) {
+      console.error("Error getting book comment replies:", error);
+      throw error;
     }
   }
 
@@ -1807,6 +1930,8 @@ export class DBStorage implements IStorage {
         bookId: reviews.bookId,
         rating: reviews.rating,
         content: reviews.content,
+        parentReviewId: reviews.parentReviewId,
+        quotedText: reviews.quotedText,
         createdAt: reviews.createdAt,
         updatedAt: reviews.updatedAt,
         attachmentMetadata: reviews.attachmentMetadata,
@@ -1819,9 +1944,11 @@ export class DBStorage implements IStorage {
       .where(eq(reviews.id, insertResult[0].id));
         
       console.log('Selected review result:', result[0]);
-      // Calculate and update the book's average rating
-      console.log('Calling updateBookAverageRating for book:', reviewData.bookId);
-      await this.updateBookAverageRating(reviewData.bookId);
+      // Calculate and update the book's average rating (only for root reviews)
+      if (!reviewData.parentReviewId) {
+        console.log('Calling updateBookAverageRating for book:', reviewData.bookId);
+        await this.updateBookAverageRating(reviewData.bookId);
+      }
         
       // Format the response to match what the frontend expects
       const review = result[0];
@@ -1831,9 +1958,12 @@ export class DBStorage implements IStorage {
         bookId: review.bookId,
         rating: review.rating,
         content: review.content,
+        parentReviewId: review.parentReviewId,
+        quotedText: review.quotedText,
         createdAt: review.createdAt.toISOString(),
         updatedAt: review.updatedAt.toISOString(),
         author: review.fullName || review.username || 'Anonymous',
+        username: review.username,
         avatarUrl: review.avatarUrl || null,
         attachmentMetadata: review.attachmentMetadata
       };
@@ -1945,15 +2075,17 @@ export class DBStorage implements IStorage {
     }
   };
 
-  async getReviews(bookId: string): Promise<any[]> {
+  async getReviews(bookId: string, currentUserId?: string): Promise<any[]> {
     try {
-      // Get reviews with user information
+      // Get only root reviews (no parent) with user information
       const result = await db.select({
         id: reviews.id,
         userId: reviews.userId,
         bookId: reviews.bookId,
         rating: reviews.rating,
         content: reviews.content,
+        parentReviewId: reviews.parentReviewId,
+        quotedText: reviews.quotedText,
         createdAt: reviews.createdAt,
         updatedAt: reviews.updatedAt,
         attachmentMetadata: reviews.attachmentMetadata,
@@ -1963,29 +2095,243 @@ export class DBStorage implements IStorage {
       })
       .from(reviews)
       .leftJoin(users, eq(reviews.userId, users.id))
-      .where(eq(reviews.bookId, bookId))
+      .where(and(
+        eq(reviews.bookId, bookId),
+        isNull(reviews.parentReviewId)
+      ))
       .orderBy(desc(reviews.createdAt));
       
-      // Format the response to match what the frontend expects
-      return result.map(review => {
+      // Get reactions and reply counts for each review
+      const reviewsWithData = await Promise.all(result.map(async (review) => {
         const metadata = review.attachmentMetadata as any;
+        const replyCount = await this.countReviewReplies(review.id);
+        const reactions = await this.getReviewReactions(review.id, currentUserId);
+        
         return {
           id: review.id,
           userId: review.userId,
           bookId: review.bookId,
           rating: review.rating,
           content: review.content,
+          parentReviewId: review.parentReviewId,
+          quotedText: review.quotedText,
           createdAt: review.createdAt.toISOString(),
           updatedAt: review.updatedAt.toISOString(),
           author: review.fullName || review.username || 'Anonymous',
+          username: review.username,
           avatarUrl: review.avatarUrl || null,
-          reactions: [],
+          isOwnReview: currentUserId ? review.userId === currentUserId : false,
+          reactions,
+          replyCount,
           attachments: metadata?.attachments || []
         };
-      });
+      }));
+      
+      return reviewsWithData;
     } catch (error) {
       console.error("Error getting reviews:", error);
       return [];
+    }
+  }
+
+  async countReviewReplies(reviewId: string): Promise<number> {
+    // Recursively count all replies (direct and nested)
+    const directReplies = await db.select({
+      id: reviews.id
+    })
+    .from(reviews)
+    .where(eq(reviews.parentReviewId, reviewId));
+    
+    let total = directReplies.length;
+    
+    for (const reply of directReplies) {
+      total += await this.countReviewReplies(reply.id);
+    }
+    
+    return total;
+  }
+
+  async getReviewReplies(reviewId: string, currentUserId?: string): Promise<any[]> {
+    try {
+      // Get direct replies to this review
+      const replies = await db.select({
+        id: reviews.id,
+        userId: reviews.userId,
+        bookId: reviews.bookId,
+        rating: reviews.rating,
+        content: reviews.content,
+        parentReviewId: reviews.parentReviewId,
+        quotedText: reviews.quotedText,
+        createdAt: reviews.createdAt,
+        updatedAt: reviews.updatedAt,
+        attachmentMetadata: reviews.attachmentMetadata,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(reviews)
+      .leftJoin(users, eq(reviews.userId, users.id))
+      .where(eq(reviews.parentReviewId, reviewId))
+      .orderBy(reviews.createdAt); // Oldest first for replies
+      
+      // Get reactions, parent info, and nested replies for each reply
+      const repliesWithData = await Promise.all(replies.map(async (reply) => {
+        const metadata = reply.attachmentMetadata as any;
+        const reactions = await this.getReviewReactions(reply.id, currentUserId);
+        
+        // Get parent review author name
+        let parentReviewAuthor = null;
+        if (reply.parentReviewId) {
+          const parentReview = await db.select({
+            username: users.username,
+            fullName: users.fullName,
+          })
+          .from(reviews)
+          .leftJoin(users, eq(reviews.userId, users.id))
+          .where(eq(reviews.id, reply.parentReviewId))
+          .limit(1);
+          
+          if (parentReview[0]) {
+            parentReviewAuthor = parentReview[0].fullName || parentReview[0].username;
+          }
+        }
+        
+        // Get user's root review rating for this book (if they have one)
+        let userBookRating = null;
+        const userRootReview = await db.select({
+          rating: reviews.rating,
+        })
+        .from(reviews)
+        .where(and(
+          eq(reviews.userId, reply.userId),
+          eq(reviews.bookId, reply.bookId),
+          isNull(reviews.parentReviewId)
+        ))
+        .limit(1);
+        
+        if (userRootReview[0] && userRootReview[0].rating) {
+          userBookRating = userRootReview[0].rating;
+        }
+        
+        // Recursively get nested replies
+        const nestedReplies = await this.getReviewReplies(reply.id, currentUserId);
+        const replyCount = await this.countReviewReplies(reply.id);
+        
+        return {
+          id: reply.id,
+          userId: reply.userId,
+          bookId: reply.bookId,
+          rating: reply.rating,
+          userBookRating, // User's rating from their root review
+          content: reply.content,
+          parentReviewId: reply.parentReviewId,
+          quotedText: reply.quotedText,
+          createdAt: reply.createdAt.toISOString(),
+          updatedAt: reply.updatedAt.toISOString(),
+          author: reply.fullName || reply.username || 'Anonymous',
+          username: reply.username,
+          avatarUrl: reply.avatarUrl || null,
+          isOwnReview: currentUserId ? reply.userId === currentUserId : false,
+          reactions,
+          parentReviewAuthor,
+          replies: nestedReplies,
+          replyCount,
+          attachments: metadata?.attachments || []
+        };
+      }));
+      
+      return repliesWithData;
+    } catch (error) {
+      console.error("Error getting review replies:", error);
+      throw error;
+    }
+  }
+
+  async getReviewReactions(reviewId: string, currentUserId?: string): Promise<{emoji: string, count: number, userReacted: boolean}[]> {
+    try {
+      // Get all reactions for this review grouped by emoji
+      const allReactions = await db.select({
+        emoji: reactions.emoji,
+        userId: reactions.userId,
+      })
+      .from(reactions)
+      .where(eq(reactions.reviewId, reviewId));
+      
+      // Group by emoji and count
+      const emojiCounts: Record<string, {count: number, userReacted: boolean}> = {};
+      
+      for (const reaction of allReactions) {
+        if (!emojiCounts[reaction.emoji]) {
+          emojiCounts[reaction.emoji] = { count: 0, userReacted: false };
+        }
+        emojiCounts[reaction.emoji].count++;
+        if (currentUserId && reaction.userId === currentUserId) {
+          emojiCounts[reaction.emoji].userReacted = true;
+        }
+      }
+      
+      // Convert to array
+      return Object.entries(emojiCounts).map(([emoji, data]) => ({
+        emoji,
+        count: data.count,
+        userReacted: data.userReacted,
+      }));
+    } catch (error) {
+      console.error("Error getting review reactions:", error);
+      return [];
+    }
+  }
+
+  async addReviewReaction(userId: string, reviewId: string, emoji: string): Promise<any> {
+    try {
+      // Check if reaction already exists
+      const existing = await db.select()
+        .from(reactions)
+        .where(
+          and(
+            eq(reactions.userId, userId),
+            eq(reactions.reviewId, reviewId),
+            eq(reactions.emoji, emoji)
+          )
+        )
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return existing[0]; // Already reacted with this emoji
+      }
+      
+      // Add new reaction
+      const result = await db.insert(reactions)
+        .values({
+          userId,
+          reviewId,
+          emoji,
+        })
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error adding review reaction:", error);
+      throw error;
+    }
+  }
+
+  async removeReviewReaction(userId: string, reviewId: string, emoji: string): Promise<boolean> {
+    try {
+      const result = await db.delete(reactions)
+        .where(
+          and(
+            eq(reactions.userId, userId),
+            eq(reactions.reviewId, reviewId),
+            eq(reactions.emoji, emoji)
+          )
+        )
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error removing review reaction:", error);
+      throw error;
     }
   }
 
@@ -6613,6 +6959,94 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting profile comment reactions:", error);
       return [];
+    }
+  }
+
+  async getCommentReactions(commentId: string, currentUserId?: string): Promise<{emoji: string, count: number, userReacted: boolean}[]> {
+    try {
+      // Get all reactions for this book comment grouped by emoji
+      const allReactions = await db.select({
+        emoji: reactions.emoji,
+        userId: reactions.userId,
+      })
+      .from(reactions)
+      .where(eq(reactions.commentId, commentId));
+      
+      // Group by emoji and count
+      const emojiCounts: Record<string, {count: number, userReacted: boolean}> = {};
+      
+      for (const reaction of allReactions) {
+        if (!emojiCounts[reaction.emoji]) {
+          emojiCounts[reaction.emoji] = { count: 0, userReacted: false };
+        }
+        emojiCounts[reaction.emoji].count++;
+        if (currentUserId && reaction.userId === currentUserId) {
+          emojiCounts[reaction.emoji].userReacted = true;
+        }
+      }
+      
+      // Convert to array
+      return Object.entries(emojiCounts).map(([emoji, data]) => ({
+        emoji,
+        count: data.count,
+        userReacted: data.userReacted,
+      }));
+    } catch (error) {
+      console.error("Error getting comment reactions:", error);
+      return [];
+    }
+  }
+
+  async addBookCommentReaction(userId: string, commentId: string, emoji: string): Promise<any> {
+    try {
+      // Check if reaction already exists
+      const existing = await db.select()
+        .from(reactions)
+        .where(
+          and(
+            eq(reactions.userId, userId),
+            eq(reactions.commentId, commentId),
+            eq(reactions.emoji, emoji)
+          )
+        )
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return existing[0]; // Already reacted with this emoji
+      }
+      
+      // Add new reaction
+      const result = await db.insert(reactions)
+        .values({
+          userId,
+          commentId,
+          emoji,
+        })
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error adding book comment reaction:", error);
+      throw error;
+    }
+  }
+
+  async removeBookCommentReaction(userId: string, commentId: string, emoji: string): Promise<boolean> {
+    try {
+      const result = await db.delete(reactions)
+        .where(
+          and(
+            eq(reactions.userId, userId),
+            eq(reactions.commentId, commentId),
+            eq(reactions.emoji, emoji)
+          )
+        )
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error removing book comment reaction:", error);
+      throw error;
     }
   }
 

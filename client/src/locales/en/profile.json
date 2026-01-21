@@ -40,6 +40,7 @@
     "comment": "comment",
     "comments": "comments",
     "yourRating": "Your Rating",
+    "yourRatingFor": "Your Rating for {{name}}",
     "updateRating": "Update Rating",
     "submitRating": "Submit Rating",
     "yourComment": "Your Comment",

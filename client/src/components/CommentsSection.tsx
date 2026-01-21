@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,7 +7,7 @@ import { AuthPrompt } from '@/components/AuthPrompt';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
-import { Send, X } from 'lucide-react';
+import { Send, X, Reply, ChevronDown, ChevronUp, Quote, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
 import { dataCache, getCachedComments, setCachedComments, getPendingRequest, trackPendingRequest, isCachedDataStale } from '@/lib/dataCache';
@@ -35,12 +35,19 @@ interface Comment {
   id: string;
   bookId: string;
   author: string;
+  username?: string;
   content: string;
   createdAt: string;
   reactions: Reaction[];
   userId?: string;
   avatarUrl?: string | null;
   attachments?: Attachment[];
+  isOwnComment?: boolean;
+  parentCommentId?: string | null;
+  quotedText?: string | null;
+  parentCommentAuthor?: string | null;
+  replyCount?: number;
+  replies?: Comment[];
 }
 
 interface CommentsProps {
@@ -48,55 +55,347 @@ interface CommentsProps {
   onCommentsCountChange?: (count: number) => void;
 }
 
+// Recursive component for rendering nested comments
+interface CommentItemProps {
+  comment: Comment;
+  depth: number;
+  user: any;
+  dateLocale: any;
+  t: any;
+  expandedReplies: Set<string>;
+  loadingReplies: Set<string>;
+  highlightedCommentId: string | null;
+  replyingToId: string | null;
+  replyText: string;
+  quotedText: string;
+  submitting: boolean;
+  onToggleReplies: (commentId: string) => void;
+  onReply: (comment: Comment) => void;
+  onCancelReply: () => void;
+  onReplyTextChange: (text: string) => void;
+  onSubmitReply: () => void;
+  onDelete: (commentId: string) => void;
+  onReaction: (commentId: string, emoji: string) => void;
+  onTextSelect: (comment: Comment) => void;
+  onScrollToComment: (commentId: string) => void;
+}
+
+function CommentItem({
+  comment,
+  depth,
+  user,
+  dateLocale,
+  t,
+  expandedReplies,
+  loadingReplies,
+  highlightedCommentId,
+  replyingToId,
+  replyText,
+  quotedText,
+  submitting,
+  onToggleReplies,
+  onReply,
+  onCancelReply,
+  onReplyTextChange,
+  onSubmitReply,
+  onDelete,
+  onReaction,
+  onTextSelect,
+  onScrollToComment
+}: CommentItemProps) {
+  const isExpanded = expandedReplies.has(comment.id);
+  const isLoading = loadingReplies.has(comment.id);
+  const hasReplies = (comment.replyCount && comment.replyCount > 0) || (comment.replies && comment.replies.length > 0);
+  const isAuthenticated = !!user;
+  const isCompact = depth > 0;
+  const displayReplyCount = comment.replyCount || (comment.replies?.length || 0);
+  const isHighlighted = highlightedCommentId === comment.id;
+  const isReplyingToThis = replyingToId === comment.id;
+  const isOwnComment = user && comment.userId === user.id;
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (replyText.trim() && !submitting) {
+        onSubmitReply();
+      }
+    }
+  };
+  
+  return (
+    <div 
+      id={`comment-${comment.id}`}
+      className={depth > 0 ? 'ml-4 border-l-2 border-muted-foreground/20 pl-3' : ''}
+    >
+      <div
+        className={`rounded-lg transition-all duration-500 ${
+          isHighlighted ? 'ring-2 ring-primary ring-offset-2 bg-primary/10' : ''
+        } ${
+          isCompact 
+            ? (isOwnComment ? 'bg-[#fbf6f0] dark:bg-[#2a2520]' : '') 
+            : `border ${isOwnComment ? 'bg-[#fbf6f0] dark:bg-[#2a2520]' : 'bg-card'}`
+        } ${isCompact ? 'p-2.5' : 'p-4'}`}
+      >
+        <div className={`flex items-start ${isCompact ? 'gap-2' : 'gap-3'}`}>
+          <Avatar className={`flex-shrink-0 ${isCompact ? 'w-7 h-7' : 'w-10 h-10'}`}>
+            {comment.avatarUrl ? (
+              <AvatarImage src={comment.avatarUrl} alt={comment.author} />
+            ) : null}
+            <AvatarFallback className={isCompact ? 'text-xs' : ''}>
+              {comment.author ? comment.author.charAt(0).toUpperCase() : 'U'}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {comment.userId ? (
+                  <a
+                    href={`/profile/${comment.username || comment.userId}`}
+                    className={`font-medium hover:underline ${isCompact ? 'text-sm' : ''}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {comment.author}
+                  </a>
+                ) : (
+                  <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>{comment.author}</span>
+                )}
+                {comment.parentCommentAuthor && comment.parentCommentId && (
+                  <button
+                    onClick={() => onScrollToComment(comment.parentCommentId!)}
+                    className="text-xs text-muted-foreground flex items-center gap-0.5 hover:text-primary cursor-pointer transition-colors"
+                  >
+                    <Reply className="w-3 h-3" />
+                    {comment.parentCommentAuthor}
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground cursor-help">
+                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: dateLocale })}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{format(new Date(comment.createdAt), 'dd.MM.yyyy HH:mm', { locale: dateLocale })}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {(isOwnComment || user?.accessLevel === 'admin' || user?.accessLevel === 'moder') && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => onDelete(comment.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Quoted text */}
+            {comment.quotedText && (
+              <div className={`bg-muted/50 border-l-2 border-muted-foreground/50 pl-2 py-1 italic text-muted-foreground rounded-r ${isCompact ? 'text-xs' : 'text-sm'}`}>
+                <Quote className="w-3 h-3 inline mr-1" />
+                {comment.quotedText}
+              </div>
+            )}
+
+            <p 
+              className={`whitespace-pre-wrap ${isCompact ? 'text-sm' : 'text-sm'}`}
+              onMouseUp={() => onTextSelect(comment)}
+            >
+              {comment.content}
+            </p>
+
+            {/* Attachments */}
+            {comment.attachments && comment.attachments.length > 0 && (
+              <AttachmentDisplay attachments={comment.attachments} className="mt-2" />
+            )}
+
+            {/* Actions row: Reply button + Reactions + Show replies */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {isAuthenticated && !isReplyingToThis && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => onReply(comment)}
+                >
+                  <Reply className="w-3 h-3 mr-1" />
+                  {t('profile:ratings.reply')}
+                </Button>
+              )}
+              
+              {hasReplies && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => onToggleReplies(comment.id)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <span className="animate-pulse">{t('profile:ratings.loadingReplies')}</span>
+                  ) : isExpanded ? (
+                    <>
+                      <ChevronUp className="w-3 h-3 mr-1" />
+                      {t('profile:ratings.hideReplies')}
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3 h-3 mr-1" />
+                      {t('profile:ratings.repliesCount', { count: displayReplyCount })}
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              <ReactionBar
+                reactions={comment.reactions || []}
+                onReact={(emoji) => onReaction(comment.id, emoji)}
+              />
+            </div>
+
+            {/* Inline reply input */}
+            {isReplyingToThis && (
+              <div className="mt-2 space-y-1.5 pt-2 border-t border-border/50">
+                {quotedText && (
+                  <div className="text-xs text-muted-foreground italic border-l-2 border-primary/50 pl-2 py-0.5">
+                    <Quote className="w-3 h-3 inline mr-1" />
+                    {quotedText}
+                  </div>
+                )}
+                <div className="relative">
+                  <Textarea
+                    placeholder={`${t('profile:ratings.replyPlaceholder')}...`}
+                    value={replyText}
+                    onChange={(e) => onReplyTextChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    rows={2}
+                    className="pr-10 text-sm min-h-[50px] bg-background border-muted"
+                    autoFocus
+                  />
+                  <div className="absolute bottom-1 right-1">
+                    <EmojiPicker
+                      onEmojiSelect={(emoji) => onReplyTextChange(replyText + emoji)}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-1.5">
+                  <span className="text-xs text-muted-foreground mr-auto">Ctrl+Enter</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs px-2"
+                    onClick={onCancelReply}
+                  >
+                    {t('profile:cancel')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-6 text-xs px-3"
+                    onClick={onSubmitReply}
+                    disabled={submitting || !replyText.trim()}
+                  >
+                    {t('profile:ratings.postReply')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Nested replies */}
+      {isExpanded && comment.replies && comment.replies.length > 0 && (
+        <div className="mt-1.5 space-y-1.5">
+          {comment.replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              depth={depth + 1}
+              user={user}
+              dateLocale={dateLocale}
+              t={t}
+              expandedReplies={expandedReplies}
+              loadingReplies={loadingReplies}
+              highlightedCommentId={highlightedCommentId}
+              replyingToId={replyingToId}
+              replyText={replyText}
+              quotedText={quotedText}
+              submitting={submitting}
+              onToggleReplies={onToggleReplies}
+              onReply={onReply}
+              onCancelReply={onCancelReply}
+              onReplyTextChange={onReplyTextChange}
+              onSubmitReply={onSubmitReply}
+              onDelete={onDelete}
+              onReaction={onReaction}
+              onTextSelect={onTextSelect}
+              onScrollToComment={onScrollToComment}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const { user, isLoading: authLoading } = useAuth();
-  const { t, i18n } = useTranslation(['books', 'common']);
+  const { t, i18n } = useTranslation(['books', 'common', 'profile']);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [replyToComment, setReplyToComment] = useState<Comment | null>(null);
+  const [quotedText, setQuotedText] = useState<string>('');
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   
-  // Get date-fns locale based on current language
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
-  // Fetch comments when component mounts or bookId changes
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('authToken');
-        const response = await fetch(`/api/books/${bookId}/comments`, {
-          headers: token ? {
-            'Authorization': `Bearer ${token}`
-          } : {}
-        });
-        
-        if (response.ok) {
-          const fetchedComments = await response.json();
-          setComments(fetchedComments);
-          // Cache the fetched data
-          setCachedComments(bookId, fetchedComments);
-          // Notify parent component of comment count change
-          if (onCommentsCountChange) {
-            onCommentsCountChange(fetchedComments.length);
-          }
-          return fetchedComments;
-        }
-        throw new Error('Failed to fetch comments');
-      } catch (error) {
-        console.error('Failed to fetch comments:', error);
-        // Even on error, notify parent with 0 count
+  const fetchComments = useCallback(async () => {
+    try {
+      setLoading(true);
+      setExpandedReplies(new Set());
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/books/${bookId}/comments`, {
+        headers: token ? {
+          'Authorization': `Bearer ${token}`
+        } : {}
+      });
+      
+      if (response.ok) {
+        const fetchedComments = await response.json();
+        setComments(fetchedComments);
+        setCachedComments(bookId, fetchedComments);
         if (onCommentsCountChange) {
-          onCommentsCountChange(0);
+          onCommentsCountChange(fetchedComments.length);
         }
-        throw error;
-      } finally {
-        setLoading(false);
+        return fetchedComments;
       }
-    };
+      throw new Error('Failed to fetch comments');
+    } catch (error) {
+      console.error('Failed to fetch comments:', error);
+      if (onCommentsCountChange) {
+        onCommentsCountChange(0);
+      }
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [bookId, onCommentsCountChange]);
 
-    // Check if we have cached data for this book
+  useEffect(() => {
     const cachedCommentsEntry = dataCache.comments[bookId];
     if (cachedCommentsEntry) {
       setComments(cachedCommentsEntry.data);
@@ -104,17 +403,14 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         onCommentsCountChange(cachedCommentsEntry.data.length);
       }
       setLoading(false);
-      // Only fetch fresh data in background if the cached data is stale
       if (bookId && isCachedDataStale(cachedCommentsEntry.timestamp)) {
-        fetchComments().catch(() => {}); // Don't block UI on background refresh
+        fetchComments().catch(() => {});
       }
       return;
     }
 
-    // Check if there's already a pending request for this book
     const pendingRequest = getPendingRequest('comments', bookId);
     if (pendingRequest) {
-      // Wait for the pending request to complete
       pendingRequest.then((fetchedComments) => {
         setComments(fetchedComments);
         if (onCommentsCountChange) {
@@ -131,15 +427,15 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     }
 
     if (bookId) {
-      // Track this request to prevent duplicates
       const trackedRequest = trackPendingRequest('comments', bookId, fetchComments());
-      trackedRequest.catch(() => {}); // Prevent unhandled promise rejection
+      trackedRequest.catch(() => {});
     }
-  }, [bookId, onCommentsCountChange]);
+  }, [bookId, onCommentsCountChange, fetchComments]);
 
   const handlePostComment = async () => {
     if (!newComment.trim() || !user) return;
     
+    setSubmitting(true);
     try {
       const response = await fetch(`/api/books/${bookId}/comments`, {
         method: 'POST',
@@ -149,93 +445,148 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         },
         body: JSON.stringify({ 
           content: newComment,
-          attachments: uploadedFiles.map(f => f.uploadId)
+          attachments: uploadedFiles.map(f => f.uploadId),
+          parentCommentId: replyToComment?.id || null,
+          quotedText: quotedText || null
         })
       });
       
       if (response.ok) {
         const newCommentObj = await response.json();
         
-        // Format the comment to match our frontend interface
-        const formattedComment: Comment = {
-          id: newCommentObj.id,
-          bookId: newCommentObj.bookId,
-          author: newCommentObj.author || user.fullName || user.username || 'Вы',
-          content: newCommentObj.content,
-          createdAt: newCommentObj.createdAt,
-          reactions: [],
-          userId: newCommentObj.userId || user.id,
-          avatarUrl: newCommentObj.avatarUrl || user.avatarUrl || null,
-          attachments: newCommentObj.attachmentMetadata?.attachments || []
-        };
+        if (replyToComment) {
+          // It's a reply - add to parent's replies array
+          const newReply: Comment = {
+            id: newCommentObj.id,
+            bookId: newCommentObj.bookId,
+            author: newCommentObj.author || user.fullName || user.username || 'You',
+            username: newCommentObj.username || user.username,
+            content: newCommentObj.content,
+            createdAt: new Date().toISOString(),
+            reactions: [],
+            userId: user.id,
+            avatarUrl: user.avatarUrl || null,
+            isOwnComment: true,
+            parentCommentId: replyToComment.id,
+            quotedText: quotedText || null,
+            parentCommentAuthor: replyToComment.author,
+            replyCount: 0,
+            replies: [],
+            attachments: newCommentObj.attachmentMetadata?.attachments || []
+          };
+          
+          setComments(prevComments => 
+            prevComments.map(c => addReplyToParent(c, replyToComment.id, newReply))
+          );
+          
+          setExpandedReplies(prev => new Set(prev).add(replyToComment.id));
+        } else {
+          // Root comment
+          const formattedComment: Comment = {
+            id: newCommentObj.id,
+            bookId: newCommentObj.bookId,
+            author: newCommentObj.author || user.fullName || user.username || 'You',
+            username: newCommentObj.username || user.username,
+            content: newCommentObj.content,
+            createdAt: new Date().toISOString(),
+            reactions: [],
+            userId: user.id,
+            avatarUrl: user.avatarUrl || null,
+            isOwnComment: true,
+            parentCommentId: null,
+            quotedText: null,
+            parentCommentAuthor: null,
+            replyCount: 0,
+            replies: [],
+            attachments: newCommentObj.attachmentMetadata?.attachments || []
+          };
+          
+          const updatedComments = [formattedComment, ...comments];
+          setComments(updatedComments);
+          setCachedComments(bookId, updatedComments);
+          
+          if (onCommentsCountChange) {
+            onCommentsCountChange(updatedComments.length);
+          }
+        }
         
-        // Optimistically add the new comment to the beginning of the list
-        const updatedComments = [formattedComment, ...comments];
-        setComments(updatedComments);
         setNewComment('');
+        setReplyToComment(null);
+        setQuotedText('');
         setAttachmentFiles([]);
         setUploadedFiles([]);
-        
-        // Update cache with new comment
-        setCachedComments(bookId, updatedComments);
-        
-        // Notify parent component of comment count change
-        if (onCommentsCountChange) {
-          onCommentsCountChange(updatedComments.length);
-        }
       } else {
         console.error('Failed to post comment');
       }
     } catch (error) {
       console.error('Error posting comment:', error);
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const addReplyToParent = (comment: Comment, parentId: string, newReply: Comment): Comment => {
+    if (comment.id === parentId) {
+      return {
+        ...comment,
+        replyCount: (comment.replyCount || 0) + 1,
+        replies: [...(comment.replies || []), newReply]
+      };
+    }
+    if (comment.replies && comment.replies.length > 0) {
+      return {
+        ...comment,
+        replies: comment.replies.map(reply => addReplyToParent(reply, parentId, newReply))
+      };
+    }
+    return comment;
   };
 
   const handleReact = async (commentId: string, emoji: string) => {
     if (!user) return;
     
-    // First, send the reaction to the server
     try {
-      const response = await fetch('/api/reactions', {
+      const response = await fetch(`/api/comments/${commentId}/reaction`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
-        body: JSON.stringify({
-          commentId,
-          emoji
-        })
+        body: JSON.stringify({ emoji })
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to save reaction');
-      }
-      
-      // After successful reaction save, refetch comments to get updated reactions
-      const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-      
-      if (commentsResponse.ok) {
-        const fetchedComments = await commentsResponse.json();
-        setComments(fetchedComments);
-        // Update cache with fresh data
-        setCachedComments(bookId, fetchedComments);
+      if (response.ok) {
+        const data = await response.json();
+        updateCommentReactions(commentId, data.reactions);
       }
     } catch (error) {
-      console.error('Failed to add reaction:', error);
-      // Keep existing comments on error
+      console.error('Failed to toggle reaction:', error);
     }
+  };
+
+  const updateCommentReactions = (commentId: string, reactions: Reaction[]) => {
+    setComments(prevComments => 
+      prevComments.map(c => updateCommentReactionsRecursive(c, commentId, reactions))
+    );
+  };
+
+  const updateCommentReactionsRecursive = (comment: Comment, targetId: string, reactions: Reaction[]): Comment => {
+    if (comment.id === targetId) {
+      return { ...comment, reactions };
+    }
+    if (comment.replies && comment.replies.length > 0) {
+      return {
+        ...comment,
+        replies: comment.replies.map(reply => updateCommentReactionsRecursive(reply, targetId, reactions))
+      };
+    }
+    return comment;
   };
 
   const handleDeleteComment = async (commentId: string) => {
     if (!user) return;
     
     try {
-      // Use admin endpoint if user is admin or moderator
       const endpoint = (user.accessLevel === 'admin' || user.accessLevel === 'moder') 
         ? `/api/admin/comments/${commentId}`
         : `/api/comments/${commentId}`;
@@ -248,12 +599,9 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       });
       
       if (response.ok) {
-        // Remove the comment from the state
-        const updatedComments = comments.filter(comment => comment.id !== commentId);
+        const updatedComments = removeCommentRecursive(comments, commentId);
         setComments(updatedComments);
-        // Update cache
         setCachedComments(bookId, updatedComments);
-        // Notify parent component of comment count change
         if (onCommentsCountChange) {
           onCommentsCountChange(updatedComments.length);
         }
@@ -265,6 +613,122 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     }
   };
 
+  const removeCommentRecursive = (commentsList: Comment[], targetId: string): Comment[] => {
+    return commentsList
+      .filter(c => c.id !== targetId)
+      .map(c => ({
+        ...c,
+        replies: c.replies ? removeCommentRecursive(c.replies, targetId) : undefined
+      }));
+  };
+
+  const handleReplyClick = (comment: Comment) => {
+    setReplyToComment(comment);
+    setQuotedText('');
+  };
+
+  const handleCancelReply = () => {
+    setReplyToComment(null);
+    setQuotedText('');
+  };
+
+  const handleTextSelect = useCallback((comment: Comment) => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+      const selectedText = selection.toString().trim();
+      if (selectedText.length > 0 && selectedText.length <= 500) {
+        setReplyToComment(comment);
+        setQuotedText(selectedText);
+      }
+    }
+  }, []);
+
+  const handleScrollToComment = useCallback((commentId: string) => {
+    const element = document.getElementById(`comment-${commentId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedCommentId(commentId);
+      setTimeout(() => {
+        setHighlightedCommentId(null);
+      }, 2000);
+    }
+  }, []);
+
+  const handleToggleReplies = async (commentId: string) => {
+    if (expandedReplies.has(commentId)) {
+      setExpandedReplies(prev => {
+        const next = new Set(prev);
+        next.delete(commentId);
+        return next;
+      });
+    } else {
+      const comment = findCommentById(comments, commentId);
+      if (comment && (!comment.replies || comment.replies.length === 0)) {
+        await fetchReplies(commentId);
+      }
+      setExpandedReplies(prev => new Set(prev).add(commentId));
+    }
+  };
+
+  const findCommentById = (commentsList: Comment[], id: string): Comment | null => {
+    for (const comment of commentsList) {
+      if (comment.id === id) return comment;
+      if (comment.replies) {
+        const found = findCommentById(comment.replies, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const fetchReplies = async (commentId: string) => {
+    setLoadingReplies(prev => new Set(prev).add(commentId));
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/comments/${commentId}/replies`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+
+      if (response.ok) {
+        const replies = await response.json();
+        setComments(prevComments => 
+          prevComments.map(c => addRepliesToComment(c, commentId, replies))
+        );
+      }
+    } catch (error) {
+      console.error('Error fetching replies:', error);
+    } finally {
+      setLoadingReplies(prev => {
+        const next = new Set(prev);
+        next.delete(commentId);
+        return next;
+      });
+    }
+  };
+
+  const addRepliesToComment = (comment: Comment, targetId: string, replies: Comment[]): Comment => {
+    if (comment.id === targetId) {
+      return { ...comment, replies };
+    }
+    if (comment.replies && comment.replies.length > 0) {
+      return {
+        ...comment,
+        replies: comment.replies.map(reply => addRepliesToComment(reply, targetId, replies))
+      };
+    }
+    return comment;
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (newComment.trim() && !submitting && !(attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)) {
+        handlePostComment();
+      }
+    }
+  };
+
   return (
     <div className="space-y-8">
       {authLoading ? (
@@ -272,61 +736,56 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
           <p>{t('common:loading')}</p>
         </div>
       ) : user ? (
-        <div className="flex gap-4">
-          <Avatar>
-            {user?.avatarUrl ? (
-              <AvatarImage src={user.avatarUrl} alt={user.fullName || user.username} />
-            ) : null}
-            <AvatarFallback>Вы</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 space-y-2">
-            <Textarea
-              placeholder={t('books:commentPlaceholder')}
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  if (newComment.trim() && user && !(attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)) {
-                    handlePostComment();
-                  }
-                }
-              }}
-              className="min-h-[100px] resize-none"
-            />
-            {attachmentFiles.length > 0 && (
-              <AttachmentPreview
-                files={attachmentFiles}
-                onRemove={(index) => {
-                  setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
-                  setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-                }}
-                onUploadComplete={(files) => setUploadedFiles(files)}
-                autoUpload={true}
+        !replyToComment && (
+          <div className="flex gap-4">
+            <Avatar>
+              {user?.avatarUrl ? (
+                <AvatarImage src={user.avatarUrl} alt={user.fullName || user.username} />
+              ) : null}
+              <AvatarFallback>You</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 space-y-2">
+              <Textarea
+                placeholder={t('books:commentPlaceholder')}
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="min-h-[100px] resize-none"
               />
-            )}
-            <div className="flex justify-between items-center">
-              <div className="flex gap-1">
-                <EmojiPicker onEmojiSelect={(emoji) => setNewComment(prev => prev + emoji)} />
-                <AttachmentButton 
-                  onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
-                  maxFiles={5}
+              {attachmentFiles.length > 0 && (
+                <AttachmentPreview
+                  files={attachmentFiles}
+                  onRemove={(index) => {
+                    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+                    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                  }}
+                  onUploadComplete={(files) => setUploadedFiles(files)}
+                  autoUpload={true}
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
-                <Button 
-                  onClick={handlePostComment} 
-                  disabled={!newComment.trim() || !user || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
-                  className="gap-2"
-                >
-                  <Send className="w-4 h-4" />
-                  {t('books:send')}
-                </Button>
+              )}
+              <div className="flex justify-between items-center">
+                <div className="flex gap-1">
+                  <EmojiPicker onEmojiSelect={(emoji) => setNewComment(prev => prev + emoji)} />
+                  <AttachmentButton 
+                    onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
+                    maxFiles={5}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
+                  <Button 
+                    onClick={handlePostComment} 
+                    disabled={!newComment.trim() || !user || submitting || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
+                    className="gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    {t('books:send')}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )
       ) : (
         <AuthPrompt 
           message={t('common:authPromptComments')} 
@@ -334,71 +793,41 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         />
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {loading ? (
           <div className="text-center py-8">
             <p>{t('common:loading')}</p>
           </div>
         ) : comments.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <p>{t('books:noComments', 'Пока нет комментариев. Будьте первым!')}</p>
+            <p>{t('books:noComments', 'No comments yet. Be the first!')}</p>
           </div>
         ) : (
           comments.map((comment) => (
-            <div key={comment.id} className="flex gap-4 group animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <Avatar className="w-10 h-10 border">
-                {comment.avatarUrl ? (
-                  <AvatarImage src={comment.avatarUrl} alt={comment.author} />
-                ) : null}
-                <AvatarFallback>{comment.author ? comment.author.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-2 relative">
-                {user && (comment.userId === user.id || user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
-                  <button 
-                    onClick={() => handleDeleteComment(comment.id)}
-                    className="absolute top-0 right-0 text-muted-foreground hover:text-destructive transition-colors"
-                    title={t('books:delete')}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-                <div className="flex items-center gap-2 mb-1">
-                  {comment.userId ? (
-                    <a
-                      href={`/profile/${comment.userId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-sm text-primary hover:underline"
-                    >
-                      {comment.author || 'Anonymous'}
-                    </a>
-                  ) : (
-                    <span className="font-semibold text-sm">{comment.author || 'Anonymous'}</span>
-                  )}
-                </div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <p className="text-xs text-muted-foreground cursor-help">
-                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: dateLocale })}
-                      </p>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{format(new Date(comment.createdAt), 'dd.MM.yyyy HH:mm', { locale: dateLocale })}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{comment.content}</p>
-                {comment.attachments && comment.attachments.length > 0 && (
-                  <AttachmentDisplay attachments={comment.attachments} className="mt-2" />
-                )}
-                <ReactionBar 
-                  reactions={comment.reactions} 
-                  onReact={(emoji) => handleReact(comment.id, emoji)} 
-                  commentId={comment.id}
-                />
-              </div>
-            </div>
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              depth={0}
+              user={user}
+              dateLocale={dateLocale}
+              t={t}
+              expandedReplies={expandedReplies}
+              loadingReplies={loadingReplies}
+              highlightedCommentId={highlightedCommentId}
+              replyingToId={replyToComment?.id || null}
+              replyText={newComment}
+              quotedText={quotedText}
+              submitting={submitting}
+              onToggleReplies={handleToggleReplies}
+              onReply={handleReplyClick}
+              onCancelReply={handleCancelReply}
+              onReplyTextChange={setNewComment}
+              onSubmitReply={handlePostComment}
+              onDelete={handleDeleteComment}
+              onReaction={handleReact}
+              onTextSelect={handleTextSelect}
+              onScrollToComment={handleScrollToComment}
+            />
           ))
         )}
       </div>
