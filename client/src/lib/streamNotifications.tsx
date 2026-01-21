@@ -128,11 +128,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
 
     // Handle incoming new activity events (comments, reviews, books, news)
     const handleNewActivity = (activity: any) => {
-      // Skip if we're on the /stream page (StreamPage handles its own toasts)
-      if (location === '/stream' || location.startsWith('/stream')) {
-        return;
-      }
-
+      console.log('DEBUG: handleNewActivity received:', activity);
       // Skip if notifications are disabled
       if (!getStreamNotificationsEnabled()) {
         return;
@@ -152,7 +148,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       // Check if this activity type is in the user's filters
       const actionFilters = getStreamActionTypeFilters();
       const activityType = activity.type as ActionType;
-      
+
       if (!actionFilters.includes(activityType)) {
         return;
       }
@@ -160,10 +156,10 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       // Build notification message to match Last Actions display exactly
       // Title = Activity type (like header in Last Actions)
       // Description = Author name link · target link (like user section in Last Actions)
-      const authorName = activity.metadata?.author_name || activity.metadata?.uploader_name || t('stream:unknownUser');
-      const authorId = activity.metadata?.author_id || activity.metadata?.uploader_id || activity.userId;
+      const authorName = activity.user?.fullName || activity.user?.username || activity.metadata?.author_name || activity.metadata?.uploader_name || t('stream:unknownUser');
+      const authorId = activity.user?.id || activity.metadata?.author_id || activity.metadata?.uploader_id || activity.userId;
       const authorLink = `/profile/${authorId}`;
-      let title: ReactNode = '';
+      let title: string = '';
       let description: ReactNode = '';
 
       // Helper to create author link element
@@ -175,39 +171,48 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
         createElement('a', { href: link, className: 'text-primary hover:underline font-medium' }, name);
 
       if (activity.type === 'comment') {
-        title = t('stream:activityTypes.comment');
         const bookTitle = activity.metadata?.book_title || '';
         const newsTitle = activity.metadata?.news_title || '';
         const bookId = activity.metadata?.book_id || activity.bookId;
         const newsId = activity.metadata?.news_id || activity.newsId;
+        const commentText = activity.metadata?.comment_text || activity.metadata?.content_preview || '';
         if (bookTitle && bookId) {
+          title = `${t('stream:newCommentToBook')} "${bookTitle}"`;
           description = createElement('span', null,
             createAuthorLink(authorName, authorLink),
-            createElement('span', { className: 'text-muted-foreground' }, ' · '),
-            createTargetLink(bookTitle, `/book/${bookId}`)
+            createElement('span', { className: 'text-muted-foreground' }, ': '),
+            commentText && `${commentText}`
           );
         } else if (newsTitle && newsId) {
+          title = `${t('stream:newCommentToNews')} "${newsTitle}"`;
           description = createElement('span', null,
             createAuthorLink(authorName, authorLink),
-            createElement('span', { className: 'text-muted-foreground' }, ' · '),
-            createTargetLink(newsTitle, `/news/${newsId}`)
+            createElement('span', { className: 'text-muted-foreground' }, ': '),
+            commentText && `${commentText}`
           );
         } else {
-          description = createAuthorLink(authorName, authorLink);
+          title = t('stream:newComment');
+          description = createElement('span', null,
+            createAuthorLink(authorName, authorLink),
+            createElement('span', { className: 'text-muted-foreground' }, ': '),
+            commentText && `${commentText}`
+          );
         }
       } else if (activity.type === 'review') {
-        title = t('stream:activityTypes.review');
+        title = `${t('stream:activityTypes.review')} - ${authorName}`;
         const bookTitle = activity.metadata?.book_title || '';
         const bookId = activity.metadata?.book_id || activity.bookId;
         const rating = activity.metadata?.rating || '';
+        const reviewText = activity.metadata?.review_text || '';
         description = createElement('span', null,
-          createAuthorLink(authorName, authorLink),
-          bookTitle && createElement('span', { className: 'text-muted-foreground' }, ' · '),
-          bookTitle && bookId && createTargetLink(bookTitle, `/book/${bookId}`),
-          rating && createElement('span', { className: 'text-muted-foreground' }, ` (${rating}/10)`)
+          reviewText && `"${reviewText}"`,
+          reviewText && rating && createElement('span', { className: 'text-muted-foreground' }, ' · '),
+          rating && createElement('span', { className: 'text-muted-foreground' }, ` (${rating}/10)`),
+          (reviewText || rating) && bookTitle && createElement('span', { className: 'text-muted-foreground' }, ' · '),
+          bookTitle && bookId && createTargetLink(bookTitle, `/book/${bookId}`)
         );
       } else if (activity.type === 'book') {
-        title = t('stream:activityTypes.book');
+        title = `${t('stream:activityTypes.book')} - ${authorName}`;
         const bookTitle = activity.metadata?.title || '';
         const bookId = activity.entityId || activity.bookId;
         description = createElement('span', null,
@@ -216,7 +221,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
           bookTitle && bookId && createTargetLink(bookTitle, `/book/${bookId}`)
         );
       } else if (activity.type === 'news') {
-        title = t('stream:activityTypes.news');
+        title = `${t('stream:activityTypes.news')} - ${authorName}`;
         const newsTitle = activity.metadata?.title || '';
         const newsId = activity.entityId || activity.newsId;
         if (newsTitle && newsId) {
@@ -229,6 +234,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       }
 
       // Show toast notification matching Last Actions format
+      console.log('DEBUG: Showing toast - title:', title, 'description:', description);
       toast({
         title: title,
         description: description,
@@ -238,11 +244,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
 
     // Handle incoming last action events
     const handleLastAction = (action: any) => {
-      // Skip if we're on the /stream page (StreamPage handles its own toasts)
-      if (location === '/stream' || location.startsWith('/stream')) {
-        return;
-      }
-
+      console.log('DEBUG: handleLastAction received:', action);
       // Skip if notifications are disabled
       if (!getStreamNotificationsEnabled()) {
         return;
@@ -279,7 +281,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       // Description = Username link · target link (like user section in Last Actions)
       const userName = action.user?.fullName || action.user?.username || t('stream:unknownUser');
       const userLink = `/profile/${action.user?.username || action.user?.id || ''}`;
-      let title: ReactNode = '';
+      let title: string = '';
       let description: ReactNode = '';
       
       // Helper to create user link element
@@ -334,10 +336,12 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
         const emoji = action.metadata?.emoji || '❤️';
         const bookTitle = action.metadata?.book_title || '';
         const bookLink = `/book/${action.metadata?.book_id || ''}`;
+        const commentText = action.metadata?.comment_text || '';
         description = createElement('span', null,
           createUserLink(userName, userLink),
           ' ', emoji,
-          bookTitle && createElement('span', { className: 'text-muted-foreground' }, ' · '),
+          commentText && ` "${commentText}"`,
+          (commentText || emoji) && bookTitle && createElement('span', { className: 'text-muted-foreground' }, ' · '),
           bookTitle && createTargetLink(bookTitle, bookLink)
         );
       } else if (action.action_type === 'book_review_reaction') {
@@ -345,10 +349,12 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
         const emoji = action.metadata?.emoji || '❤️';
         const bookTitle = action.metadata?.book_title || '';
         const bookLink = `/book/${action.metadata?.book_id || ''}`;
+        const reviewText = action.metadata?.review_text || '';
         description = createElement('span', null,
           createUserLink(userName, userLink),
           ' ', emoji,
-          bookTitle && createElement('span', { className: 'text-muted-foreground' }, ' · '),
+          reviewText && ` "${reviewText}"`,
+          (reviewText || emoji) && bookTitle && createElement('span', { className: 'text-muted-foreground' }, ' · '),
           bookTitle && createTargetLink(bookTitle, bookLink)
         );
       } else if (action.action_type === 'book_reaction') {
@@ -402,25 +408,29 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
         description = createUserLink(userName, userLink);
       } else if (action.action_type === 'profile_comment') {
         title = t('stream:actionTypes.profile_comment');
-        const targetName = action.target?.full_name 
+        const targetName = action.target?.full_name
           ? `${action.target.full_name} (@${action.target.username})`
           : (action.metadata?.target_name || action.target?.username || '');
         const targetLink = `/profile/${action.target?.username || action.target?.id || ''}`;
+        const commentText = action.metadata?.comment_text || '';
         description = createElement('span', null,
           createUserLink(userName, userLink),
           targetName && createElement('span', { className: 'text-muted-foreground' }, ' · '),
-          targetName && createTargetLink(targetName, targetLink)
+          targetName && createTargetLink(targetName, targetLink),
+          commentText && createElement('span', { className: 'text-muted-foreground' }, ` · "${commentText}"`)
         );
       } else if (action.action_type === 'profile_comment_reply') {
         title = t('stream:actionTypes.profile_comment_reply');
-        const targetName = action.target?.full_name 
+        const targetName = action.target?.full_name
           ? `${action.target.full_name} (@${action.target.username})`
           : (action.metadata?.target_name || action.target?.username || '');
         const targetLink = `/profile/${action.target?.username || action.target?.id || ''}`;
+        const commentText = action.metadata?.comment_text || '';
         description = createElement('span', null,
           createUserLink(userName, userLink),
           targetName && createElement('span', { className: 'text-muted-foreground' }, ' · '),
-          targetName && createTargetLink(targetName, targetLink)
+          targetName && createTargetLink(targetName, targetLink),
+          commentText && createElement('span', { className: 'text-muted-foreground' }, ` · "${commentText}"`)
         );
       } else if (action.action_type === 'profile_rating') {
         title = t('stream:actionTypes.profile_rating');
@@ -438,14 +448,16 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       } else if (action.action_type === 'profile_comment_reaction') {
         title = t('stream:actionTypes.profile_comment_reaction');
         const emoji = action.metadata?.emoji || '❤️';
-        const targetName = action.target?.full_name 
+        const targetName = action.target?.full_name
           ? `${action.target.full_name} (@${action.target.username})`
           : (action.metadata?.target_name || action.target?.username || '');
         const targetLink = `/profile/${action.target?.username || action.target?.id || ''}`;
+        const commentText = action.metadata?.comment_text || '';
         description = createElement('span', null,
           createUserLink(userName, userLink),
           ' ', emoji,
-          targetName && createElement('span', { className: 'text-muted-foreground' }, ' · '),
+          commentText && ` "${commentText}"`,
+          (commentText || emoji) && targetName && createElement('span', { className: 'text-muted-foreground' }, ' · '),
           targetName && createTargetLink(targetName, targetLink)
         );
       } else {
@@ -455,6 +467,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       }
 
       // Show toast notification matching Last Actions format
+      console.log('DEBUG: Showing toast - title:', title, 'description:', description);
       toast({
         title: title,
         description: description,

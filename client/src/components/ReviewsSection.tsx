@@ -382,7 +382,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
   const getRatingColor = (rating: number | null | undefined) => {
-    if (!rating) return 'bg-muted text-muted-foreground border-muted';
+    if (!rating || rating === null) return 'bg-muted text-muted-foreground border-muted';
     if (rating >= 8) return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
     if (rating >= 5) return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
     return 'bg-rose-500/10 text-rose-600 border-rose-500/20';
@@ -487,8 +487,8 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
-        body: JSON.stringify({ 
-          rating: replyToReview ? null : newRating, 
+        body: JSON.stringify({
+          ...(replyToReview ? {} : { rating: newRating }),
           content: newReviewContent,
           attachments: uploadedFiles.map(f => f.uploadId),
           parentReviewId: replyToReview?.id || null,
@@ -565,7 +565,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
           
           // Calculate and send the new average rating
           if (onBookRatingChange) {
-            const totalRating = updatedReviews.reduce((sum, review) => sum + review.rating, 0);
+            const totalRating = updatedReviews.reduce((sum, review) => sum + (review.rating || 0), 0);
             const newAverageRating = updatedReviews.length > 0 ? totalRating / updatedReviews.length : null;
             onBookRatingChange(newAverageRating);
           }
@@ -682,7 +682,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
         
         // Recalculate average rating
         if (onBookRatingChange) {
-          const totalRating = updatedReviews.reduce((sum, review) => sum + review.rating, 0);
+          const totalRating = updatedReviews.reduce((sum, review) => sum + (review.rating || 0), 0);
           const newAverageRating = updatedReviews.length > 0 ? totalRating / updatedReviews.length : null;
           onBookRatingChange(newAverageRating);
         }

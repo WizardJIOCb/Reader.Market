@@ -89,6 +89,8 @@
   "retryLoad": "Retry",
   "newActivity": "New Activity",
   "newComment": "New comment posted",
+  "newCommentToBook": "New comment on book",
+  "newCommentToNews": "New comment on article",
   "newReview": "New review posted",
   "newBook": "New book uploaded",
   "newNews": "New article published",

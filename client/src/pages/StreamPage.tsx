@@ -360,16 +360,7 @@ export default function StreamPage() {
         });
       }
       
-      // Show toast notification for new activity
-      const activityTypeText = activity.type === 'comment' ? t('stream:newComment') :
-                                activity.type === 'review' ? t('stream:newReview') :
-                                activity.type === 'book' ? t('stream:newBook') :
-                                t('stream:newNews');
-      
-      toast({
-        title: t('stream:newActivity'),
-        description: activityTypeText,
-      });
+
     };
 
     const handleActivityUpdated = (data: { entityId: string; metadata: any }) => {
@@ -537,14 +528,7 @@ export default function StreamPage() {
         };
       });
       
-      // Show toast notification for last action, but not for the current user's own actions
-      const actionUserId = action.user?.id || action.userId;
-      if (!currentUser || actionUserId !== currentUser.id) {
-        toast({
-          title: t('stream:newActivity'),
-          description: t(`stream:actionTypes.${action.action_type}`),
-        });
-      }
+
     };
 
     socket.on('stream:new-activity', handleNewActivity);
