@@ -301,8 +301,8 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
         const targetLink = `/profile/${action.target?.username || action.target?.id || ''}`;
         description = createElement('span', null,
           createUserLink(userName, userLink),
-          targetName && createElement('span', { className: 'text-muted-foreground' }, ' · '),
-          targetName && createTargetLink(targetName, targetLink)
+          createElement('span', { className: 'text-muted-foreground' }, ` ${t('stream:on')} `),
+          createTargetLink(targetName, targetLink)
         );
       } else if (action.action_type === 'view_book' || action.action_type === 'navigate_book') {
         title = t('stream:actionTypes.navigate_book');
