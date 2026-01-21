@@ -299,11 +299,26 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
           ? `${action.target.full_name} (@${action.target.username})`
           : (action.metadata?.full_name || action.metadata?.username || action.target?.username || '');
         const targetLink = `/profile/${action.target?.username || action.target?.id || ''}`;
-        description = createElement('span', null,
-          createUserLink(userName, userLink),
-          createElement('span', { className: 'text-muted-foreground' }, ` ${t('stream:on')} `),
-          createTargetLink(targetName, targetLink)
-        );
+        
+        // Check if viewing own profile - or if target information is missing
+        const isViewingOwnProfile = action.user?.id === action.target?.id || 
+                                    action.user?.username === action.target?.username ||
+                                    userName === targetName ||
+                                    !targetName || // If target name is empty, assume viewing own profile
+                                    targetLink === '/profile/'; // If target link is invalid, assume viewing own profile
+        
+        if (isViewingOwnProfile) {
+          description = createElement('span', null,
+            createUserLink(userName, userLink),
+            createElement('span', { className: 'text-muted-foreground' }, ` ${t('stream:viewedOwnProfile')}`)
+          );
+        } else {
+          description = createElement('span', null,
+            createUserLink(userName, userLink),
+            createElement('span', { className: 'text-muted-foreground' }, ` ${t('stream:on')} `),
+            createTargetLink(targetName, targetLink)
+          );
+        }
       } else if (action.action_type === 'view_book' || action.action_type === 'navigate_book') {
         title = t('stream:actionTypes.navigate_book');
         const bookTitle = action.target?.title || action.metadata?.title || '';
