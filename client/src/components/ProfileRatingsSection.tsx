@@ -10,7 +10,7 @@ import { useAuth } from '../lib/auth';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
-import { Star, ChevronDown, ChevronUp, Trash2, User, Reply, X, Quote } from 'lucide-react';
+import { Star, ChevronDown, ChevronUp, Trash2, User, Reply, Quote } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { ReactionBar } from './ReactionBar';
 
@@ -58,8 +58,15 @@ interface CommentItemProps {
   expandedReplies: Set<string>;
   loadingReplies: Set<string>;
   highlightedCommentId: string | null;
+  replyingToId: string | null;
+  replyText: string;
+  quotedText: string;
+  submitting: boolean;
   onToggleReplies: (commentId: string) => void;
   onReply: (comment: Comment) => void;
+  onCancelReply: () => void;
+  onReplyTextChange: (text: string) => void;
+  onSubmitReply: () => void;
   onDelete: (commentId: string) => void;
   onReaction: (commentId: string, emoji: string) => void;
   onTextSelect: (comment: Comment) => void;
@@ -77,8 +84,15 @@ function CommentItem({
   expandedReplies,
   loadingReplies,
   highlightedCommentId,
+  replyingToId,
+  replyText,
+  quotedText,
+  submitting,
   onToggleReplies,
   onReply,
+  onCancelReply,
+  onReplyTextChange,
+  onSubmitReply,
   onDelete,
   onReaction,
   onTextSelect,
@@ -93,6 +107,16 @@ function CommentItem({
   const isCompact = depth > 0;
   const displayReplyCount = comment.replyCount || (comment.replies?.length || 0);
   const isHighlighted = highlightedCommentId === comment.id;
+  const isReplyingToThis = replyingToId === comment.id;
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (replyText.trim() && !submitting) {
+        onSubmitReply();
+      }
+    }
+  };
   
   return (
     <div 
@@ -185,7 +209,7 @@ function CommentItem({
 
             {/* Actions row: Reply button + Reactions + Show replies */}
             <div className="flex items-center gap-2 flex-wrap">
-              {isAuthenticated && (
+              {isAuthenticated && !isReplyingToThis && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -226,6 +250,55 @@ function CommentItem({
                 onReact={(emoji) => onReaction(comment.id, emoji)}
               />
             </div>
+
+            {/* Inline reply input */}
+            {isReplyingToThis && (
+              <div className="mt-2 space-y-2 p-2 bg-muted/30 rounded-lg border">
+                {quotedText && (
+                  <div className="text-xs text-muted-foreground italic bg-muted/50 border-l-2 border-muted-foreground/50 pl-2 py-1 rounded-r">
+                    <Quote className="w-3 h-3 inline mr-1" />
+                    {quotedText}
+                  </div>
+                )}
+                <div className="relative">
+                  <Textarea
+                    placeholder={`${t('profile:ratings.replyPlaceholder')}...`}
+                    value={replyText}
+                    onChange={(e) => onReplyTextChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    rows={2}
+                    className="pr-10 text-sm min-h-[60px]"
+                    autoFocus
+                  />
+                  <div className="absolute bottom-1.5 right-1.5">
+                    <EmojiPicker
+                      onEmojiSelect={(emoji) => onReplyTextChange(replyText + emoji)}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7"
+                      onClick={onCancelReply}
+                    >
+                      {t('profile:cancel')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7"
+                      onClick={onSubmitReply}
+                      disabled={submitting || !replyText.trim()}
+                    >
+                      {t('profile:ratings.postReply')}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -244,8 +317,15 @@ function CommentItem({
               expandedReplies={expandedReplies}
               loadingReplies={loadingReplies}
               highlightedCommentId={highlightedCommentId}
+              replyingToId={replyingToId}
+              replyText={replyText}
+              quotedText={quotedText}
+              submitting={submitting}
               onToggleReplies={onToggleReplies}
               onReply={onReply}
+              onCancelReply={onCancelReply}
+              onReplyTextChange={onReplyTextChange}
+              onSubmitReply={onSubmitReply}
               onDelete={onDelete}
               onReaction={onReaction}
               onTextSelect={onTextSelect}
@@ -840,37 +920,12 @@ export default function ProfileRatingsSection({
                 </div>
               )}
 
-              {/* Comment Input - available for all authenticated users */}
-              {canComment && (
+              {/* Comment Input - available for all authenticated users, only for new root comments */}
+              {canComment && !replyToComment && (
                 <div className="space-y-2 mt-4">
-                  {/* Reply indicator */}
-                  {replyToComment && (
-                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md border-l-2 border-primary">
-                      <Reply className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        {t('profile:ratings.replyingTo')} <strong>{replyToComment.fullName || replyToComment.username}</strong>
-                      </span>
-                      {quotedText && (
-                        <span className="text-xs text-muted-foreground ml-2 italic truncate max-w-[200px]">
-                          "{quotedText}"
-                        </span>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto h-6 w-6 p-0"
-                        onClick={handleCancelReply}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
                   <div className="relative">
                     <Textarea
-                      placeholder={replyToComment 
-                        ? `${t('profile:ratings.replyPlaceholder')}...` 
-                        : `${t('profile:ratings.yourComment')}...`
-                      }
+                      placeholder={`${t('profile:ratings.yourComment')}...`}
                       value={userComment}
                       onChange={(e) => setUserComment(e.target.value)}
                       onKeyDown={handleKeyDown}
@@ -889,7 +944,7 @@ export default function ProfileRatingsSection({
                       disabled={submitting || !userComment.trim()}
                       size="sm"
                     >
-                      {replyToComment ? t('profile:ratings.postReply') : t('profile:ratings.postComment')}
+                      {t('profile:ratings.postComment')}
                     </Button>
                     <span className="text-xs text-muted-foreground">
                       Ctrl+Enter
@@ -923,8 +978,15 @@ export default function ProfileRatingsSection({
                     expandedReplies={expandedReplies}
                     loadingReplies={loadingReplies}
                     highlightedCommentId={highlightedCommentId}
+                    replyingToId={replyToComment?.id || null}
+                    replyText={userComment}
+                    quotedText={quotedText}
+                    submitting={submitting}
                     onToggleReplies={handleToggleReplies}
                     onReply={handleReplyClick}
+                    onCancelReply={handleCancelReply}
+                    onReplyTextChange={setUserComment}
+                    onSubmitReply={handleSubmitComment}
                     onDelete={handleDeleteComment}
                     onReaction={handleReaction}
                     onTextSelect={handleTextSelect}

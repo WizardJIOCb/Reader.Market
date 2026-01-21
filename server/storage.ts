@@ -6407,12 +6407,16 @@ export class DBStorage implements IStorage {
         // Recursively get nested replies
         const nestedReplies = await this.getCommentReplies(reply.id, currentUserId);
         
+        // Count all nested replies (direct + their children)
+        const replyCount = await this.countCommentReplies(reply.id);
+        
         return {
           ...reply,
           isOwnComment: currentUserId ? reply.userId === currentUserId : false,
           reactions,
           parentCommentAuthor,
           replies: nestedReplies,
+          replyCount,
         };
       }));
       
