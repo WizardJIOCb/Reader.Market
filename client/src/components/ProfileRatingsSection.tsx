@@ -57,11 +57,13 @@ interface CommentItemProps {
   t: any;
   expandedReplies: Set<string>;
   loadingReplies: Set<string>;
+  highlightedCommentId: string | null;
   onToggleReplies: (commentId: string) => void;
   onReply: (comment: Comment) => void;
   onDelete: (commentId: string) => void;
   onReaction: (commentId: string, emoji: string) => void;
   onTextSelect: (comment: Comment) => void;
+  onScrollToComment: (commentId: string) => void;
   getRatingBadgeVariant: (rating: number | null) => string;
   onUpdateCommentReactions: (commentId: string, reactions: Reaction[]) => void;
 }
@@ -74,11 +76,13 @@ function CommentItem({
   t,
   expandedReplies,
   loadingReplies,
+  highlightedCommentId,
   onToggleReplies,
   onReply,
   onDelete,
   onReaction,
   onTextSelect,
+  onScrollToComment,
   getRatingBadgeVariant,
   onUpdateCommentReactions
 }: CommentItemProps) {
@@ -88,11 +92,17 @@ function CommentItem({
   const isAuthenticated = !!user;
   const isCompact = depth > 0;
   const displayReplyCount = comment.replyCount || (comment.replies?.length || 0);
+  const isHighlighted = highlightedCommentId === comment.id;
   
   return (
-    <div className={depth > 0 ? 'ml-4 border-l-2 border-muted-foreground/20 pl-3' : ''}>
+    <div 
+      id={`comment-${comment.id}`}
+      className={depth > 0 ? 'ml-4 border-l-2 border-muted-foreground/20 pl-3' : ''}
+    >
       <div
-        className={`rounded-lg ${
+        className={`rounded-lg transition-all duration-500 ${
+          isHighlighted ? 'ring-2 ring-primary ring-offset-2 bg-primary/10' : ''
+        } ${
           isCompact 
             ? (comment.isOwnComment ? 'bg-[#fbf6f0] dark:bg-[#2a2520]' : '') 
             : `border ${comment.isOwnComment ? 'bg-[#fbf6f0] dark:bg-[#2a2520] border-primary' : 'bg-card'}`
@@ -118,11 +128,14 @@ function CommentItem({
                 >
                   {comment.fullName || comment.username}
                 </a>
-                {comment.parentCommentAuthor && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                {comment.parentCommentAuthor && comment.parentCommentId && (
+                  <button
+                    onClick={() => onScrollToComment(comment.parentCommentId!)}
+                    className="text-xs text-muted-foreground flex items-center gap-0.5 hover:text-primary cursor-pointer transition-colors"
+                  >
                     <Reply className="w-3 h-3" />
                     {comment.parentCommentAuthor}
-                  </span>
+                  </button>
                 )}
                 {comment.rating && (
                   <Badge variant={getRatingBadgeVariant(comment.rating) as any} className="text-xs h-5">
@@ -230,11 +243,13 @@ function CommentItem({
               t={t}
               expandedReplies={expandedReplies}
               loadingReplies={loadingReplies}
+              highlightedCommentId={highlightedCommentId}
               onToggleReplies={onToggleReplies}
               onReply={onReply}
               onDelete={onDelete}
               onReaction={onReaction}
               onTextSelect={onTextSelect}
+              onScrollToComment={onScrollToComment}
               getRatingBadgeVariant={getRatingBadgeVariant}
               onUpdateCommentReactions={onUpdateCommentReactions}
             />
@@ -273,6 +288,7 @@ export default function ProfileRatingsSection({
   const [quotedText, setQuotedText] = useState<string>('');
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
 
   // Fetch comment count on mount for header display
   useEffect(() => {
@@ -617,6 +633,18 @@ export default function ProfileRatingsSection({
     }
   }, []);
 
+  const handleScrollToComment = useCallback((commentId: string) => {
+    const element = document.getElementById(`comment-${commentId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedCommentId(commentId);
+      // Remove highlight after 2 seconds
+      setTimeout(() => {
+        setHighlightedCommentId(null);
+      }, 2000);
+    }
+  }, []);
+
   const handleReaction = async (commentId: string, emoji: string) => {
     if (!user) {
       toast({
@@ -894,11 +922,13 @@ export default function ProfileRatingsSection({
                     t={t}
                     expandedReplies={expandedReplies}
                     loadingReplies={loadingReplies}
+                    highlightedCommentId={highlightedCommentId}
                     onToggleReplies={handleToggleReplies}
                     onReply={handleReplyClick}
                     onDelete={handleDeleteComment}
                     onReaction={handleReaction}
                     onTextSelect={handleTextSelect}
+                    onScrollToComment={handleScrollToComment}
                     getRatingBadgeVariant={getRatingBadgeVariant}
                     onUpdateCommentReactions={updateCommentReactions}
                   />
