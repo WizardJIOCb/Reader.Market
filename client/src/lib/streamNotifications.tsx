@@ -209,7 +209,11 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
           );
         }
       } else if (activity.type === 'review') {
-        title = `${t('stream:activityTypes.review')} - ${authorName}`;
+        title = createElement('span', null,
+          t('stream:activityTypes.review'),
+          ' - ',
+          createAuthorLink(authorName, authorLink)
+        );
         const bookTitle = activity.metadata?.bookTitle || activity.metadata?.book_title || '';
         const bookId = activity.metadata?.bookId || activity.metadata?.book_id || activity.bookId;
         const rating = activity.metadata?.rating || '';
