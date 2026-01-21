@@ -230,11 +230,17 @@ export interface IStorage {
   updateProfileAverageRating(profileId: string): Promise<void>;
   
   // Profile comments operations
-  createProfileComment(commentData: {userId: string, profileId: string, content: string, attachments?: any}): Promise<any>;
+  createProfileComment(commentData: {userId: string, profileId: string, content: string, attachments?: any, parentCommentId?: string, quotedText?: string}): Promise<any>;
   getProfileComments(profileId: string, options: {limit: number, offset: number, currentUserId?: string}): Promise<{comments: any[], total: number}>;
+  getCommentReplies(commentId: string, currentUserId?: string): Promise<any[]>;
   getUserProfileComment(userId: string, profileId: string): Promise<any | undefined>;
   updateProfileComment(id: string, content: string): Promise<any>;
   deleteProfileComment(id: string, userId: string | null): Promise<boolean>;
+  
+  // Profile comment reactions
+  addProfileCommentReaction(userId: string, commentId: string, emoji: string): Promise<any>;
+  removeProfileCommentReaction(userId: string, commentId: string, emoji: string): Promise<boolean>;
+  getProfileCommentReactions(commentId: string, currentUserId?: string): Promise<{emoji: string, count: number, userReacted: boolean}[]>;
   
   // Admin book operations
   getAllBooksWithUploader(limit: number, offset: number, search?: string, sortBy?: string, sortOrder?: string): Promise<{books: any[], total: number}>;
@@ -421,15 +427,15 @@ export class DBStorage implements IStorage {
         const escapedQuery = query.replace(/[%_]/g, '\$&');
         const searchPattern = '%' + escapedQuery + '%';
         result = await db.select().from(books).where(
-          sql`(LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
+          sql`is_active = true AND (LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
         ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
         
         // Additionally, for books with TXT files, search within the content
-        // Get all books to check their file types
+        // Get all active books to check their file types
         const contentMatches: any[] = [];
         
         try {
-          const allBooks = await db.select().from(books);
+          const allBooks = await db.select().from(books).where(sql`is_active = true`);
           
           // For TXT files, we'll search the content
           const fs = await import('fs');
@@ -478,8 +484,8 @@ export class DBStorage implements IStorage {
           // If content search fails (e.g., due to path resolution issues), continue with just metadata search
         }
       } else {
-        // Return all books if no query, sorted by rating (descending, nulls last)
-        result = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+        // Return all active books if no query, sorted by rating (descending, nulls last)
+        result = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       }
       
       // For books without ratings, calculate them
@@ -496,11 +502,11 @@ export class DBStorage implements IStorage {
         const escapedQuery = query.replace(/[%_]/g, '\$&');
         const searchPattern = '%' + escapedQuery + '%';
         result = await db.select().from(books).where(
-          sql`(LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
+          sql`is_active = true AND (LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
         ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       } else {
-        // Return all books if no query, sorted by rating (descending, nulls last)
-        result = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+        // Return all active books if no query, sorted by rating (descending, nulls last)
+        result = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       }
       
       // For each book, get the comment and review counts
@@ -765,9 +771,9 @@ export class DBStorage implements IStorage {
     try {
       console.log('Fetching popular books');
       
-      // Get books sorted by rating (descending, nulls last), limit to 20
+      // Get active books sorted by rating (descending, nulls last), limit to 20
       // Use SQL to ensure null ratings appear last
-      const booksResult = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      const booksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
       
       // For books without ratings, calculate them
       for (const book of booksResult) {
@@ -777,7 +783,7 @@ export class DBStorage implements IStorage {
       }
       
       // Fetch the books again with updated ratings
-      const updatedBooksResult = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      const updatedBooksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
       
       // For each book, get the comment and review counts
       const resultWithCounts = await Promise.all(updatedBooksResult.map(async (book) => {
@@ -854,8 +860,8 @@ export class DBStorage implements IStorage {
     try {
       console.log('Fetching books by genre:', genre);
       
-      // Get books filtered by genre and sorted by rating (descending, nulls last)
-      const booksResult = await db.select().from(books).where(sql`LOWER(genre) LIKE LOWER('%' || ${genre} || '%')`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      // Get active books filtered by genre and sorted by rating (descending, nulls last)
+      const booksResult = await db.select().from(books).where(sql`is_active = true AND LOWER(genre) LIKE LOWER('%' || ${genre} || '%')`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
       
       // For books without ratings, calculate them
       for (const book of booksResult) {
@@ -3642,6 +3648,7 @@ export class DBStorage implements IStorage {
           uploaderFullName: users.fullName,
           uploadedAt: books.uploadedAt,
           publishedAt: books.publishedAt,
+          isActive: books.isActive,
           createdAt: books.createdAt,
           updatedAt: books.updatedAt
         })
@@ -6222,7 +6229,7 @@ export class DBStorage implements IStorage {
 
   // ========== Profile Comments Methods ==========
 
-  async createProfileComment(commentData: {userId: string, profileId: string, content: string, attachments?: any}): Promise<any> {
+  async createProfileComment(commentData: {userId: string, profileId: string, content: string, attachments?: any, parentCommentId?: string, quotedText?: string}): Promise<any> {
     try {
       // Get user's rating if exists to link it
       const userRating = await this.getUserProfileRating(commentData.userId, commentData.profileId);
@@ -6235,6 +6242,8 @@ export class DBStorage implements IStorage {
           content: commentData.content,
           attachmentMetadata: commentData.attachments || null,
           linkedRatingId: userRating?.id || null,
+          parentCommentId: commentData.parentCommentId || null,
+          quotedText: commentData.quotedText || null,
         })
         .returning();
       
@@ -6246,6 +6255,8 @@ export class DBStorage implements IStorage {
         content: profileComments.content,
         attachmentMetadata: profileComments.attachmentMetadata,
         linkedRatingId: profileComments.linkedRatingId,
+        parentCommentId: profileComments.parentCommentId,
+        quotedText: profileComments.quotedText,
         createdAt: profileComments.createdAt,
         updatedAt: profileComments.updatedAt,
         username: users.username,
@@ -6265,23 +6276,28 @@ export class DBStorage implements IStorage {
 
   async getProfileComments(profileId: string, options: {limit: number, offset: number, currentUserId?: string}): Promise<{comments: any[], total: number}> {
     try {
-      // Get total count
+      // Get total count of root comments only (no parent)
       const countResult = await db.select({
         count: sql<number>`COUNT(*)`
       })
       .from(profileComments)
-      .where(eq(profileComments.profileId, profileId));
+      .where(and(
+        eq(profileComments.profileId, profileId),
+        isNull(profileComments.parentCommentId)
+      ));
       
       const total = Number(countResult[0].count);
       
-      // Get all comments, ordered by most recent first
-      const allComments = await db.select({
+      // Get only root comments (parentCommentId is null), ordered by most recent first
+      const rootComments = await db.select({
         id: profileComments.id,
         userId: profileComments.userId,
         profileId: profileComments.profileId,
         content: profileComments.content,
         attachmentMetadata: profileComments.attachmentMetadata,
         linkedRatingId: profileComments.linkedRatingId,
+        parentCommentId: profileComments.parentCommentId,
+        quotedText: profileComments.quotedText,
         createdAt: profileComments.createdAt,
         updatedAt: profileComments.updatedAt,
         username: users.username,
@@ -6292,22 +6308,117 @@ export class DBStorage implements IStorage {
       .from(profileComments)
       .leftJoin(users, eq(profileComments.userId, users.id))
       .leftJoin(profileRatings, eq(profileComments.linkedRatingId, profileRatings.id))
-      .where(eq(profileComments.profileId, profileId))
+      .where(and(
+        eq(profileComments.profileId, profileId),
+        isNull(profileComments.parentCommentId)
+      ))
       .orderBy(desc(profileComments.createdAt))
       .limit(options.limit)
       .offset(options.offset);
       
-      const commentsWithFlag = allComments.map(comment => ({
-        ...comment,
-        isOwnComment: options.currentUserId ? comment.userId === options.currentUserId : false
+      // Get reactions and reply counts for all root comments
+      const commentsWithReactions = await Promise.all(rootComments.map(async (comment) => {
+        const reactions = await this.getProfileCommentReactions(comment.id, options.currentUserId);
+        
+        // Count all descendants (replies to this comment and their replies)
+        const replyCountResult = await this.countCommentReplies(comment.id);
+        
+        return {
+          ...comment,
+          isOwnComment: options.currentUserId ? comment.userId === options.currentUserId : false,
+          reactions,
+          replyCount: replyCountResult,
+        };
       }));
       
       return {
-        comments: commentsWithFlag,
+        comments: commentsWithReactions,
         total
       };
     } catch (error) {
       console.error("Error getting profile comments:", error);
+      throw error;
+    }
+  }
+
+  async countCommentReplies(commentId: string): Promise<number> {
+    // Recursively count all replies (direct and nested)
+    const directReplies = await db.select({
+      id: profileComments.id
+    })
+    .from(profileComments)
+    .where(eq(profileComments.parentCommentId, commentId));
+    
+    let total = directReplies.length;
+    
+    for (const reply of directReplies) {
+      total += await this.countCommentReplies(reply.id);
+    }
+    
+    return total;
+  }
+
+  async getCommentReplies(commentId: string, currentUserId?: string): Promise<any[]> {
+    try {
+      // Get direct replies to this comment
+      const replies = await db.select({
+        id: profileComments.id,
+        userId: profileComments.userId,
+        profileId: profileComments.profileId,
+        content: profileComments.content,
+        attachmentMetadata: profileComments.attachmentMetadata,
+        linkedRatingId: profileComments.linkedRatingId,
+        parentCommentId: profileComments.parentCommentId,
+        quotedText: profileComments.quotedText,
+        createdAt: profileComments.createdAt,
+        updatedAt: profileComments.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+        rating: profileRatings.rating,
+      })
+      .from(profileComments)
+      .leftJoin(users, eq(profileComments.userId, users.id))
+      .leftJoin(profileRatings, eq(profileComments.linkedRatingId, profileRatings.id))
+      .where(eq(profileComments.parentCommentId, commentId))
+      .orderBy(profileComments.createdAt); // Oldest first for replies
+      
+      // Get reactions, parent info, and nested replies for each reply
+      const repliesWithData = await Promise.all(replies.map(async (reply) => {
+        const reactions = await this.getProfileCommentReactions(reply.id, currentUserId);
+        
+        // Get parent comment author name
+        let parentCommentAuthor = null;
+        if (reply.parentCommentId) {
+          const parentComment = await db.select({
+            username: users.username,
+            fullName: users.fullName,
+          })
+          .from(profileComments)
+          .leftJoin(users, eq(profileComments.userId, users.id))
+          .where(eq(profileComments.id, reply.parentCommentId))
+          .limit(1);
+          
+          if (parentComment[0]) {
+            parentCommentAuthor = parentComment[0].fullName || parentComment[0].username;
+          }
+        }
+        
+        // Recursively get nested replies
+        const nestedReplies = await this.getCommentReplies(reply.id, currentUserId);
+        
+        return {
+          ...reply,
+          isOwnComment: currentUserId ? reply.userId === currentUserId : false,
+          reactions,
+          parentCommentAuthor,
+          replies: nestedReplies,
+        };
+      }));
+      
+      return repliesWithData;
+    } catch (error) {
+      console.error("Error getting comment replies:", error);
       throw error;
     }
   }
@@ -6408,6 +6519,96 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error deleting profile comment:", error);
       throw error;
+    }
+  }
+
+  // ========== Profile Comment Reactions Methods ==========
+
+  async addProfileCommentReaction(userId: string, commentId: string, emoji: string): Promise<any> {
+    try {
+      // Check if reaction already exists
+      const existing = await db.select()
+        .from(reactions)
+        .where(
+          and(
+            eq(reactions.userId, userId),
+            eq(reactions.profileCommentId, commentId),
+            eq(reactions.emoji, emoji)
+          )
+        )
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return existing[0]; // Already reacted with this emoji
+      }
+      
+      // Add new reaction
+      const result = await db.insert(reactions)
+        .values({
+          userId,
+          profileCommentId: commentId,
+          emoji,
+        })
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error adding profile comment reaction:", error);
+      throw error;
+    }
+  }
+
+  async removeProfileCommentReaction(userId: string, commentId: string, emoji: string): Promise<boolean> {
+    try {
+      const result = await db.delete(reactions)
+        .where(
+          and(
+            eq(reactions.userId, userId),
+            eq(reactions.profileCommentId, commentId),
+            eq(reactions.emoji, emoji)
+          )
+        )
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error removing profile comment reaction:", error);
+      throw error;
+    }
+  }
+
+  async getProfileCommentReactions(commentId: string, currentUserId?: string): Promise<{emoji: string, count: number, userReacted: boolean}[]> {
+    try {
+      // Get all reactions for this comment grouped by emoji
+      const allReactions = await db.select({
+        emoji: reactions.emoji,
+        userId: reactions.userId,
+      })
+      .from(reactions)
+      .where(eq(reactions.profileCommentId, commentId));
+      
+      // Group by emoji and count
+      const emojiCounts: Record<string, {count: number, userReacted: boolean}> = {};
+      
+      for (const reaction of allReactions) {
+        if (!emojiCounts[reaction.emoji]) {
+          emojiCounts[reaction.emoji] = { count: 0, userReacted: false };
+        }
+        emojiCounts[reaction.emoji].count++;
+        if (currentUserId && reaction.userId === currentUserId) {
+          emojiCounts[reaction.emoji].userReacted = true;
+        }
+      }
+      
+      // Convert to array
+      return Object.entries(emojiCounts).map(([emoji, data]) => ({
+        emoji,
+        count: data.count,
+        userReacted: data.userReacted,
+      }));
+    } catch (error) {
+      console.error("Error getting profile comment reactions:", error);
+      return [];
     }
   }
 

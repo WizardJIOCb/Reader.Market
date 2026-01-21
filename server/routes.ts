@@ -5996,7 +5996,7 @@ export async function registerRoutes(
     try {
       const userId = (req as any).user.userId;
       const { profileId } = req.params;
-      const { content, attachments } = req.body;
+      const { content, attachments, parentCommentId, quotedText } = req.body;
       
       // Validate content
       if (!content || content.trim() === '') {
@@ -6030,7 +6030,9 @@ export async function registerRoutes(
         userId,
         profileId,
         content,
-        attachments: attachmentMetadata
+        attachments: attachmentMetadata,
+        parentCommentId: parentCommentId || undefined,
+        quotedText: quotedText || undefined,
       });
       
       res.json(comment);
@@ -6132,6 +6134,74 @@ export async function registerRoutes(
       } else {
         res.status(500).json({ error: "Failed to delete profile comment" });
       }
+    }
+  });
+
+  // ========== Profile Comment Reaction Endpoints ==========
+
+  // Toggle reaction on a profile comment
+  app.post("/api/profile/comment/:commentId/reaction", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.userId;
+      const { commentId } = req.params;
+      const { emoji } = req.body;
+      
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      // Check if user already reacted with this emoji
+      const existingReactions = await storage.getProfileCommentReactions(commentId, userId);
+      const alreadyReacted = existingReactions.some(r => r.emoji === emoji && r.userReacted);
+      
+      let action: 'added' | 'removed';
+      if (alreadyReacted) {
+        await storage.removeProfileCommentReaction(userId, commentId, emoji);
+        action = 'removed';
+      } else {
+        await storage.addProfileCommentReaction(userId, commentId, emoji);
+        action = 'added';
+      }
+      
+      // Get updated reactions
+      const reactions = await storage.getProfileCommentReactions(commentId, userId);
+      
+      res.json({ action, reactions });
+    } catch (error) {
+      console.error("Toggle profile comment reaction error:", error);
+      res.status(500).json({ error: "Failed to toggle reaction" });
+    }
+  });
+
+  // Get reactions for a profile comment
+  app.get("/api/profile/comment/:commentId/reactions", async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      const userId = req.headers.authorization ? 
+        (req as any).user?.userId : undefined;
+      
+      const reactions = await storage.getProfileCommentReactions(commentId, userId);
+      
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get profile comment reactions error:", error);
+      res.status(500).json({ error: "Failed to get reactions" });
+    }
+  });
+
+  // Get replies for a profile comment (threaded/nested)
+  app.get("/api/profile/comment/:commentId/replies", async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      const userId = req.headers.authorization ? 
+        (req as any).user?.userId : undefined;
+      
+      const replies = await storage.getCommentReplies(commentId, userId);
+      
+      res.json(replies);
+    } catch (error) {
+      console.error("Get comment replies error:", error);
+      res.status(500).json({ error: "Failed to get replies" });
     }
   });
   

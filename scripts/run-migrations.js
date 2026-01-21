@@ -80,6 +80,7 @@ async function runMigrations() {
 
   try {
     // Test database connection
+    log(`Connecting to database...`, colors.blue);
     await pool.query('SELECT NOW()');
     log('✓ Database connection successful', colors.green);
     
@@ -160,7 +161,10 @@ async function runMigrations() {
     }
     
   } catch (error) {
-    log(`\n✗ Migration failed: ${error.message}`, colors.red);
+    log(`\n✗ Migration failed: ${error.message || error.code || 'Unknown error'}`, colors.red);
+    if (error.code === 'ECONNREFUSED') {
+      log('Database connection refused. Is PostgreSQL running?', colors.red);
+    }
     process.exit(1);
   } finally {
     await pool.end();

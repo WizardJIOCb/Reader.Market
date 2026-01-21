@@ -51,6 +51,7 @@ export const books = pgTable("books", {
   userId: varchar("user_id").notNull().references(() => users.id), // Added userId field to track uploader
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(), // When the book was uploaded to our system
   publishedAt: timestamp("published_at"), // Publication date of the book
+  isActive: boolean("is_active").default(true).notNull(), // Whether book is visible on public pages
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -192,6 +193,8 @@ export const profileComments = pgTable("profile_comments", {
   attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
   attachmentMetadata: jsonb("attachment_metadata"),
   linkedRatingId: varchar("linked_rating_id").references(() => profileRatings.id, { onDelete: 'cascade' }), // Links comment to rating
+  parentCommentId: varchar("parent_comment_id"), // Reply to another comment (self-reference added via migration)
+  quotedText: text("quoted_text"), // Quoted text from parent comment
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -205,6 +208,7 @@ export const reactions = pgTable("reactions", {
   reviewId: varchar("review_id").references(() => reviews.id),
   newsId: varchar("news_id").references(() => news.id),
   bookId: varchar("book_id").references(() => books.id),
+  profileCommentId: varchar("profile_comment_id").references(() => profileComments.id, { onDelete: 'cascade' }),
   emoji: text("emoji").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

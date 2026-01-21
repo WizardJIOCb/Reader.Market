@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Edit, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { adminBooksApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { BookEditDialog } from '@/components/BookEditDialog';
@@ -49,6 +49,7 @@ interface Book {
   uploaderFullName: string;
   uploadedAt: string;
   publishedAt: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -187,6 +188,35 @@ const BooksManagement = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const handleToggleActive = async (book: Book) => {
+    try {
+      const formData = new FormData();
+      formData.append('isActive', (!book.isActive).toString());
+      
+      const response = await adminBooksApi.updateBook(book.id, formData);
+      
+      if (response.ok) {
+        toast({
+          title: book.isActive ? t('admin:books.bookDeactivated') : t('admin:books.bookActivated'),
+          description: book.isActive 
+            ? t('admin:books.bookDeactivatedMessage', { title: `"${book.title}"` })
+            : t('admin:books.bookActivatedMessage', { title: `"${book.title}"` }),
+        });
+        fetchBooks();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || t('admin:books.failedToUpdate'));
+      }
+    } catch (error) {
+      console.error('Error toggling book active status:', error);
+      toast({
+        title: t('admin:common.error'),
+        description: error instanceof Error ? error.message : t('admin:books.failedToUpdate'),
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handlePageChange = (newPage: number) => {
     setPagination((prev) => ({ ...prev, page: newPage }));
   };
@@ -265,6 +295,7 @@ const BooksManagement = () => {
                       <TableHead>{t('admin:books.genre')}</TableHead>
                       <TableHead>{t('admin:books.year')}</TableHead>
                       <TableHead>{t('admin:books.rating')}</TableHead>
+                      <TableHead>{t('admin:books.active')}</TableHead>
                       <TableHead>{t('admin:books.uploader')}</TableHead>
                       <TableHead>{t('admin:books.fileSize')}</TableHead>
                       <TableHead>{t('admin:books.uploaded')}</TableHead>
@@ -311,6 +342,20 @@ const BooksManagement = () => {
                         <TableCell>{book.publishedYear || t('admin:common.na')}</TableCell>
                         <TableCell>
                           {book.rating ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : t('admin:common.na')}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant={book.isActive ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleToggleActive(book)}
+                            className={book.isActive ? "bg-green-600 hover:bg-green-700" : "text-muted-foreground"}
+                          >
+                            {book.isActive ? (
+                              <><Eye className="w-4 h-4 mr-1" /> {t('admin:books.visible')}</>
+                            ) : (
+                              <><EyeOff className="w-4 h-4 mr-1" /> {t('admin:books.hidden')}</>
+                            )}
+                          </Button>
                         </TableCell>
                         <TableCell>
                           <a

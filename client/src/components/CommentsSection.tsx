@@ -285,9 +285,8 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
-                  // Only submit if validation passes (same as button disabled state)
                   if (newComment.trim() && user && !(attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)) {
                     handlePostComment();
                   }
@@ -314,14 +313,17 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
                   maxFiles={5}
                 />
               </div>
-              <Button 
-                onClick={handlePostComment} 
-                disabled={!newComment.trim() || !user || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
-                className="gap-2"
-              >
-                <Send className="w-4 h-4" />
-                {t('books:send')}
-              </Button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
+                <Button 
+                  onClick={handlePostComment} 
+                  disabled={!newComment.trim() || !user || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
+                  className="gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  {t('books:send')}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

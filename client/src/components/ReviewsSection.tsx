@@ -581,9 +581,8 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                   value={newReviewContent}
                   onChange={(e) => setNewReviewContent(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                       e.preventDefault();
-                      // Only submit if validation passes (same as button disabled state)
                       if (newReviewContent.trim() && user) {
                         handlePostReview();
                       }
@@ -612,7 +611,8 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                       maxFiles={5}
                     />
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
                     <Button variant="ghost" onClick={() => setIsFormOpen(false)}>{t('books:cancel')}</Button>
                     <Button onClick={handlePostReview} disabled={!newReviewContent.trim() || !user}>
                       {t('books:publish')}
