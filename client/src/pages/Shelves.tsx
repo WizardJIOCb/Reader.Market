@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'wouter';
 import { mockUser } from '@/lib/mockData';
-import { Plus, Search, Book as BookIcon, User, MoreHorizontal, Edit, Trash2, Library, BookPlus } from 'lucide-react';
+import { Plus, Search, Book as BookIcon, User, X, MoreHorizontal, Edit, Trash2, Library, BookPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
