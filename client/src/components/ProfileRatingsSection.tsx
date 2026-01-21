@@ -129,7 +129,7 @@ function CommentItem({
         } ${
           isCompact 
             ? (comment.isOwnComment ? 'bg-[#fbf6f0] dark:bg-[#2a2520]' : '') 
-            : `border ${comment.isOwnComment ? 'bg-[#fbf6f0] dark:bg-[#2a2520] border-primary' : 'bg-card'}`
+            : `border ${comment.isOwnComment ? 'bg-[#fbf6f0] dark:bg-[#2a2520]' : 'bg-card'}`
         } ${isCompact ? 'p-2.5' : 'p-4'}`}
       >
         <div className={`flex items-start ${isCompact ? 'gap-2' : 'gap-3'}`}>
@@ -164,11 +164,6 @@ function CommentItem({
                 {comment.rating && (
                   <Badge variant={getRatingBadgeVariant(comment.rating) as any} className="text-xs h-5">
                     {comment.rating}/10
-                  </Badge>
-                )}
-                {comment.isOwnComment && (
-                  <Badge variant="outline" className="text-xs h-5">
-                    {t('profile:ratings.yourCommentBadge')}
                   </Badge>
                 )}
               </div>
