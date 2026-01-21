@@ -30,7 +30,7 @@ export default function Register() {
 
     const result = await register(username, password, email, fullName);
     if (result.success) {
-      navigate('/home');
+      navigate('/stream');
     } else {
       setError(result.message || t('auth:registrationFailed'));
     }

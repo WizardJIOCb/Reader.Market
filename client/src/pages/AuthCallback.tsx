@@ -40,8 +40,8 @@ export default function AuthCallback() {
             // Trigger auth context update
             refreshUser();
             
-            // Redirect to home page
-            navigate('/home');
+            // Redirect to stream page
+            navigate('/stream');
           })
           .catch(err => {
             console.error('Failed to fetch user data:', err);
