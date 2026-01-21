@@ -22,6 +22,8 @@ import {
   MessageSquare,
   Trash2,
   Library,
+  Star,
+  Heart,
 } from "lucide-react";
 import {
   Tooltip,
@@ -46,6 +48,7 @@ interface LastAction {
     id?: string;
     title?: string;
     username?: string;
+    full_name?: string;
     name?: string;
     shelf_id?: string;
     shelf_name?: string;
@@ -154,6 +157,24 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
       return actionText.replace(/ в$/, '').replace(/ in$/, '');
     }
     
+    // For book reactions, show "Reacted to book <title> <emoji>"
+    if (activity.action_type === 'book_reaction' && activity.metadata) {
+      const bookId = activity.target?.id || activity.metadata?.book_id;
+      return (
+        <span>
+          {actionText}{' '}
+          {bookId ? (
+            <Link href={`/book/${bookId}`}>
+              <span className="font-medium text-primary hover:underline cursor-pointer">{activity.metadata.book_title}</span>
+            </Link>
+          ) : (
+            <span className="font-medium">{activity.metadata.book_title}</span>
+          )}{' '}
+          <span className="text-lg">{activity.metadata.emoji}</span>
+        </span>
+      );
+    }
+    
     return actionText;
   };
 
@@ -188,6 +209,18 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
         return <Library className="w-5 h-5 text-amber-500" />;
       case 'book_added_to_shelf':
         return <BookOpen className="w-5 h-5 text-blue-500" />;
+      case 'profile_comment':
+      case 'profile_comment_reply':
+        return <MessageCircle className="w-5 h-5 text-cyan-500" />;
+      case 'profile_rating':
+        return <Star className="w-5 h-5 text-yellow-500" />;
+      case 'search_books':
+        return <Search className="w-5 h-5 text-emerald-500" />;
+      case 'book_comment_reaction':
+      case 'book_review_reaction':
+      case 'profile_comment_reaction':
+      case 'book_reaction':
+        return <Heart className="w-5 h-5 text-red-500" />;
       default:
         return <Activity className="w-5 h-5 text-gray-500" />;
     }
@@ -238,7 +271,12 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
     switch (activity.target.type) {
       case 'user':
         targetLink = `/profile/${activity.target.username || activity.target.id}`;
-        targetName = activity.target.username || 'Unknown User';
+        // Show full name with @username, or just username if no full name
+        if (activity.target.full_name) {
+          targetName = `${activity.target.full_name} (@${activity.target.username})`;
+        } else {
+          targetName = activity.target.username || 'Unknown User';
+        }
         break;
       case 'book':
         targetLink = `/book/${activity.target.id}`;
@@ -373,6 +411,67 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
         <CardContent className="pt-0">
           <p className="text-sm text-muted-foreground italic">
             "{activity.metadata.message_preview}"
+          </p>
+        </CardContent>
+      )}
+      {/* Show search query for search actions */}
+      {activity.action_type === 'search_books' && activity.metadata?.search_query && (
+        <CardContent className="pt-0">
+          <p className="text-sm text-muted-foreground">
+            <span className="italic">"{activity.metadata.search_query}"</span>
+            {activity.metadata?.results_count !== undefined && (
+              <span className="ml-2 text-xs">({activity.metadata.results_count} {activity.metadata.results_count === 1 ? 'result' : 'results'})</span>
+            )}
+          </p>
+        </CardContent>
+      )}
+      {/* Show comment preview for profile comments */}
+      {(activity.action_type === 'profile_comment' || activity.action_type === 'profile_comment_reply') && activity.metadata?.comment_preview && (
+        <CardContent className="pt-0">
+          <p className="text-sm text-muted-foreground italic">
+            "{activity.metadata.comment_preview}"
+          </p>
+        </CardContent>
+      )}
+      {/* Show rating for profile ratings */}
+      {activity.action_type === 'profile_rating' && activity.metadata?.rating && (
+        <CardContent className="pt-0">
+          <p className="text-sm text-muted-foreground">
+            <Star className="w-4 h-4 inline-block text-yellow-500 mr-1" />
+            <span className="font-medium">{activity.metadata.rating}/10</span>
+          </p>
+        </CardContent>
+      )}
+      {/* Show reaction details for book comment/review reactions */}
+      {(activity.action_type === 'book_comment_reaction' || activity.action_type === 'book_review_reaction') && activity.metadata && (
+        <CardContent className="pt-0">
+          <p className="text-sm text-muted-foreground">
+            <span className="text-lg mr-2">{activity.metadata.emoji}</span>
+            <span className="italic">"{activity.metadata.comment_preview || activity.metadata.review_preview}"</span>
+            <span className="ml-1">— {activity.metadata.comment_author || activity.metadata.review_author}</span>
+            {activity.metadata.book_title && (
+              <span className="ml-1 text-xs">({activity.metadata.book_title})</span>
+            )}
+            {activity.metadata.total_reactions !== undefined && (
+              <span className="ml-2 text-xs font-medium text-primary">
+                ({activity.metadata.total_reactions} {t('stream:totalReactions')})
+              </span>
+            )}
+          </p>
+        </CardContent>
+      )}
+      {/* Show reaction details for profile comment reactions */}
+      {activity.action_type === 'profile_comment_reaction' && activity.metadata && (
+        <CardContent className="pt-0">
+          <p className="text-sm text-muted-foreground">
+            <span className="text-lg mr-2">{activity.metadata.emoji}</span>
+            <span className="italic">"{activity.metadata.comment_preview}"</span>
+            <span className="ml-1">— {activity.metadata.comment_author}</span>
+            {activity.metadata.total_reactions !== undefined && (
+              <span className="ml-2 text-xs font-medium text-primary">
+                ({activity.metadata.total_reactions} {t('stream:totalReactions')})
+              </span>
+            )}
           </p>
         </CardContent>
       )}

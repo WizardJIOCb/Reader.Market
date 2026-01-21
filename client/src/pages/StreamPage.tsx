@@ -417,10 +417,12 @@ export default function StreamPage() {
           // For comments: match by entityId (comment ID)
           // For reviews: match by entityId (review ID)  
           // For news: match by entityId (news ID) and type 'news'
+          // For books: match by entityId or bookId and type 'book'
           const isMatch = 
             (data.entityType === 'comment' && (activity.entityId === data.entityId || activity.id === data.commentId)) ||
             (data.entityType === 'review' && activity.entityId === data.entityId) ||
-            (data.entityType === 'news' && activity.entityId === data.entityId && activity.type === 'news');
+            (data.entityType === 'news' && activity.entityId === data.entityId && activity.type === 'news') ||
+            (data.entityType === 'book' && (activity.entityId === data.entityId || activity.bookId === data.entityId) && activity.type === 'book');
             
           if (isMatch) {
             console.log('[STREAM] Updating reactions for activity:', activity.id, 'with reactions:', data.reactions);
@@ -428,7 +430,8 @@ export default function StreamPage() {
               ...activity,
               metadata: {
                 ...activity.metadata,
-                reactions: data.reactions
+                reactions: data.reactions,
+                reaction_count: data.reactions.reduce((sum: number, r: any) => sum + r.count, 0)
               }
             };
           }
@@ -453,7 +456,8 @@ export default function StreamPage() {
             const isMatch = 
               (data.entityType === 'comment' && (activity.entityId === data.entityId || activity.id === data.commentId)) ||
               (data.entityType === 'review' && activity.entityId === data.entityId) ||
-              (data.entityType === 'news' && activity.entityId === data.entityId && activity.type === 'news');
+              (data.entityType === 'news' && activity.entityId === data.entityId && activity.type === 'news') ||
+              (data.entityType === 'book' && (activity.entityId === data.entityId || activity.bookId === data.entityId) && activity.type === 'book');
             
             if (isMatch) {
               console.log('[STREAM] Updating Last Actions reactions for activity:', activity.id, 'with reactions:', data.reactions);
@@ -762,6 +766,7 @@ export default function StreamPage() {
               onHideMyActionsChange={(show) => setShowMyActivity(prev => ({ ...prev, 'last-actions': show }))}
               isOpen={filterPanelOpen}
               onOpenChange={setFilterPanelOpen}
+              showNotificationToggle={true}
             />
             
             {isLoading ? (

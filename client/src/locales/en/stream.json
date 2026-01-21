@@ -31,7 +31,15 @@
     "send_group_message": "Sent message in",
     "user_registered": "User registered",
     "shelf_created": "Created shelf",
-    "book_added_to_shelf": "Added book to shelf"
+    "book_added_to_shelf": "Added book to shelf",
+    "profile_comment": "Commented on profile",
+    "profile_comment_reply": "Replied to profile comment",
+    "profile_rating": "Rated profile",
+    "search_books": "Searched for books",
+    "book_comment_reaction": "Reacted to comment",
+    "book_review_reaction": "Reacted to review",
+    "profile_comment_reaction": "Reacted to profile comment",
+    "book_reaction": "Reacted to book"
   },
   "by": "by",
   "in": "in",
@@ -87,6 +95,7 @@
   "reactionAdded": "Reaction added",
   "reactionAddedDescription": "Your reaction has been saved",
   "reactionError": "Failed to add reaction",
+  "totalReactions": "total",
   "activityTypeFilter": {
     "title": "Activity Types",
     "clearFilters": "Reset filters",
@@ -100,5 +109,7 @@
     "infoText": "Showing all activity types"
   },
   "showMyActivity": "Show my activity",
-  "showMyActivityDescription": "When enabled, shows your own activities along with others"
+  "showMyActivityDescription": "When enabled, shows your own activities along with others",
+  "showStreamNotifications": "Show stream notifications",
+  "unknownUser": "Unknown user"
 }

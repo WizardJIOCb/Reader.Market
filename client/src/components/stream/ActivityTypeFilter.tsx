@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { X, ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { X, ChevronDown, ChevronUp, Filter, Bell } from "lucide-react";
+import { 
+  getStreamNotificationsEnabled, 
+  setStreamNotificationsEnabled,
+  setStreamActionTypeFilters 
+} from "@/lib/streamNotifications";
 
 type ActivityType = 'news' | 'book' | 'comment' | 'review' | 'user_action';
 
@@ -19,6 +24,7 @@ interface ActivityTypeFilterProps {
   showHideMyActions?: boolean;
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
+  showNotificationToggle?: boolean;
 }
 
 export function ActivityTypeFilter({ 
@@ -30,10 +36,12 @@ export function ActivityTypeFilter({
   onHideMyActionsChange,
   showHideMyActions = false,
   isOpen: externalIsOpen,
-  onOpenChange: externalOnOpenChange
+  onOpenChange: externalOnOpenChange,
+  showNotificationToggle = false
 }: ActivityTypeFilterProps) {
   const { t } = useTranslation(['stream']);
   const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(getStreamNotificationsEnabled);
   
   // Use external state if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -51,6 +59,15 @@ export function ActivityTypeFilter({
       : [...selectedTypes, type];
     
     onFilterChange(newSelectedTypes);
+    
+    // Save to localStorage for global notifications
+    setStreamActionTypeFilters(newSelectedTypes);
+  };
+
+  // Handle notifications toggle
+  const handleNotificationsToggle = (enabled: boolean) => {
+    setNotificationsEnabled(enabled);
+    setStreamNotificationsEnabled(enabled);
   };
 
   // Clear all filters - reset to all types selected
@@ -101,6 +118,26 @@ export function ActivityTypeFilter({
               className="text-sm font-normal cursor-pointer"
             >
               {t('stream:showMyActivity')}
+            </Label>
+          </div>
+        </div>
+      )}
+
+      {/* Stream Notifications Toggle */}
+      {showNotificationToggle && (
+        <div className={!(showHideMyActions && onHideMyActionsChange) ? "pt-2 border-t" : "pt-2"}>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="stream-notifications"
+              checked={notificationsEnabled}
+              onCheckedChange={(checked) => handleNotificationsToggle(checked === true)}
+            />
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            <Label
+              htmlFor="stream-notifications"
+              className="text-sm font-normal cursor-pointer"
+            >
+              {t('stream:showStreamNotifications')}
             </Label>
           </div>
         </div>

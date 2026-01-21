@@ -83,7 +83,8 @@ export async function logActionAsync(actionData: any, io?: any): Promise<void> {
               targetData = {
                 type: 'user',
                 id: targetUser.id,
-                username: targetUser.username
+                username: targetUser.username,
+                full_name: targetUser.fullName || null
               };
               console.log('[Action Logging] User target:', targetUser.username);
             }

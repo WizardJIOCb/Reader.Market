@@ -4,6 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BookSplashProvider } from "@/lib/bookSplashContext";
+import { StreamNotificationsProvider } from "@/lib/streamNotifications";
+import { useAuth } from "@/lib/auth";
 import NotFound from "@/pages/not-found";
 import Library from "@/pages/Library";
 import AboutPage from "@/pages/AboutPage";
@@ -66,6 +68,7 @@ function Router() {
 function App() {
   const [location] = useLocation();
   const { i18n } = useTranslation();
+  const { user } = useAuth();
   
   // Handle language parameter from URL - must run BEFORE other effects
   useEffect(() => {
@@ -137,14 +140,16 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BookSplashProvider>
-          <div className="flex flex-col min-h-screen">
-            <Toaster />
-            <Navbar />
-            <main className="flex-1 pt-14">
-              <Router />
-            </main>
-            {!isReaderPage && !isMessagesPage && <Footer />}
-          </div>
+          <StreamNotificationsProvider currentUserId={user?.id}>
+            <div className="flex flex-col min-h-screen">
+              <Toaster />
+              <Navbar />
+              <main className="flex-1 pt-14">
+                <Router />
+              </main>
+              {!isReaderPage && !isMessagesPage && <Footer />}
+            </div>
+          </StreamNotificationsProvider>
         </BookSplashProvider>
       </TooltipProvider>
     </QueryClientProvider>

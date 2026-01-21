@@ -159,8 +159,9 @@ export function ActivityCard({ activity }: ActivityCardProps) {
       } else if (activity.type === 'review') {
         endpoint = '/api/reactions';
         body.reviewId = activity.entityId;
+      } else if (activity.type === 'book') {
+        endpoint = `/api/books/${activity.bookId}/reactions`;
       } else {
-        // Books don't have reactions
         return;
       }
       
@@ -275,6 +276,23 @@ export function ActivityCard({ activity }: ActivityCardProps) {
                   {metadata.genre}
                 </p>
               )}
+              {/* Stats row */}
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                {metadata.average_rating && (
+                  <span className="font-medium">⭐ {metadata.average_rating}/10</span>
+                )}
+                <span>❤️ {metadata.reaction_count || 0}</span>
+                <span>💬 {metadata.comment_count || 0}</span>
+                <span>📝 {metadata.review_count || 0}</span>
+              </div>
+              {/* Interactive reaction bar */}
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <ReactionBar 
+                  reactions={metadata.reactions || []} 
+                  onReact={handleReact}
+                  bookId={activity.bookId}
+                />
+              </div>
             </div>
           </div>
         );

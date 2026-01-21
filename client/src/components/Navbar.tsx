@@ -10,6 +10,12 @@ import { MobileMenu } from '@/components/MobileMenu';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { onSocketEvent } from "@/lib/socket";
 import { useTranslation } from "react-i18next";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function Navbar() {
   const { user, isLoading } = useAuth();
@@ -183,14 +189,24 @@ export function Navbar() {
               </Link>
             )}
             {user ? (
-              <Link 
-                href={`/profile/${user.username}`} 
-                className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/profile', false) ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
-                aria-current={isActive('/profile', false) ? 'page' : undefined}
-              >
-                <User className="w-4 h-4" />
-                <span className="hidden 2xl:inline">{t('navigation:profile')} ({user.username})</span>
-              </Link>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link 
+                      href={`/profile/${user.username}`} 
+                      className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/profile', false) ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
+                      aria-current={isActive('/profile', false) ? 'page' : undefined}
+                    >
+                      <User className="w-4 h-4" />
+                      <span className="hidden 2xl:inline">{t('navigation:profile')} ({user.username})</span>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent className="2xl:hidden bg-[#f5f0e1] text-[#263542] border-[#d4c9a8]">
+                    <p className="font-medium">{user.fullName || user.username}</p>
+                    {user.fullName && <p className="text-xs text-[#5a5243]">@{user.username}</p>}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : (
               <Link href="/login" className="flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer text-[#263542]">
                 <User className="w-4 h-4" />

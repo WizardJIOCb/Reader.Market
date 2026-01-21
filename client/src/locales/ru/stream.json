@@ -31,7 +31,15 @@
     "send_group_message": "Отправил сообщение в",
     "user_registered": "Зарегистрировался пользователь",
     "shelf_created": "Создал полку",
-    "book_added_to_shelf": "Добавил книгу на полку"
+    "book_added_to_shelf": "Добавил книгу на полку",
+    "profile_comment": "Оставил комментарий в профиле",
+    "profile_comment_reply": "Ответил на комментарий в профиле",
+    "profile_rating": "Оценил профиль",
+    "search_books": "Искал книги",
+    "book_comment_reaction": "Отреагировал на комментарий",
+    "book_review_reaction": "Отреагировал на рецензию",
+    "profile_comment_reaction": "Отреагировал на комментарий в профиле",
+    "book_reaction": "Отреагировал на книгу"
   },
   "by": "от",
   "in": "в",
@@ -87,6 +95,7 @@
   "reactionAdded": "Реакция добавлена",
   "reactionAddedDescription": "Ваша реакция сохранена",
   "reactionError": "Не удалось добавить реакцию",
+  "totalReactions": "всего",
   "activityTypeFilter": {
     "title": "Типы активности",
     "clearFilters": "Сбросить фильтры",
@@ -100,5 +109,7 @@
     "infoText": "Показаны все типы активности"
   },
   "showMyActivity": "Показывать мою активность",
-  "showMyActivityDescription": "Если включено, показывается ваша активность вместе с активностью других пользователей"
+  "showMyActivityDescription": "Если включено, показывается ваша активность вместе с активностью других пользователей",
+  "showStreamNotifications": "Показывать уведомления из ленты",
+  "unknownUser": "Неизвестный пользователь"
 }

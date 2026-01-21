@@ -2109,6 +2109,58 @@ export async function registerRoutes(
       // Fetch the books again with updated ratings
       books = await storage.searchBooks(query, sortBy, sortDirection);
       
+      // Log search action and broadcast via WebSocket (only if query is not empty and user is authenticated)
+      const userId = (req as any).user?.userId;
+      if (query && query.trim() && userId && process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+        try {
+          console.log('[Search] Creating user action for search event');
+          const action = await storage.createUserAction({
+            userId: userId,
+            actionType: 'search_books',
+            targetType: null,
+            targetId: null,
+            metadata: { 
+              search_query: query.substring(0, 100),
+              results_count: books.length
+            }
+          });
+          console.log('[Search] User action created:', action?.id);
+          
+          // Broadcast search event via WebSocket
+          if ((req.app as any).io && action) {
+            const io = (req.app as any).io;
+            console.log('[Search] Broadcasting search event');
+            
+            // Get user info for broadcast
+            const user = await storage.getUser(userId);
+            
+            const eventData = {
+              id: action.id,
+              type: 'user_action',
+              action_type: action.actionType,
+              entityId: action.id,
+              userId: userId,
+              user: {
+                id: userId,
+                username: user?.username || 'Unknown',
+                avatar_url: user?.avatarUrl || null
+              },
+              target: null,
+              metadata: action.metadata,
+              createdAt: action.createdAt,
+              timestamp: action.createdAt.toISOString()
+            };
+            
+            // Broadcast to last-actions room
+            io.to('stream:last-actions').emit('stream:last-action', eventData);
+            console.log('[Search] ✅ Search event broadcasted');
+          }
+        } catch (actionError) {
+          console.error('[Search] Failed to log user action or broadcast event:', actionError);
+          // Don't fail search if action logging fails
+        }
+      }
+      
       res.json(books);
     } catch (error) {
       console.error("Search books error:", error);
@@ -2488,6 +2540,70 @@ export async function registerRoutes(
         bookId: id,
         emoji
       });
+      
+      // Log book reaction activity (only when added)
+      if (result.created && process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+        try {
+          const actionData = {
+            userId: userId,
+            actionType: 'book_reaction',
+            targetType: 'book',
+            targetId: id,
+            metadata: { 
+              emoji: emoji,
+              book_title: book.title
+            }
+          };
+          
+          const userAction = await storage.createUserAction(actionData);
+          
+          if ((app as any).io && userAction) {
+            const io = (app as any).io;
+            const user = await storage.getUser(userId);
+            
+            const eventData = {
+              id: userAction.id,
+              type: 'user_action',
+              action_type: userAction.actionType,
+              entityId: userAction.id,
+              userId: userId,
+              user: {
+                id: userId,
+                username: user?.username || 'Unknown',
+                avatar_url: user?.avatarUrl || null
+              },
+              target: {
+                type: 'book',
+                id: id,
+                title: book.title
+              },
+              metadata: userAction.metadata,
+              createdAt: userAction.createdAt,
+              timestamp: userAction.createdAt.toISOString()
+            };
+            
+            io.to('stream:last-actions').emit('stream:last-action', eventData);
+          }
+        } catch (actionError) {
+          console.error('[Book Reaction] Failed to log action:', actionError);
+        }
+      }
+      
+      // Broadcast reaction update to activity stream for real-time UI updates
+      try {
+        if ((app as any).io) {
+          const io = (app as any).io;
+          const updatedReactions = await storage.getAggregatedBookReactions(id, userId);
+          
+          io.to('stream:global').emit('stream:reaction-update', {
+            entityId: id,
+            entityType: 'book',
+            reactions: updatedReactions
+          });
+        }
+      } catch (broadcastError) {
+        console.error('[Book Reaction] Failed to broadcast reaction update:', broadcastError);
+      }
       
       res.json({
         action: result.created ? 'added' : 'removed',
@@ -3076,6 +3192,76 @@ export async function registerRoutes(
       } else {
         await storage.addBookCommentReaction(userId, commentId, emoji);
         action = 'added';
+        
+        // Get updated reactions to include total count
+        const updatedReactions = await storage.getCommentReactions(commentId, userId);
+        const totalReactionCount = updatedReactions.reduce((sum, r) => sum + r.count, 0);
+        
+        // Log reaction activity (only when added)
+        try {
+          console.log('[Book Comment Reaction] ENABLE_LAST_ACTIONS_TRACKING:', process.env.ENABLE_LAST_ACTIONS_TRACKING);
+          if (process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+            console.log('[Book Comment Reaction] Logging reaction activity for comment:', commentId);
+            const comment = await storage.getCommentById(commentId);
+            console.log('[Book Comment Reaction] Comment found:', !!comment, comment?.bookId);
+            if (comment) {
+              const book = await storage.getBook(comment.bookId);
+              const commentAuthor = await storage.getUser(comment.userId);
+              console.log('[Book Comment Reaction] Book:', book?.title, 'Author:', commentAuthor?.username);
+              
+              const actionData = {
+                userId: userId,
+                actionType: 'book_comment_reaction',
+                targetType: 'book',
+                targetId: comment.bookId,
+                metadata: { 
+                  emoji: emoji,
+                  comment_id: commentId,
+                  comment_preview: comment.content.substring(0, 50),
+                  comment_author: commentAuthor?.username || 'Unknown',
+                  book_title: book?.title || 'Unknown',
+                  total_reactions: totalReactionCount
+                }
+              };
+              
+              console.log('[Book Comment Reaction] Creating user action:', actionData);
+              const userAction = await storage.createUserAction(actionData);
+              console.log('[Book Comment Reaction] User action created:', userAction?.id);
+              
+              if ((app as any).io && userAction) {
+                const io = (app as any).io;
+                const user = await storage.getUser(userId);
+                
+                const eventData = {
+                  id: userAction.id,
+                  type: 'user_action',
+                  action_type: userAction.actionType,
+                  entityId: userAction.id,
+                  userId: userId,
+                  user: {
+                    id: userId,
+                    username: user?.username || 'Unknown',
+                    avatar_url: user?.avatarUrl || null
+                  },
+                  target: {
+                    type: 'book',
+                    id: comment.bookId,
+                    title: book?.title || 'Unknown'
+                  },
+                  metadata: userAction.metadata,
+                  createdAt: userAction.createdAt,
+                  timestamp: userAction.createdAt.toISOString()
+                };
+                
+                console.log('[Book Comment Reaction] Broadcasting to stream:last-actions');
+                io.to('stream:last-actions').emit('stream:last-action', eventData);
+                console.log('[Book Comment Reaction] ✅ Broadcast sent');
+              }
+            }
+          }
+        } catch (actionError) {
+          console.error('[Book Comment Reaction] Failed to log action:', actionError);
+        }
       }
       
       // Get updated reactions
@@ -3472,6 +3658,76 @@ export async function registerRoutes(
       } else {
         // Add the reaction
         await storage.addReviewReaction(userId, reviewId, emoji);
+        
+        // Get updated reactions to include total count
+        const updatedReactionsForCount = await storage.getReviewReactions(reviewId, userId);
+        const totalReactionCount = updatedReactionsForCount.reduce((sum, r) => sum + r.count, 0);
+        
+        // Log reaction activity (only when added)
+        try {
+          console.log('[Book Review Reaction] ENABLE_LAST_ACTIONS_TRACKING:', process.env.ENABLE_LAST_ACTIONS_TRACKING);
+          if (process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+            console.log('[Book Review Reaction] Logging reaction activity for review:', reviewId);
+            const review = await storage.getReviewById(reviewId);
+            console.log('[Book Review Reaction] Review found:', !!review, review?.bookId);
+            if (review) {
+              const book = await storage.getBook(review.bookId);
+              const reviewAuthor = await storage.getUser(review.userId);
+              console.log('[Book Review Reaction] Book:', book?.title, 'Author:', reviewAuthor?.username);
+              
+              const actionData = {
+                userId: userId,
+                actionType: 'book_review_reaction',
+                targetType: 'book',
+                targetId: review.bookId,
+                metadata: { 
+                  emoji: emoji,
+                  review_id: reviewId,
+                  review_preview: review.content.substring(0, 50),
+                  review_author: reviewAuthor?.username || 'Unknown',
+                  book_title: book?.title || 'Unknown',
+                  total_reactions: totalReactionCount
+                }
+              };
+              
+              console.log('[Book Review Reaction] Creating user action:', actionData);
+              const userAction = await storage.createUserAction(actionData);
+              console.log('[Book Review Reaction] User action created:', userAction?.id);
+              
+              if ((app as any).io && userAction) {
+                const io = (app as any).io;
+                const user = await storage.getUser(userId);
+                
+                const eventData = {
+                  id: userAction.id,
+                  type: 'user_action',
+                  action_type: userAction.actionType,
+                  entityId: userAction.id,
+                  userId: userId,
+                  user: {
+                    id: userId,
+                    username: user?.username || 'Unknown',
+                    avatar_url: user?.avatarUrl || null
+                  },
+                  target: {
+                    type: 'book',
+                    id: review.bookId,
+                    title: book?.title || 'Unknown'
+                  },
+                  metadata: userAction.metadata,
+                  createdAt: userAction.createdAt,
+                  timestamp: userAction.createdAt.toISOString()
+                };
+                
+                console.log('[Book Review Reaction] Broadcasting to stream:last-actions');
+                io.to('stream:last-actions').emit('stream:last-action', eventData);
+                console.log('[Book Review Reaction] ✅ Broadcast sent');
+              }
+            }
+          }
+        } catch (actionError) {
+          console.error('[Book Review Reaction] Failed to log action:', actionError);
+        }
       }
       
       // Return updated reactions
@@ -5951,6 +6207,61 @@ export async function registerRoutes(
         rating
       });
       
+      // Log profile rating action and broadcast via WebSocket
+      try {
+        if (process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+          console.log('[Profile Rating] Creating user action for profile rating event');
+          const action = await storage.createUserAction({
+            userId: userId,
+            actionType: 'profile_rating',
+            targetType: 'user',
+            targetId: profileId,
+            metadata: { 
+              rating: rating
+            }
+          });
+          console.log('[Profile Rating] User action created:', action?.id);
+          
+          // Broadcast profile rating event via WebSocket
+          if ((app as any).io && action) {
+            const io = (app as any).io;
+            console.log('[Profile Rating] Broadcasting profile rating event');
+            
+            // Get user info for broadcast
+            const user = await storage.getUser(userId);
+            const targetUser = await storage.getUser(profileId);
+            
+            const eventData = {
+              id: action.id,
+              type: 'user_action',
+              action_type: action.actionType,
+              entityId: action.id,
+              userId: userId,
+              user: {
+                id: userId,
+                username: user?.username || 'Unknown',
+                avatar_url: user?.avatarUrl || null
+              },
+              target: {
+                type: 'user',
+                id: profileId,
+                username: targetUser?.username || 'Unknown'
+              },
+              metadata: action.metadata,
+              createdAt: action.createdAt,
+              timestamp: action.createdAt.toISOString()
+            };
+            
+            // Broadcast to last-actions room
+            io.to('stream:last-actions').emit('stream:last-action', eventData);
+            console.log('[Profile Rating] ✅ Profile rating event broadcasted');
+          }
+        }
+      } catch (actionError) {
+        console.error('[Profile Rating] Failed to log user action or broadcast event:', actionError);
+        // Don't fail profile rating creation if action logging fails
+      }
+      
       res.json(result);
     } catch (error) {
       console.error("Create profile rating error:", error);
@@ -6048,6 +6359,62 @@ export async function registerRoutes(
         parentCommentId: parentCommentId || undefined,
         quotedText: quotedText || undefined,
       });
+      
+      // Log profile comment action and broadcast via WebSocket
+      try {
+        if (process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+          console.log('[Profile Comment] Creating user action for profile comment event');
+          const action = await storage.createUserAction({
+            userId: userId,
+            actionType: parentCommentId ? 'profile_comment_reply' : 'profile_comment',
+            targetType: 'user',
+            targetId: profileId,
+            metadata: { 
+              comment_preview: content.substring(0, 100),
+              is_reply: !!parentCommentId
+            }
+          });
+          console.log('[Profile Comment] User action created:', action?.id);
+          
+          // Broadcast profile comment event via WebSocket
+          if ((app as any).io && action) {
+            const io = (app as any).io;
+            console.log('[Profile Comment] Broadcasting profile comment event');
+            
+            // Get user info for broadcast
+            const user = await storage.getUser(userId);
+            const targetUser = await storage.getUser(profileId);
+            
+            const eventData = {
+              id: action.id,
+              type: 'user_action',
+              action_type: action.actionType,
+              entityId: action.id,
+              userId: userId,
+              user: {
+                id: userId,
+                username: user?.username || 'Unknown',
+                avatar_url: user?.avatarUrl || null
+              },
+              target: {
+                type: 'user',
+                id: profileId,
+                username: targetUser?.username || 'Unknown'
+              },
+              metadata: action.metadata,
+              createdAt: action.createdAt,
+              timestamp: action.createdAt.toISOString()
+            };
+            
+            // Broadcast to last-actions room
+            io.to('stream:last-actions').emit('stream:last-action', eventData);
+            console.log('[Profile Comment] ✅ Profile comment event broadcasted');
+          }
+        }
+      } catch (actionError) {
+        console.error('[Profile Comment] Failed to log user action or broadcast event:', actionError);
+        // Don't fail profile comment creation if action logging fails
+      }
       
       res.json(comment);
     } catch (error) {
@@ -6175,6 +6542,80 @@ export async function registerRoutes(
       } else {
         await storage.addProfileCommentReaction(userId, commentId, emoji);
         action = 'added';
+        
+        // Get updated reactions to include total count
+        const updatedReactionsForCount = await storage.getProfileCommentReactions(commentId, userId);
+        const totalReactionCount = updatedReactionsForCount.reduce((sum, r) => sum + r.count, 0);
+        
+        // Log reaction activity (only when added)
+        try {
+          if (process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+            // Get the profile comment info
+            const commentResult = await db.select({
+              id: profileComments.id,
+              userId: profileComments.userId,
+              profileId: profileComments.profileId,
+              content: profileComments.content
+            })
+            .from(profileComments)
+            .where(eq(profileComments.id, commentId))
+            .limit(1);
+            
+            if (commentResult.length > 0) {
+              const comment = commentResult[0];
+              const profileOwner = await storage.getUser(comment.profileId);
+              const commentAuthor = await storage.getUser(comment.userId);
+              
+              const actionData = {
+                userId: userId,
+                actionType: 'profile_comment_reaction',
+                targetType: 'user',
+                targetId: comment.profileId,
+                metadata: { 
+                  emoji: emoji,
+                  comment_id: commentId,
+                  comment_preview: comment.content.substring(0, 50),
+                  comment_author: commentAuthor?.username || 'Unknown',
+                  profile_username: profileOwner?.username || 'Unknown',
+                  total_reactions: totalReactionCount
+                }
+              };
+              
+              const userAction = await storage.createUserAction(actionData);
+              
+              if ((app as any).io && userAction) {
+                const io = (app as any).io;
+                const user = await storage.getUser(userId);
+                
+                const eventData = {
+                  id: userAction.id,
+                  type: 'user_action',
+                  action_type: userAction.actionType,
+                  entityId: userAction.id,
+                  userId: userId,
+                  user: {
+                    id: userId,
+                    username: user?.username || 'Unknown',
+                    avatar_url: user?.avatarUrl || null
+                  },
+                  target: {
+                    type: 'user',
+                    id: comment.profileId,
+                    username: profileOwner?.username || 'Unknown',
+                    full_name: profileOwner?.fullName || null
+                  },
+                  metadata: userAction.metadata,
+                  createdAt: userAction.createdAt,
+                  timestamp: userAction.createdAt.toISOString()
+                };
+                
+                io.to('stream:last-actions').emit('stream:last-action', eventData);
+              }
+            }
+          }
+        } catch (actionError) {
+          console.error('[Profile Comment Reaction] Failed to log action:', actionError);
+        }
       }
       
       // Get updated reactions

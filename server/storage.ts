@@ -189,6 +189,7 @@ export interface IStorage {
   removeReviewReaction(userId: string, reviewId: string, emoji: string): Promise<boolean>;
   getAllReviews(): Promise<any[]>;
   getUserReview(userId: string, bookId: string): Promise<any | undefined>;
+  getReviewById(reviewId: string): Promise<any | undefined>;
   updateReview(id: string, reviewData: any): Promise<any>;
   deleteReview(id: string, userId: string | null): Promise<boolean>;
   
@@ -2389,6 +2390,21 @@ export class DBStorage implements IStorage {
       return result[0];
     } catch (error) {
       console.error("Error getting user review:", error);
+      return undefined;
+    }
+  }
+
+  async getReviewById(reviewId: string): Promise<any | undefined> {
+    try {
+      const result = await db.select().from(reviews).where(eq(reviews.id, reviewId));
+      
+      if (result.length === 0) {
+        return undefined;
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error getting review by id:", error);
       return undefined;
     }
   }
@@ -5172,6 +5188,28 @@ export class DBStorage implements IStorage {
         const uploader = await db.select().from(users).where(eq(users.id, book.userId)).limit(1);
         const uploaderData = uploader[0];
         
+        // Get reactions for this book
+        const bookReactions = await this.getAggregatedBookReactions(book.id);
+        const totalReactionCount = bookReactions.reduce((sum, r) => sum + r.count, 0);
+        
+        // Get comment count for this book
+        const commentCountResult = await db.select({ count: sql<number>`count(*)` })
+          .from(comments)
+          .where(eq(comments.bookId, book.id));
+        const commentCount = Number(commentCountResult[0]?.count) || 0;
+        
+        // Get review count and average rating for this book
+        const reviewStats = await db.select({ 
+          count: sql<number>`count(*)`,
+          avgRating: sql<number>`avg(${reviews.rating})`
+        })
+          .from(reviews)
+          .where(eq(reviews.bookId, book.id));
+        const reviewCount = Number(reviewStats[0]?.count) || 0;
+        const averageRating = reviewCount > 0 && reviewStats[0]?.avgRating 
+          ? Number(reviewStats[0].avgRating).toFixed(1) 
+          : null;
+        
         activities.push({
           id: book.id,
           type: 'book',
@@ -5184,7 +5222,12 @@ export class DBStorage implements IStorage {
             cover_url: book.coverImageUrl,
             genre: book.genre,
             uploader_name: uploaderData ? (uploaderData.fullName || uploaderData.username) : 'Unknown',
-            uploader_avatar: uploaderData?.avatarUrl || null
+            uploader_avatar: uploaderData?.avatarUrl || null,
+            reactions: bookReactions,
+            reaction_count: totalReactionCount,
+            comment_count: commentCount,
+            review_count: reviewCount,
+            average_rating: averageRating
           },
           createdAt: book.createdAt,
           updatedAt: book.updatedAt
