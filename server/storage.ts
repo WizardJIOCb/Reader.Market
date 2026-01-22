@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne } from "drizzle-orm";
 import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
 import { 
@@ -277,6 +277,12 @@ export interface IStorage {
   getLastActions(limit: number, offset: number): Promise<any[]>;
   cleanupOldActions(daysToKeep: number): Promise<void>;
   deleteUserAction(id: string): Promise<boolean>;
+  
+  // Subscription operations
+  subscribeToEntity(userId: string, entityType: string, entityId: string): Promise<void>;
+  unsubscribeFromEntity(userId: string, entityType: string, entityId: string): Promise<void>;
+  getUserSubscriptions(userId: string): Promise<any[]>;
+  getUnreadCountForSubscription(userId: string, entityType: string, entityId: string): Promise<number>;
   
   // Channel read position operations
   upsertChannelReadPosition(userId: string, channelId: string): Promise<void>;
@@ -5473,7 +5479,29 @@ export class DBStorage implements IStorage {
         .orderBy(desc(comments.createdAt))
         .limit(Math.ceil(limit / 4));
       
-      for (const comment of userComments) {
+      // Also get parent comments that the user replied to (to show complete thread structure)
+      const userReplies = await db.select({parentCommentId: comments.parentCommentId})
+        .from(comments)
+        .where(and(
+          eq(comments.userId, userId),
+          isNull(comments.parentCommentId).not()
+        ));
+      
+      const parentCommentIds = userReplies.map(reply => reply.parentCommentId).filter(Boolean) as string[];
+      
+      let repliedParentComments: any[] = [];
+      if (parentCommentIds.length > 0) {
+        repliedParentComments = await db.select()
+          .from(comments)
+          .where(inArray(comments.id, parentCommentIds))
+          .orderBy(desc(comments.createdAt))
+          .limit(Math.ceil(limit / 4));
+      }
+      
+      // Combine user's comments and parent comments they replied to
+      const allCommentsToShow = [...userComments, ...repliedParentComments];
+      
+      for (const comment of allCommentsToShow) {
         let book_title = 'Unknown';
         if (comment.bookId) {
           const bookData = await db.select().from(books).where(eq(books.id, comment.bookId)).limit(1);
@@ -5584,6 +5612,180 @@ export class DBStorage implements IStorage {
           createdAt: review.createdAt,
           updatedAt: review.updatedAt
         });
+      }
+      
+      // Get user's profile comment actions (profile comments they wrote)
+      const profileCommentActions = await db.select()
+        .from(userActions)
+        .where(and(
+          eq(userActions.userId, userId),
+          eq(userActions.actionType, 'profile_comment'),
+          isNull(userActions.deletedAt)
+        ))
+        .orderBy(desc(userActions.createdAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const action of profileCommentActions) {
+        // Get target user info (the profile owner)
+        let targetUserInfo = null;
+        if (action.targetId) {
+          targetUserInfo = await this.getUser(action.targetId);
+        }
+        
+        activities.push({
+          id: action.id,
+          type: 'user_action',
+          action_type: 'profile_comment',
+          entityId: action.id,
+          userId: action.userId,
+          user: {
+            id: userId,
+            username: user_name,
+            avatar_url: user_avatar
+          },
+          target: {
+            type: 'user',
+            id: action.targetId,
+            username: targetUserInfo?.username || 'Unknown'
+          },
+          metadata: {
+            ...action.metadata,
+            author_name: user_name,
+            author_avatar: user_avatar,
+            comment_preview: action.metadata?.comment_preview || '',
+            profile_username: targetUserInfo?.username || 'Unknown'
+          },
+          createdAt: action.createdAt,
+          timestamp: action.createdAt.toISOString()
+        });
+      }
+      
+      // Get user's profile comment reply actions
+      const profileCommentReplyActions = await db.select()
+        .from(userActions)
+        .where(and(
+          eq(userActions.userId, userId),
+          eq(userActions.actionType, 'profile_comment_reply'),
+          isNull(userActions.deletedAt)
+        ))
+        .orderBy(desc(userActions.createdAt))
+        .limit(Math.ceil(limit / 4));
+      
+      for (const action of profileCommentReplyActions) {
+        // Get target user info (the profile owner)
+        let targetUserInfo = null;
+        if (action.targetId) {
+          targetUserInfo = await this.getUser(action.targetId);
+        }
+        
+        activities.push({
+          id: action.id,
+          type: 'user_action',
+          action_type: 'profile_comment_reply',
+          entityId: action.id,
+          userId: action.userId,
+          user: {
+            id: userId,
+            username: user_name,
+            avatar_url: user_avatar
+          },
+          target: {
+            type: 'user',
+            id: action.targetId,
+            username: targetUserInfo?.username || 'Unknown'
+          },
+          metadata: {
+            ...action.metadata,
+            author_name: user_name,
+            author_avatar: user_avatar,
+            comment_preview: action.metadata?.comment_preview || '',
+            profile_username: targetUserInfo?.username || 'Unknown'
+          },
+          createdAt: action.createdAt,
+          timestamp: action.createdAt.toISOString()
+        });
+      }
+      
+      // NEW: Get activities from subscribed threads
+      const userSubscriptions = await this.getUserSubscriptions(userId);
+      
+      // Get recent activities from subscribed books
+      for (const subscription of userSubscriptions) {
+        if (subscription.entityType === 'book') {
+          // Get recent comments on this subscribed book (excluding user's own comments)
+          const recentComments = await db.select()
+            .from(comments)
+            .where(and(
+              eq(comments.bookId, subscription.entityId),
+              ne(comments.userId, userId), // Exclude user's own comments
+              sql`created_at > ${subscription.lastReadAt}` // Only newer than last read
+            ))
+            .orderBy(desc(comments.createdAt))
+            .limit(5); // Limit to 5 recent comments per subscription
+          
+          // Get book info
+          const bookInfo = await db.select().from(books).where(eq(books.id, subscription.entityId)).limit(1);
+          const bookTitle = bookInfo[0]?.title || 'Unknown Book';
+          
+          for (const comment of recentComments) {
+            // Get comment author info
+            const authorInfo = await db.select().from(users).where(eq(users.id, comment.userId)).limit(1);
+            const authorName = authorInfo[0] ? (authorInfo[0].fullName || authorInfo[0].username) : 'Unknown';
+            const authorAvatar = authorInfo[0]?.avatarUrl || null;
+            
+            // Get reactions for this comment
+            const commentReactions = await this.getReactions(comment.id, 'comment');
+            
+            // Group and aggregate reactions
+            const groupedReactions: Record<string, any[]> = {};
+            commentReactions.forEach((r: any) => {
+              if (!groupedReactions[r.emoji]) {
+                groupedReactions[r.emoji] = [];
+              }
+              groupedReactions[r.emoji].push(r);
+            });
+            
+            const aggregatedReactions: any[] = [];
+            Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+              aggregatedReactions.push({
+                emoji,
+                count: reactionList.length,
+                userReacted: false
+              });
+            });
+            
+            // Count comment replies
+            const replyCount = await this.countCommentReplies(comment.id);
+            
+            activities.push({
+              id: comment.id,
+              type: 'subscribed_comment',
+              entityId: comment.id,
+              userId: comment.userId,
+              bookId: comment.bookId,
+              subscriptionInfo: {
+                subscribedEntityType: subscription.entityType,
+                subscribedEntityId: subscription.entityId,
+                subscriptionCreatedAt: subscription.createdAt,
+                lastReadAt: subscription.lastReadAt
+              },
+              metadata: {
+                content: comment.content,
+                content_preview: comment.content.substring(0, 200),
+                book_id: comment.bookId,
+                book_title: bookTitle,
+                author_name: authorName,
+                author_avatar: authorAvatar,
+                reactions: aggregatedReactions,
+                reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0),
+                replyCount: replyCount,
+                is_subscribed_activity: true
+              },
+              createdAt: comment.createdAt,
+              updatedAt: comment.updatedAt
+            });
+          }
+        }
       }
       
       // Sort by creation date
@@ -5919,6 +6121,133 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error deleting user action:", error);
       return false;
+    }
+  }
+  
+  // Subscription operations
+  async subscribeToEntity(userId: string, entityType: string, entityId: string): Promise<void> {
+    try {
+      // Check if subscription already exists
+      const existing = await db
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, userId),
+            eq(subscriptions.entityType, entityType),
+            eq(subscriptions.entityId, entityId)
+          )
+        );
+      
+      if (existing.length === 0) {
+        // Create new subscription
+        await db
+          .insert(subscriptions)
+          .values({
+            userId,
+            entityType,
+            entityId,
+            createdAt: new Date(),
+            lastReadAt: new Date()
+          });
+        console.log(`User ${userId} subscribed to ${entityType}:${entityId}`);
+      } else {
+        console.log(`User ${userId} already subscribed to ${entityType}:${entityId}`);
+      }
+    } catch (error) {
+      console.error("Error subscribing to entity:", error);
+      throw error;
+    }
+  }
+  
+  async unsubscribeFromEntity(userId: string, entityType: string, entityId: string): Promise<void> {
+    try {
+      await db
+        .delete(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, userId),
+            eq(subscriptions.entityType, entityType),
+            eq(subscriptions.entityId, entityId)
+          )
+        );
+      console.log(`User ${userId} unsubscribed from ${entityType}:${entityId}`);
+    } catch (error) {
+      console.error("Error unsubscribing from entity:", error);
+      throw error;
+    }
+  }
+  
+  async getUserSubscriptions(userId: string): Promise<any[]> {
+    try {
+      const result = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, userId))
+        .orderBy(desc(subscriptions.createdAt));
+      
+      return result;
+    } catch (error) {
+      console.error("Error getting user subscriptions:", error);
+      return [];
+    }
+  }
+  
+  async getUnreadCountForSubscription(userId: string, entityType: string, entityId: string): Promise<number> {
+    try {
+      // Get the last read time for this subscription
+      const subscriptionResult = await db
+        .select({ lastReadAt: subscriptions.lastReadAt })
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, userId),
+            eq(subscriptions.entityType, entityType),
+            eq(subscriptions.entityId, entityId)
+          )
+        );
+      
+      if (subscriptionResult.length === 0) {
+        return 0; // Not subscribed
+      }
+      
+      const lastReadAt = subscriptionResult[0].lastReadAt;
+      
+      // Count unread activities based on entity type
+      let unreadCount = 0;
+      
+      if (entityType === 'book') {
+        // Count comments and reviews on this book created after last read
+        const commentsResult = await db.execute(sql`
+          SELECT COUNT(*) as count 
+          FROM comments 
+          WHERE book_id = ${entityId} AND created_at > ${lastReadAt}
+        `);
+        
+        const reviewsResult = await db.execute(sql`
+          SELECT COUNT(*) as count 
+          FROM reviews 
+          WHERE book_id = ${entityId} AND created_at > ${lastReadAt}
+        `);
+        
+        unreadCount = parseInt(commentsResult.rows[0].count as string) + 
+                     parseInt(reviewsResult.rows[0].count as string);
+                      
+      } else if (entityType === 'news') {
+        // Count comments on this news article
+        const commentsResult = await db.execute(sql`
+          SELECT COUNT(*) as count 
+          FROM news_comments 
+          WHERE news_id = ${entityId} AND created_at > ${lastReadAt}
+        `);
+        
+        unreadCount = parseInt(commentsResult.rows[0].count as string);
+      }
+      
+      return unreadCount;
+    } catch (error) {
+      console.error("Error getting unread count for subscription:", error);
+      return 0;
     }
   }
   

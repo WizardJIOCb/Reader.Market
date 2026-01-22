@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
+import { getPersonalActivitiesDirect } from "./directStorage";
 import { sql } from "drizzle-orm/sql";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
@@ -3060,6 +3061,15 @@ export async function registerRoutes(
         quotedText: quotedText || null
       });
       
+      // Automatically subscribe user to this book when they comment
+      try {
+        await storage.subscribeToEntity(userId, 'book', bookId);
+        console.log(`[SUBSCRIPTION] User ${userId} automatically subscribed to book ${bookId}`);
+      } catch (subscribeError) {
+        console.error('[SUBSCRIPTION] Failed to subscribe user to book:', subscribeError);
+        // Don't fail the comment creation if subscription fails
+      }
+      
       // Create activity feed entry and broadcast via WebSocket
       // TEMPORARY: Direct broadcast test to diagnose real-time issues
       try {
@@ -3091,6 +3101,7 @@ export async function registerRoutes(
             entityId: comment.id,
             userId: userId,
             bookId: bookId,
+            parentCommentId: parentCommentId || null, // Include parent comment ID for replies
             metadata: {
               content_preview: content.substring(0, 200),
               author_id: userId,
@@ -3098,6 +3109,7 @@ export async function registerRoutes(
               author_avatar: user.avatarUrl || null,
               book_id: bookId,
               book_title: book.title,
+              parentCommentId: parentCommentId || null, // Also include in metadata for redundancy
               reactions: [] // Start with empty reactions array
             },
             createdAt: comment.createdAt
@@ -6362,27 +6374,38 @@ export async function registerRoutes(
       
       // Log profile comment action and broadcast via WebSocket
       try {
+        // Get user info early for metadata
+        const user = await storage.getUser(userId);
+        
         if (process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
           console.log('[Profile Comment] Creating user action for profile comment event');
+          console.log('[Profile Comment] Input data:', { userId, profileId, content, parentCommentId });
+          
           const action = await storage.createUserAction({
             userId: userId,
             actionType: parentCommentId ? 'profile_comment_reply' : 'profile_comment',
             targetType: 'user',
             targetId: profileId,
             metadata: { 
+              content: content,
               comment_preview: content.substring(0, 100),
+              author_name: user?.username || user?.fullName || 'Unknown',
               is_reply: !!parentCommentId
             }
           });
-          console.log('[Profile Comment] User action created:', action?.id);
+          
+          console.log('[Profile Comment] Created action:', {
+            id: action?.id,
+            actionType: action?.actionType,
+            metadata: action?.metadata
+          });
           
           // Broadcast profile comment event via WebSocket
           if ((app as any).io && action) {
             const io = (app as any).io;
             console.log('[Profile Comment] Broadcasting profile comment event');
             
-            // Get user info for broadcast
-            const user = await storage.getUser(userId);
+            // Get target user info for broadcast
             const targetUser = await storage.getUser(profileId);
             
             const eventData = {
@@ -6401,7 +6424,16 @@ export async function registerRoutes(
                 id: profileId,
                 username: targetUser?.username || 'Unknown'
               },
-              metadata: action.metadata,
+              metadata: {
+                ...action.metadata,
+                // Ensure complete metadata for WebSocket broadcast
+                content: content,
+                content_preview: content.substring(0, 100),
+                comment_preview: content.substring(0, 100),
+                author_name: user?.username || user?.fullName || 'Unknown',
+                author_avatar: user?.avatarUrl || null,
+                is_reply: !!parentCommentId
+              },
               createdAt: action.createdAt,
               timestamp: action.createdAt.toISOString()
             };
@@ -6409,6 +6441,12 @@ export async function registerRoutes(
             // Broadcast to last-actions room
             io.to('stream:last-actions').emit('stream:last-action', eventData);
             console.log('[Profile Comment] ✅ Profile comment event broadcasted');
+            console.log('[Profile Comment] Broadcast metadata:', {
+              content: eventData.metadata?.content,
+              content_preview: eventData.metadata?.content_preview,
+              comment_preview: eventData.metadata?.comment_preview,
+              author_name: eventData.metadata?.author_name
+            });
           }
         }
       } catch (actionError) {
@@ -6432,7 +6470,7 @@ export async function registerRoutes(
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
       
-      const activities = await storage.getPersonalActivities(profileId, limit, offset);
+      const activities = await getPersonalActivitiesDirect(profileId, limit, offset);
       
       res.json({
         activities,

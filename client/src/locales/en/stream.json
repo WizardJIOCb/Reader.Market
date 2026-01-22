@@ -14,7 +14,8 @@
     "news": "New Article",
     "book": "New Book",
     "comment": "New Comment",
-    "review": "New Review"
+    "review": "New Review",
+    "subscribed_comment": "New Comment"
   },
   "actionTypes": {
     "navigate_home": "Visited home page",

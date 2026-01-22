@@ -299,6 +299,16 @@ export const userChannelReadPositions = pgTable("user_channel_read_positions", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Table for user subscriptions to threads/entities
+export const subscriptions = pgTable("subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  entityType: varchar("entity_type").notNull(), // 'book', 'news', 'comment_thread', 'review_thread', etc.
+  entityId: varchar("entity_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastReadAt: timestamp("last_read_at").defaultNow().notNull(),
+});
+
 // Table for message reactions
 export const messageReactions = pgTable("message_reactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

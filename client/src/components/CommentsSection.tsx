@@ -31,7 +31,7 @@ interface Attachment {
   thumbnailUrl?: string;
 }
 
-interface Comment {
+export interface Comment {
   id: string;
   bookId: string;
   author: string;
@@ -80,7 +80,7 @@ interface CommentItemProps {
   onScrollToComment: (commentId: string) => void;
 }
 
-function CommentItem({
+export function CommentItem({
   comment,
   depth,
   user,

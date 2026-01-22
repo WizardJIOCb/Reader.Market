@@ -105,6 +105,7 @@ interface LastActivitySectionProps {
 }
 
 export function LastActivitySection({ profileId, profileUsername }: LastActivitySectionProps) {
+  console.log('=== LastActivitySection RENDERED ===');
   const { t, i18n } = useTranslation(['profile', 'stream']);
   const { user } = useAuth();
   const [activities, setActivities] = useState<UserActivity[]>([]);
@@ -143,51 +144,76 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
   };
 
   // Handlers for CommentItem and ReviewItem
-  const handleToggleReplies = async (id: string) => {
-    if (expandedReplies.has(id)) {
+  const handleToggleReplies = async (commentId: string) => {
+    console.log('=== handleToggleReplies CALLED ===');
+    console.log('Comment ID:', commentId);
+    console.log('Current expandedReplies:', Array.from(expandedReplies));
+    
+    if (expandedReplies.has(commentId)) {
+      console.log('Closing replies for:', commentId);
       setExpandedReplies(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
+        const newSet = new Set(prev);
+        newSet.delete(commentId);
+        console.log('New expanded set:', Array.from(newSet));
+        return newSet;
       });
     } else {
-      setLoadingReplies(prev => new Set(prev).add(id));
+      console.log('Opening replies for:', commentId);
+      // Check if we need to load replies data
+      const activity = activities.find(a => a.id === commentId);
+      console.log('Found activity:', activity?.id, activity?.type);
       
-      try {
-        const activity = activities.find(act => act.id === id);
-        if (!activity) return;
+      if (activity && activity.type === 'comment') {
+        console.log('Activity metadata:', activity.metadata);
+        const replyCount = activity.metadata?.reply_count || 0;
+        
+        console.log('Reply count from metadata:', replyCount);
+        
+        // Always fetch replies regardless of count (temporary fix)
+        console.log('Fetching replies from API (ignoring count)');
+        await fetchReplies(commentId, activity.bookId || activity.metadata?.book_id);
+      }
+      setExpandedReplies(prev => {
+        const newSet = new Set(prev).add(commentId);
+        console.log('New expanded set:', Array.from(newSet));
+        return newSet;
+      });
+    }
+  };
 
-        let response;
-        if (activity.type === 'comment') {
-          response = await fetch(`/api/comments/${id}/replies`, {
-            headers: user
-              ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-              : {}
-          });
-        } else if (activity.type === 'review') {
-          response = await fetch(`/api/reviews/${id}/replies`, {
-            headers: user
-              ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-              : {}
-          });
-        }
+  const fetchReplies = async (commentId: string, bookId?: string) => {
+    console.log('=== fetchReplies CALLED ===');
+    console.log('Comment ID:', commentId);
+    console.log('Book ID:', bookId);
+    
+    try {
+      if (!bookId) {
+        console.error('No book ID provided');
+        return;
+      }
+      
+      // Load replies directly (they have full data)
+      const response = await fetch(`/api/comments/${commentId}/replies`, {
+        headers: user
+          ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+          : {}
+      });
 
-        if (response && response.ok) {
-          const replies = await response.json();
-          // Update the activity with its replies
-          setActivities(prev => updateActivityReplies(prev, id, replies));
-        }
-
-        setExpandedReplies(prev => new Set(prev).add(id));
-      } catch (error) {
-        console.error('Error fetching replies:', error);
-      } finally {
-        setLoadingReplies(prev => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
+      if (response && response.ok) {
+        const replies = await response.json();
+        console.log('Fetched replies:', replies);
+        console.log('Reply count:', replies.length);
+        
+        // Update the activity with its replies
+        setActivities(prev => {
+          console.log('Updating activities state');
+          const updated = updateActivityReplies(prev, commentId, replies);
+          console.log('Updated activities:', updated);
+          return updated;
         });
       }
+    } catch (error) {
+      console.error('Error fetching replies:', error);
     }
   };
 
@@ -351,19 +377,127 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
   };
 
   // Helper function to update activity replies
-  const updateActivityReplies = (activities: UserActivity[], id: string, replies: any[]): UserActivity[] => {
-    return activities.map(activity => {
-      if (activity.id === id) {
+  const updateActivityReplies = (prevActivities: UserActivity[], targetId: string, replies: any[]): UserActivity[] => {
+    console.log('=== updateActivityReplies called ===');
+    console.log('Target ID:', targetId);
+    console.log('Replies to add:', replies);
+    console.log('Previous activities count:', prevActivities.length);
+    console.log('Call stack:', new Error().stack?.split('\n').slice(1, 4));
+    
+    // Track which activities we've already updated to prevent duplicates
+    const updatedIds = new Set<string>();
+    
+    const updateRecursively = (activity: UserActivity): UserActivity => {
+      // Prevent duplicate updates
+      if (updatedIds.has(activity.id)) {
+        return activity;
+      }
+      
+      // If this is the target activity
+      if (activity.id === targetId && activity.type === 'comment') {
+        console.log('Found target activity, updating replies');
+        console.log('Old reply count:', activity.metadata?.reply_count);
+        
+        // Merge new replies with existing ones (update incomplete data)
+        const existingReplies = activity.metadata?.replies || [];
+        const existingMap = new Map(existingReplies.map((r: any) => [r.id, r]));
+        
+        // Merge or add new replies
+        const mergedReplies = [...existingReplies];
+        
+        for (const newReply of replies) {
+          if (existingMap.has(newReply.id)) {
+            // Update existing reply with new data (prefer complete data)
+            const existingIndex = mergedReplies.findIndex(r => r.id === newReply.id);
+            mergedReplies[existingIndex] = {
+              ...mergedReplies[existingIndex],
+              ...newReply  // Overwrite with new data
+            };
+          } else {
+            // Add new reply
+            mergedReplies.push(newReply);
+          }
+        }
+        
+        console.log('Merged replies count:', mergedReplies.length);
+        
+        console.log('New reply count:', mergedReplies.length);
+        updatedIds.add(activity.id);
+        
         return {
           ...activity,
           metadata: {
             ...activity.metadata,
-            replies
+            replies: mergedReplies,
+            reply_count: mergedReplies.length
           }
         };
       }
+      
+      // If this activity has replies, check them recursively
+      if (activity.type === 'comment' && activity.metadata?.replies) {
+        const updatedReplies = activity.metadata.replies.map((reply: any) => {
+          // If this reply is the target
+          if (reply.id === targetId) {
+            console.log('Found target reply, updating nested replies');
+            updatedIds.add(reply.id);
+            
+            // Merge new replies with existing ones (update incomplete data)
+            const existingReplies = reply.replies || [];
+            const existingMap = new Map(existingReplies.map((r: any) => [r.id, r]));
+            
+            // Merge or add new replies
+            const mergedReplies = [...existingReplies];
+            
+            for (const newReply of replies) {
+              if (existingMap.has(newReply.id)) {
+                // Update existing reply with new data
+                const existingIndex = mergedReplies.findIndex(r => r.id === newReply.id);
+                mergedReplies[existingIndex] = {
+                  ...mergedReplies[existingIndex],
+                  ...newReply
+                };
+              } else {
+                // Add new reply
+                mergedReplies.push(newReply);
+              }
+            }
+            
+            console.log('Merged nested replies count:', mergedReplies.length);
+            
+            return {
+              ...reply,
+              replies: mergedReplies,
+              replyCount: mergedReplies.length
+            };
+          }
+          
+          // Recursively check nested replies
+          if (reply.replies && reply.replies.length > 0) {
+            return {
+              ...reply,
+              replies: reply.replies.map(updateRecursively)
+            };
+          }
+          
+          return reply;
+        });
+        
+        return {
+          ...activity,
+          metadata: {
+            ...activity.metadata,
+            replies: updatedReplies
+          }
+        };
+      }
+      
       return activity;
-    });
+    };
+    
+    const result = prevActivities.map(updateRecursively);
+    console.log('Updated activities count:', result.length);
+    return result;
   };
 
   // Helper function to add a reply to an activity
@@ -468,8 +602,8 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       quotedText: null,
       parentCommentAuthor: null,
       reactions: activity.metadata.reactions,
-      replyCount: activity.metadata.replyCount,
-      replies: []
+      replyCount: activity.metadata.replyCount || activity.metadata.reply_count,
+      replies: activity.metadata.replies || []  // ← Берем replies из metadata
     };
   };
 
@@ -491,8 +625,8 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       parentReviewId: null,
       quotedText: null,
       parentReviewAuthor: null,
-      replyCount: activity.metadata.replyCount,
-      replies: []
+      replyCount: activity.metadata.replyCount || activity.metadata.reply_count,
+      replies: activity.metadata.replies || []
     };
   };
 
@@ -574,8 +708,16 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
 
       case 'comment':
         const comment = transformActivityToComment(activity as Activity);
+        /* console.log('Rendering CommentItem with props:', {
+          commentId: comment.id,
+          hasOnToggleReplies: !!handleToggleReplies,
+          onToggleRepliesType: typeof handleToggleReplies,
+          replyCount: comment.replyCount,
+          repliesLength: comment.replies?.length || 0,
+          hasReplies: !!comment.replies && comment.replies.length > 0
+        }); */
         return (
-          <div key={`comment-${comment.id}`} id={`comment-${comment.id}`}>
+          <div key={`comment-${comment.id}-${comment.replies?.length || 0}`} id={`comment-${comment.id}`}>
             <CommentItem
               comment={comment}
               depth={0}
@@ -590,16 +732,259 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
               quotedText={quotedText}
               submitting={submitting}
               onToggleReplies={handleToggleReplies}
-              onReply={handleReply}
-              onCancelReply={handleCancelReply}
-              onReplyTextChange={handleReplyTextChange}
-              onSubmitReply={handleSubmitReply}
-              onDelete={handleDelete}
-              onReaction={handleReaction}
-              onTextSelect={handleTextSelect}
-              onScrollToComment={handleScrollTo}
-              getRatingBadgeVariant={getRatingBadgeVariant}
-              onUpdateCommentReactions={onUpdateCommentReactions}
+              onReply={(comment) => {
+                console.log('Reply button clicked for comment:', comment.id);
+                setReplyingToId(comment.id);
+                setQuotedText('');
+              }}
+              onCancelReply={() => {
+                console.log('Cancel reply');
+                setReplyingToId(null);
+                setReplyText('');
+                setQuotedText('');
+              }}
+              onReplyTextChange={(text) => {
+                setReplyText(text);
+              }}
+              onSubmitReply={async () => {
+                console.log('Submit reply');
+                console.log('Validation check:', {
+                  user: !!user,
+                  replyText: replyText.trim(),
+                  replyingToId: replyingToId,
+                  hasAll: !!(user && replyText.trim() && replyingToId)
+                });
+                
+                if (!user || !replyText.trim() || !replyingToId) {
+                  console.log('Validation failed');
+                  return;
+                }
+                
+                setSubmitting(true);
+                try {
+                  // Find the activity recursively (including nested replies)
+                  const findActivityRecursively = (activitiesList: UserActivity[]): Activity | undefined => {
+                    for (const activity of activitiesList) {
+                      if (activity.id === replyingToId && activity.type !== 'user_action') {
+                        return activity as Activity;
+                      }
+                      
+                      // Check nested replies
+                      const metadata = (activity as Activity).metadata;
+                      if (metadata?.replies) {
+                        // Recursively search in replies
+                        const foundInReplies = findActivityInReplies(metadata.replies, replyingToId);
+                        if (foundInReplies) {
+                          // Merge with activity data to get bookId
+                          const typedActivity = activity as Activity;
+                          return {
+                            ...foundInReplies,
+                            bookId: typedActivity.bookId || metadata.book_id || foundInReplies.bookId,
+                            metadata: {
+                              ...metadata,
+                              ...foundInReplies.metadata,
+                              book_id: typedActivity.bookId || metadata.book_id || foundInReplies.metadata?.book_id
+                            }
+                          } as Activity;
+                        }
+                      }
+                    }
+                    return undefined;
+                  };
+                  
+                  const findActivityInReplies = (replies: any[], targetId: string): Activity | undefined => {
+                    for (const reply of replies) {
+                      if (reply.id === targetId) {
+                        // Create fake activity from reply data
+                        return {
+                          id: reply.id,
+                          type: 'comment',
+                          entityId: reply.id,
+                          userId: reply.userId,
+                          bookId: reply.bookId,
+                          metadata: {
+                            book_id: reply.bookId,
+                            ...reply
+                          },
+                          createdAt: reply.createdAt,
+                          updatedAt: reply.updatedAt
+                        } as Activity;
+                      }
+                      
+                      if (reply.replies && reply.replies.length > 0) {
+                        const found = findActivityInReplies(reply.replies, targetId);
+                        if (found) return found;
+                      }
+                    }
+                    return undefined;
+                  };
+                  
+                  const activity = findActivityRecursively(activities);
+                  const bookId = activity?.bookId || activity?.metadata?.book_id;
+                  
+                  console.log('Activity lookup:', {
+                    activityId: replyingToId,
+                    foundActivity: !!activity,
+                    bookId: bookId
+                  });
+                  
+                  if (!bookId) {
+                    console.error('No book ID found');
+                    return;
+                  }
+                  
+                  const response = await fetch(`/api/books/${bookId}/comments`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                      content: replyText,
+                      parentCommentId: replyingToId,
+                      quotedText: quotedText || null
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    const newReply = await response.json();
+                    console.log('Reply created:', newReply);
+                    
+                    // Ensure the new reply has proper user info for styling
+                    const enrichedReply = {
+                      ...newReply,
+                      userId: user?.id, // Ensure userId is set for isOwnComment check
+                      isOwnComment: true // Explicitly mark as own comment
+                    };
+                    
+                    // Add reply to the correct nested location
+                    setActivities(prev => {
+                      console.log('=== Updating activities for new reply ===');
+                      console.log('Replying to ID:', replyingToId);
+                      console.log('New reply ID:', newReply.id);
+                      
+                      // First, let's see what activities we have and where replyingToId might be
+                      prev.forEach(activity => {
+                        if (activity.type === 'comment') {
+                          console.log('Activity:', activity.id, 'has replies:', activity.metadata?.replies?.length || 0);
+                          if (activity.metadata?.replies) {
+                            activity.metadata.replies.forEach((reply: any) => {
+                              console.log('  Reply:', reply.id, 'has nested replies:', reply.replies?.length || 0);
+                              if (reply.id === replyingToId) {
+                                console.log('!!! Found replyingToId in replies of activity:', activity.id);
+                              }
+                              // Also check nested replies
+                              if (reply.replies) {
+                                reply.replies.forEach((nestedReply: any) => {
+                                  console.log('    Nested reply:', nestedReply.id);
+                                  if (nestedReply.id === replyingToId) {
+                                    console.log('!!!! Found replyingToId in NESTED replies of reply:', reply.id);
+                                  }
+                                });
+                              }
+                            });
+                          }
+                        }
+                      });
+                      
+                      const updateRecursively = (activity: UserActivity): UserActivity => {
+                        if (activity.type !== 'comment') return activity;
+                        
+                        // Check if this is the direct parent (separate activity)
+                        if (activity.id === replyingToId) {
+                          console.log('Found direct parent activity:', activity.id);
+                          const existingReplies = activity.metadata?.replies || [];
+                          console.log('Old direct replies count:', existingReplies.length);
+                          const newReplies = [...existingReplies, enrichedReply];
+                          console.log('New direct replies count:', newReplies.length);
+                          return {
+                            ...activity,
+                            metadata: {
+                              ...activity.metadata,
+                              replies: newReplies,
+                              reply_count: newReplies.length
+                            }
+                          };
+                        }
+                        
+                        // Check if replyingToId is a child of this activity (recursive search)
+                        if (activity.metadata?.replies) {
+                          const updateRepliesRecursively = (replies: any[]): [any[], boolean] => {
+                            let wasUpdated = false;
+                            const updatedReplies = replies.map((reply: any) => {
+                              if (reply.id === replyingToId) {
+                                console.log('Found nested parent reply:', reply.id);
+                                console.log('Old reply replies count:', reply.replies?.length || 0);
+                                const newReplies = [...(reply.replies || []), enrichedReply];
+                                console.log('New reply replies count:', newReplies.length);
+                                wasUpdated = true;
+                                return {
+                                  ...reply,
+                                  replies: newReplies,
+                                  replyCount: newReplies.length
+                                };
+                              }
+                              
+                              // Recursively check deeper levels
+                              if (reply.replies && reply.replies.length > 0) {
+                                const [updatedNested, nestedUpdated] = updateRepliesRecursively(reply.replies);
+                                if (nestedUpdated) {
+                                  wasUpdated = true;
+                                  return {
+                                    ...reply,
+                                    replies: updatedNested
+                                  };
+                                }
+                              }
+                              
+                              return reply;
+                            });
+                            
+                            return [updatedReplies, wasUpdated];
+                          };
+                          
+                          const [updatedReplies, wasUpdated] = updateRepliesRecursively(activity.metadata.replies);
+                          
+                          if (wasUpdated) {
+                            console.log('Updated nested replies in activity:', activity.id);
+                            return {
+                              ...activity,
+                              metadata: {
+                                ...activity.metadata,
+                                replies: updatedReplies
+                              }
+                            };
+                          }
+                        }
+                        
+                        return activity;
+                      };
+                      
+                      const result = prev.map(updateRecursively);
+                      console.log('Activities updated, count:', result.length);
+                      return result;
+                    });
+                    
+                    // Automatically expand the parent to show the new reply
+                    setExpandedReplies(prev => new Set(prev).add(replyingToId));
+                    
+                    // Reset form
+                    setReplyingToId(null);
+                    setReplyText('');
+                    setQuotedText('');
+                  }
+                } catch (error) {
+                  console.error('Error submitting reply:', error);
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+              onDelete={() => {}}
+              onReaction={() => {}}
+              onTextSelect={() => {}}
+              onScrollToComment={() => {}}
+              getRatingBadgeVariant={() => 'secondary'}
+              onUpdateCommentReactions={() => {}}
             />
           </div>
         );
@@ -622,15 +1007,258 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
               quotedText={quotedText}
               submitting={submitting}
               onToggleReplies={handleToggleReplies}
-              onReply={handleReply}
-              onCancelReply={handleCancelReply}
-              onReplyTextChange={handleReplyTextChange}
-              onSubmitReply={handleSubmitReply}
-              onDelete={handleDelete}
-              onReaction={handleReaction}
-              onTextSelect={handleTextSelect}
-              onScrollToReview={handleScrollTo}
-              getRatingColor={getRatingColor}
+              onReply={(comment) => {
+                console.log('Reply button clicked for comment:', comment.id);
+                setReplyingToId(comment.id);
+                setQuotedText('');
+              }}
+              onCancelReply={() => {
+                console.log('Cancel reply');
+                setReplyingToId(null);
+                setReplyText('');
+                setQuotedText('');
+              }}
+              onReplyTextChange={(text) => {
+                setReplyText(text);
+              }}
+              onSubmitReply={async () => {
+                console.log('Submit reply');
+                console.log('Validation check:', {
+                  user: !!user,
+                  replyText: replyText.trim(),
+                  replyingToId: replyingToId,
+                  hasAll: !!(user && replyText.trim() && replyingToId)
+                });
+                
+                if (!user || !replyText.trim() || !replyingToId) {
+                  console.log('Validation failed');
+                  return;
+                }
+                
+                setSubmitting(true);
+                try {
+                  // Find the activity recursively (including nested replies)
+                  const findActivityRecursively = (activitiesList: UserActivity[]): Activity | undefined => {
+                    for (const activity of activitiesList) {
+                      if (activity.id === replyingToId && activity.type !== 'user_action') {
+                        return activity as Activity;
+                      }
+                      
+                      // Check nested replies
+                      const metadata = (activity as Activity).metadata;
+                      if (metadata?.replies) {
+                        // Recursively search in replies
+                        const foundInReplies = findActivityInReplies(metadata.replies, replyingToId);
+                        if (foundInReplies) {
+                          // Merge with activity data to get bookId
+                          const typedActivity = activity as Activity;
+                          return {
+                            ...foundInReplies,
+                            bookId: typedActivity.bookId || metadata.book_id || foundInReplies.bookId,
+                            metadata: {
+                              ...metadata,
+                              ...foundInReplies.metadata,
+                              book_id: typedActivity.bookId || metadata.book_id || foundInReplies.metadata?.book_id
+                            }
+                          } as Activity;
+                        }
+                      }
+                    }
+                    return undefined;
+                  };
+                  
+                  const findActivityInReplies = (replies: any[], targetId: string): Activity | undefined => {
+                    for (const reply of replies) {
+                      if (reply.id === targetId) {
+                        // Create fake activity from reply data
+                        return {
+                          id: reply.id,
+                          type: 'comment',
+                          entityId: reply.id,
+                          userId: reply.userId,
+                          bookId: reply.bookId,
+                          metadata: {
+                            book_id: reply.bookId,
+                            ...reply
+                          },
+                          createdAt: reply.createdAt,
+                          updatedAt: reply.updatedAt
+                        } as Activity;
+                      }
+                      
+                      if (reply.replies && reply.replies.length > 0) {
+                        const found = findActivityInReplies(reply.replies, targetId);
+                        if (found) return found;
+                      }
+                    }
+                    return undefined;
+                  };
+                  
+                  const activity = findActivityRecursively(activities);
+                  const bookId = activity?.bookId || activity?.metadata?.book_id;
+                  
+                  console.log('Activity lookup:', {
+                    activityId: replyingToId,
+                    foundActivity: !!activity,
+                    bookId: bookId
+                  });
+                  
+                  if (!bookId) {
+                    console.error('No book ID found');
+                    return;
+                  }
+                  
+                  const response = await fetch(`/api/books/${bookId}/comments`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                      content: replyText,
+                      parentCommentId: replyingToId,
+                      quotedText: quotedText || null
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    const newReply = await response.json();
+                    console.log('Reply created:', newReply);
+                    
+                    // Ensure the new reply has proper user info for styling
+                    const enrichedReply = {
+                      ...newReply,
+                      userId: user?.id, // Ensure userId is set for isOwnComment check
+                      isOwnComment: true // Explicitly mark as own comment
+                    };
+                    
+                    // Add reply to the correct nested location
+                    setActivities(prev => {
+                      console.log('=== Updating activities for new reply ===');
+                      console.log('Replying to ID:', replyingToId);
+                      console.log('New reply ID:', newReply.id);
+                      
+                      // First, let's see what activities we have and where replyingToId might be
+                      prev.forEach(activity => {
+                        if (activity.type === 'comment') {
+                          console.log('Activity:', activity.id, 'has replies:', activity.metadata?.replies?.length || 0);
+                          if (activity.metadata?.replies) {
+                            activity.metadata.replies.forEach((reply: any) => {
+                              console.log('  Reply:', reply.id, 'has nested replies:', reply.replies?.length || 0);
+                              if (reply.id === replyingToId) {
+                                console.log('!!! Found replyingToId in replies of activity:', activity.id);
+                              }
+                              // Also check nested replies
+                              if (reply.replies) {
+                                reply.replies.forEach((nestedReply: any) => {
+                                  console.log('    Nested reply:', nestedReply.id);
+                                  if (nestedReply.id === replyingToId) {
+                                    console.log('!!!! Found replyingToId in NESTED replies of reply:', reply.id);
+                                  }
+                                });
+                              }
+                            });
+                          }
+                        }
+                      });
+                      
+                      const updateRecursively = (activity: UserActivity): UserActivity => {
+                        if (activity.type !== 'comment') return activity;
+                        
+                        // Check if this is the direct parent (separate activity)
+                        if (activity.id === replyingToId) {
+                          console.log('Found direct parent activity:', activity.id);
+                          const existingReplies = activity.metadata?.replies || [];
+                          console.log('Old direct replies count:', existingReplies.length);
+                          const newReplies = [...existingReplies, enrichedReply];
+                          console.log('New direct replies count:', newReplies.length);
+                          return {
+                            ...activity,
+                            metadata: {
+                              ...activity.metadata,
+                              replies: newReplies,
+                              reply_count: newReplies.length
+                            }
+                          };
+                        }
+                        
+                        // Check if replyingToId is a child of this activity (recursive search)
+                        if (activity.metadata?.replies) {
+                          const updateRepliesRecursively = (replies: any[]): [any[], boolean] => {
+                            let wasUpdated = false;
+                            const updatedReplies = replies.map((reply: any) => {
+                              if (reply.id === replyingToId) {
+                                console.log('Found nested parent reply:', reply.id);
+                                console.log('Old reply replies count:', reply.replies?.length || 0);
+                                const newReplies = [...(reply.replies || []), enrichedReply];
+                                console.log('New reply replies count:', newReplies.length);
+                                wasUpdated = true;
+                                return {
+                                  ...reply,
+                                  replies: newReplies,
+                                  replyCount: newReplies.length
+                                };
+                              }
+                              
+                              // Recursively check deeper levels
+                              if (reply.replies && reply.replies.length > 0) {
+                                const [updatedNested, nestedUpdated] = updateRepliesRecursively(reply.replies);
+                                if (nestedUpdated) {
+                                  wasUpdated = true;
+                                  return {
+                                    ...reply,
+                                    replies: updatedNested
+                                  };
+                                }
+                              }
+                              
+                              return reply;
+                            });
+                            
+                            return [updatedReplies, wasUpdated];
+                          };
+                          
+                          const [updatedReplies, wasUpdated] = updateRepliesRecursively(activity.metadata.replies);
+                          
+                          if (wasUpdated) {
+                            console.log('Updated nested replies in activity:', activity.id);
+                            return {
+                              ...activity,
+                              metadata: {
+                                ...activity.metadata,
+                                replies: updatedReplies
+                              }
+                            };
+                          }
+                        }
+                        
+                        return activity;
+                      };
+                      
+                      const result = prev.map(updateRecursively);
+                      console.log('Activities updated, count:', result.length);
+                      return result;
+                    });
+                    
+                    // Automatically expand the parent to show the new reply
+                    setExpandedReplies(prev => new Set(prev).add(replyingToId));
+                    
+                    // Reset form
+                    setReplyingToId(null);
+                    setReplyText('');
+                    setQuotedText('');
+                  }
+                } catch (error) {
+                  console.error('Error submitting reply:', error);
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+              onDelete={() => {}}
+              onReaction={() => {}}
+              onTextSelect={() => {}}
+              onScrollToReview={() => {}}
+              getRatingColor={() => '#6b7280'}
             />
           </div>
         );
