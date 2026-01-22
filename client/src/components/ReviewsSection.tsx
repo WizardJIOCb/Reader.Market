@@ -84,10 +84,10 @@ interface ReviewItemProps {
   onReaction: (reviewId: string, emoji: string) => void;
   onTextSelect: (review: Review) => void;
   onScrollToReview: (reviewId: string) => void;
-  getRatingColor: (rating: number) => string;
+  getRatingColor: (rating: number | null | undefined) => string;
 }
 
-function ReviewItem({
+export function ReviewItem({
   review,
   depth,
   user,

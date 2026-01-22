@@ -2379,7 +2379,8 @@ export class DBStorage implements IStorage {
       const result = await db.select().from(reviews).where(
         and(
           eq(reviews.userId, userId),
-          eq(reviews.bookId, bookId)
+          eq(reviews.bookId, bookId),
+          isNull(reviews.parentReviewId) // Only check for root reviews, not replies
         )
       );
       
@@ -5501,6 +5502,9 @@ export class DBStorage implements IStorage {
           });
         });
         
+        // Count comment replies
+        const replyCount = await this.countCommentReplies(comment.id);
+        
         activities.push({
           id: comment.id,
           type: 'comment',
@@ -5508,13 +5512,15 @@ export class DBStorage implements IStorage {
           userId: comment.userId,
           bookId: comment.bookId,
           metadata: {
-            content_preview: comment.content.substring(0, 200),
+            content: comment.content, // Full content instead of preview
+            content_preview: comment.content.substring(0, 200), // Keep preview for compatibility
             book_id: comment.bookId,
             book_title: book_title,
             author_name: user_name,
             author_avatar: user_avatar,
             reactions: aggregatedReactions,
-            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0)
+            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0),
+            replyCount: replyCount
           },
           createdAt: comment.createdAt,
           updatedAt: comment.updatedAt
@@ -5554,6 +5560,9 @@ export class DBStorage implements IStorage {
           });
         });
         
+        // Count review replies
+        const replyCount = await this.countReviewReplies(review.id);
+        
         activities.push({
           id: review.id,
           type: 'review',
@@ -5561,14 +5570,16 @@ export class DBStorage implements IStorage {
           userId: review.userId,
           bookId: review.bookId,
           metadata: {
-            content_preview: review.content.substring(0, 200),
+            content: review.content, // Full content instead of preview
+            content_preview: review.content.substring(0, 200), // Keep preview for compatibility
             rating: review.rating,
             book_id: review.bookId,
             book_title: book_title,
             author_name: user_name,
             author_avatar: user_avatar,
             reactions: aggregatedReactions,
-            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0)
+            reaction_count: aggregatedReactions.reduce((sum, r) => sum + r.count, 0),
+            replyCount: replyCount
           },
           createdAt: review.createdAt,
           updatedAt: review.updatedAt

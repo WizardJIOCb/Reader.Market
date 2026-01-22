@@ -75,7 +75,7 @@ interface CommentItemProps {
   onUpdateCommentReactions: (commentId: string, reactions: Reaction[]) => void;
 }
 
-function CommentItem({
+export function CommentItem({
   comment,
   depth,
   user,

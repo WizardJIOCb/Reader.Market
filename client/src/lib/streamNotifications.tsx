@@ -154,12 +154,12 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       }
 
       // Build notification message to match Last Actions display exactly
-      // Title = Activity type (like header in Last Actions)
-      // Description = Author name link · target link (like user section in Last Actions)
+      // Title = Activity type - Author name (like header in Last Actions)
+      // Description = Full text of the activity with all dynamic values and links
       const authorName = activity.user?.fullName || activity.user?.username || activity.metadata?.author_name || activity.metadata?.uploader_name || t('stream:unknownUser');
       const authorId = activity.user?.id || activity.metadata?.author_id || activity.metadata?.uploader_id || activity.userId;
       const authorLink = `/profile/${authorId}`;
-      let title: string = '';
+      let title: ReactNode = '';
       let description: ReactNode = '';
 
       // Helper to create author link element
@@ -175,37 +175,27 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
         const newsTitle = activity.metadata?.news_title || '';
         const bookId = activity.metadata?.book_id || activity.bookId;
         const newsId = activity.metadata?.news_id || activity.newsId;
-        const commentText = activity.metadata?.comment_text || activity.metadata?.content_preview || '';
+        const commentText = activity.metadata?.comment_text || activity.metadata?.content_preview || activity.metadata?.content || '';
+        title = createElement('span', null,
+          t('stream:activityTypes.comment'),
+          ' - ',
+          createAuthorLink(authorName, authorLink)
+        );
         if (bookTitle && bookId) {
-          title = createElement('span', null,
-            t('stream:newCommentToBook'),
-            ' "',
-            createTargetLink(bookTitle, `/book/${bookId}`),
-            '"'
-          );
           description = createElement('span', null,
-            createAuthorLink(authorName, authorLink),
-            createElement('span', { className: 'text-muted-foreground' }, ': '),
-            commentText && `${commentText}`
+            commentText && `"${commentText}"`,
+            commentText && createElement('span', { className: 'text-muted-foreground' }, ' · '),
+            createTargetLink(bookTitle, `/book/${bookId}`)
           );
         } else if (newsTitle && newsId) {
-          title = createElement('span', null,
-            t('stream:newCommentToNews'),
-            ' "',
-            createTargetLink(newsTitle, `/news/${newsId}`),
-            '"'
-          );
           description = createElement('span', null,
-            createAuthorLink(authorName, authorLink),
-            createElement('span', { className: 'text-muted-foreground' }, ': '),
-            commentText && `${commentText}`
+            commentText && `"${commentText}"`,
+            commentText && createElement('span', { className: 'text-muted-foreground' }, ' · '),
+            createTargetLink(newsTitle, `/news/${newsId}`)
           );
         } else {
-          title = t('stream:newComment');
           description = createElement('span', null,
-            createAuthorLink(authorName, authorLink),
-            createElement('span', { className: 'text-muted-foreground' }, ': '),
-            commentText && `${commentText}`
+            commentText && `"${commentText}"`
           );
         }
       } else if (activity.type === 'review') {
@@ -226,16 +216,22 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
           bookTitle && bookId && createTargetLink(bookTitle, `/book/${bookId}`)
         );
       } else if (activity.type === 'book') {
-        title = `${t('stream:activityTypes.book')} - ${authorName}`;
+        title = createElement('span', null,
+          t('stream:activityTypes.book'),
+          ' - ',
+          createAuthorLink(authorName, authorLink)
+        );
         const bookTitle = activity.metadata?.title || '';
         const bookId = activity.entityId || activity.bookId;
         description = createElement('span', null,
-          createAuthorLink(authorName, authorLink),
-          bookTitle && createElement('span', { className: 'text-muted-foreground' }, ' · '),
-          bookTitle && bookId && createTargetLink(bookTitle, `/book/${bookId}`)
+          createTargetLink(bookTitle, `/book/${bookId}`)
         );
       } else if (activity.type === 'news') {
-        title = `${t('stream:activityTypes.news')} - ${authorName}`;
+        title = createElement('span', null,
+          t('stream:activityTypes.news'),
+          ' - ',
+          createAuthorLink(authorName, authorLink)
+        );
         const newsTitle = activity.metadata?.title || '';
         const newsId = activity.entityId || activity.newsId;
         if (newsTitle && newsId) {
@@ -295,7 +291,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       // Description = Username link · target link (like user section in Last Actions)
       const userName = action.user?.fullName || action.user?.username || t('stream:unknownUser');
       const userLink = `/profile/${action.user?.username || action.user?.id || ''}`;
-      let title: string = '';
+      let title: ReactNode = '';
       let description: ReactNode = '';
       
       // Helper to create user link element

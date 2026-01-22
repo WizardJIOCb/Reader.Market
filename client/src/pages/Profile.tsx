@@ -16,6 +16,7 @@ import {
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import { BookCard } from '@/components/BookCard';
 import ProfileRatingsSection from '@/components/ProfileRatingsSection';
+import { LastActivitySection } from '@/components/LastActivitySection';
 import { useAuth } from '@/lib/auth';
 import { 
   BookOpen, 
@@ -936,6 +937,12 @@ export default function Profile() {
           )}
         </div>
 
+        {/* Last Activity Section */}
+        <LastActivitySection
+          profileId={profile.id}
+          profileUsername={profile.username}
+        />
+        
         {/* Profile Ratings & Comments Section */}
         <div className="mt-4 mb-8">
           <ProfileRatingsSection

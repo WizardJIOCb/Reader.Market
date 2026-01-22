@@ -6423,6 +6423,32 @@ export async function registerRoutes(
     }
   });
 
+  // Get user activity feed
+  app.get("/api/profile/:profileId/activities", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get profile activities endpoint called");
+    
+    try {
+      const { profileId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      const activities = await storage.getPersonalActivities(profileId, limit, offset);
+      
+      res.json({
+        activities,
+        pagination: {
+          limit,
+          offset,
+          total: activities.length,
+          has_more: activities.length === limit
+        }
+      });
+    } catch (error) {
+      console.error("Get profile activities error:", error);
+      res.status(500).json({ error: "Failed to get profile activities" });
+    }
+  });
+
   // Get paginated comments for a profile
   app.get("/api/profile/:profileId/comments", optionalAuthenticateToken, async (req, res) => {
     console.log("Get profile comments endpoint called");

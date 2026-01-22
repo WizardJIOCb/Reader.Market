@@ -35,6 +35,11 @@
   "passwordTooShort": "Password must be at least 6 characters",
   "currentPasswordRequired": "Current password is required",
   "newPasswordRequired": "New password is required",
+  "lastActivity": "Last Activity",
+  "activity": "activity",
+  "activities": "activities",
+  "noActivity": "No recent activity yet. This user hasn't posted any comments or reviews recently.",
+  "andMore": "and {{count}} more",
   "ratings": {
     "title": "Ratings & Comments",
     "comment": "comment",
