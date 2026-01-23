@@ -988,7 +988,7 @@ export class DBStorage implements IStorage {
       }
       
       // Get the books and sort by rating (descending, nulls last)
-      const booksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      const booksResult = await db.select().from(books).where(and(inArray(books.id, bookIds), sql`is_active = true`)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       
       // For books without ratings, calculate them
       for (const book of booksResult) {
@@ -998,7 +998,7 @@ export class DBStorage implements IStorage {
       }
       
       // Fetch the books again with updated ratings
-      const updatedBooksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      const updatedBooksResult = await db.select().from(books).where(and(inArray(books.id, bookIds), sql`is_active = true`)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       
       // For each book, get the comment and review counts
       const result = await Promise.all(updatedBooksResult.map(async (book) => {
@@ -1179,8 +1179,8 @@ export class DBStorage implements IStorage {
     try {
       console.log('Fetching new releases');
       
-      // Get books sorted by created date (descending) - showing newest additions to our system first
-      const booksResult = await db.select().from(books).orderBy(desc(books.createdAt)).limit(20);
+      // Get active books sorted by created date (descending) - showing newest additions to our system first
+      const booksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(desc(books.createdAt)).limit(20);
       console.log('Books result from database:', booksResult.length);
       
       // For books without ratings, calculate them
@@ -1191,7 +1191,7 @@ export class DBStorage implements IStorage {
       }
       
       // Fetch the books again with updated ratings
-      const updatedBooksResult = await db.select().from(books).orderBy(desc(books.createdAt)).limit(20);
+      const updatedBooksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(desc(books.createdAt)).limit(20);
       console.log('Updated books result from database:', updatedBooksResult.length);
       
       // For each book, get the comment and review counts
