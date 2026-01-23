@@ -190,10 +190,18 @@ const BooksManagement = () => {
 
   const handleToggleActive = async (book: Book) => {
     try {
-      const formData = new FormData();
-      formData.append('isActive', (!book.isActive).toString());
+      const updateData = {
+        isActive: !book.isActive
+      };
       
-      const response = await adminBooksApi.updateBook(book.id, formData);
+      const response = await fetch(`/api/admin/books/${book.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify(updateData)
+      });
       
       if (response.ok) {
         toast({

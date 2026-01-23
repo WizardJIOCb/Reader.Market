@@ -4341,12 +4341,20 @@ export async function registerRoutes(
       // Prepare update data
       const updateData: any = {};
       
+      console.log("Processing book update for ID:", id);
+      console.log("Request body isActive:", req.body.isActive);
+      console.log("Request body type:", typeof req.body.isActive);
+      
       if (req.body.title) updateData.title = req.body.title;
       if (req.body.author) updateData.author = req.body.author;
       if (req.body.description !== undefined) updateData.description = req.body.description;
       if (req.body.genre !== undefined) updateData.genre = req.body.genre;
       if (req.body.publishedYear) updateData.publishedYear = parseInt(req.body.publishedYear);
       if (req.body.publishedAt) updateData.publishedAt = new Date(req.body.publishedAt);
+      if (req.body.isActive !== undefined) {
+        updateData.isActive = req.body.isActive === 'true' || req.body.isActive === true;
+        console.log("Setting isActive to:", updateData.isActive);
+      }
       
       // Handle cover image update
       if (files && files.coverImage && files.coverImage[0]) {
@@ -4405,6 +4413,9 @@ export async function registerRoutes(
       }
       
       const updatedBook = await storage.updateBookAdmin(id, updateData);
+      
+      console.log("Storage update result:", updatedBook);
+      console.log("Final isActive value:", updatedBook?.isActive);
       
       if (!updatedBook) {
         return res.status(404).json({ error: "Book not found" });
