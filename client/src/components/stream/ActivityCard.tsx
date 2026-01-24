@@ -41,14 +41,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
   
   // Debug logging for news comments
   if (activity.type === 'comment') {
-    console.log('[ActivityCard] Rendering comment:', {
-      id: activity.id,
-      hasNewsTitle: !!activity.metadata?.news_title,
-      newsTitle: activity.metadata?.news_title,
-      hasBookTitle: !!activity.metadata?.book_title,
-      bookTitle: activity.metadata?.book_title,
-      fullMetadata: activity.metadata
-    });
+    
   }
   
   // Get date-fns locale based on current language

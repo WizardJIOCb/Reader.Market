@@ -74,17 +74,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // Set language from user preference if available
             if (!urlLang && freshUserData.language) {
               if (!currentlySelectedLanguage || currentlySelectedLanguage === freshUserData.language) {
-                console.log('AuthProvider: Setting language from user data:', freshUserData.language);
+                
                 i18n.changeLanguage(freshUserData.language);
                 localStorage.setItem('i18nextLng', freshUserData.language);
               } else {
-                console.log('AuthProvider: User has selected language', currentlySelectedLanguage, 'keeping it instead of profile language', freshUserData.language);
+                
               }
             } else if (!urlLang) {
               const detectedLanguage = i18n.language || 'en';
-              console.log('AuthProvider: No user language preference, using detected:', detectedLanguage);
+              
             } else {
-              console.log('AuthProvider: URL lang parameter detected, skipping user language preference');
+              
             }
           } else {
             // If token is invalid, log the user out
@@ -196,7 +196,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Sync language with user preference
         if (userData.language) {
-          console.log('refreshUser: Syncing language from backend:', userData.language);
+          
           await i18n.changeLanguage(userData.language);
           localStorage.setItem('i18nextLng', userData.language);
         }

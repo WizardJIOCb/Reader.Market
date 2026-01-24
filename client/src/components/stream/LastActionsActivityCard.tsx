@@ -95,7 +95,7 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
     
     setIsDeleting(true);
     try {
-      console.log('[LastActionsActivityCard] Deleting action with ID:', deleteId);
+      
       const response = await fetch(`/api/stream/activities/${deleteId}`, {
         method: 'DELETE',
         headers: {

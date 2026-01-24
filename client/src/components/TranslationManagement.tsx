@@ -149,14 +149,14 @@ export function TranslationManagement({ bookId, bookFileType }: TranslationManag
           'Authorization': `Bearer ${token}`,
         },
       });
-      console.log('Models API response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        console.log('Available models data:', data);
+        
         setAvailableModels(data);
         
         const ollamaModels = data.find((s: AvailableModel) => s.service === 'ollama');
-        console.log('Ollama models:', ollamaModels);
+        
         if (ollamaModels && ollamaModels.models.length > 0) {
           setSelectedModel(ollamaModels.models[0]);
         }

@@ -56,8 +56,8 @@ const NewsReactionsManagement: React.FC = () => {
       // Handle both paginated response format and array format
       const items = data.items || data;
       
-      console.log('[NewsReactionsManagement] Fetched news items:', items);
-      console.log('[NewsReactionsManagement] First item structure:', items[0]);
+      
+      
       
       setNewsItems(Array.isArray(items) ? items : []);
       setError(null);
@@ -129,16 +129,16 @@ const NewsReactionsManagement: React.FC = () => {
 
   const handleDeleteReaction = async (reactionId: string) => {
     try {
-      console.log('[NewsReactionsManagement] Deleting reaction:', reactionId);
-      console.log('[NewsReactionsManagement] Before delete - selectedNews:', selectedNews);
-      console.log('[NewsReactionsManagement] Before delete - reactions count:', reactions.length);
+      
+      
+      
       
       await newsReactionsApi.deleteReaction(reactionId);
 
       // Remove the reaction from the local state
       setReactions(prevReactions => {
         const updated = prevReactions.filter(reaction => reaction.id !== reactionId);
-        console.log('[NewsReactionsManagement] After delete - reactions count:', updated.length);
+        
         return updated;
       });
       
@@ -153,7 +153,7 @@ const NewsReactionsManagement: React.FC = () => {
         
         if (updatedSelectedNews) {
           setSelectedNews(updatedSelectedNews);
-          console.log('[NewsReactionsManagement] Updated selected news reaction count:', updatedSelectedNews.reactionCount);
+          
         }
       }
       

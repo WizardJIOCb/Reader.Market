@@ -102,7 +102,7 @@ export default function StreamPage() {
   // Invalidate query cache on mount to ensure fresh data when returning to Stream page
   // This fixes the issue where comments posted on other pages don't appear until manual refresh
   useEffect(() => {
-    console.log('[STREAM PAGE] Component mounted, invalidating cache for fresh data');
+    
     
     // Always invalidate global stream as it's visible to all users
     queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'global'] });
@@ -112,13 +112,13 @@ export default function StreamPage() {
     
     // Invalidate personal stream if authenticated and on personal tab
     if (isAuthenticated && activeTab === 'personal') {
-      console.log('[STREAM PAGE] Invalidating personal stream cache');
+      
       queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'personal'] });
     }
     
     // Invalidate shelves stream if authenticated and on shelves tab
     if (isAuthenticated && activeTab === 'shelves') {
-      console.log('[STREAM PAGE] Invalidating shelves stream cache');
+      
       queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'shelves'] });
     }
   }, []); // Run only on mount
@@ -214,7 +214,7 @@ export default function StreamPage() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[STREAM PAGE] Tab became visible, refetching active stream');
+        
         
         // Refetch the currently active tab's data
         if (activeTab === 'global') {
@@ -240,14 +240,14 @@ export default function StreamPage() {
   // This ensures fresh data after navigating away and back
   useEffect(() => {
     if (activeTab === 'last-actions') {
-      console.log('[STREAM PAGE] Switched to Last Actions tab, refetching data...');
+      
       refetchLastActions();
     }
   }, [activeTab, refetchLastActions]);
 
   // WebSocket connection and event handlers
   useEffect(() => {
-    console.log('[STREAM PAGE] Setting up WebSocket connection...');
+    
     const socket = getSocket();
     if (!socket) {
       console.warn('[STREAM PAGE] No socket available - will retry shortly');
@@ -255,8 +255,8 @@ export default function StreamPage() {
       return;
     }
 
-    console.log('[STREAM PAGE] Socket connected:', socket.connected);
-    console.log('[STREAM PAGE] Is authenticated:', isAuthenticated);
+    
+    
     socketRef.current = socket;
 
     // Store the current tab value for cleanup
@@ -267,19 +267,19 @@ export default function StreamPage() {
     const joinRooms = () => {
       // ALWAYS join global room - we need to receive all global activities
       // regardless of which tab is active
-      console.log('[STREAM PAGE] Joining global stream room (always active)');
+      ');
       socket.emit('join:stream:global');
       
       // ALWAYS join last-actions room - we need to receive all last actions
-      console.log('[STREAM PAGE] Joining last actions stream room (always active)');
+      ');
       socket.emit('join:stream:last-actions');
       
       // Join tab-specific rooms based on active tab
       if (activeTab === 'personal' && isAuthenticated) {
-        console.log('[STREAM PAGE] Joining personal stream room');
+        
         socket.emit('join:stream:personal');
       } else if (activeTab === 'shelves' && isAuthenticated) {
-        console.log('[STREAM PAGE] Joining shelves stream room');
+        
         socket.emit('join:stream:shelves');
       }
     };
@@ -289,24 +289,24 @@ export default function StreamPage() {
       joinRooms();
     } else {
       // If not connected yet, wait for connection
-      console.log('[STREAM PAGE] Socket not connected yet, will join rooms on connect event');
+      
     }
 
     // Also join when connection is established (in case of reconnection or delayed connection)
     const handleConnect = () => {
-      console.log('[STREAM PAGE] Socket connected event fired, joining rooms');
+      
       joinRooms();
     };
     socket.on('connect', handleConnect);
 
     // Listen for new activities
     const handleNewActivity = (activity: Activity) => {
-      console.log('[STREAM] New activity received:', activity);
-      console.log('[STREAM] Activity type:', activity.type);
-      console.log('[STREAM] Activity metadata:', activity.metadata);
+      
+      
+      
       if (activity.type === 'comment') {
-        console.log('[STREAM] Comment has news_title:', activity.metadata?.news_title);
-        console.log('[STREAM] Comment has book_title:', activity.metadata?.book_title);
+        
+        
       }
       
       // Update the appropriate query cache based on active tab
@@ -341,7 +341,7 @@ export default function StreamPage() {
       // Personal stream - update if activity was created by current user
       // Personal stream shows user's own activities (their comments, reviews, news, books)
       if (currentUser && activity.userId === currentUser.id) {
-        console.log('[STREAM] Adding activity to personal stream - created by current user');
+        
         queryClient.setQueryData<Activity[]>(['api', 'stream', 'personal'], (oldData = []) => {
           if (oldData.some(a => a.id === activity.id)) {
             return oldData;
@@ -364,7 +364,7 @@ export default function StreamPage() {
     };
 
     const handleActivityUpdated = (data: { entityId: string; metadata: any }) => {
-      console.log('[STREAM] Activity updated:', data);
+      
       // Update the activity in the query cache
       queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'global'] });
       queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'personal'] });
@@ -372,7 +372,7 @@ export default function StreamPage() {
     };
 
     const handleActivityDeleted = (data: { entityId: string }) => {
-      console.log('[STREAM] Activity deleted:', data);
+      
       
       // Remove the activity from all query caches
       // Check both entityId and id fields to handle both regular activities and user actions
@@ -399,7 +399,7 @@ export default function StreamPage() {
     };
 
     const handleReactionUpdate = (data: { commentId: string; entityId: string; entityType: string; reactions: any[]; action: string }) => {
-      console.log('[STREAM] Reaction update received:', data);
+      
       
       // Update activities in all caches to update reactions
       const updateActivities = (oldData: Activity[] = []) => {
@@ -416,7 +416,7 @@ export default function StreamPage() {
             (data.entityType === 'book' && (activity.entityId === data.entityId || activity.bookId === data.entityId) && activity.type === 'book');
             
           if (isMatch) {
-            console.log('[STREAM] Updating reactions for activity:', activity.id, 'with reactions:', data.reactions);
+            
             return {
               ...activity,
               metadata: {
@@ -451,7 +451,7 @@ export default function StreamPage() {
               (data.entityType === 'book' && (activity.entityId === data.entityId || activity.bookId === data.entityId) && activity.type === 'book');
             
             if (isMatch) {
-              console.log('[STREAM] Updating Last Actions reactions for activity:', activity.id, 'with reactions:', data.reactions);
+              
               return {
                 ...activity,
                 metadata: {
@@ -468,7 +468,7 @@ export default function StreamPage() {
     };
 
     const handleCounterUpdate = (data: { entityId: string; entityType: string; commentCount?: number; reactionCount?: number; viewCount?: number; reviewCount?: number }) => {
-      console.log('[STREAM] Counter update received:', data);
+      
       
       // Update counters for news and book activities
       const updateActivities = (oldData: Activity[] = []) => {
@@ -476,7 +476,7 @@ export default function StreamPage() {
           // Match by entityId (news ID or book ID) and type
           if ((activity.entityId === data.entityId || activity.newsId === data.entityId || activity.bookId === data.entityId) &&
               (activity.type === data.entityType)) {
-            console.log('[STREAM] Updating counters for activity:', activity.id, 'with data:', data);
+            
             const updatedMetadata = { ...activity.metadata };
             
             if (data.commentCount !== undefined) {
@@ -507,7 +507,7 @@ export default function StreamPage() {
     };
     
     const handleLastAction = (action: any) => {
-      console.log('[STREAM] New last action received:', action);
+      
       
       // Update the last actions query cache
       queryClient.setQueryData<any>(['api', 'stream', 'last-actions'], (oldData: any) => {
@@ -550,7 +550,7 @@ export default function StreamPage() {
       
       // Leave tab-specific rooms only - NEVER leave global room or last-actions room
       // Global room and last-actions room should stay active to receive updates even when on other tabs
-      console.log('[STREAM PAGE] Cleanup: leaving tab-specific room for tab:', currentTab);
+      
       if (currentTab === 'personal' && wasAuthenticated) {
         socket.emit('leave:stream:personal');
       } else if (currentTab === 'shelves' && wasAuthenticated) {

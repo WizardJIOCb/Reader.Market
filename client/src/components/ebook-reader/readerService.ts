@@ -199,28 +199,28 @@ export class ReaderService {
       }
       
       // Check if this is a plain text file or FB2 file
-      console.log('Checking file type for plain text handling');
-      console.log('Book URL ends with .txt:', bookUrl.endsWith('.txt'));
-      console.log('Book URL ends with .fb2:', bookUrl.endsWith('.fb2'));
-      console.log('Full book URL:', bookUrl);
+      
+      );
+      );
+      
       
       // Check for FB2 files specifically
       if (bookUrl.endsWith('.fb2')) {
-        console.log('FB2 file detected, using simple text display instead of Foliate.js');
+        
         await this.loadPlainText(bookUrl, container);
-        console.log('=== READER SERVICE INITIALIZATION END (FB2) ===');
+         ===');
         return;
       }
       
       // Check for plain text files
       if (bookUrl.endsWith('.txt')) {
-        console.log('Plain text file detected, using simple text display instead of Foliate.js');
+        
         await this.loadPlainText(bookUrl, container);
-        console.log('=== READER SERVICE INITIALIZATION END (plain text) ===');
+         ===');
         return;
       }
       
-      console.log('Non-text file detected, attempting to use Foliate.js');
+      
       
       // Dynamically import Foliate.js to avoid SSR issues
       const foliateModule = await import('foliate-js/reader.js') as any;
@@ -229,27 +229,27 @@ export class ReaderService {
       this.container = container;
       
       // Clear previous content
-      console.log('Clearing container content');
+      
       this.container.innerHTML = '';
       
       // Initialize the reader
-      console.log('Creating new Reader instance with container and settings');
+      
       this.reader = new Reader(this.container, this.settings);
-      console.log('Reader instance created:', this.reader);
+      
       
       // Attach event listeners before loading the book
-      console.log('Setting up event listeners');
+      
       this.setupEventListeners();
-      console.log('Event listeners set up');
+      
       
       // Load the book and wait for it to be ready
-      console.log('Loading book...');
+      
       await this.loadBook(bookUrl);
-      console.log('=== READER SERVICE INITIALIZATION END (Foliate.js) ===');
+       ===');
     } catch (error) {
       console.error('Error initializing reader:', error);
       this.emit('error', error);
-      console.log('=== READER SERVICE INITIALIZATION FAILED ===');
+      
       throw new Error(`Failed to initialize reader: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -269,21 +269,21 @@ export class ReaderService {
   private setupEventListeners(): void {
     if (!this.reader) return;
     
-    console.log('Setting up event listeners for reader:', this.reader);
-    console.log('Reader prototype:', Object.getPrototypeOf(this.reader));
-    console.log('Reader methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.reader)));
+    
+    );
+    ));
     
     // Listen for when the book is ready
     if (this.reader.on) {
-      console.log('Using .on() method for bookready event');
+       method for bookready event');
       this.reader.on('bookready', () => {
-        console.log('Book ready event triggered');
+        
         this.emit('ready');
       });
     } else if (this.reader.addEventListener) {
-      console.log('Using .addEventListener() method for bookready event');
+       method for bookready event');
       this.reader.addEventListener('bookready', () => {
-        console.log('Book ready event triggered');
+        
         this.emit('ready');
       });
     } else {
@@ -292,30 +292,30 @@ export class ReaderService {
     
     // Listen for location changes
     if (this.reader.on) {
-      console.log('Using .on() method for relocate event');
+       method for relocate event');
       this.reader.on('relocate', (location: any) => {
-        console.log('Relocate event triggered:', location);
+        
         this.emit('relocate', location);
       });
     } else if (this.reader.addEventListener) {
-      console.log('Using .addEventListener() method for relocate event');
+       method for relocate event');
       this.reader.addEventListener('relocate', (event: any) => {
-        console.log('Relocate event triggered:', event.detail);
+        
         this.emit('relocate', event.detail);
       });
     }
     
     // Listen for errors
     if (this.reader.on) {
-      console.log('Using .on() method for error event');
+       method for error event');
       this.reader.on('error', (error: any) => {
-        console.log('Error event triggered:', error);
+        
         this.emit('error', error);
       });
     } else if (this.reader.addEventListener) {
-      console.log('Using .addEventListener() method for error event');
+       method for error event');
       this.reader.addEventListener('error', (event: any) => {
-        console.log('Error event triggered:', event.detail);
+        
         this.emit('error', event.detail);
       });
     }
@@ -338,17 +338,17 @@ export class ReaderService {
         return;
       }
       
-      console.log('Attempting to load book from URL:', bookUrl);
+      
       
       // Check if the book URL is accessible
-      console.log('Checking if book URL is accessible:', bookUrl);
+      
       fetch(bookUrl)
         .then(response => {
-          console.log('Book URL fetch response:', response.status, response.statusText);
+          
           if (!response.ok) {
             console.warn('Book URL is not accessible:', response.status, response.statusText);
           } else {
-            console.log('Book URL is accessible, content type:', response.headers.get('content-type'));
+            );
           }
         })
         .catch(error => {
@@ -357,7 +357,7 @@ export class ReaderService {
       
       // Set up temporary listeners for initial load
       const onReady = () => {
-        console.log('Book ready event received');
+        
         if (this.reader.off) {
           this.reader.off('bookready', onReady);
           this.reader.off('error', onError);
@@ -419,7 +419,7 @@ export class ReaderService {
       
       // Override the callbacks with cleanup versions
       const onReadyWithCleanup = () => {
-        console.log('Book ready event received');
+        
         // Validate container is still available
         if (!this.container || !document.contains(this.container)) {
           console.warn('Container is no longer available when book ready event fired');
@@ -468,25 +468,25 @@ export class ReaderService {
       
       // Start loading the book
       try {
-        console.log('Calling reader.load with URL:', bookUrl);
+        
         const loadPromise = this.reader.load(bookUrl);
-        console.log('Load method called, returned:', loadPromise);
+        
         
         // Check if the returned value is a promise
         if (loadPromise) {
           if (typeof loadPromise.catch === 'function') {
-            console.log('Attaching catch handler to load promise');
+            
             loadPromise.catch(onErrorWithCleanup);
           } else {
-            console.log('Load method did not return a promise with catch method');
+            
           }
           
           // Also check if it has a then method
           if (typeof loadPromise.then === 'function') {
-            console.log('Load method returned a promise with then method');
+            
             loadPromise.then(
               () => {
-                console.log('Load promise resolved');
+                
                 // Validate container is still available
                 if (!this.container || !document.contains(this.container)) {
                   console.warn('Container is no longer available after load promise resolved');
@@ -495,7 +495,7 @@ export class ReaderService {
                 }
                 // As a fallback, if the bookready event doesn't fire, we'll resolve after a short delay
                 setTimeout(() => {
-                  console.log('Resolving after load promise resolved (fallback)');
+                  ');
                   resolveWithCleanup();
                 }, 100);
               },
@@ -509,7 +509,7 @@ export class ReaderService {
           console.warn('Load method returned null or undefined');
           // If load method returns nothing, resolve after a short delay as a fallback
           setTimeout(() => {
-            console.log('Resolving after load method returned nothing (fallback)');
+            ');
             resolveWithCleanup();
           }, 100);
         }
@@ -557,10 +557,10 @@ export class ReaderService {
    */
   private async loadPlainText(bookUrl: string, container: HTMLElement): Promise<void> {
     try {
-      console.log('=== LOAD PLAIN TEXT START ===');
-      console.log('Loading plain text/FB2 file:', bookUrl);
-      console.log('Container for text display:', container);
-      console.log('Container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
+      
+      
+      
+      
         
       // Validate inputs
       if (!bookUrl) {
@@ -573,7 +573,7 @@ export class ReaderService {
       
       // Ensure container has proper dimensions
       if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-        console.log('Container has zero dimensions, setting explicit size');
+        
         // Set explicit dimensions if container has no size
         if (container.style.width === '' || container.style.width === '0px') {
           container.style.width = '100%';
@@ -581,33 +581,33 @@ export class ReaderService {
         if (container.style.height === '' || container.style.height === '0px') {
           container.style.height = '100%';
         }
-        console.log('Container dimensions after setting explicit size:', container.offsetWidth, 'x', container.offsetHeight);
+        
       }
         
       // Fetch the text content
-      console.log('Fetching text content...');
+      
       const response = await fetch(bookUrl);
-      console.log('Fetch response status:', response.status, response.statusText);
+      
         
       if (!response.ok) {
         throw new Error(`Failed to fetch text file: ${response.status} ${response.statusText}`);
       }
         
-      console.log('Reading response text...');
+      
       const textContent = await response.text();
-      console.log('Text content loaded, length:', textContent.length);
+      
         
       // Process content based on file type
       let processedContent = textContent;
         
       // For FB2 files, we could add basic XML processing here if needed
       if (bookUrl.endsWith('.fb2')) {
-        console.log('Processing FB2 file');
+        
         // For now, we'll just display the raw content
         // In a more advanced implementation, we could parse the FB2 XML structure
         // Add some basic FB2 processing
         if (textContent.includes('<?xml') && textContent.includes('<FictionBook')) {
-          console.log('FB2 file detected with XML header');
+          
           // Extract body content if possible
           const bodyStart = textContent.indexOf('<body>');
           const bodyEnd = textContent.lastIndexOf('</body>');
@@ -618,7 +618,7 @@ export class ReaderService {
               .replace(/<[^>]+>/g, '')  // Remove all XML tags
               .replace(/\s+/g, ' ')     // Normalize whitespace
               .trim();
-            console.log('Extracted and cleaned FB2 body content');
+            
           } else {
             // If we can't extract body, try to clean the whole content
             processedContent = textContent
@@ -630,7 +630,7 @@ export class ReaderService {
           // Try to extract title if available
           const titleMatch = textContent.match(/<book-title[^>]*>(.*?)<\/book-title>/);
           if (titleMatch && titleMatch[1]) {
-            console.log('FB2 title extracted:', titleMatch[1]);
+            
             // Prepend title to content for better presentation
             processedContent = `# ${titleMatch[1]}\n\n${processedContent}`;
           }
@@ -638,7 +638,7 @@ export class ReaderService {
       }
         
       // Create a simple HTML display for the text
-      console.log('Creating HTML display...');
+      
       const htmlContent = `
         <div id="text-content" style="
           padding: 20px;
@@ -656,31 +656,31 @@ export class ReaderService {
           ${processedContent}
         </div>
       `;
-      console.log('HTML content length:', htmlContent.length);
+      
       container.innerHTML = htmlContent;
         
       // Store reference to the text content element for navigation
-      console.log('Finding text content element...');
+      
       this.textContentElement = container.querySelector('#text-content');
-      console.log('Text content element found:', this.textContentElement);
+      
         
       // Use requestAnimationFrame to ensure DOM is updated before emitting ready event
-      console.log('Waiting for DOM update before emitting ready event...');
+      
       await new Promise(resolve => requestAnimationFrame(resolve));
         
       // Emit ready event to indicate loading is complete
-      console.log('Emitting ready event...');
+      
       this.emit('ready');
-      console.log('Ready event emitted');
+      
         
       // Also log when the event listeners are notified
-      console.log('Current event listeners for ready event:', this.eventListeners.get('ready')?.length || 0);
-      console.log('=== LOAD PLAIN TEXT END ===');
-      console.log('Plain text/FB2 file loaded and displayed');
+      ?.length || 0);
+      
+      
     } catch (error) {
       console.error('Error loading plain text/FB2 file:', error);
       this.emit('error', error);
-      console.log('=== LOAD PLAIN TEXT FAILED ===');
+      
       throw error;
     }
   }
@@ -756,7 +756,7 @@ export class ReaderService {
     
     // In a real implementation, this would be saved to a database
     // For now, we'll just return the bookmark object
-    console.log('Bookmark added at location:', location, bookmark);
+    
     
     return bookmark;
   }
@@ -766,7 +766,7 @@ export class ReaderService {
    */
   removeBookmark(id: string): void {
     // In a real implementation, this would remove from a database
-    console.log('Bookmark removed:', id);
+    
   }
 
   /**

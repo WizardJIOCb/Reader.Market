@@ -49,13 +49,9 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
         const data = await response.json();
         
         if (data.length > 0) {
-          console.log('[NewsBlock] Fetched news:', data);
-          console.log('[NewsBlock] Current i18n.language:', i18n.language);
-          console.log('[NewsBlock] First news item:', {
-            id: data[0].id,
-            title: data[0].title,
-            titleEn: data[0].titleEn,
-            content: data[0].content?.substring(0, 50),
+          
+          
+          ,
             contentEn: data[0].contentEn?.substring(0, 50)
           });
         }

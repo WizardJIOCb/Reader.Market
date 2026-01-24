@@ -156,11 +156,11 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       }
       
       const loadBatchProgress = async () => {
-        console.log('=== BATCH PROGRESS LOAD START ===');
-        console.log('Activities count:', activities.length);
-        console.log('Already loaded keys:', Object.keys(progressMap));
-        console.log('Currently loading keys:', Array.from(loadingKeys));
-        console.log('Previously requested keys:', Array.from(requestedKeys));
+        
+        
+        );
+        );
+        );
         
         // Collect unique book-user pairs that need progress data
         const progressRequests: {bookId: string, userId: string}[] = [];
@@ -185,18 +185,18 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
               progressRequests.push({ bookId, userId });
               newLoadingKeys.add(key);
               newRequestedKeys.add(key); // Mark as requested immediately
-              console.log('Adding request for:', key);
+              
             } else {
-              console.log('Skipping duplicate request for:', key);
-              console.log('  Already loaded:', !!progressMap[key]);
-              console.log('  Currently loading:', loadingKeys.has(key));
-              console.log('  Previously requested:', requestedKeys.has(key));
+              
+              
+              );
+              );
             }
           }
         });
         
-        console.log('Total requests to make:', progressRequests.length);
-        console.log('Request list:', progressRequests);
+        
+        
         
         // Update states
         if (progressRequests.length > 0) {
@@ -206,8 +206,8 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
         
         // If no new requests needed, exit early
         if (progressRequests.length === 0) {
-          console.log('No new requests needed, exiting');
-          console.log('=== BATCH PROGRESS LOAD END ===\n');
+          
+          
           return;
         }
         
@@ -234,7 +234,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                     currentPage: progressData.current_page || progressData.currentPage,
                     totalPages: progressData.total_pages || progressData.totalPages
                   };
-                  console.log('Successfully loaded progress for:', key);
+                  
                 }
               }
               // Remove from loading state
@@ -254,7 +254,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
           setProgressMap(prev => ({ ...prev, ...newProgressMap }));
           setLoadingKeys(newLoadingKeys);
           setRequestedKeys(newRequestedKeys);
-          console.log('Updated progress map with', Object.keys(newProgressMap).length, 'entries');
+          .length, 'entries');
         } catch (error) {
           console.error('Failed to load batch reading progress:', error);
           // Clear loading state on error
@@ -267,7 +267,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
           setRequestedKeys(newRequestedKeys);
         }
         
-        console.log('=== BATCH PROGRESS LOAD END ===\n');
+        
       };
       
       loadBatchProgress();
@@ -356,7 +356,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
             }}
             onSubmitReply={async () => {
               // Reply submission logic would go here
-              console.log('Reply submission not implemented in this context');
+              
             }}
             onDelete={() => {}}
             onReaction={handleReaction}
@@ -427,7 +427,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
             }}
             onSubmitReply={async () => {
               // Reply submission logic would go here
-              console.log('Review reply submission not implemented in this context');
+              
             }}
             onDelete={() => {}}
             onReaction={handleReaction}
@@ -798,11 +798,11 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
 
   // Helper function to update activity replies
   const updateActivityReplies = (prevActivities: UserActivity[], targetId: string, replies: any[]): UserActivity[] => {
-    console.log('=== updateActivityReplies called ===');
-    console.log('Target ID:', targetId);
-    console.log('Replies to add:', replies);
-    console.log('Previous activities count:', prevActivities.length);
-    console.log('Call stack:', new Error().stack?.split('\n').slice(1, 4));
+    
+    
+    
+    
+    .stack?.split('\n').slice(1, 4));
     
     // Track which activities we've already updated to prevent duplicates
     const updatedIds = new Set<string>();
@@ -815,8 +815,8 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       
       // If this is the target activity
       if (activity.id === targetId && activity.type === 'comment') {
-        console.log('Found target activity, updating replies');
-        console.log('Old reply count:', activity.metadata?.reply_count);
+        
+        
         
         // Merge new replies with existing ones (update incomplete data)
         const existingReplies = activity.metadata?.replies || [];
@@ -839,9 +839,9 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
           }
         }
         
-        console.log('Merged replies count:', mergedReplies.length);
         
-        console.log('New reply count:', mergedReplies.length);
+        
+        
         updatedIds.add(activity.id);
         
         return {
@@ -859,7 +859,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
         const updatedReplies = activity.metadata.replies.map((reply: any) => {
           // If this reply is the target
           if (reply.id === targetId) {
-            console.log('Found target reply, updating nested replies');
+            
             updatedIds.add(reply.id);
             
             // Merge new replies with existing ones (update incomplete data)
@@ -883,7 +883,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
               }
             }
             
-            console.log('Merged nested replies count:', mergedReplies.length);
+            
             
             return {
               ...reply,
@@ -916,7 +916,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
     };
     
     const result = prevActivities.map(updateRecursively);
-    console.log('Updated activities count:', result.length);
+    
     return result;
   };
 
@@ -1054,7 +1054,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
 
   const onUpdateCommentReactions = useCallback((commentId: string, reactions: Reaction[]) => {
     // Update comment reactions - we need to implement this
-    console.log('Updating comment reactions:', commentId, reactions);
+    
   }, []);
 
   const getActivityIcon = (activity: UserActivity) => {
@@ -1085,15 +1085,15 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
   };
 
   const transformActivityToComment = (activity: Activity): Comment => {
-    console.log('=== transformActivityToComment CALLED ===');
-    console.log('Activity ID:', activity.id);
-    console.log('Activity type:', activity.type);
-    console.log('Full activity metadata:', activity.metadata);
-    console.log('Reading progress in activity:', activity.metadata.readingProgress);
-    console.log('Activity bookId:', activity.bookId);
-    console.log('Activity metadata book_id:', activity.metadata.book_id);
-    console.log('Activity metadata type:', typeof activity.metadata);
-    console.log('Activity metadata keys:', Object.keys(activity.metadata || {}));
+    
+    
+    
+    
+    
+    
+    
+    
+    );
     
     const result = {
       id: activity.id,
@@ -1119,27 +1119,27 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       }
     };
     
-    console.log('Transformed comment bookId:', result.bookId);
-    console.log('Transformed comment metadata:', result.metadata);
-    console.log('Reading progress in transformed comment:', result.metadata.readingProgress);
-    console.log('Transformed comment metadata type:', typeof result.metadata);
-    console.log('Transformed comment metadata keys:', Object.keys(result.metadata || {}));
-    console.log('Transformed comment metadata.readingProgress type:', typeof result.metadata?.readingProgress);
-    console.log('Transformed comment condition (!comment.metadata?.readingProgress):', !result.metadata?.readingProgress);
-    console.log('Transformed comment condition (comment.metadata?.readingProgress === undefined):', result.metadata?.readingProgress === undefined);
-    console.log('Transformed comment condition ((!comment.metadata || comment.metadata.readingProgress === undefined)):', (!result.metadata || result.metadata.readingProgress === undefined));
+    
+    
+    
+    
+    );
+    
+    :', !result.metadata?.readingProgress);
+    :', result.metadata?.readingProgress === undefined);
+    ):', (!result.metadata || result.metadata.readingProgress === undefined));
     
     return result;
   };
 
   const transformActivityToReview = (activity: Activity): Review => {
-    console.log('=== transformActivityToReview CALLED ===');
-    console.log('Activity ID:', activity.id);
-    console.log('Activity type:', activity.type);
-    console.log('Full activity metadata:', activity.metadata);
-    console.log('Reading progress in activity:', activity.metadata.readingProgress);
-    console.log('Activity bookId:', activity.bookId);
-    console.log('Activity metadata book_id:', activity.metadata.book_id);
+    
+    
+    
+    
+    
+    
+    
     
     const result = {
       id: activity.id,
@@ -1166,9 +1166,9 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       }
     };
     
-    console.log('Transformed review bookId:', result.bookId);
-    console.log('Transformed review metadata:', result.metadata);
-    console.log('Reading progress in transformed review:', result.metadata.readingProgress);
+    
+    
+    
     
     return result;
   };
@@ -1327,7 +1327,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       <CardHeader 
         className="cursor-pointer hover:bg-muted/30 transition-colors"
         onClick={() => {
-          console.log('CardHeader clicked');
+          
           setIsExpanded(!isExpanded);
         }}
       >

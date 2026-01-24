@@ -268,10 +268,10 @@ export default function Reader() {
     };
     
     const cleanupNewMessage = onSocketEvent('book-chat:new-message', (message) => {
-      console.log('[BOOK CHAT] New message received:', message);
-      console.log('[BOOK CHAT] attachmentUrls:', message.attachmentUrls);
-      console.log('[BOOK CHAT] attachmentMetadata:', message.attachmentMetadata);
-      console.log('[BOOK CHAT] quotedMessage:', message.quotedMessage);
+      
+      
+      
+      
       setChatMessages(prev => [...prev, message]);
       
       // Increment unread counter if chat panel is closed and message is from another user
@@ -1997,7 +1997,7 @@ export default function Reader() {
                                           onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            console.log('[DELETE] Attempting to delete message:', msg.id, 'in book:', bookId);
+                                            
                                             deleteBookChatMessage(bookId, msg.id);
                                           }}
                                           title="Удалить"
