@@ -201,7 +201,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
               
               if (data.ok) {
                 const progressData = await data.json();
-                if (progressData.percentage > 0) {
+                if (progressData && progressData.percentage > 0) {
                   const key = `${req.bookId}-${req.userId}`;
                   newProgressMap[key] = {
                     percentage: parseFloat(progressData.percentage),
