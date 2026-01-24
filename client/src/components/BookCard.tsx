@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useBookSplash } from '@/lib/bookSplashContext';
 import { readerApi } from '@/lib/api';
+import { readingProgressCache } from '@/lib/readingProgressCache';
 
 interface BookCardProps {
   book: Book;
@@ -67,11 +68,18 @@ export const BookCard: React.FC<BookCardProps> = ({
   const uploadedAt = book.uploadedAt || book.createdAt;
   const publishedAt = book.publishedAt;
 
+  // Clear cache when user changes
+  useEffect(() => {
+    if (user?.id) {
+      readingProgressCache.clearUserCache(user.id);
+    }
+  }, [user?.id]);
+  
   // Update local reactions when book changes
   React.useEffect(() => {
     setLocalReactions(book.reactions || []);
   }, [book]);
-
+    
   // Fetch reading progress when user is authenticated
   useEffect(() => {
     const fetchProgress = async () => {
@@ -79,24 +87,26 @@ export const BookCard: React.FC<BookCardProps> = ({
         setProgress(null);
         return;
       }
-
+        
       try {
-        const response = await readerApi.getProgress(book.id.toString());
-        if (response.ok) {
-          const data = await response.json();
-          // Only set progress if there's actual reading progress (percentage > 0)
-          if (data && data.percentage > 0) {
-            setProgress(data);
-          } else {
-            setProgress(null);
-          }
+        const data = await readingProgressCache.getProgress(
+          book.id.toString(), 
+          user.id, 
+          () => readerApi.getProgress(book.id.toString())
+        );
+        
+        // Only set progress if there's actual reading progress (percentage > 0)
+        if (data && data.percentage > 0) {
+          setProgress(data);
+        } else {
+          setProgress(null);
         }
       } catch (error) {
         console.error('Error fetching reading progress:', error);
         setProgress(null);
       }
     };
-
+      
     fetchProgress();
   }, [user, book.id]);
 

@@ -879,6 +879,54 @@ export async function registerRoutes(
     }
   });
   
+  // Get user by ID (alias for /api/profile/:userId for backward compatibility with useUserProfile hook)
+  app.get("/api/users/:userId", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get user by ID endpoint called");
+    try {
+      const { userId: targetUserId } = req.params;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Check if the param is a UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(targetUserId);
+      
+      // Only accept UUIDs for this endpoint
+      if (!isUuid) {
+        return res.status(400).json({ error: "Invalid user ID format" });
+      }
+      
+      const user = await storage.getUser(targetUserId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Fetch profile rating from user record (already calculated with Bayesian algorithm)
+      let profileRating = user.profileRating ? Number(user.profileRating) : null;
+      let ratingCount = 0;
+      try {
+        const ratings = await storage.getProfileRatings(user.id);
+        ratingCount = ratings.length;
+      } catch (error) {
+        console.error("Error fetching profile ratings:", error);
+      }
+      
+      // Return user profile without sensitive information
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({
+        ...userWithoutPassword,
+        profileRating,
+        ratingCount
+      });
+    } catch (error) {
+      console.error("Get user by ID error:", error);
+      res.status(500).json({ error: "Failed to get user" });
+    }
+  });
+  
   // Update current user profile
   app.put("/api/profile", authenticateToken, async (req, res) => {
     console.log("Update profile endpoint called");
@@ -2289,6 +2337,37 @@ export async function registerRoutes(
     }
   });
   
+  // Get reading progress for a specific user and book (public endpoint for comments)
+  app.get("/api/books/:bookId/reading-progress/:userId", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { bookId, userId } = req.params;
+      
+      const progress = await storage.getReadingProgress(userId, bookId);
+      
+      // Return empty progress object if no progress found
+      if (!progress) {
+        return res.json({
+          currentPage: 1,
+          totalPages: 1,
+          percentage: 0,
+          chapterIndex: 0,
+          lastReadAt: null
+        });
+      }
+      
+      res.json({
+        currentPage: progress.currentPage,
+        totalPages: progress.totalPages,
+        percentage: progress.percentage,
+        chapterIndex: progress.chapterIndex,
+        lastReadAt: progress.lastReadAt
+      });
+    } catch (error) {
+      console.error("Error getting user reading progress:", error);
+      res.status(500).json({ error: "Failed to get reading progress" });
+    }
+  });
+  
   // Update reading progress for a book (upsert)
   app.put("/api/books/:bookId/reading-progress", authenticateToken, async (req, res) => {
     try {
@@ -3536,6 +3615,55 @@ export async function registerRoutes(
             count: reactionList.length,
             userReacted
           });
+        });
+        
+        // Add reactions to review
+        const reviewWithReactions = {
+          ...review,
+          reactions: aggregatedReactions
+        };
+        
+        res.json(reviewWithReactions);
+      } else {
+        res.json(null);
+      }
+    } catch (error) {
+      console.error("Get user's review error:", error);
+      res.status(500).json({ error: "Failed to get user's review" });
+    }
+  });
+
+  // Get user's review for a specific book
+  app.get("/api/books/:bookId/user-review/:userId", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get user's review for book endpoint called");
+    try {
+      const { bookId, userId } = req.params;
+      
+      const review = await storage.getUserReview(userId, bookId);
+      
+      if (review) {
+        // Get reactions for this review
+        const reactions = await storage.getReviewReactions(review.id, (req as any).user?.userId);
+        
+        // Aggregate reactions by emoji
+        const reactionMap: Record<string, any[]> = {};
+        reactions.forEach((reaction: any) => {
+          if (!reactionMap[reaction.emoji]) {
+            reactionMap[reaction.emoji] = [];
+          }
+          reactionMap[reaction.emoji].push(reaction);
+        });
+        
+        // Convert to aggregated format
+        const aggregatedReactions = Object.entries(reactionMap).map(([emoji, reactionList]) => {
+          const userId = (req as any).user?.userId;
+          const userReacted = reactionList.some((reaction: any) => reaction.userId === userId);
+          
+          return {
+            emoji,
+            count: reactionList.length,
+            userReacted
+          };
         });
         
         // Add reactions to review

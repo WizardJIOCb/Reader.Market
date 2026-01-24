@@ -7,10 +7,13 @@ import { AuthPrompt } from '@/components/AuthPrompt';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
-import { Send, X, Reply, ChevronDown, ChevronUp, Quote, Trash2 } from 'lucide-react';
+import { Send, X, Reply, ChevronDown, ChevronUp, Quote, Trash2, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
-import { dataCache, getCachedComments, setCachedComments, getPendingRequest, trackPendingRequest, isCachedDataStale } from '@/lib/dataCache';
+import { readerApi, reviewsApi } from '@/lib/api';
+import { readingProgressCache } from '@/lib/readingProgressCache';
+import { UserNameWithRating } from './UserNameWithRating';
+import { dataCache, getCachedComments, setCachedComments, getPendingRequest, trackPendingRequest, isCachedDataStale, getCachedUserReview, setCachedUserReview, getPendingUserReviewRequest, trackPendingUserReviewRequest, isUserReviewStale } from '@/lib/dataCache';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AttachmentButton } from '@/components/AttachmentButton';
 import { AttachmentPreview } from '@/components/AttachmentPreview';
@@ -53,6 +56,7 @@ export interface Comment {
 interface CommentsProps {
   bookId: string;
   onCommentsCountChange?: (count: number) => void;
+  onSwitchToReviewsTab?: () => void;
 }
 
 // Recursive component for rendering nested comments
@@ -69,6 +73,7 @@ interface CommentItemProps {
   replyText: string;
   quotedText: string;
   submitting: boolean;
+  bookId: string;
   onToggleReplies: (commentId: string) => void;
   onReply: (comment: Comment) => void;
   onCancelReply: () => void;
@@ -93,6 +98,7 @@ export function CommentItem({
   replyText,
   quotedText,
   submitting,
+  bookId,
   onToggleReplies,
   onReply,
   onCancelReply,
@@ -112,6 +118,134 @@ export function CommentItem({
   const isHighlighted = highlightedCommentId === comment.id;
   const isReplyingToThis = replyingToId === comment.id;
   const isOwnComment = user && comment.userId === user.id;
+  
+  // Reading progress state
+  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(null);
+  // User's book review rating
+  const [reviewRating, setReviewRating] = useState<number | null>(null);
+  
+  // Get color class based on rating
+  const getRatingColorClass = () => {
+    if (reviewRating === null) return 'text-gray-500 bg-gray-100 dark:bg-gray-800';
+    if (reviewRating >= 8) return 'text-green-700 bg-green-100 dark:bg-green-900/30';
+    if (reviewRating >= 5) return 'text-amber-700 bg-amber-100 dark:bg-amber-900/30';
+    return 'text-red-700 bg-red-100 dark:bg-red-900/30';
+  };
+  
+  // Load reading progress for this user and book
+  useEffect(() => {
+    const loadReadingProgress = async () => {
+      if (comment.userId && comment.bookId) {
+        try {
+          const data = await readingProgressCache.getUserProgress(
+            comment.bookId!, 
+            comment.userId!, 
+            () => readerApi.getUserProgress(comment.bookId!, comment.userId!)
+          );
+          
+          if (data) {
+            // Only show progress if user has actually read something
+            if (data.percentage > 0) {
+              setReadingProgress({
+                percentage: data.percentage,
+                currentPage: data.currentPage,
+                totalPages: data.totalPages
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load reading progress:', error);
+        }
+      }
+    };
+    
+    loadReadingProgress();
+  }, [comment.userId, comment.bookId]);
+  
+  // Load user's review rating for this book
+  useEffect(() => {
+    const loadReviewRating = async () => {
+      if (comment.userId && bookId) {
+        // Check cache first
+        const cachedReview = getCachedUserReview(bookId, comment.userId);
+        if (cachedReview) {
+          setReviewRating(cachedReview.rating || null);
+          // Check if cache is stale and refresh in background
+          const cacheKey = `${bookId}-${comment.userId}`;
+          const cachedEntry = dataCache.userReviews[cacheKey];
+          if (cachedEntry && isUserReviewStale(cachedEntry.timestamp)) {
+            loadReviewRatingFromAPI(false); // Background refresh
+          }
+          return;
+        }
+
+        // Check for pending request
+        const pendingRequest = getPendingUserReviewRequest(bookId, comment.userId);
+        if (pendingRequest) {
+          pendingRequest.then(review => {
+            if (review && review.rating) {
+              setReviewRating(review.rating);
+            } else {
+              // Explicitly set to null when no rating exists
+              setReviewRating(null);
+            }
+          }).catch(() => {
+            console.error('Failed to load review rating from pending request');
+            // Set to null on error
+            setReviewRating(null);
+          });
+          return;
+        }
+
+        // Load from API
+        loadReviewRatingFromAPI(true);
+      }
+    };
+
+    const loadReviewRatingFromAPI = async (showLoading: boolean = true) => {
+      if (!bookId || !comment.userId) return;
+      
+      // Track this request to prevent duplicates
+      const requestPromise = (async () => {
+        try {
+          const response = await reviewsApi.getUserReview(bookId!, comment.userId!);
+          if (response.ok) {
+            const userReview = await response.json();
+            if (userReview && userReview.rating) {
+              setReviewRating(userReview.rating);
+              setCachedUserReview(bookId!, comment.userId!, userReview);
+            } else {
+              // Explicitly set to null when no rating exists
+              setReviewRating(null);
+              // Still cache the result to avoid repeated API calls
+              setCachedUserReview(bookId!, comment.userId!, null);
+            }
+            return userReview;
+          } else {
+            throw new Error(`API Error: ${response.status}`);
+          }
+        } catch (error) {
+          console.error('Failed to load review rating:', error);
+          // Set to null on error
+          setReviewRating(null);
+          throw error;
+        }
+      })();
+      
+      // Track the pending request
+      trackPendingUserReviewRequest(bookId!, comment.userId!, requestPromise);
+      
+      try {
+        await requestPromise;
+      } catch (error) {
+        console.error(`Request failed for user: ${comment.userId}, book: ${bookId}`, error);
+        // Set to null on error
+        setReviewRating(null);
+      }
+    };
+
+    loadReviewRating();
+  }, [comment.userId, bookId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -149,17 +283,151 @@ export function CommentItem({
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center justify-between flex-wrap gap-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                {comment.userId ? (
-                  <a
-                    href={`/profile/${comment.username || comment.userId}`}
-                    className={`font-medium hover:underline ${isCompact ? 'text-sm' : ''}`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {comment.author}
-                  </a>
-                ) : (
-                  <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>{comment.author}</span>
+                <UserNameWithRating
+                  userId={comment.userId || ''}
+                  username={comment.username || ''}
+                  fullName={comment.author}
+                  profileRating={null}
+                  showRating={true}
+                />
+                
+                {/* Reading progress indicator */}
+                {readingProgress && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full cursor-help">
+                          📖 {Math.round(readingProgress.percentage)}%
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="text-xs">
+                          <div>Прогресс чтения: {Math.round(readingProgress.percentage)}%</div>
+                          <div>Страница: {readingProgress.currentPage} из {readingProgress.totalPages}</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
+                
+                {/* User's book review rating - only show if user has rated the book */}
+                {comment.userId && reviewRating !== null && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // Switch to reviews tab and scroll to review
+                            const switchTabFunc = (window as any).switchToReviewsTab;
+                            if (typeof switchTabFunc === 'function') {
+                              switchTabFunc();
+                              
+                              // Wait for tab switch and then scroll to review
+                              setTimeout(() => {
+                                // Try multiple selectors to find the review
+                                const selectors = [
+                                  `[data-user-id="${comment.userId}"]`,
+                                  `[data-author-id="${comment.userId}"]`,
+                                  `[data-review-user-id="${comment.userId}"]`,
+                                  `.review-item[data-user-id="${comment.userId}"]`,
+                                  `.user-review-${comment.userId}`
+                                ];
+                                
+                                let reviewElement = null;
+                                for (const selector of selectors) {
+                                  reviewElement = document.querySelector(selector);
+                                  if (reviewElement) break;
+                                }
+                                
+                                // If not found, try searching by content
+                                if (!reviewElement) {
+                                  const allReviews = document.querySelectorAll('[id^="review-"]');
+                                  for (const review of Array.from(allReviews)) {
+                                    const reviewUserId = review.getAttribute('data-user-id') || 
+                                                         review.getAttribute('data-author-id') ||
+                                                         review.closest('[data-user-id]')?.getAttribute('data-user-id');
+                                    if (reviewUserId === comment.userId) {
+                                      reviewElement = review;
+                                      break;
+                                    }
+                                  }
+                                }
+                                
+                                if (reviewElement) {
+                                  console.log('Found review element, scrolling to:', reviewElement);
+                                  reviewElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  // Highlight the review with service colors - warm orange/beige highlighting
+                                  reviewElement.classList.add(
+                                    'ring-4', 
+                                    'ring-orange-300', 
+                                    'ring-opacity-60', 
+                                    'bg-orange-50', 
+                                    'dark:bg-orange-900/20', 
+                                    'rounded-lg',
+                                    'shadow-lg'
+                                  );
+                                  setTimeout(() => {
+                                    reviewElement.classList.remove(
+                                      'ring-4', 
+                                      'ring-orange-300', 
+                                      'ring-opacity-60', 
+                                      'bg-orange-50', 
+                                      'dark:bg-orange-900/20', 
+                                      'rounded-lg',
+                                      'shadow-lg'
+                                    );
+                                  }, 3000);
+                                } else {
+                                  console.log('Could not find review element for user:', comment.userId);
+                                  // Fallback: just scroll to top of reviews section and highlight it
+                                  const reviewsSection = document.querySelector('#reviews-section, [data-tab="reviews"]');
+                                  if (reviewsSection) {
+                                    reviewsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    // Highlight the reviews section with warm colors
+                                    reviewsSection.classList.add(
+                                      'ring-4', 
+                                      'ring-orange-300', 
+                                      'ring-opacity-40', 
+                                      'bg-orange-50/50', 
+                                      'dark:bg-orange-900/10', 
+                                      'rounded-lg'
+                                    );
+                                    setTimeout(() => {
+                                      reviewsSection.classList.remove(
+                                        'ring-4', 
+                                        'ring-orange-300', 
+                                        'ring-opacity-40', 
+                                        'bg-orange-50/50', 
+                                        'dark:bg-orange-900/10', 
+                                        'rounded-lg'
+                                      );
+                                    }, 3000);
+                                  }
+                                }
+                              }, 1000);
+                            }
+                          }}
+                          className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full transition-colors cursor-pointer font-medium ${
+                            getRatingColorClass()
+                          }`}
+                        >
+                          <Star className="w-3 h-3 fill-current" />
+                          <span>{reviewRating}/10</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-[#fbf6f0] dark:bg-[#2a2520] border border-[#e8e0d0] dark:border-[#3a3530] text-[#2a2520] dark:text-[#fbf6f0]">
+                        <div className="text-xs">
+                          <div>Оценка пользователя этой книги</div>
+                          <div className="mt-1 text-[#5a5550] dark:text-[#cbc6c0]">Кликните, чтобы перейти к рецензии</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                
                 {comment.parentCommentAuthor && comment.parentCommentId && (
                   <button
                     onClick={() => onScrollToComment(comment.parentCommentId!)}
@@ -329,6 +597,7 @@ export function CommentItem({
               replyText={replyText}
               quotedText={quotedText}
               submitting={submitting}
+              bookId={bookId}
               onToggleReplies={onToggleReplies}
               onReply={onReply}
               onCancelReply={onCancelReply}
@@ -378,6 +647,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         const fetchedComments = await response.json();
         setComments(fetchedComments);
         setCachedComments(bookId, fetchedComments);
+        
         if (onCommentsCountChange) {
           onCommentsCountChange(fetchedComments.length);
         }
@@ -736,56 +1006,54 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
           <p>{t('common:loading')}</p>
         </div>
       ) : user ? (
-        !replyToComment && (
-          <div className="flex gap-4">
-            <Avatar>
-              {user?.avatarUrl ? (
-                <AvatarImage src={user.avatarUrl} alt={user.fullName || user.username} />
-              ) : null}
-              <AvatarFallback>You</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 space-y-2">
-              <Textarea
-                placeholder={t('books:commentPlaceholder')}
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="min-h-[100px] resize-none"
+        <div className="flex gap-4">
+          <Avatar>
+            {user?.avatarUrl ? (
+              <AvatarImage src={user.avatarUrl} alt={user.fullName || user.username} />
+            ) : null}
+            <AvatarFallback>You</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 space-y-2">
+            <Textarea
+              placeholder={t('books:commentPlaceholder')}
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="min-h-[100px] resize-none"
+            />
+            {attachmentFiles.length > 0 && (
+              <AttachmentPreview
+                files={attachmentFiles}
+                onRemove={(index) => {
+                  setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+                  setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                }}
+                onUploadComplete={(files) => setUploadedFiles(files)}
+                autoUpload={true}
               />
-              {attachmentFiles.length > 0 && (
-                <AttachmentPreview
-                  files={attachmentFiles}
-                  onRemove={(index) => {
-                    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
-                    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-                  }}
-                  onUploadComplete={(files) => setUploadedFiles(files)}
-                  autoUpload={true}
+            )}
+            <div className="flex justify-between items-center">
+              <div className="flex gap-1">
+                <EmojiPicker onEmojiSelect={(emoji) => setNewComment(prev => prev + emoji)} />
+                <AttachmentButton 
+                  onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
+                  maxFiles={5}
                 />
-              )}
-              <div className="flex justify-between items-center">
-                <div className="flex gap-1">
-                  <EmojiPicker onEmojiSelect={(emoji) => setNewComment(prev => prev + emoji)} />
-                  <AttachmentButton 
-                    onFilesSelected={(files) => setAttachmentFiles(prev => [...prev, ...files])}
-                    maxFiles={5}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
-                  <Button 
-                    onClick={handlePostComment} 
-                    disabled={!newComment.trim() || !user || submitting || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
-                    className="gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    {t('books:send')}
-                  </Button>
-                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
+                <Button 
+                  onClick={handlePostComment} 
+                  disabled={!newComment.trim() || !user || submitting || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)} 
+                  className="gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  {t('books:send')}
+                </Button>
               </div>
             </div>
           </div>
-        )
+        </div>
       ) : (
         <AuthPrompt 
           message={t('common:authPromptComments')} 
@@ -818,6 +1086,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
               replyText={newComment}
               quotedText={quotedText}
               submitting={submitting}
+              bookId={bookId}
               onToggleReplies={handleToggleReplies}
               onReply={handleReplyClick}
               onCancelReply={handleCancelReply}

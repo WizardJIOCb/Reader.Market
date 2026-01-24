@@ -2084,6 +2084,8 @@ export class DBStorage implements IStorage {
 
   async getReviews(bookId: string, currentUserId?: string): Promise<any[]> {
     try {
+      console.log(`[getReviews] Looking for reviews for book ${bookId}`);
+      
       // Get only root reviews (no parent) with user information
       const result = await db.select({
         id: reviews.id,
@@ -2107,6 +2109,16 @@ export class DBStorage implements IStorage {
         isNull(reviews.parentReviewId)
       ))
       .orderBy(desc(reviews.createdAt));
+      
+      console.log(`[getReviews] Found ${result.length} root reviews`);
+      
+      // Also check all reviews for this book (including replies)
+      const allReviews = await db.select()
+        .from(reviews)
+        .where(eq(reviews.bookId, bookId));
+      
+      console.log(`[getReviews] Total reviews for this book: ${allReviews.length}`);
+      console.log(`[getReviews] All reviews:`, allReviews);
       
       // Get reactions and reply counts for each review
       const reviewsWithData = await Promise.all(result.map(async (review) => {
@@ -2134,6 +2146,7 @@ export class DBStorage implements IStorage {
         };
       }));
       
+      console.log(`[getReviews] Returning ${reviewsWithData.length} reviews`);
       return reviewsWithData;
     } catch (error) {
       console.error("Error getting reviews:", error);
@@ -2382,19 +2395,84 @@ export class DBStorage implements IStorage {
 
   async getUserReview(userId: string, bookId: string): Promise<any | undefined> {
     try {
-      const result = await db.select().from(reviews).where(
-        and(
+      // First try to find root review with user info
+      let result = await db.select({
+        id: reviews.id,
+        userId: reviews.userId,
+        bookId: reviews.bookId,
+        rating: reviews.rating,
+        content: reviews.content,
+        parentReviewId: reviews.parentReviewId,
+        quotedText: reviews.quotedText,
+        createdAt: reviews.createdAt,
+        updatedAt: reviews.updatedAt,
+        attachmentMetadata: reviews.attachmentMetadata,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(reviews)
+      .leftJoin(users, eq(reviews.userId, users.id))
+      .where(and(
+        eq(reviews.userId, userId),
+        eq(reviews.bookId, bookId),
+        isNull(reviews.parentReviewId)
+      ))
+      .limit(1);
+      
+      // If no root review found, try to find any review (including replies)
+      if (result.length === 0) {
+        result = await db.select({
+          id: reviews.id,
+          userId: reviews.userId,
+          bookId: reviews.bookId,
+          rating: reviews.rating,
+          content: reviews.content,
+          parentReviewId: reviews.parentReviewId,
+          quotedText: reviews.quotedText,
+          createdAt: reviews.createdAt,
+          updatedAt: reviews.updatedAt,
+          attachmentMetadata: reviews.attachmentMetadata,
+          username: users.username,
+          fullName: users.fullName,
+          avatarUrl: users.avatarUrl
+        })
+        .from(reviews)
+        .leftJoin(users, eq(reviews.userId, users.id))
+        .where(and(
           eq(reviews.userId, userId),
-          eq(reviews.bookId, bookId),
-          isNull(reviews.parentReviewId) // Only check for root reviews, not replies
-        )
-      );
+          eq(reviews.bookId, bookId)
+        ))
+        .limit(1);
+      }
       
       if (result.length === 0) {
+        // Let's also check what reviews exist for this user and book
+        const allUserReviews = await db.select()
+          .from(reviews)
+          .where(and(
+            eq(reviews.userId, userId),
+            eq(reviews.bookId, bookId)
+          ));
         return undefined;
       }
       
-      return result[0];
+      const review = result[0];
+      const metadata = review.attachmentMetadata as any;
+      
+      return {
+        id: review.id,
+        userId: review.userId,
+        bookId: review.bookId,
+        rating: review.rating,
+        content: review.content,
+        parentReviewId: review.parentReviewId,
+        quotedText: review.quotedText,
+        createdAt: review.createdAt.toISOString(),
+        updatedAt: review.updatedAt.toISOString(),
+        author: review.fullName || review.username || 'Anonymous',
+        avatarUrl: review.avatarUrl || null
+      };
     } catch (error) {
       console.error("Error getting user review:", error);
       return undefined;

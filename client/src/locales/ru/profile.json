@@ -79,5 +79,8 @@
     "failedToSubmitRating": "Не удалось отправить рейтинг",
     "failedToPostComment": "Не удалось отправить комментарий",
     "failedToDeleteComment": "Не удалось удалить комментарий"
-  }
+  },
+  "userRating": "Рейтинг пользователя",
+  "ratingCountInfo": "оценок {{count}}",
+  "noRatingsYet": "Пока нет оценок"
 }

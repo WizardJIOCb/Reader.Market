@@ -148,18 +148,58 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordChanging, setPasswordChanging] = useState(false);
 
+  // State to track navigation source
+  const [navigationSource, setNavigationSource] = useState<'direct' | 'back' | 'forward' | null>(null);
+  
+  // Listen for popstate events (browser back/forward buttons)
+  useEffect(() => {
+    const handlePopState = () => {
+      console.log('[Profile] PopState event detected - back/forward navigation');
+      setNavigationSource('back'); // Assume back navigation (could be forward too, but we only care about preventing redirect)
+      // Reset after a short delay to avoid affecting future navigations
+      setTimeout(() => setNavigationSource(null), 100);
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+  
   // Redirect to own profile if no userId specified and user is logged in
+  // But don't redirect when navigating backwards through browser history
   useEffect(() => {
     if (!userId && currentUser?.username) {
+      console.log('[Profile Redirect] No userId provided, current user:', currentUser.username);
+      console.log('[Profile Redirect] Navigation source:', navigationSource);
+      
       // Check if we came from /users page - if so, don't redirect
       const referrer = document.referrer;
       const isFromUsersPage = referrer.includes('/users');
+      console.log('[Profile Redirect] Referrer:', referrer, 'Is from users page:', isFromUsersPage);
       
-      if (!isFromUsersPage) {
+      // Check if this is a backward navigation (browser back button)
+      const isBackNavigation = navigationSource === 'back';
+      console.log('[Profile Redirect] Is back navigation:', isBackNavigation);
+      
+      // Additional check: if referrer contains the current hostname but not profile, likely back navigation
+      const isLikelyBackNav = referrer.includes(window.location.hostname) && 
+                             !referrer.includes('/profile/') &&
+                             referrer !== '';
+      console.log('[Profile Redirect] Is likely back navigation:', isLikelyBackNav);
+      
+      const shouldRedirect = !isFromUsersPage && 
+                           !isBackNavigation && 
+                           !isLikelyBackNav;
+      
+      console.log('[Profile Redirect] Should redirect:', shouldRedirect);
+      
+      if (shouldRedirect) {
+        console.log('[Profile Redirect] Redirecting to own profile');
         setLocation(`/profile/${currentUser.username}`, { replace: true });
+      } else {
+        console.log('[Profile Redirect] Not redirecting - navigation detected');
       }
     }
-  }, [userId, currentUser, setLocation]);
+  }, [userId, currentUser, setLocation, navigationSource]);
 
   // Determine if viewing own profile
   const isOwnProfile = currentUser?.id === userId || currentUser?.username === userId;
@@ -951,21 +991,54 @@ export default function Profile() {
             isOwnProfile={isOwnProfile}
             averageRating={profileRating}
             ratingCount={ratingCount}
-            onRatingChange={(newRating) => {
-              // Refetch ratings when changed
-              fetch(`/api/profile/${profile.id}/ratings`)
-                .then(res => res.json())
-                .then(ratings => {
-                  if (ratings.length > 0) {
-                    const avgRating = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
-                    setProfileRating(Math.round(avgRating * 10) / 10);
-                    setRatingCount(ratings.length);
-                  } else {
-                    setProfileRating(null);
-                    setRatingCount(0);
-                  }
-                })
-                .catch(err => console.error('Error refetching ratings:', err));
+            onRatingChange={async (newRating) => {
+              // Fetch the properly calculated Bayesian rating from the server
+              try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`/api/profile/${profile.id}`, {
+                  headers: token ? {
+                    'Authorization': `Bearer ${token}`
+                  } : {}
+                });
+                
+                if (response.ok) {
+                  const userData = await response.json();
+                  // Use the server-calculated Bayesian rating
+                  setProfileRating(userData.profileRating || null);
+                  setRatingCount(userData.ratingCount || 0);
+                } else {
+                  // Fallback to simple calculation if API fails
+                  fetch(`/api/profile/${profile.id}/ratings`)
+                    .then(res => res.json())
+                    .then(ratings => {
+                      if (ratings.length > 0) {
+                        const avgRating = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
+                        setProfileRating(Math.round(avgRating * 10) / 10);
+                        setRatingCount(ratings.length);
+                      } else {
+                        setProfileRating(null);
+                        setRatingCount(0);
+                      }
+                    })
+                    .catch(err => console.error('Error refetching ratings:', err));
+                }
+              } catch (error) {
+                console.error('Error fetching updated profile rating:', error);
+                // Fallback to simple calculation
+                fetch(`/api/profile/${profile.id}/ratings`)
+                  .then(res => res.json())
+                  .then(ratings => {
+                    if (ratings.length > 0) {
+                      const avgRating = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
+                      setProfileRating(Math.round(avgRating * 10) / 10);
+                      setRatingCount(ratings.length);
+                    } else {
+                      setProfileRating(null);
+                      setRatingCount(0);
+                    }
+                  })
+                  .catch(err => console.error('Error refetching ratings:', err));
+              }
             }}
           />
         </div>

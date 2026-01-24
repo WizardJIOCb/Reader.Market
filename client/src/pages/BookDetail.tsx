@@ -153,6 +153,22 @@ export default function BookDetail() {
     lastReadAt?: string;
   } | null>(null);
   
+  // State for tabs
+  const [activeTab, setActiveTab] = useState('comments');
+  
+  // Make tab switch function available globally for comments section
+  useEffect(() => {
+    (window as any).switchToReviewsTab = () => {
+      console.log('Switching to reviews tab');
+      setActiveTab('reviews');
+    };
+    
+    // Cleanup on unmount
+    return () => {
+      delete (window as any).switchToReviewsTab;
+    };
+  }, []);
+  
   // Global splash screen for seamless transition
   const { showSplash } = useBookSplash();
   const [, setLocation] = useLocation();
@@ -1048,7 +1064,7 @@ export default function BookDetail() {
         
         {/* Tabs for Comments and Reviews */}
         <Card>
-          <Tabs defaultValue="comments" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="comments">{t('books:commentCount')} ({bookComments.length})</TabsTrigger>
               <TabsTrigger value="reviews">{t('books:reviewCount')} ({bookReviews.length})</TabsTrigger>
@@ -1066,6 +1082,7 @@ export default function BookDetail() {
                     }
                     return prev;
                   })}
+                  onSwitchToReviewsTab={() => setActiveTab('reviews')}
                 />
               </CardContent>
             </TabsContent>

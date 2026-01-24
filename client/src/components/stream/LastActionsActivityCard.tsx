@@ -7,6 +7,7 @@ import { format, formatDistanceToNow, differenceInHours } from "date-fns";
 import { ru, enUS } from "date-fns/locale";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { UserNameWithRating } from '@/components/UserNameWithRating';
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -390,11 +391,13 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
                 {(activity.user.username || 'U').charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <Link href={`/profile/${activity.user.username || activity.user.id}`}>
-              <span className="text-sm font-medium hover:underline cursor-pointer">
-                {activity.user.username}
-              </span>
-            </Link>
+            <UserNameWithRating
+              userId={activity.user?.id || ''}
+              username={activity.user?.username || ''}
+              fullName={activity.user?.username}
+              profileRating={null}
+              showRating={true}
+            />
             {renderActionDescription() && (
               <>
                 {activity.action_type !== 'send_group_message' && (

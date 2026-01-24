@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { CommentItem } from './ProfileRatingsSection';
 import { ReviewItem } from './ReviewsSection';
 import { EmojiPicker } from './EmojiPicker';
+import { UserNameWithRating } from './UserNameWithRating';
 
 interface Reaction {
   emoji: string;
@@ -1426,11 +1427,13 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                               {(activity.metadata.author_name || activity.metadata.uploader_name || 'U').charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <Link href={`/profile/${activity.userId}`}>
-                            <span className="text-sm hover:underline cursor-pointer">
-                              {activity.metadata.author_name || activity.metadata.uploader_name}
-                            </span>
-                          </Link>
+                          <UserNameWithRating
+                            userId={activity.userId || ''}
+                            username={activity.metadata.author_name || activity.metadata.uploader_name || ''}
+                            fullName={activity.metadata.author_name || activity.metadata.uploader_name}
+                            profileRating={null}
+                            showRating={true}
+                          />
                         </div>
                       )}
                     </CardHeader>

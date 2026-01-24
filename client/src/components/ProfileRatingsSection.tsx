@@ -7,12 +7,14 @@ import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useToast } from '../hooks/use-toast';
 import { useAuth } from '../lib/auth';
+import { readerApi } from '../lib/api';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { Star, ChevronDown, ChevronUp, Trash2, User, Reply, Quote } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { ReactionBar } from './ReactionBar';
+import { UserNameWithRating } from './UserNameWithRating';
 
 interface ProfileRatingsSectionProps {
   profileId: string;
@@ -108,6 +110,20 @@ export function CommentItem({
   const displayReplyCount = comment.replyCount || (comment.replies?.length || 0);
   const isHighlighted = highlightedCommentId === comment.id;
   const isReplyingToThis = replyingToId === comment.id;
+  
+  // Reading progress state
+  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(null);
+  
+  // Load reading progress for this user and book (if available)
+  useEffect(() => {
+    const loadReadingProgress = async () => {
+      // Note: ProfileRatingsSection doesn't have bookId in comments, 
+      // so we can't show reading progress here
+      // This would require modifying the API to include bookId in profile comments
+    };
+    
+    loadReadingProgress();
+  }, [comment.userId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -145,13 +161,13 @@ export function CommentItem({
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center justify-between flex-wrap gap-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <a
-                  href={`/profile/${comment.username}`}
-                  className={`font-medium hover:underline ${isCompact ? 'text-sm' : ''}`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {comment.fullName || comment.username}
-                </a>
+                <UserNameWithRating
+                  userId={comment.userId || ''}
+                  username={comment.username || ''}
+                  fullName={comment.fullName}
+                  profileRating={null}
+                  showRating={true}
+                />
                 {comment.parentCommentAuthor && comment.parentCommentId && (
                   <button
                     onClick={() => onScrollToComment(comment.parentCommentId!)}

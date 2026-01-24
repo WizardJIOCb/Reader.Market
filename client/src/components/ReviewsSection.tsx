@@ -18,6 +18,7 @@ import { AttachmentPreview } from '@/components/AttachmentPreview';
 import { AttachmentDisplay } from '@/components/AttachmentDisplay';
 import { type UploadedFile } from '@/lib/fileUploadManager';
 import { AuthPrompt } from '@/components/AuthPrompt';
+import { UserNameWithRating } from './UserNameWithRating';
 
 interface Reaction {
   emoji: string;
@@ -85,6 +86,7 @@ interface ReviewItemProps {
   onTextSelect: (review: Review) => void;
   onScrollToReview: (reviewId: string) => void;
   getRatingColor: (rating: number | null | undefined) => string;
+  getRatingColorClass: (rating: number | null | undefined) => string;
 }
 
 export function ReviewItem({
@@ -109,7 +111,8 @@ export function ReviewItem({
   onReaction,
   onTextSelect,
   onScrollToReview,
-  getRatingColor
+  getRatingColor,
+  getRatingColorClass
 }: ReviewItemProps) {
   const isExpanded = expandedReplies.has(review.id);
   const isLoading = loadingReplies.has(review.id);
@@ -133,7 +136,10 @@ export function ReviewItem({
   return (
     <div 
       id={`review-${review.id}`}
-      className={depth > 0 ? 'ml-4 border-l-2 border-muted-foreground/20 pl-3' : ''}
+      data-user-id={review.userId}
+      data-author-id={review.userId}
+      data-review-user-id={review.userId}
+      className={`review-item ${depth > 0 ? 'ml-4 border-l-2 border-muted-foreground/20 pl-3' : ''}`}
     >
       <div
         className={`rounded-lg transition-all duration-500 ${
@@ -157,17 +163,13 @@ export function ReviewItem({
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center justify-between flex-wrap gap-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                {review.userId ? (
-                  <a
-                    href={`/profile/${review.username || review.userId}`}
-                    className={`font-medium hover:underline ${isCompact ? 'text-sm' : ''}`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {review.author}
-                  </a>
-                ) : (
-                  <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>{review.author}</span>
-                )}
+                <UserNameWithRating
+                  userId={review.userId || ''}
+                  username={review.username || ''}
+                  fullName={review.author}
+                  profileRating={null}
+                  showRating={true}
+                />
                 {review.parentReviewAuthor && review.parentReviewId && (
                   <button
                     onClick={() => onScrollToReview(review.parentReviewId!)}
@@ -177,11 +179,16 @@ export function ReviewItem({
                     {review.parentReviewAuthor}
                   </button>
                 )}
-                {/* Rating badge - show review rating or user's book rating for replies */}
+                {/* Rating display with star icon and color grading */}
                 {(review.rating || review.userBookRating) && (
-                  <Badge variant="outline" className={`${isCompact ? 'text-xs px-1.5 py-0' : 'text-sm px-2 py-0.5'} font-bold ${getRatingColor(review.rating || review.userBookRating)}`}>
-                    {review.rating || review.userBookRating}/10
-                  </Badge>
+                  <button
+                    className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full transition-colors cursor-pointer font-medium ${
+                      getRatingColorClass(review.rating || review.userBookRating)
+                    }`}
+                  >
+                    <Star className="w-3 h-3 fill-current" />
+                    <span>{review.rating || review.userBookRating}/10</span>
+                  </button>
                 )}
               </div>
               
@@ -353,6 +360,7 @@ export function ReviewItem({
               onTextSelect={onTextSelect}
               onScrollToReview={onScrollToReview}
               getRatingColor={getRatingColor}
+              getRatingColorClass={getRatingColorClass}
             />
           ))}
         </div>
@@ -386,6 +394,14 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     if (rating >= 8) return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
     if (rating >= 5) return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
     return 'bg-rose-500/10 text-rose-600 border-rose-500/20';
+  };
+  
+  // Get color classes for consistent styling with Comments section
+  const getRatingColorClass = (rating: number | null | undefined) => {
+    if (rating === null || rating === undefined) return 'text-gray-500 bg-gray-100 dark:bg-gray-800';
+    if (rating >= 8) return 'text-green-700 bg-green-100 dark:bg-green-900/30';
+    if (rating >= 5) return 'text-amber-700 bg-amber-100 dark:bg-amber-900/30';
+    return 'text-red-700 bg-red-100 dark:bg-red-900/30';
   };
 
   const fetchReviews = useCallback(async () => {
@@ -928,6 +944,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
             onTextSelect={handleTextSelect}
             onScrollToReview={handleScrollToReview}
             getRatingColor={getRatingColor}
+            getRatingColorClass={getRatingColorClass}
           />
         </div>
       )}
@@ -969,6 +986,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
                 onTextSelect={handleTextSelect}
                 onScrollToReview={handleScrollToReview}
                 getRatingColor={getRatingColor}
+                getRatingColorClass={getRatingColorClass}
               />
             ))
         )}

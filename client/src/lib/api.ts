@@ -107,6 +107,7 @@ export const shelvesApi = {
 
 export const reviewsApi = {
   getBookReviews: (bookId: string) => apiCall(`/api/books/${bookId}/reviews`),
+  getUserReview: (bookId: string, userId: string) => apiCall(`/api/books/${bookId}/user-review/${userId}`),
   createReview: (bookId: string, reviewData: any) => apiCall(`/api/books/${bookId}/reviews`, {
     method: 'POST',
     body: JSON.stringify(reviewData),
@@ -132,6 +133,9 @@ export const reviewsApi = {
 export const readerApi = {
   // Reading Progress
   getProgress: (bookId: string) => apiCall(`/api/books/${bookId}/reading-progress`),
+  
+  // Get reading progress for a specific user (for comments)
+  getUserProgress: (bookId: string, userId: string) => apiCall(`/api/books/${bookId}/reading-progress/${userId}`),
   
   updateProgress: (bookId: string, data: {
     currentPage?: number;

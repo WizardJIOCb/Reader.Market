@@ -79,5 +79,8 @@
     "failedToSubmitRating": "Failed to submit rating",
     "failedToPostComment": "Failed to post comment",
     "failedToDeleteComment": "Failed to delete comment"
-  }
+  },
+  "userRating": "User Rating",
+  "ratingCountInfo": "{{count}} ratings",
+  "noRatingsYet": "No ratings yet"
 }
