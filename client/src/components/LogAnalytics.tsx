@@ -556,16 +556,72 @@ export function LogAnalytics() {
                       className="border rounded-lg p-3 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <LogLevelBadge level={log.level} />
                           <LogSourceIcon source={log.source} />
                           <span className="font-mono text-sm">{log.module}</span>
+                          
+                          {/* Clickable User ID badge */}
                           {log.userId && (
-                            <Badge variant="outline">
+                            <Badge 
+                              variant="outline" 
+                              className="cursor-pointer hover:bg-primary/10 transition-colors"
+                              onClick={() => {
+                                setFilters({...filters, userId: log.userId});
+                                searchLogs({...filters, userId: log.userId}, 0);
+                              }}
+                            >
                               <User className="w-3 h-3 mr-1" />
-                              {log.userId.substring(0, 8)}...
+                              User: {log.userId.substring(0, 8)}...
                             </Badge>
                           )}
+                          
+                          {/* Clickable Session ID badge */}
+                          {log.sessionId && (
+                            <Badge 
+                              variant="outline" 
+                              className="cursor-pointer hover:bg-primary/10 transition-colors"
+                              onClick={() => {
+                                setFilters({...filters, sessionId: log.sessionId});
+                                searchLogs({...filters, sessionId: log.sessionId}, 0);
+                              }}
+                            >
+                              <Activity className="w-3 h-3 mr-1" />
+                              Session: {log.sessionId.substring(0, 8)}...
+                            </Badge>
+                          )}
+                          
+                          {/* Clickable Correlation ID badge */}
+                          {log.correlationId && (
+                            <Badge 
+                              variant="outline" 
+                              className="cursor-pointer hover:bg-primary/10 transition-colors"
+                              onClick={() => {
+                                // Search by correlation ID in chain analysis
+                                searchChain('correlation', log.correlationId);
+                                setActiveTab('chains');
+                              }}
+                            >
+                              <Hash className="w-3 h-3 mr-1" />
+                              Correlation: {log.correlationId.substring(0, 8)}...
+                            </Badge>
+                          )}
+                          
+                          {/* Clickable Module badge */}
+                          <Badge 
+                            variant="secondary" 
+                            className="cursor-pointer hover:bg-secondary/80 transition-colors"
+                            onClick={() => {
+                              const newModules = filters.module.includes(log.module) 
+                                ? filters.module 
+                                : [...filters.module, log.module];
+                              setFilters({...filters, module: newModules});
+                              searchLogs({...filters, module: newModules}, 0);
+                            }}
+                          >
+                            <Server className="w-3 h-3 mr-1" />
+                            {log.module}
+                          </Badge>
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm:ss')}
@@ -1021,15 +1077,23 @@ export function LogAnalytics() {
                         className="border rounded-lg p-3 bg-muted/30 hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <span className="text-xs text-muted-foreground font-mono">
                               #{index + 1}
                             </span>
                             <LogLevelBadge level={log.level} />
                             <LogSourceIcon source={log.source} />
                             <span className="font-mono text-sm">{log.module}</span>
+                            
+                            {/* Clickable Correlation ID in chain */}
                             {log.correlationId && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge 
+                                variant="secondary" 
+                                className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                                onClick={() => {
+                                  searchChain('correlation', log.correlationId);
+                                }}
+                              >
                                 <Hash className="w-3 h-3 mr-1" />
                                 {log.correlationId.substring(0, 8)}...
                               </Badge>
@@ -1045,15 +1109,31 @@ export function LogAnalytics() {
                         </div>
                         
                         {(log.userId || log.sessionId) && (
-                          <div className="flex gap-2 text-xs text-muted-foreground mb-2">
+                          <div className="flex gap-2 text-xs text-muted-foreground mb-2 flex-wrap">
                             {log.userId && (
-                              <Badge variant="outline">
+                              <Badge 
+                                variant="outline" 
+                                className="cursor-pointer hover:bg-primary/10 transition-colors"
+                                onClick={() => {
+                                  setFilters({...filters, userId: log.userId});
+                                  searchLogs({...filters, userId: log.userId}, 0);
+                                  setActiveTab('search');
+                                }}
+                              >
                                 <User className="w-3 h-3 mr-1" />
                                 User: {log.userId.substring(0, 8)}...
                               </Badge>
                             )}
                             {log.sessionId && (
-                              <Badge variant="outline">
+                              <Badge 
+                                variant="outline" 
+                                className="cursor-pointer hover:bg-primary/10 transition-colors"
+                                onClick={() => {
+                                  setFilters({...filters, sessionId: log.sessionId});
+                                  searchLogs({...filters, sessionId: log.sessionId}, 0);
+                                  setActiveTab('search');
+                                }}
+                              >
                                 <Activity className="w-3 h-3 mr-1" />
                                 Session: {log.sessionId.substring(0, 8)}...
                               </Badge>
