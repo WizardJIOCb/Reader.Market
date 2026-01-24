@@ -1,2559 +1,5 @@
 [
   {
-    "id": "mkstwgfzy30zajp54st",
-    "timestamp": "2026-01-24T21:35:32.927Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgg0ev8v60ez42l",
-    "timestamp": "2026-01-24T21:35:32.928Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgg1v0cbuff5x1",
-    "timestamp": "2026-01-24T21:35:32.929Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgoq79zxvj5ocs8",
-    "timestamp": "2026-01-24T21:35:33.242Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgorrlp7cpvst7s",
-    "timestamp": "2026-01-24T21:35:33.243Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgose1df8eyon4",
-    "timestamp": "2026-01-24T21:35:33.244Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgou8x1fe4dhag5",
-    "timestamp": "2026-01-24T21:35:33.246Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgovwsc1vchpae",
-    "timestamp": "2026-01-24T21:35:33.247Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgow8qjiyggmks7",
-    "timestamp": "2026-01-24T21:35:33.248Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgoyjg0oidg1m99",
-    "timestamp": "2026-01-24T21:35:33.250Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (8ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 8,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgp06ndvmynn553",
-    "timestamp": "2026-01-24T21:35:33.252Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (9ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 9,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgp19zd1v9malz",
-    "timestamp": "2026-01-24T21:35:33.253Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (9ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 9,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgp28svuo16k4sf",
-    "timestamp": "2026-01-24T21:35:33.254Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (8ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 8,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgp3bhgvm0v9z7c",
-    "timestamp": "2026-01-24T21:35:33.255Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (8ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 8,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgp4ewx9n34gbvn",
-    "timestamp": "2026-01-24T21:35:33.256Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (8ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 8,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgxrl4mmkg21yc",
-    "timestamp": "2026-01-24T21:35:33.567Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgxs8g5dj7u42aa",
-    "timestamp": "2026-01-24T21:35:33.568Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgxuhti8h2uugtp",
-    "timestamp": "2026-01-24T21:35:33.570Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstwgxwestsa6qpon",
-    "timestamp": "2026-01-24T21:35:33.572Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgxxrd4dqvyz4jh",
-    "timestamp": "2026-01-24T21:35:33.573Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstwgxyc3v5wyebj4v",
-    "timestamp": "2026-01-24T21:35:33.574Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx3zf7gssu76t73i",
-    "timestamp": "2026-01-24T21:36:03.435Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx3zpgxukusyi9f9",
-    "timestamp": "2026-01-24T21:36:03.445Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/profile",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx3zuzt4c31e2d3a",
-    "timestamp": "2026-01-24T21:36:03.450Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/profile 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 683
-    }
-  },
-  {
-    "id": "mkstx40uhgh1uql311j",
-    "timestamp": "2026-01-24T21:36:03.486Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef 200 (50ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 50,
-      "responseBodySize": 2613
-    }
-  },
-  {
-    "id": "mkstx49t44hxselo289",
-    "timestamp": "2026-01-24T21:36:03.809Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/shelves/with-books",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx49vksddazlq16b",
-    "timestamp": "2026-01-24T21:36:03.811Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx4ahblyv4m8qkoi",
-    "timestamp": "2026-01-24T21:36:03.833Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef 200 (22ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 22,
-      "responseBodySize": 2613
-    }
-  },
-  {
-    "id": "mkstx4ar4cb0ngq8n",
-    "timestamp": "2026-01-24T21:36:03.843Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx4bm117g1md1eb1",
-    "timestamp": "2026-01-24T21:36:03.874Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments 200 (31ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 31,
-      "responseBodySize": 25180
-    }
-  },
-  {
-    "id": "mkstx4c33egrt9rncvl",
-    "timestamp": "2026-01-24T21:36:03.891Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/shelves/with-books 200 (81ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 81,
-      "responseBodySize": 23801
-    }
-  },
-  {
-    "id": "mkstx4fdbouftkmqql",
-    "timestamp": "2026-01-24T21:36:04.009Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/messages/unread-count",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx4fhgtf9m29muo5",
-    "timestamp": "2026-01-24T21:36:04.013Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/messages/unread-count 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 15
-    }
-  },
-  {
-    "id": "mkstx4o8lphzw14tidc",
-    "timestamp": "2026-01-24T21:36:04.328Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/groups",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx4oah4p6yohbi08",
-    "timestamp": "2026-01-24T21:36:04.330Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx4oca04k4w9a0n8",
-    "timestamp": "2026-01-24T21:36:04.332Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reviews",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx4os2b5765lkb0i",
-    "timestamp": "2026-01-24T21:36:04.348Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/groups 200 (20ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 20,
-      "responseBodySize": 1142
-    }
-  },
-  {
-    "id": "mkstx4ov5dts7lq48sw",
-    "timestamp": "2026-01-24T21:36:04.351Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reviews 200 (19ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 19,
-      "responseBodySize": 1089
-    }
-  },
-  {
-    "id": "mkstx4ozxnme8d1rdqg",
-    "timestamp": "2026-01-24T21:36:04.355Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments 200 (25ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 25,
-      "responseBodySize": 25180
-    }
-  },
-  {
-    "id": "mkstx4v19syouhh4qql",
-    "timestamp": "2026-01-24T21:36:04.573Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "POST /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/track-view",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {
-        "viewType": "card_view"
-      }
-    }
-  },
-  {
-    "id": "mkstx4v5oe057j7xiu",
-    "timestamp": "2026-01-24T21:36:04.577Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "POST /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/track-view 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 20
-    }
-  },
-  {
-    "id": "mkstx4v88s03vmakzq",
-    "timestamp": "2026-01-24T21:36:04.580Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/groups/3503e674-27b0-471f-af0f-c332ece8b7de/channels",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx4vcb2k7yn03eam",
-    "timestamp": "2026-01-24T21:36:04.584Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/groups/3503e674-27b0-471f-af0f-c332ece8b7de/channels 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 910
-    }
-  },
-  {
-    "id": "mkstx53jik01fc9bvtf",
-    "timestamp": "2026-01-24T21:36:04.879Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reviews",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx53l4c70oh62gvh",
-    "timestamp": "2026-01-24T21:36:04.881Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/groups/b4912a73-d8e4-40cf-aebf-979fbf5112c3/channels",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx53pzbuzzttthg",
-    "timestamp": "2026-01-24T21:36:04.885Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/groups/b4912a73-d8e4-40cf-aebf-979fbf5112c3/channels 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 303
-    }
-  },
-  {
-    "id": "mkstx53rnkazudvw5mj",
-    "timestamp": "2026-01-24T21:36:04.887Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reviews 200 (8ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 8,
-      "responseBodySize": 1089
-    }
-  },
-  {
-    "id": "mkstx53x71n1u89u8l4",
-    "timestamp": "2026-01-24T21:36:04.893Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/groups/284b41f4-3937-4b91-835a-dd4fcdffce76/channels",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx541r2lt9x5lx2c",
-    "timestamp": "2026-01-24T21:36:04.897Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/groups/284b41f4-3937-4b91-835a-dd4fcdffce76/channels 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 303
-    }
-  },
-  {
-    "id": "mkstx5ci0q601il6k9i",
-    "timestamp": "2026-01-24T21:36:05.202Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "POST /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/track-view",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {
-        "viewType": "card_view"
-      }
-    }
-  },
-  {
-    "id": "mkstx5cmg5344tkv6o",
-    "timestamp": "2026-01-24T21:36:05.206Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "POST /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/track-view 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 20
-    }
-  },
-  {
-    "id": "mkstx5crfczaj0cig4j",
-    "timestamp": "2026-01-24T21:36:05.211Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/groups/aabc98df-4cf4-4c68-90dc-b7a70e4e3e40/channels",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx5cv976gkgj208p",
-    "timestamp": "2026-01-24T21:36:05.215Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/groups/aabc98df-4cf4-4c68-90dc-b7a70e4e3e40/channels 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 303
-    }
-  },
-  {
-    "id": "mkstx5mf1kk4aypq285",
-    "timestamp": "2026-01-24T21:36:05.559Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx5mzjb1vqa3805",
-    "timestamp": "2026-01-24T21:36:05.579Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments 200 (20ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 20,
-      "responseBodySize": 25180
-    }
-  },
-  {
-    "id": "mkstx5tgrt6x4kot2w",
-    "timestamp": "2026-01-24T21:36:05.812Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/users/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx5ti9xoqnig1kik",
-    "timestamp": "2026-01-24T21:36:05.814Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/users/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (2ms)",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 542
-    }
-  },
-  {
-    "id": "mkstx5vubu7xxzgx75",
-    "timestamp": "2026-01-24T21:36:05.898Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx5vxaujny3q2bx",
-    "timestamp": "2026-01-24T21:36:05.901Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (3ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 3,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx61k3mm6bq6yw6y",
-    "timestamp": "2026-01-24T21:36:06.104Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx61mysbuhqrxeh",
-    "timestamp": "2026-01-24T21:36:06.106Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx61nndp7slgzv4k",
-    "timestamp": "2026-01-24T21:36:06.107Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx61o7tjb7jznb7t",
-    "timestamp": "2026-01-24T21:36:06.108Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx61quqdoop8ud9",
-    "timestamp": "2026-01-24T21:36:06.110Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx61rn9dph9xp06",
-    "timestamp": "2026-01-24T21:36:06.111Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx61r17dwb89ba28",
-    "timestamp": "2026-01-24T21:36:06.111Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 3,
-      "responseBodySize": 697
-    }
-  },
-  {
-    "id": "mkstx61sbw6godgd3l",
-    "timestamp": "2026-01-24T21:36:06.112Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (8ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 8,
-      "responseBodySize": 449
-    }
-  },
-  {
-    "id": "mkstx62bqcgdyq7zmvg",
-    "timestamp": "2026-01-24T21:36:06.131Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx62dgss8cl2hiuk",
-    "timestamp": "2026-01-24T21:36:06.133Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 131
-    }
-  },
-  {
-    "id": "mkstx64gqm4lt7m5q8",
-    "timestamp": "2026-01-24T21:36:06.208Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/605db90f-4691-4281-991e-b2e248e33915",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx64j9qm47qpawo",
-    "timestamp": "2026-01-24T21:36:06.211Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 3,
-      "responseBodySize": 467
-    }
-  },
-  {
-    "id": "mkstx6ao7qe7wdual3w",
-    "timestamp": "2026-01-24T21:36:06.432Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6apkcy5y7dn9m",
-    "timestamp": "2026-01-24T21:36:06.433Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/users/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6aq8gtwhzxbdbt",
-    "timestamp": "2026-01-24T21:36:06.434Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6argiog89aw0p8",
-    "timestamp": "2026-01-24T21:36:06.435Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6ate64zx4a93gi",
-    "timestamp": "2026-01-24T21:36:06.437Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 131
-    }
-  },
-  {
-    "id": "mkstx6aud4mq49qlcf",
-    "timestamp": "2026-01-24T21:36:06.438Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 94
-    }
-  },
-  {
-    "id": "mkstx6au2dq6cbeko76",
-    "timestamp": "2026-01-24T21:36:06.438Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/users/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (5ms)",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 447
-    }
-  },
-  {
-    "id": "mkstx6ayp5r9yyqizva",
-    "timestamp": "2026-01-24T21:36:06.442Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6b0918ml722o8i",
-    "timestamp": "2026-01-24T21:36:06.444Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (9ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 9,
-      "responseBodySize": 6
-    }
-  },
-  {
-    "id": "mkstx6b1wvy91bc7k6",
-    "timestamp": "2026-01-24T21:36:06.445Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 3,
-      "responseBodySize": 131
-    }
-  },
-  {
-    "id": "mkstx6d3427tvdoz36i",
-    "timestamp": "2026-01-24T21:36:06.519Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6d5osdy2ynjr2i",
-    "timestamp": "2026-01-24T21:36:06.521Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 94
-    }
-  },
-  {
-    "id": "mkstx6jvi3vfp2dnj0l",
-    "timestamp": "2026-01-24T21:36:06.763Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6jwym408bxs298",
-    "timestamp": "2026-01-24T21:36:06.764Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6jykqdlkwu2c08",
-    "timestamp": "2026-01-24T21:36:06.766Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6jyr741xaq7qq",
-    "timestamp": "2026-01-24T21:36:06.766Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6jzn6v5qmfubl",
-    "timestamp": "2026-01-24T21:36:06.767Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6k1k6hsbik70o",
-    "timestamp": "2026-01-24T21:36:06.769Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 131
-    }
-  },
-  {
-    "id": "mkstx6k2njriidq334g",
-    "timestamp": "2026-01-24T21:36:06.770Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx6k2knd8qwjb7q",
-    "timestamp": "2026-01-24T21:36:06.770Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 131
-    }
-  },
-  {
-    "id": "mkstx6k35wqolekqb5j",
-    "timestamp": "2026-01-24T21:36:06.771Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx6k4jnvzdp2lixe",
-    "timestamp": "2026-01-24T21:36:06.772Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 131
-    }
-  },
-  {
-    "id": "mkstx6lukf3ydaet4q",
-    "timestamp": "2026-01-24T21:36:06.834Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6lwg7827457yeq",
-    "timestamp": "2026-01-24T21:36:06.836Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx6syunrdubcvv0q",
-    "timestamp": "2026-01-24T21:36:07.090Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6t0sxnoweicq5g",
-    "timestamp": "2026-01-24T21:36:07.092Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6t1ctbr6zneyt5",
-    "timestamp": "2026-01-24T21:36:07.093Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6t2e2cljahiceb",
-    "timestamp": "2026-01-24T21:36:07.094Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6t3zyvn415zots",
-    "timestamp": "2026-01-24T21:36:07.095Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6t576c0jn57z1k",
-    "timestamp": "2026-01-24T21:36:07.097Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (7ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 7,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx6t6lyp3uj4m6a",
-    "timestamp": "2026-01-24T21:36:07.098Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx6t73mg4f78auqe",
-    "timestamp": "2026-01-24T21:36:07.099Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (7ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 7,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx6t8wgxty7016m",
-    "timestamp": "2026-01-24T21:36:07.100Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx6t8qaqh4fsbsz",
-    "timestamp": "2026-01-24T21:36:07.100Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx6ui8xb0qm4s0zy",
-    "timestamp": "2026-01-24T21:36:07.146Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx6ulp91w14u4nod",
-    "timestamp": "2026-01-24T21:36:07.149Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (3ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 3,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx71welvtolg1o25",
-    "timestamp": "2026-01-24T21:36:07.412Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx71x45nuq20qmmo",
-    "timestamp": "2026-01-24T21:36:07.413Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx71yxvco9pr1xh",
-    "timestamp": "2026-01-24T21:36:07.414Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx71zg1k25mjdod",
-    "timestamp": "2026-01-24T21:36:07.415Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx720al512vwuetr",
-    "timestamp": "2026-01-24T21:36:07.416Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7224dq8sbyi6m3",
-    "timestamp": "2026-01-24T21:36:07.418Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx723lore7zb8g8i",
-    "timestamp": "2026-01-24T21:36:07.419Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (7ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 7,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx723ztdeepj0msn",
-    "timestamp": "2026-01-24T21:36:07.419Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx724k61ag94x8op",
-    "timestamp": "2026-01-24T21:36:07.420Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx724ci8mrdkjtib",
-    "timestamp": "2026-01-24T21:36:07.421Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx73ij88hqgwyqdl",
-    "timestamp": "2026-01-24T21:36:07.470Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx73kc35fdk41z35",
-    "timestamp": "2026-01-24T21:36:07.472Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7avrp8fazrwi1c",
-    "timestamp": "2026-01-24T21:36:07.735Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7awigxitya81",
-    "timestamp": "2026-01-24T21:36:07.736Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7axadoaqlk03ip",
-    "timestamp": "2026-01-24T21:36:07.737Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7ayri504d7npsn",
-    "timestamp": "2026-01-24T21:36:07.738Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7az5zr03dbdbvv",
-    "timestamp": "2026-01-24T21:36:07.739Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7b11x46lvoft56",
-    "timestamp": "2026-01-24T21:36:07.741Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7b17wmd9h9qh6w",
-    "timestamp": "2026-01-24T21:36:07.741Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7b2n1n1mjgopno",
-    "timestamp": "2026-01-24T21:36:07.742Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7b35clz3br7z9c",
-    "timestamp": "2026-01-24T21:36:07.743Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7b427oekpws25i",
-    "timestamp": "2026-01-24T21:36:07.744Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7c3ux5nblrgbyc",
-    "timestamp": "2026-01-24T21:36:07.779Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7c5w02w9swzccb",
-    "timestamp": "2026-01-24T21:36:07.781Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7jxszf16okctu",
-    "timestamp": "2026-01-24T21:36:08.061Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7jykt4wkyy1mq",
-    "timestamp": "2026-01-24T21:36:08.062Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7jz70i5krwqwj",
-    "timestamp": "2026-01-24T21:36:08.063Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7k0smtc956zul",
-    "timestamp": "2026-01-24T21:36:08.064Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7k1otqe1xewmqr",
-    "timestamp": "2026-01-24T21:36:08.065Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7k35xycltxtvn4",
-    "timestamp": "2026-01-24T21:36:08.067Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7k43rhdqlwggig",
-    "timestamp": "2026-01-24T21:36:08.068Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7k4m7mcd3dn6rk",
-    "timestamp": "2026-01-24T21:36:08.068Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7k5iptcc3v4b6n",
-    "timestamp": "2026-01-24T21:36:08.069Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7k6s67pgvbwuw",
-    "timestamp": "2026-01-24T21:36:08.070Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7kqpa1sn7f9veh",
-    "timestamp": "2026-01-24T21:36:08.090Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7ks5avu3el2u7c",
-    "timestamp": "2026-01-24T21:36:08.092Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7t4vbqhi067ppg",
-    "timestamp": "2026-01-24T21:36:08.392Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7t6da86yu8a0b",
-    "timestamp": "2026-01-24T21:36:08.394Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7t8zpmkxoqft1r",
-    "timestamp": "2026-01-24T21:36:08.396Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7t9f0pujg08nfs",
-    "timestamp": "2026-01-24T21:36:08.397Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7tanml6z8vtl6n",
-    "timestamp": "2026-01-24T21:36:08.398Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7tdi4rstsed82",
-    "timestamp": "2026-01-24T21:36:08.401Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (9ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 9,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7td4bcrxg4iivx",
-    "timestamp": "2026-01-24T21:36:08.401Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (7ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 7,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7tejzh4agi6ykl",
-    "timestamp": "2026-01-24T21:36:08.402Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (6ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 6,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7tf3ckl5d89u1p",
-    "timestamp": "2026-01-24T21:36:08.403Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7tgipp0kxmkl9j",
-    "timestamp": "2026-01-24T21:36:08.404Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (7ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 7,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx7tiamonr1pac6n",
-    "timestamp": "2026-01-24T21:36:08.406Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx7tkye400zqelo",
-    "timestamp": "2026-01-24T21:36:08.408Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx823tqv0ld7phvo",
-    "timestamp": "2026-01-24T21:36:08.715Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx825eavcniuyv0q",
-    "timestamp": "2026-01-24T21:36:08.717Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx826ejajvjayj9",
-    "timestamp": "2026-01-24T21:36:08.718Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstx828vwydu2okeq8",
-    "timestamp": "2026-01-24T21:36:08.720Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx829c0pfv261xej",
-    "timestamp": "2026-01-24T21:36:08.721Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstx82aev62g0bdbij",
-    "timestamp": "2026-01-24T21:36:08.722Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (4ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 4,
-      "responseBodySize": 129
-    }
-  },
-  {
-    "id": "mkstyeuy0slamyr0aul",
-    "timestamp": "2026-01-24T21:37:04.186Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/profile/WizardJIOCb",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstyevb9oycb31w0ao",
-    "timestamp": "2026-01-24T21:37:04.199Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/profile/WizardJIOCb 200 (13ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 13,
-      "responseBodySize": 697
-    }
-  },
-  {
-    "id": "mkstyf44xeanrjbm13i",
-    "timestamp": "2026-01-24T21:37:04.516Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/shelves/with-books",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstyf58c0lbqa9fm1l",
-    "timestamp": "2026-01-24T21:37:04.556Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/shelves/with-books 200 (40ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 40,
-      "responseBodySize": 23801
-    }
-  },
-  {
-    "id": "mkstyfbjxlrzu18ovur",
-    "timestamp": "2026-01-24T21:37:04.783Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915/statistics",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstyfbmyurpsj142u",
-    "timestamp": "2026-01-24T21:37:04.786Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915/statistics 200 (2ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 2,
-      "responseBodySize": 68
-    }
-  },
-  {
-    "id": "mkstyfe4tjhn3bptp2f",
-    "timestamp": "2026-01-24T21:37:04.876Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/books/currently-reading",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstyfgntnjd8rr8lq",
-    "timestamp": "2026-01-24T21:37:04.967Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/books/currently-reading 200 (91ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 91,
-      "responseBodySize": 14674
-    }
-  },
-  {
-    "id": "mkstyfm9qu0f713ke58",
-    "timestamp": "2026-01-24T21:37:05.169Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstyfpv4sxl8pwuk8g",
-    "timestamp": "2026-01-24T21:37:05.299Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities 200 (130ms)",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 130,
-      "responseBodySize": 49914
-    }
-  },
-  {
-    "id": "mkstyfv0mywxz3nhq5",
-    "timestamp": "2026-01-24T21:37:05.484Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/comments",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {
-        "limit": "1",
-        "offset": "0"
-      },
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mkstyfvg4cd2oo0u29x",
-    "timestamp": "2026-01-24T21:37:05.500Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/comments 200 (16ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 16,
-      "responseBodySize": 811
-    }
-  },
-  {
-    "id": "mksu02eftvr4qq1rkqk",
-    "timestamp": "2026-01-24T21:38:21.351Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/profile",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
-    "id": "mksu02ekufgkvpb7wa9",
-    "timestamp": "2026-01-24T21:38:21.356Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-response",
-    "message": "GET /api/profile 200 (5ms)",
-    "userId": "605db90f-4691-4281-991e-b2e248e33915",
-    "metadata": {
-      "statusCode": 200,
-      "duration": 5,
-      "responseBodySize": 683
-    }
-  },
-  {
-    "id": "mksu02oj0est8ui3xtas",
-    "timestamp": "2026-01-24T21:38:21.715Z",
-    "level": "info",
-    "source": "backend",
-    "module": "http-request",
-    "message": "GET /api/profile/WizardJIOCb",
-    "ipAddress": "127.0.0.1",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    "metadata": {
-      "query": {},
-      "params": {},
-      "body": {}
-    }
-  },
-  {
     "id": "mksu02olg4z6k8z83o6",
     "timestamp": "2026-01-24T21:38:21.717Z",
     "level": "info",
@@ -145500,6 +142946,2560 @@
       "statusCode": 200,
       "duration": 5,
       "responseBodySize": 579
+    }
+  },
+  {
+    "id": "mksyszsj991dj1wq6i8",
+    "timestamp": "2026-01-24T23:52:49.459Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/shelves/with-books",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksysztf00ryd1uvj6mw",
+    "timestamp": "2026-01-24T23:52:49.491Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/shelves/with-books 200 (32ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 32,
+      "responseBodySize": 23803
+    }
+  },
+  {
+    "id": "mksyt00xrops8d5c5",
+    "timestamp": "2026-01-24T23:52:49.761Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt01jfffyu8mcnd8",
+    "timestamp": "2026-01-24T23:52:49.783Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef 200 (22ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 22,
+      "responseBodySize": 2614
+    }
+  },
+  {
+    "id": "mksyt0acgm9xhotxw8w",
+    "timestamp": "2026-01-24T23:52:50.100Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt0b09746vfv4djd",
+    "timestamp": "2026-01-24T23:52:50.124Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments 200 (24ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 24,
+      "responseBodySize": 25180
+    }
+  },
+  {
+    "id": "mksyt0hn0dk0uvh6jy6l",
+    "timestamp": "2026-01-24T23:52:50.363Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reviews",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt0hu4w9bbggr3z8",
+    "timestamp": "2026-01-24T23:52:50.370Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reviews 200 (7ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 7,
+      "responseBodySize": 1089
+    }
+  },
+  {
+    "id": "mksyt0jul27ruinqm6",
+    "timestamp": "2026-01-24T23:52:50.442Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "POST /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/track-view",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {
+        "viewType": "card_view"
+      }
+    }
+  },
+  {
+    "id": "mksyt0jz995o6flfsm",
+    "timestamp": "2026-01-24T23:52:50.447Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "POST /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/track-view 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 20
+    }
+  },
+  {
+    "id": "mksyt0qduvtylx7kx9o",
+    "timestamp": "2026-01-24T23:52:50.677Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt0qupg3xxtwpdu",
+    "timestamp": "2026-01-24T23:52:50.694Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments 200 (17ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 17,
+      "responseBodySize": 25180
+    }
+  },
+  {
+    "id": "mksyt0wm3ot6mhpnsma",
+    "timestamp": "2026-01-24T23:52:50.902Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt0wq0x2621af7fa",
+    "timestamp": "2026-01-24T23:52:50.906Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (4ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 542
+    }
+  },
+  {
+    "id": "mksyt15e2gife2umpos",
+    "timestamp": "2026-01-24T23:52:51.218Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt15g3tgnccak46v",
+    "timestamp": "2026-01-24T23:52:51.220Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt15he97lv1qocet",
+    "timestamp": "2026-01-24T23:52:51.221Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt15ir72uaonm70k",
+    "timestamp": "2026-01-24T23:52:51.222Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt15kyusufzmain",
+    "timestamp": "2026-01-24T23:52:51.224Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyt15l27win3q0v6z",
+    "timestamp": "2026-01-24T23:52:51.225Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (7ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 7,
+      "responseBodySize": 129
+    }
+  },
+  {
+    "id": "mksyt15mdez8wxyb5qs",
+    "timestamp": "2026-01-24T23:52:51.226Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (5ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 447
+    }
+  },
+  {
+    "id": "mksyt15n2ud9360qp6e",
+    "timestamp": "2026-01-24T23:52:51.227Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 94
+    }
+  },
+  {
+    "id": "mksyt15oa018a54ypys",
+    "timestamp": "2026-01-24T23:52:51.228Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (8ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 8,
+      "responseBodySize": 449
+    }
+  },
+  {
+    "id": "mksyt15rqtvl8ifhpba",
+    "timestamp": "2026-01-24T23:52:51.231Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (7ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 7,
+      "responseBodySize": 6
+    }
+  },
+  {
+    "id": "mksyv1z0nme7ipgmvrr",
+    "timestamp": "2026-01-24T23:54:25.596Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv1z59izi0ulmr",
+    "timestamp": "2026-01-24T23:54:25.601Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 683
+    }
+  },
+  {
+    "id": "mksyv28oe68gbpsx6sa",
+    "timestamp": "2026-01-24T23:54:25.944Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/shelves/with-books",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv28p6hi7bubauk7",
+    "timestamp": "2026-01-24T23:54:25.945Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv28rr4yjcuy9e7f",
+    "timestamp": "2026-01-24T23:54:25.947Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv29efo2stvcamww",
+    "timestamp": "2026-01-24T23:54:25.970Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef 200 (25ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 25,
+      "responseBodySize": 2614
+    }
+  },
+  {
+    "id": "mksyv29x2v67ygvqvla",
+    "timestamp": "2026-01-24T23:54:25.989Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups 200 (42ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 42,
+      "responseBodySize": 1142
+    }
+  },
+  {
+    "id": "mksyv2af4yoqv0dlmw9",
+    "timestamp": "2026-01-24T23:54:26.007Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/shelves/with-books 200 (63ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 63,
+      "responseBodySize": 23803
+    }
+  },
+  {
+    "id": "mksyv2dd772doqxegin",
+    "timestamp": "2026-01-24T23:54:26.113Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/messages/unread-count",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv2dhskcc4n7nt88",
+    "timestamp": "2026-01-24T23:54:26.117Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/messages/unread-count 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 15
+    }
+  },
+  {
+    "id": "mksyv2mhsxz9xm1m34k",
+    "timestamp": "2026-01-24T23:54:26.441Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv2mi2lytrr0hdma",
+    "timestamp": "2026-01-24T23:54:26.442Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/3503e674-27b0-471f-af0f-c332ece8b7de/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv2mvf7bidf743dc",
+    "timestamp": "2026-01-24T23:54:26.455Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/3503e674-27b0-471f-af0f-c332ece8b7de/channels 200 (13ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 13,
+      "responseBodySize": 910
+    }
+  },
+  {
+    "id": "mksyv2n60rvhn3ad7cwj",
+    "timestamp": "2026-01-24T23:54:26.466Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments 200 (25ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 25,
+      "responseBodySize": 25180
+    }
+  },
+  {
+    "id": "mksyv2qg31xo6xm3jmb",
+    "timestamp": "2026-01-24T23:54:26.584Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/b4912a73-d8e4-40cf-aebf-979fbf5112c3/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv2qhletk1coztwq",
+    "timestamp": "2026-01-24T23:54:26.585Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reviews",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv2qj3swgfiew8x3",
+    "timestamp": "2026-01-24T23:54:26.587Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/b4912a73-d8e4-40cf-aebf-979fbf5112c3/channels 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyv2qp1wp54ohnbct",
+    "timestamp": "2026-01-24T23:54:26.593Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reviews 200 (8ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 8,
+      "responseBodySize": 1089
+    }
+  },
+  {
+    "id": "mksyv2zfrir46fk3ltb",
+    "timestamp": "2026-01-24T23:54:26.907Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/284b41f4-3937-4b91-835a-dd4fcdffce76/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv2zhet1kan0kkbt",
+    "timestamp": "2026-01-24T23:54:26.909Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "POST /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/track-view",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {
+        "viewType": "card_view"
+      }
+    }
+  },
+  {
+    "id": "mksyv2zjfbl4tpfoszk",
+    "timestamp": "2026-01-24T23:54:26.911Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/284b41f4-3937-4b91-835a-dd4fcdffce76/channels 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyv2zl5zrqyuexaoq",
+    "timestamp": "2026-01-24T23:54:26.913Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "POST /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/track-view 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 20
+    }
+  },
+  {
+    "id": "mksyv38ggkd0utyc2hv",
+    "timestamp": "2026-01-24T23:54:27.232Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/aabc98df-4cf4-4c68-90dc-b7a70e4e3e40/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv38iwdvjjeggm5a",
+    "timestamp": "2026-01-24T23:54:27.234Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/aabc98df-4cf4-4c68-90dc-b7a70e4e3e40/channels 200 (2ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyv39d13u4cgtli7y",
+    "timestamp": "2026-01-24T23:54:27.265Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3a2mqull3zkavn",
+    "timestamp": "2026-01-24T23:54:27.290Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/comments 200 (25ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 25,
+      "responseBodySize": 25180
+    }
+  },
+  {
+    "id": "mksyv3iiykl0wqd84l",
+    "timestamp": "2026-01-24T23:54:27.594Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3ikh2f45esjips",
+    "timestamp": "2026-01-24T23:54:27.596Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (2ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 542
+    }
+  },
+  {
+    "id": "mksyv3o63to95rivc5x",
+    "timestamp": "2026-01-24T23:54:27.798Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3o8yppb8qk9658",
+    "timestamp": "2026-01-24T23:54:27.800Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3o9wof7ewzam3j",
+    "timestamp": "2026-01-24T23:54:27.801Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3oc880uxo1e9zm",
+    "timestamp": "2026-01-24T23:54:27.804Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915 200 (4ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 697
+    }
+  },
+  {
+    "id": "mksyv3ody5le5pjv1oa",
+    "timestamp": "2026-01-24T23:54:27.805Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (7ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 7,
+      "responseBodySize": 449
+    }
+  },
+  {
+    "id": "mksyv3oed443maph5hg",
+    "timestamp": "2026-01-24T23:54:27.806Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/c781bfe0-a57c-4c97-9a73-bf666c647bd0 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 129
+    }
+  },
+  {
+    "id": "mksyv3ojq1vrjp4cm3e",
+    "timestamp": "2026-01-24T23:54:27.811Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3okb4kyvjwhyfu",
+    "timestamp": "2026-01-24T23:54:27.812Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3omd2bdlvduxih",
+    "timestamp": "2026-01-24T23:54:27.814Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 131
+    }
+  },
+  {
+    "id": "mksyv3onxc8cetxixa",
+    "timestamp": "2026-01-24T23:54:27.815Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 467
+    }
+  },
+  {
+    "id": "mksyv3r5hownjlwzna8",
+    "timestamp": "2026-01-24T23:54:27.905Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3r7apewjk0yny5",
+    "timestamp": "2026-01-24T23:54:27.907Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (2ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 447
+    }
+  },
+  {
+    "id": "mksyv3x9zqty5suisl",
+    "timestamp": "2026-01-24T23:54:28.125Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3xactwg5mtf0mo",
+    "timestamp": "2026-01-24T23:54:28.126Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/157dddb4-1f54-403d-8bfe-5c404cc65b4e",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv3xcnx7fgm7hbqm",
+    "timestamp": "2026-01-24T23:54:28.128Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 94
+    }
+  },
+  {
+    "id": "mksyv3xfyb1aw10b61",
+    "timestamp": "2026-01-24T23:54:28.131Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/157dddb4-1f54-403d-8bfe-5c404cc65b4e 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 6
+    }
+  },
+  {
+    "id": "mksyv4zri5vhk17suk",
+    "timestamp": "2026-01-24T23:54:29.511Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/WizardJIOCb",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv4zwbiqvvhln18p",
+    "timestamp": "2026-01-24T23:54:29.516Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/WizardJIOCb 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 697
+    }
+  },
+  {
+    "id": "mksyv58ktiui70vs7w",
+    "timestamp": "2026-01-24T23:54:29.828Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/shelves/with-books",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv59clsp71ewfs6",
+    "timestamp": "2026-01-24T23:54:29.856Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/shelves/with-books 200 (28ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 28,
+      "responseBodySize": 23803
+    }
+  },
+  {
+    "id": "mksyv5fxcyzlffeb6q8",
+    "timestamp": "2026-01-24T23:54:30.093Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915/statistics",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv5fzpy6m80qmbk",
+    "timestamp": "2026-01-24T23:54:30.095Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915/statistics 200 (2ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 68
+    }
+  },
+  {
+    "id": "mksyv5i1r75ow4zgme",
+    "timestamp": "2026-01-24T23:54:30.169Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/currently-reading",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv5kafwypiw52eg",
+    "timestamp": "2026-01-24T23:54:30.250Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/currently-reading 200 (81ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 81,
+      "responseBodySize": 14675
+    }
+  },
+  {
+    "id": "mksyv5t9scvrjq64kbb",
+    "timestamp": "2026-01-24T23:54:30.573Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv5tp4kvg4agj4mg",
+    "timestamp": "2026-01-24T23:54:30.589Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/comments",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {
+        "limit": "1",
+        "offset": "0"
+      },
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv5u38gjcx1muk6w",
+    "timestamp": "2026-01-24T23:54:30.603Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/comments 200 (14ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 14,
+      "responseBodySize": 811
+    }
+  },
+  {
+    "id": "mksyv5wo9kvre5wfd5g",
+    "timestamp": "2026-01-24T23:54:30.696Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities 200 (123ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 123,
+      "responseBodySize": 49914
+    }
+  },
+  {
+    "id": "mksyv63pyh62d0f9nt",
+    "timestamp": "2026-01-24T23:54:30.949Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/86e8d03e-c6d0-42c5-baf5-bcd3378e8cf7/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv63q355wjneqg0f",
+    "timestamp": "2026-01-24T23:54:30.950Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/user-review/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv63rhm4l1n11x08",
+    "timestamp": "2026-01-24T23:54:30.951Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv63s8m2dp6wez3w",
+    "timestamp": "2026-01-24T23:54:30.952Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/86e8d03e-c6d0-42c5-baf5-bcd3378e8cf7/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 125
+    }
+  },
+  {
+    "id": "mksyv63t5sli70nyp9l",
+    "timestamp": "2026-01-24T23:54:30.953Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (2ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 131
+    }
+  },
+  {
+    "id": "mksyv63vdebha0cl8w",
+    "timestamp": "2026-01-24T23:54:30.955Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/user-review/605db90f-4691-4281-991e-b2e248e33915 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 478
+    }
+  },
+  {
+    "id": "mksyv65dr2h8kd0vptr",
+    "timestamp": "2026-01-24T23:54:31.009Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/b35fd6da-648e-4a59-b967-3199090db3f9/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv65fjvz0rso62",
+    "timestamp": "2026-01-24T23:54:31.011Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/b35fd6da-648e-4a59-b967-3199090db3f9/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (2ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 129
+    }
+  },
+  {
+    "id": "mksyv66743o7x4joo4b",
+    "timestamp": "2026-01-24T23:54:31.039Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/c64beca1-0bfe-4d9c-95e2-bebcabd53bb8/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyv669b6ciap1s0w4",
+    "timestamp": "2026-01-24T23:54:31.041Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/c64beca1-0bfe-4d9c-95e2-bebcabd53bb8/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (2ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 125
+    }
+  },
+  {
+    "id": "mksyva8n5r032rxcgwi",
+    "timestamp": "2026-01-24T23:54:36.311Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvac1jdjzmesqvbi",
+    "timestamp": "2026-01-24T23:54:36.433Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities 200 (122ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 122,
+      "responseBodySize": 49914
+    }
+  },
+  {
+    "id": "mksyvhdz0lkov5v9rpw",
+    "timestamp": "2026-01-24T23:54:45.575Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvhe3x2esjcsn5jg",
+    "timestamp": "2026-01-24T23:54:45.579Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 683
+    }
+  },
+  {
+    "id": "mksyvhfba6j2ap2japv",
+    "timestamp": "2026-01-24T23:54:45.623Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/messages/unread-count",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvhfeb38bybu73cv",
+    "timestamp": "2026-01-24T23:54:45.626Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/messages/unread-count 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 15
+    }
+  },
+  {
+    "id": "mksyvho1hj6jb7kufw6",
+    "timestamp": "2026-01-24T23:54:45.937Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/WizardJIOCb",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvho24p6cpdndwop",
+    "timestamp": "2026-01-24T23:54:45.938Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvho6mf54rws80f",
+    "timestamp": "2026-01-24T23:54:45.942Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/WizardJIOCb 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 697
+    }
+  },
+  {
+    "id": "mksyvho9wogw59842mm",
+    "timestamp": "2026-01-24T23:54:45.945Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups 200 (7ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 7,
+      "responseBodySize": 1142
+    }
+  },
+  {
+    "id": "mksyvhug20b6skcx59d",
+    "timestamp": "2026-01-24T23:54:46.168Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/shelves/with-books",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvhv4ryoz4zneewg",
+    "timestamp": "2026-01-24T23:54:46.192Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/shelves/with-books 200 (24ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 24,
+      "responseBodySize": 23803
+    }
+  },
+  {
+    "id": "mksyvi1o678ahawa36h",
+    "timestamp": "2026-01-24T23:54:46.428Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/3503e674-27b0-471f-af0f-c332ece8b7de/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvi1qcinqa55g7ll",
+    "timestamp": "2026-01-24T23:54:46.430Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915/statistics",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvi1tsegx4cto0sn",
+    "timestamp": "2026-01-24T23:54:46.433Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/3503e674-27b0-471f-af0f-c332ece8b7de/channels 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 910
+    }
+  },
+  {
+    "id": "mksyvi1u0lgnhlb0txqc",
+    "timestamp": "2026-01-24T23:54:46.434Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915/statistics 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 68
+    }
+  },
+  {
+    "id": "mksyvi6hwav00oa8x4c",
+    "timestamp": "2026-01-24T23:54:46.601Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/currently-reading",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvi6i6hykqylp86k",
+    "timestamp": "2026-01-24T23:54:46.602Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/b4912a73-d8e4-40cf-aebf-979fbf5112c3/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvi6mbiznx9ytd8b",
+    "timestamp": "2026-01-24T23:54:46.606Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/b4912a73-d8e4-40cf-aebf-979fbf5112c3/channels 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyvi8fjqsvbhzoal",
+    "timestamp": "2026-01-24T23:54:46.671Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/currently-reading 200 (70ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 70,
+      "responseBodySize": 14675
+    }
+  },
+  {
+    "id": "mksyvifdfm09rvpxhlt",
+    "timestamp": "2026-01-24T23:54:46.921Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/284b41f4-3937-4b91-835a-dd4fcdffce76/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyviffqh9eolt650d",
+    "timestamp": "2026-01-24T23:54:46.923Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/284b41f4-3937-4b91-835a-dd4fcdffce76/channels 200 (2ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyvilsxf7676p45b",
+    "timestamp": "2026-01-24T23:54:47.152Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyviltnyb5uy92rhp",
+    "timestamp": "2026-01-24T23:54:47.153Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/comments",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {
+        "limit": "1",
+        "offset": "0"
+      },
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvim7tmsgh31p2kq",
+    "timestamp": "2026-01-24T23:54:47.167Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/comments 200 (14ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 14,
+      "responseBodySize": 811
+    }
+  },
+  {
+    "id": "mksyviot69sqbkm5o0n",
+    "timestamp": "2026-01-24T23:54:47.261Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities 200 (109ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 109,
+      "responseBodySize": 49914
+    }
+  },
+  {
+    "id": "mksyviqx4nug4afmsg",
+    "timestamp": "2026-01-24T23:54:47.337Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyviqztcneb30asud",
+    "timestamp": "2026-01-24T23:54:47.339Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/aabc98df-4cf4-4c68-90dc-b7a70e4e3e40/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvir0sadx1rf592",
+    "timestamp": "2026-01-24T23:54:47.340Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvir21iemqq69ek1",
+    "timestamp": "2026-01-24T23:54:47.342Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915 200 (2ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 697
+    }
+  },
+  {
+    "id": "mksyvir3maz6t2qbk2h",
+    "timestamp": "2026-01-24T23:54:47.343Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/605db90f-4691-4281-991e-b2e248e33915 200 (6ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 6,
+      "responseBodySize": 467
+    }
+  },
+  {
+    "id": "mksyvir4pvc3se2xafk",
+    "timestamp": "2026-01-24T23:54:47.344Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/aabc98df-4cf4-4c68-90dc-b7a70e4e3e40/channels 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyviups25dcm3g87",
+    "timestamp": "2026-01-24T23:54:47.473Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/user-review/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyviusghhcb9wxga",
+    "timestamp": "2026-01-24T23:54:47.476Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/user-review/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 478
+    }
+  },
+  {
+    "id": "mksyvixpk3v3qmm4dts",
+    "timestamp": "2026-01-24T23:54:47.581Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvixrcxg22wtfk",
+    "timestamp": "2026-01-24T23:54:47.583Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (2ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 131
+    }
+  },
+  {
+    "id": "mksyvizv2947bop0vmx",
+    "timestamp": "2026-01-24T23:54:47.659Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvizwcge4fy1tx9e",
+    "timestamp": "2026-01-24T23:54:47.660Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/86e8d03e-c6d0-42c5-baf5-bcd3378e8cf7/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvizy6dhpxnitpmf",
+    "timestamp": "2026-01-24T23:54:47.662Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/b35fd6da-648e-4a59-b967-3199090db3f9/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvizzro169n2ti7q",
+    "timestamp": "2026-01-24T23:54:47.663Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/c64beca1-0bfe-4d9c-95e2-bebcabd53bb8/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyvj01ovqweprtwh",
+    "timestamp": "2026-01-24T23:54:47.665Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (6ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 6,
+      "responseBodySize": 131
+    }
+  },
+  {
+    "id": "mksyvj029yuxzt9pree",
+    "timestamp": "2026-01-24T23:54:47.666Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/86e8d03e-c6d0-42c5-baf5-bcd3378e8cf7/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (6ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 6,
+      "responseBodySize": 125
+    }
+  },
+  {
+    "id": "mksyvj02pqeezvkfr5s",
+    "timestamp": "2026-01-24T23:54:47.666Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/b35fd6da-648e-4a59-b967-3199090db3f9/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 129
+    }
+  },
+  {
+    "id": "mksyvj031xu5vrh7ok8",
+    "timestamp": "2026-01-24T23:54:47.667Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/c64beca1-0bfe-4d9c-95e2-bebcabd53bb8/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 125
+    }
+  },
+  {
+    "id": "mksyw6r3bqvdi6mur3n",
+    "timestamp": "2026-01-24T23:55:18.447Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw6rnas954x4ulzs",
+    "timestamp": "2026-01-24T23:55:18.467Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile 200 (20ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 20,
+      "responseBodySize": 683
+    }
+  },
+  {
+    "id": "mksyw715q89ssrguppb",
+    "timestamp": "2026-01-24T23:55:18.809Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/WizardJIOCb",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw7169lqfb431qjl",
+    "timestamp": "2026-01-24T23:55:18.810Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw71cut9thglhk5q",
+    "timestamp": "2026-01-24T23:55:18.816Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/WizardJIOCb 200 (7ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 7,
+      "responseBodySize": 697
+    }
+  },
+  {
+    "id": "mksyw71q1j2a05uq1lc",
+    "timestamp": "2026-01-24T23:55:18.830Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups 200 (20ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 20,
+      "responseBodySize": 1142
+    }
+  },
+  {
+    "id": "mksyw79g8xf2m2myp0q",
+    "timestamp": "2026-01-24T23:55:19.108Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/messages/unread-count",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw79kclm85e6ixw9",
+    "timestamp": "2026-01-24T23:55:19.112Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/messages/unread-count 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 15
+    }
+  },
+  {
+    "id": "mksyw79sp3xko47wfme",
+    "timestamp": "2026-01-24T23:55:19.120Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/shelves/with-books",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw7b6h48hvu17r8",
+    "timestamp": "2026-01-24T23:55:19.170Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/shelves/with-books 200 (50ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 50,
+      "responseBodySize": 23803
+    }
+  },
+  {
+    "id": "mksyw7iecnhxq9bildf",
+    "timestamp": "2026-01-24T23:55:19.430Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/3503e674-27b0-471f-af0f-c332ece8b7de/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw7ifgi9kis72b1g",
+    "timestamp": "2026-01-24T23:55:19.431Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915/statistics",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw7ii2zxq0p2pyym",
+    "timestamp": "2026-01-24T23:55:19.434Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/3503e674-27b0-471f-af0f-c332ece8b7de/channels 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 910
+    }
+  },
+  {
+    "id": "mksyw7ij4k5m79j9lmn",
+    "timestamp": "2026-01-24T23:55:19.435Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915/statistics 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 68
+    }
+  },
+  {
+    "id": "mksyw7of22f8u04yn25",
+    "timestamp": "2026-01-24T23:55:19.647Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/b4912a73-d8e4-40cf-aebf-979fbf5112c3/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw7oinn9qfjakwjl",
+    "timestamp": "2026-01-24T23:55:19.650Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/b4912a73-d8e4-40cf-aebf-979fbf5112c3/channels 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyw7x3yydzw9d4z6h",
+    "timestamp": "2026-01-24T23:55:19.959Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/currently-reading",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw7x4d8bg9btui8o",
+    "timestamp": "2026-01-24T23:55:19.960Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/284b41f4-3937-4b91-835a-dd4fcdffce76/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw7x7xxsj74097yr",
+    "timestamp": "2026-01-24T23:55:19.963Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/284b41f4-3937-4b91-835a-dd4fcdffce76/channels 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyw806h38rvxlot0q",
+    "timestamp": "2026-01-24T23:55:20.070Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/currently-reading 200 (111ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 111,
+      "responseBodySize": 14675
+    }
+  },
+  {
+    "id": "mksyw86214h4ocs8xr1",
+    "timestamp": "2026-01-24T23:55:20.282Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/groups/aabc98df-4cf4-4c68-90dc-b7a70e4e3e40/channels",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw865fn4kyalorm",
+    "timestamp": "2026-01-24T23:55:20.285Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/groups/aabc98df-4cf4-4c68-90dc-b7a70e4e3e40/channels 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 303
+    }
+  },
+  {
+    "id": "mksyw8e99lo641qtif8",
+    "timestamp": "2026-01-24T23:55:20.577Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8e9g7fw3o120kh",
+    "timestamp": "2026-01-24T23:55:20.577Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/comments",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {
+        "limit": "1",
+        "offset": "0"
+      },
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8el0ks50mdsb5tf",
+    "timestamp": "2026-01-24T23:55:20.589Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/comments 200 (12ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 12,
+      "responseBodySize": 811
+    }
+  },
+  {
+    "id": "mksyw8gzebxtkt793ij",
+    "timestamp": "2026-01-24T23:55:20.675Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/profile/605db90f-4691-4281-991e-b2e248e33915/activities 200 (98ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 98,
+      "responseBodySize": 49914
+    }
+  },
+  {
+    "id": "mksyw8jgrjkgbvq2hf",
+    "timestamp": "2026-01-24T23:55:20.764Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8jgxtjldx9tmjj",
+    "timestamp": "2026-01-24T23:55:20.764Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8jigi004dhhl74",
+    "timestamp": "2026-01-24T23:55:20.766Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/user-review/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8jkbdb7o2ktwi8",
+    "timestamp": "2026-01-24T23:55:20.768Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/users/605db90f-4691-4281-991e-b2e248e33915 200 (4ms)",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 697
+    }
+  },
+  {
+    "id": "mksyw8jmy84t0g3yq5b",
+    "timestamp": "2026-01-24T23:55:20.770Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/user-review/605db90f-4691-4281-991e-b2e248e33915 200 (6ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 6,
+      "responseBodySize": 467
+    }
+  },
+  {
+    "id": "mksyw8jncend2qh651v",
+    "timestamp": "2026-01-24T23:55:20.771Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/user-review/605db90f-4691-4281-991e-b2e248e33915 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 478
+    }
+  },
+  {
+    "id": "mksyw8nayzfkm3bx6k",
+    "timestamp": "2026-01-24T23:55:20.902Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8nc9549uwx1gwt",
+    "timestamp": "2026-01-24T23:55:20.904Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/7fc478fb-a828-43a8-b2b2-eae408f979ef/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 131
+    }
+  },
+  {
+    "id": "mksyw8pm2i5viwxpjjk",
+    "timestamp": "2026-01-24T23:55:20.986Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8povcl3spqeub",
+    "timestamp": "2026-01-24T23:55:20.988Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/cba2883e-a92f-4245-ae04-6f16d0c2bb36/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (2ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 2,
+      "responseBodySize": 131
+    }
+  },
+  {
+    "id": "mksyw8si2ree2fqs824",
+    "timestamp": "2026-01-24T23:55:21.090Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/86e8d03e-c6d0-42c5-baf5-bcd3378e8cf7/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8sj4234pbcpma6",
+    "timestamp": "2026-01-24T23:55:21.091Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/b35fd6da-648e-4a59-b967-3199090db3f9/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8skxnjdwybt9br",
+    "timestamp": "2026-01-24T23:55:21.092Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-request",
+    "message": "GET /api/books/c64beca1-0bfe-4d9c-95e2-bebcabd53bb8/reading-progress/605db90f-4691-4281-991e-b2e248e33915",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "metadata": {
+      "query": {},
+      "params": {},
+      "body": {}
+    }
+  },
+  {
+    "id": "mksyw8smlgf88zkhi5p",
+    "timestamp": "2026-01-24T23:55:21.094Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/86e8d03e-c6d0-42c5-baf5-bcd3378e8cf7/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (5ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 5,
+      "responseBodySize": 125
+    }
+  },
+  {
+    "id": "mksyw8snv1t6v9h5a1",
+    "timestamp": "2026-01-24T23:55:21.095Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/b35fd6da-648e-4a59-b967-3199090db3f9/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (4ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 4,
+      "responseBodySize": 129
+    }
+  },
+  {
+    "id": "mksyw8snzxgsfxsteur",
+    "timestamp": "2026-01-24T23:55:21.095Z",
+    "level": "info",
+    "source": "backend",
+    "module": "http-response",
+    "message": "GET /api/books/c64beca1-0bfe-4d9c-95e2-bebcabd53bb8/reading-progress/605db90f-4691-4281-991e-b2e248e33915 200 (3ms)",
+    "userId": "605db90f-4691-4281-991e-b2e248e33915",
+    "metadata": {
+      "statusCode": 200,
+      "duration": 3,
+      "responseBodySize": 125
     }
   }
 ]
