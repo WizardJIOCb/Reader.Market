@@ -250,7 +250,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
           {/* Tooltip with user list - clickable to show all reactions */}
           {hoveredReaction === reaction.emoji && reaction.count > 0 && (
             <div 
-              className="absolute bottom-full left-0 -mb-1 z-50 bg-popover border rounded-md shadow-lg min-w-[200px] max-w-xs pointer-events-auto pt-1 cursor-pointer hover:bg-popover/90 transition-colors"
+              className="absolute bottom-full left-0 -mb-1 z-50 bg-popover border rounded-md shadow-lg min-w-[200px] max-w-xs pointer-events-auto pt-1 cursor-pointer"
               onClick={() => handleReactionClick(reaction.emoji)}
               onMouseEnter={() => {
                 console.log('Mouse entered tooltip');
