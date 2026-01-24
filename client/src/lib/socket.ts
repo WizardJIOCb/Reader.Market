@@ -59,18 +59,17 @@ export function initializeSocket(token?: string): Socket {
 
   // Connection event handlers
   socketInstance.on('connect', () => {
-    console.log('%c[SOCKET.IO] ✅ WebSocket connected', 'color: green; font-weight: bold');
-    console.log('[SOCKET.IO] Socket ID:', socketInstance.id);
+    // Connection logging removed
     if (token) {
-      console.log('[SOCKET.IO] Connected to server with authentication, personal room should be auto-joined');
+      // Token handling removed
     } else {
-      console.log('[SOCKET.IO] Connected to server without authentication (guest mode)');
+      // Guest connection removed
     }
   });
 
   socketInstance.on('disconnect', (reason) => {
-    console.log('%c[SOCKET.IO] ❌ WebSocket disconnected', 'color: red; font-weight: bold');
-    console.log('[SOCKET.IO] Reason:', reason);
+    
+    
   });
 
   socketInstance.on('connect_error', (error) => {
@@ -174,9 +173,9 @@ export function stopBookChatTyping(bookId: string): void {
 }
 
 export function deleteBookChatMessage(bookId: string, messageId: string): void {
-  console.log('[SOCKET] deleteBookChatMessage called with:', { bookId, messageId, socketConnected: socket?.connected });
+  
   if (socket?.connected) {
-    console.log('[SOCKET] Emitting book-chat:delete-message', { bookId, messageId });
+    
     socket.emit('book-chat:delete-message', { bookId, messageId });
   } else {
     console.error('[SOCKET] Cannot delete message - socket not connected');

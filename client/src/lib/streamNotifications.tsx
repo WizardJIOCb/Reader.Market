@@ -128,7 +128,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
 
     // Handle incoming new activity events (comments, reviews, books, news)
     const handleNewActivity = (activity: any) => {
-      console.log('DEBUG: handleNewActivity received:', activity);
+      
       // Skip if notifications are disabled
       if (!getStreamNotificationsEnabled()) {
         return;
@@ -244,7 +244,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       }
 
       // Show toast notification matching Last Actions format
-      console.log('DEBUG: Showing toast - title:', title, 'description:', description);
+      
       toast({
         title: title,
         description: description,
@@ -254,7 +254,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
 
     // Handle incoming last action events
     const handleLastAction = (action: any) => {
-      console.log('DEBUG: handleLastAction received:', action);
+      
       // Skip if notifications are disabled
       if (!getStreamNotificationsEnabled()) {
         return;
@@ -284,7 +284,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       
       // Skip send_group_message - handled by MessageNotificationProvider
       if (action.action_type === 'send_group_message') {
-        console.log('DEBUG: Skipping send_group_message in StreamNotifications');
+        
         return;
       }
       
@@ -498,7 +498,7 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       }
 
       // Show toast notification matching Last Actions format
-      console.log('DEBUG: Showing toast - title:', title, 'description:', description);
+      
       toast({
         title: title,
         description: description,

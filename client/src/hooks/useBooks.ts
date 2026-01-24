@@ -233,7 +233,7 @@ export function useBook(bookId: string | undefined): UseBookReturn {
   const [error, setError] = useState<string | null>(null);
 
   const fetchBook = async () => {
-    console.log('Fetching book data for book ID:', bookId);
+    
     if (!bookId) {
       setLoading(false);
       return;
@@ -254,14 +254,14 @@ export function useBook(bookId: string | undefined): UseBookReturn {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Received book data:', data);
+        
         setBook(data);
         
         // Set reading progress from embedded data if available
         if (data.readingProgress) {
           // We could emit an event or use a callback to notify components
           // For now, just log it
-          console.log('Embedded reading progress found:', data.readingProgress);
+          
         }
       } else if (response.status === 404) {
         setError('Book not found');
@@ -278,7 +278,7 @@ export function useBook(bookId: string | undefined): UseBookReturn {
   };
 
   useEffect(() => {
-    console.log('useBook useEffect triggered with bookId:', bookId, 'user:', user);
+    
     fetchBook();
   }, [bookId, user]);
 

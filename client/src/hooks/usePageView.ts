@@ -15,7 +15,7 @@ export function usePageView(page: 'home' | 'stream' | 'search' | 'shelves' | 'me
       ? `http://localhost:5001/api/page-view/${page}`
       : `/api/page-view/${page}`;
 
-    console.log(`[PageView] Tracking page view: ${page}`);
+    
 
     // Make GET request to trigger middleware logging
     fetch(apiUrl, {
@@ -25,7 +25,7 @@ export function usePageView(page: 'home' | 'stream' | 'search' | 'shelves' | 'me
     })
       .then(response => {
         if (response.ok) {
-          console.log(`[PageView] Successfully logged ${page} view`);
+          
         } else {
           console.error(`[PageView] Failed to log ${page} view:`, response.status);
         }

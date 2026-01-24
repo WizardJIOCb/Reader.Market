@@ -210,7 +210,7 @@ const NewsDetailPage: React.FC = () => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('[NewsDetail] Reaction response:', result);
+        
         
         // Use aggregated reactions from server instead of local calculation
         if (result.reactions) {

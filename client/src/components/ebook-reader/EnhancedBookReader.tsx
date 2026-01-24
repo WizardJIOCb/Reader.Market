@@ -87,7 +87,7 @@ const EnhancedBookReader = forwardRef<EnhancedBookReaderRef, EnhancedBookReaderP
       if (!containerRef.current || readerInitialized.current) return;
       
       try {
-        console.log('Initializing reader with book:', bookUrl);
+        
         setIsLoading(true);
         setError(null);
         
@@ -107,7 +107,7 @@ const EnhancedBookReader = forwardRef<EnhancedBookReaderRef, EnhancedBookReaderP
         await readerService.initialize(bookUrl, containerRef.current);
         
         readerInitialized.current = true;
-        console.log('Reader initialized successfully');
+        
       } catch (err) {
         console.error('Failed to initialize reader:', err);
         setError(err instanceof Error ? err.message : 'Failed to load book');
@@ -133,7 +133,7 @@ const EnhancedBookReader = forwardRef<EnhancedBookReaderRef, EnhancedBookReaderP
     if (!readerInitialized.current) return;
 
     const handleReady = () => {
-      console.log('Reader is ready');
+      
       setIsLoading(false);
       
       // Navigate to initial location if provided
@@ -150,7 +150,7 @@ const EnhancedBookReader = forwardRef<EnhancedBookReaderRef, EnhancedBookReaderP
     };
 
     const handleRelocate = (location: any) => {
-      console.log('Location changed:', location);
+      
       onLocationChange?.(location);
       
       // Update progress

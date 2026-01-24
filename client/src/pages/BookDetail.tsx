@@ -159,7 +159,7 @@ export default function BookDetail() {
   // Make tab switch function available globally for comments section
   useEffect(() => {
     (window as any).switchToReviewsTab = () => {
-      console.log('Switching to reviews tab');
+      
       setActiveTab('reviews');
     };
     
