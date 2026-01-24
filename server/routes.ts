@@ -2716,6 +2716,27 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to get reactions" });
     }
   });
+  
+  // Get detailed reactions for a book (with user information)
+  app.get("/api/books/:id/reactions/detail", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if book exists
+      const book = await storage.getBook(id);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Get detailed reactions with user information
+      const reactions = await storage.getReactions(id, 'book');
+      
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get book reactions detail error:", error);
+      res.status(500).json({ error: "Failed to get reaction details" });
+    }
+  });
 
   // Upload book endpoint
   app.post("/api/books/upload", authenticateToken, upload.fields([{ name: 'bookFile' }, { name: 'coverImage' }]), async (req, res) => {
@@ -3363,6 +3384,21 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to toggle reaction" });
     }
   });
+  
+  // Get detailed reactions for a book comment
+  app.get("/api/comments/:commentId/reactions", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      
+      // Get detailed reactions with user information
+      const reactions = await storage.getReactions(commentId, 'comment');
+      
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get comment reactions error:", error);
+      res.status(500).json({ error: "Failed to get comment reactions" });
+    }
+  });
 
   // Admin: Delete any comment
   app.delete("/api/admin/comments/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
@@ -3878,6 +3914,21 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to toggle reaction" });
     }
   });
+  
+  // Get detailed reactions for a review
+  app.get("/api/reviews/:reviewId/reactions", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { reviewId } = req.params;
+      
+      // Get detailed reactions with user information
+      const reactions = await storage.getReactions(reviewId, 'review');
+      
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get review reactions error:", error);
+      res.status(500).json({ error: "Failed to get review reactions" });
+    }
+  });
 
   // Reactions endpoints
   // Create/toggle a reaction
@@ -3984,6 +4035,22 @@ export async function registerRoutes(
       res.json(reactionsWithUsers);
     } catch (error) {
       console.error("Get news reactions (admin) error:", error);
+      res.status(500).json({ error: "Failed to get news reactions" });
+    }
+  });
+  
+  // Get detailed reactions for a news article (public endpoint)
+  app.get("/api/news/:id/reactions", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get news reactions (public) endpoint called for news ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      
+      // Get reactions for this news article
+      const reactions = await storage.getReactionsForNews(id);
+      
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get news reactions (public) error:", error);
       res.status(500).json({ error: "Failed to get news reactions" });
     }
   });

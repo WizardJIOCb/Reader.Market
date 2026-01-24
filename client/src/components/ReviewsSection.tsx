@@ -12,6 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { dataCache, getCachedReviews, setCachedReviews, getPendingRequest, trackPendingRequest, isCachedDataStale } from '@/lib/dataCache';
+import { readerApi } from '@/lib/api';
+import { readingProgressCache } from '@/lib/readingProgressCache';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AttachmentButton } from '@/components/AttachmentButton';
 import { AttachmentPreview } from '@/components/AttachmentPreview';
@@ -123,6 +125,45 @@ export function ReviewItem({
   const isHighlighted = highlightedReviewId === review.id;
   const isReplyingToThis = replyingToId === review.id;
   const isOwnReview = user && review.userId === user.id;
+  
+  // Reading progress state
+  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(null);
+  
+  // Load reading progress for this user and book
+  useEffect(() => {
+    const loadReadingProgress = async () => {
+      if (review.userId && review.bookId) {
+        try {
+          // Try direct fetch first (like BookDetail page does)
+          const token = localStorage.getItem('authToken');
+          const response = await fetch(`/api/books/${review.bookId}/reading-progress/${review.userId}`, {
+            headers: token ? {
+              'Authorization': `Bearer ${token}`
+            } : {}
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data) {
+              // Only show progress if user has actually read something
+              if (data.percentage > 0) {
+                setReadingProgress({
+                  percentage: data.percentage,
+                  currentPage: data.currentPage,
+                  totalPages: data.totalPages
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load reading progress:', error);
+        }
+      }
+    };
+    
+    loadReadingProgress();
+  }, [review.userId, review.bookId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -170,6 +211,26 @@ export function ReviewItem({
                   profileRating={null}
                   showRating={true}
                 />
+                
+                {/* Reading progress indicator */}
+                {readingProgress && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full cursor-help">
+                          📖 {Math.round(readingProgress.percentage)}%
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="text-xs">
+                          <div>Прогресс чтения: {Math.round(readingProgress.percentage)}%</div>
+                          <div>Страница: {readingProgress.currentPage} из {readingProgress.totalPages}</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                
                 {review.parentReviewAuthor && review.parentReviewId && (
                   <button
                     onClick={() => onScrollToReview(review.parentReviewId!)}
@@ -279,6 +340,7 @@ export function ReviewItem({
               <ReactionBar
                 reactions={review.reactions || []}
                 onReact={(emoji) => onReaction(review.id, emoji)}
+                reviewId={review.id}
               />
             </div>
 

@@ -137,20 +137,26 @@ export function CommentItem({
     const loadReadingProgress = async () => {
       if (comment.userId && comment.bookId) {
         try {
-          const data = await readingProgressCache.getUserProgress(
-            comment.bookId!, 
-            comment.userId!, 
-            () => readerApi.getUserProgress(comment.bookId!, comment.userId!)
-          );
+          // Try direct fetch first (like BookDetail page does)
+          const token = localStorage.getItem('authToken');
+          const response = await fetch(`/api/books/${comment.bookId}/reading-progress/${comment.userId}`, {
+            headers: token ? {
+              'Authorization': `Bearer ${token}`
+            } : {}
+          });
           
-          if (data) {
-            // Only show progress if user has actually read something
-            if (data.percentage > 0) {
-              setReadingProgress({
-                percentage: data.percentage,
-                currentPage: data.currentPage,
-                totalPages: data.totalPages
-              });
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data) {
+              // Only show progress if user has actually read something
+              if (data.percentage > 0) {
+                setReadingProgress({
+                  percentage: data.percentage,
+                  currentPage: data.currentPage,
+                  totalPages: data.totalPages
+                });
+              }
             }
           }
         } catch (error) {
@@ -526,6 +532,7 @@ export function CommentItem({
               <ReactionBar
                 reactions={comment.reactions || []}
                 onReact={(emoji) => onReaction(comment.id, emoji)}
+                commentId={comment.id}
               />
             </div>
 

@@ -432,6 +432,7 @@ const NewsDetailPage: React.FC = () => {
               <ReactionBar 
                 reactions={reactions}
                 onReact={handleReact}
+                newsId={id}
               />
             </div>
           </CardContent>
@@ -591,6 +592,7 @@ const NewsDetailPage: React.FC = () => {
                           <ReactionBar 
                             reactions={comment.reactions || []}
                             onReact={(emoji) => handleCommentReact(comment.id, emoji)}
+                            commentId={comment.id}
                           />
                         </div>
                       </div>
