@@ -156,58 +156,32 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       }
       
       const loadBatchProgress = async () => {
-        console.log('=== BATCH PROGRESS LOAD START ===');
-        console.log('Activities count:', activities.length);
-        console.log('Already loaded keys:', Object.keys(progressMap));
-        console.log('Currently loading keys:', Array.from(loadingKeys));
-        console.log('Previously requested keys:', Array.from(requestedKeys));
-        
-        // Collect unique book-user pairs that need progress data
-        const progressRequests: {bookId: string, userId: string}[] = [];
+        // Collect all unique book-user combinations that need progress data
+        const progressRequests: Array<{bookId: string, userId: string}> = [];
         const newLoadingKeys = new Set(loadingKeys);
         const newRequestedKeys = new Set(requestedKeys);
         
         activities.forEach(activity => {
-          if ((activity.type === 'comment' || activity.type === 'review') && 
-              activity.userId && 
-              (activity as any).bookId &&
-              // Only if progress isn't already in metadata or cache
-              !activity.metadata?.readingProgress) {
-            const bookId = (activity as any).bookId || activity.metadata?.book_id;
-            const userId = activity.userId;
+          const bookId = (activity as any).bookId || activity.metadata?.book_id;
+          const userId = activity.userId;
+          
+          if (bookId && userId) {
             const key = `${bookId}-${userId}`;
-            
-            // Avoid duplicates and check if already loaded, loading, or requested
-            if (!progressRequests.some(req => req.bookId === bookId && req.userId === userId) &&
-                !progressMap[key] && 
-                !loadingKeys.has(key) &&
-                !requestedKeys.has(key)) { // Only if not already requested
+            // Only add if not already loaded, not loading, and not previously requested
+            if (!progressMap[key] && !loadingKeys.has(key) && !requestedKeys.has(key)) {
               progressRequests.push({ bookId, userId });
               newLoadingKeys.add(key);
-              newRequestedKeys.add(key); // Mark as requested immediately
-              console.log('Adding request for:', key);
-            } else {
-              console.log('Skipping duplicate request for:', key);
-              console.log('  Already loaded:', !!progressMap[key]);
-              console.log('  Currently loading:', loadingKeys.has(key));
-              console.log('  Previously requested:', requestedKeys.has(key));
+              newRequestedKeys.add(key);
             }
           }
         });
         
-        console.log('Total requests to make:', progressRequests.length);
-        console.log('Request list:', progressRequests);
+        // Update loading state immediately
+        setLoadingKeys(newLoadingKeys);
+        setRequestedKeys(newRequestedKeys);
         
-        // Update states
-        if (progressRequests.length > 0) {
-          setLoadingKeys(newLoadingKeys);
-          setRequestedKeys(newRequestedKeys);
-        }
-        
-        // If no new requests needed, exit early
+        // If no new requests, exit early
         if (progressRequests.length === 0) {
-          console.log('No new requests needed, exiting');
-          console.log('=== BATCH PROGRESS LOAD END ===\n');
           return;
         }
         
