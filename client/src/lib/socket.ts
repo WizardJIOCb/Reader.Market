@@ -59,12 +59,11 @@ export function initializeSocket(token?: string): Socket {
 
   // Connection event handlers
   socketInstance.on('connect', () => {
-    
-    
+    // Connection logging removed
     if (token) {
-      
+      // Token handling removed
     } else {
-      ');
+      // Guest connection removed
     }
   });
 
