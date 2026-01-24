@@ -49,11 +49,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
         const data = await response.json();
         
         if (data.length > 0) {
-          
-          
-          ,
-            contentEn: data[0].contentEn?.substring(0, 50)
-          });
+          // Debug logs removed
         }
         
         const newsToDisplay = limit ? data.slice(0, limit) : data;

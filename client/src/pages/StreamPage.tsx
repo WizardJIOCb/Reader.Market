@@ -267,11 +267,9 @@ export default function StreamPage() {
     const joinRooms = () => {
       // ALWAYS join global room - we need to receive all global activities
       // regardless of which tab is active
-      ');
       socket.emit('join:stream:global');
       
       // ALWAYS join last-actions room - we need to receive all last actions
-      ');
       socket.emit('join:stream:last-actions');
       
       // Join tab-specific rooms based on active tab
