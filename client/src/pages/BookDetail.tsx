@@ -175,60 +175,39 @@ export default function BookDetail() {
   
   // Function to fetch comments and reviews
   const fetchCommentsAndReviews = async () => {
-    console.log('=== FETCH COMMENTS AND REVIEWS CALLED ===');
-    console.log('Book ID in fetch function:', bookId);
-    
-    if (!bookId) {
-      console.log('No bookId in fetch function, returning');
-      return;
-    }
+    if (!bookId) return;
     
     try {
-      console.log('Starting fetchCommentsAndReviews execution');
       const token = localStorage.getItem('authToken');
-      console.log('Token in fetch function:', !!token);
-      
       if (!token) {
-        console.log('No token, throwing error');
         throw new Error('No authentication token found');
       }
       
       // Fetch comments
-      console.log('Making comments request');
       const commentsResponse = await fetch(`/api/books/${bookId}/comments`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
-      console.log('Comments response status:', commentsResponse.status);
-      
       if (commentsResponse.ok) {
         const commentsData = await commentsResponse.json();
-        console.log('Setting comments data, count:', commentsData.length);
         setBookComments(commentsData);
       }
       
       // Fetch reviews
-      console.log('Making reviews request');
       const reviewsResponse = await fetch(`/api/books/${bookId}/reviews`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
-      console.log('Reviews response status:', reviewsResponse.status);
-      
       if (reviewsResponse.ok) {
         const reviewsData = await reviewsResponse.json();
-        console.log('Setting reviews data, count:', reviewsData.length);
         setBookReviews(reviewsData);
       }
-      
-      console.log('fetchCommentsAndReviews completed successfully');
     } catch (err) {
-      console.error('Error in fetchCommentsAndReviews:', err);
-      throw err; // Re-throw to be caught by caller
+      console.error('Error fetching comments and reviews:', err);
     }
   };
   
@@ -271,22 +250,13 @@ export default function BookDetail() {
   
   // Fetch book data and comments/reviews
   useEffect(() => {
-    console.log('=== BOOK DETAIL EFFECT TRIGGERED ===');
-    console.log('Book ID:', bookId);
-    console.log('User:', user?.id);
-    console.log('Is fetching:', isFetchingRef.current.has(bookId));
-    console.log('Progress fetch in progress:', progressFetchInProgressRef.current.has(bookId));
-    console.log('View tracked:', viewTrackedRef.current.has(bookId));
-    
     // Prevent duplicate effects from running
     if (!bookId) {
-      console.log('No bookId, skipping effect');
       return;
     }
     
     // Special handling: if no user, don't block future executions
     if (!user) {
-      console.log('No user authenticated, allowing future execution when user loads');
       // Remove book from fetching set to allow re-execution when user loads
       isFetchingRef.current.delete(bookId);
       return;
@@ -294,75 +264,55 @@ export default function BookDetail() {
     
     // For authenticated users, use user+book combination tracking
     const userBookKey = `${bookId}-${user.id}`;
-    console.log('Effect already run for user+book:', effectRunRef.current.has(userBookKey));
     
     if (effectRunRef.current.has(userBookKey)) {
-      console.log('Effect already run for this user+book combination, skipping');
       return;
     }
     
     if (isFetchingRef.current.has(bookId)) {
-      console.log('Already fetching this book, skipping effect');
       return;
     }
     
     // Additional check for React Strict Mode and duplicate progress requests
     if (progressFetchInProgressRef.current.has(bookId)) {
-      console.log('Progress fetch already in progress, skipping effect');
       return;
     }
     
     // Mark that we're now fetching this book for this user
     isFetchingRef.current.add(bookId);
     effectRunRef.current.add(userBookKey);
-    console.log('Marked book as fetching for user key:', userBookKey);
     
     const fetchBookData = async () => {
-      console.log('=== FETCH BOOK DATA STARTED ===');
-      console.log('Book ID:', bookId);
-      console.log('User ID:', user?.id);
-      
-      if (!bookId) {
-        console.log('No bookId, returning');
-        return;
-      }
+      if (!bookId) return;
       
       try {
         // Skip tracking if already tracked for this bookId to prevent double counting in React Strict Mode
         if (viewTrackedRef.current.has(bookId)) {
           // Just fetch the data without tracking
           try {
-            console.log('Starting data fetch for tracked book');
             setLoading(true);
             const token = localStorage.getItem('authToken');
-            console.log('Token exists:', !!token);
             
             // Fetch book data
-            console.log('Making book data request');
             const bookResponse = await fetch(`/api/books/${bookId}`, {
               headers: token ? {
                 'Authorization': `Bearer ${token}`,
               } : {},
             });
             
-            console.log('Book response status:', bookResponse.status);
-            
             if (!bookResponse.ok) {
               throw new Error('Failed to fetch book data');
             }
             
             const bookData = await bookResponse.json();
-            console.log('Book data received:', bookData.title);
             setBook(bookData);
             setLocalReactions(bookData.reactions || []); // Set reactions from book data
             
             // Use embedded reading progress if available, otherwise fetch separately
             if (bookData.readingProgress) {
-              console.log('Using embedded reading progress');
               setReadingProgress(bookData.readingProgress);
             } else if (token && !progressFetchInProgressRef.current.has(bookId)) {
               // Prevent duplicate progress requests
-              console.log('Starting progress fetch for book:', bookId);
               progressFetchInProgressRef.current.add(bookId);
               try {
                 const progressResponse = await fetch(`/api/books/${bookId}/reading-progress`, {
@@ -371,30 +321,24 @@ export default function BookDetail() {
                   }
                 });
                 
-                console.log('Progress fetch response status:', progressResponse.status);
-                
                 if (progressResponse.ok) {
                   const progressData = await progressResponse.json();
                   // Only set progress if there's actual reading progress (percentage > 0)
                   if (progressData.percentage > 0) {
                     setReadingProgress(progressData);
-                    console.log('Progress set:', progressData);
                   }
                 }
               } catch (error) {
                 console.error('Error fetching reading progress:', error);
               } finally {
-                console.log('Removing progress fetch from in-progress set for book:', bookId);
                 progressFetchInProgressRef.current.delete(bookId);
               }
             } else if (token) {
-              console.log('Skipping progress fetch - already in progress for book:', bookId);
+              // Skipping progress fetch - already in progress
             }
             
             // Fetch comments and reviews in a single call
-            console.log('About to fetch comments and reviews');
             await fetchCommentsAndReviews();
-            console.log('Comments and reviews fetched successfully');
           } catch (err) {
             console.error('Error fetching book data:', err);
             setError(err instanceof Error ? err.message : 'Failed to load book');
@@ -404,7 +348,6 @@ export default function BookDetail() {
               variant: "destructive",
             });
           } finally {
-            console.log('Setting loading to false');
             setLoading(false);
             // Remove from fetching set when complete
             isFetchingRef.current.delete(bookId);

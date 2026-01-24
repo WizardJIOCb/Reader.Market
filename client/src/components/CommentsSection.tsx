@@ -169,13 +169,13 @@ export function CommentItem({
             if (data.ok) {
               const progressData = await data.json();
               
-              if (data) {
+              if (progressData) {
                 // Only show progress if user has actually read something
-                if (data.percentage > 0) {
+                if (progressData.percentage > 0) {
                   setReadingProgress({
-                    percentage: parseFloat(data.percentage),
-                    currentPage: data.current_page || data.currentPage,
-                    totalPages: data.total_pages || data.totalPages
+                    percentage: parseFloat(progressData.percentage),
+                    currentPage: progressData.current_page || progressData.currentPage,
+                    totalPages: progressData.total_pages || progressData.totalPages
                   });
                 }
               }
@@ -387,7 +387,7 @@ export function CommentItem({
                                 }
                                 
                                 if (reviewElement) {
-                                  console.log('Found review element, scrolling to:', reviewElement);
+                                  
                                   reviewElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                   // Highlight the review with service colors - warm orange/beige highlighting
                                   reviewElement.classList.add(
@@ -411,7 +411,7 @@ export function CommentItem({
                                     );
                                   }, 3000);
                                 } else {
-                                  console.log('Could not find review element for user:', comment.userId);
+                                  
                                   // Fallback: just scroll to top of reviews section and highlight it
                                   const reviewsSection = document.querySelector('#reviews-section, [data-tab="reviews"]');
                                   if (reviewsSection) {
@@ -556,9 +556,9 @@ export function CommentItem({
               <ReactionBar
                 reactions={comment.reactions || []}
                 onReact={(emoji) => {
-                  console.log('=== ReactionBar onReact called ===');
-                  console.log('Comment ID:', comment.id);
-                  console.log('Emoji:', emoji);
+                  
+                  
+                  
                   onReaction(comment.id, emoji);
                 }}
                 commentId={comment.id}

@@ -393,7 +393,7 @@ export function LogAnalytics() {
                       const newFilters = {...filters, ...preset.filters};
                       if (preset.hours) {
                         // For recent activity, we'd need to add date filtering
-                        console.log(`Would filter last ${preset.hours} hours`);
+                        
                       }
                       setFilters(newFilters);
                       searchLogs(newFilters);

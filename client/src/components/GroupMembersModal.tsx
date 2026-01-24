@@ -98,7 +98,7 @@ export function GroupMembersModal({ groupId, isOpen, onClose, userRole, currentU
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Members data:', data);
+        
         setMembers(data.members || []);
         if (data.pagination) {
           setPagination(data.pagination);
@@ -157,7 +157,7 @@ export function GroupMembersModal({ groupId, isOpen, onClose, userRole, currentU
         ? `http://localhost:5001/api/groups/${groupId}/members`
         : `/api/groups/${groupId}/members`;
 
-      console.log('Adding member with userId:', userId);
+      
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {

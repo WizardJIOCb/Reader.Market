@@ -125,15 +125,15 @@ export function CommentItem({
   
   // Log whether we're using metadata or not showing reading progress
   useEffect(() => {
-    console.log('[ProfileRatingsSection] Comment object received:', comment);
-    console.log('[ProfileRatingsSection] Comment metadata:', comment.metadata);
-    console.log('[ProfileRatingsSection] Comment metadata.readingProgress:', comment.metadata?.readingProgress);
+    
+    
+    
     
     if (comment.metadata?.readingProgress) {
-      console.log(`[ProfileRatingsSection] Using reading progress from metadata for comment ${comment.id}:`, comment.metadata.readingProgress);
+      
       setReadingProgress(comment.metadata.readingProgress);
     } else {
-      console.log(`[ProfileRatingsSection] No reading progress data available for comment ${comment.id}`);
+      
     }
   }, [comment.id, comment.metadata?.readingProgress]);
 

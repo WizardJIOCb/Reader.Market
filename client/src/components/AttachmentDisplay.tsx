@@ -212,7 +212,7 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
   const handleDownload = async (attachment: Attachment) => {
     try {
       const fullUrl = getFileUrl(attachment.url);
-      console.log('📥 [AttachmentDisplay] Downloading file:', fullUrl);
+      
       
       const response = await fetch(fullUrl, {
         headers: {
@@ -234,7 +234,7 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      console.log('✅ [AttachmentDisplay] Download completed:', attachment.filename);
+      
     } catch (error) {
       console.error('❌ Download failed:', error);
     }

@@ -26,7 +26,7 @@ export function Navbar() {
   
   // Debug logging
   useEffect(() => {
-    console.log('%c[NAVBAR] User state:', 'color: yellow', { user: !!user, isLoading, userId: user?.id });
+    
   }, [user, isLoading]);
 
   // Helper function to check if a route is active
@@ -66,7 +66,7 @@ export function Navbar() {
     
     // Listen for real-time unread count updates via WebSocket
     const cleanupUnreadUpdate = onSocketEvent('unread-count:update', (data) => {
-      console.log('%c[UNREAD COUNT] Received WebSocket update:', 'color: purple; font-weight: bold', data);
+      
       setUnreadCount(data.count);
     });
     

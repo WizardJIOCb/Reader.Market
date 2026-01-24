@@ -137,19 +137,6 @@ export function ReviewItem({
   // Use reading progress from API data if available, otherwise load it
   const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(review.metadata?.readingProgress || null);
   
-  // Log whether we're using metadata or making API calls
-  useEffect(() => {
-    console.log(`[ReviewsSection] Review ${review.id} metadata:`, review.metadata);
-    console.log(`[ReviewsSection] Review ${review.id} readingProgress:`, review.metadata?.readingProgress);
-    console.log(`[ReviewsSection] Review ${review.id} condition result:`, review.metadata?.readingProgress === undefined);
-    
-    if (review.metadata?.readingProgress) {
-      console.log(`[ReviewsSection] Using reading progress from metadata for review ${review.id}:`, review.metadata.readingProgress);
-    } else if (review.userId && review.bookId) {
-      console.log(`[ReviewsSection] Will fetch reading progress from API for review ${review.id}`);
-    }
-  }, [review.id, review.metadata?.readingProgress, review.userId, review.bookId]);
-  
   // Load reading progress for this user and book (fallback if not in API data)
   useEffect(() => {
     // Only load from API if readingProgress wasn't provided in the review data

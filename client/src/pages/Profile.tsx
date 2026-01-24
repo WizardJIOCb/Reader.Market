@@ -260,21 +260,21 @@ export default function Profile() {
   // Listen for popstate events (browser back/forward buttons)
   useEffect(() => {
     const handlePopState = () => {
-      console.log('[Profile] PopState event detected - back/forward navigation');
+      
       setNavigationSource('back'); // Assume back navigation (could be forward too, but we only care about preventing redirect)
       
       // Also set history state to track back navigation
       try {
         const newState = { ...window.history.state, navigationSource: 'back' };
         window.history.replaceState(newState, '', window.location.href);
-        console.log('[Profile] Set history state for back navigation tracking');
+        
       } catch (e) {
         console.warn('[Profile] Could not set history state:', e);
       }
       
       // Reset after a much longer delay to ensure redirect effect has ample time to check the state
       setTimeout(() => {
-        console.log('[Profile] Resetting navigation source');
+        
         setNavigationSource(null);
         
         // Also clear history state
@@ -296,49 +296,49 @@ export default function Profile() {
   // But don't redirect when navigating backwards through browser history
   useEffect(() => {
     if (!userId && currentUser?.username) {
-      console.log('[Profile Redirect] No userId provided, current user:', currentUser.username);
-      console.log('[Profile Redirect] Current URL:', window.location.href);
-      console.log('[Profile Redirect] Navigation source:', navigationSource);
+      
+      
+      
       
       // Check if we came from /users page - if so, don't redirect
       const referrer = document.referrer;
       const isFromUsersPage = referrer.includes('/users');
-      console.log('[Profile Redirect] Referrer:', referrer, 'Is from users page:', isFromUsersPage);
+      
       
       // Specific check for coming from book page
       const isFromBookPage = referrer.includes('/book/');
-      console.log('[Profile Redirect] Is from book page:', isFromBookPage);
+      
       
       // Check if this is a backward navigation (browser back button)
       const isBackNavigation = navigationSource === 'back';
-      console.log('[Profile Redirect] Is back navigation:', isBackNavigation);
+      
       
       // Additional check: if referrer contains the current hostname but not profile, likely back navigation
       const isLikelyBackNav = referrer.includes(window.location.hostname) && 
                              !referrer.includes('/profile/') &&
                              referrer !== '';
-      console.log('[Profile Redirect] Is likely back navigation:', isLikelyBackNav);
+      
       
       // Check browser history state for back navigation indicators
       const isHistoryBack = window.history.state?.navigationSource === 'back';
-      console.log('[Profile Redirect] Is history back:', isHistoryBack);
+      
       
       // Strong back navigation detection - if ANY back signal is present, prevent redirect
       const hasBackNavigationSignal = isBackNavigation || isLikelyBackNav || isHistoryBack;
-      console.log('[Profile Redirect] Has back navigation signal:', hasBackNavigationSignal);
+      
       
       // Explicit check: if coming from book page, definitely prevent redirect (this is the main use case)
       const shouldRedirect = !isFromUsersPage && !isFromBookPage && !hasBackNavigationSignal;
       
-      console.log('[Profile Redirect] Should redirect:', shouldRedirect);
+      
       
       // Add a small delay to allow popstate event to fire first
       const redirectTimer = setTimeout(() => {
         if (shouldRedirect) {
-          console.log('[Profile Redirect] Redirecting to own profile');
+          
           setLocation(`/profile/${currentUser.username}`, { replace: true });
         } else {
-          console.log('[Profile Redirect] Not redirecting - navigation detected');
+          
         }
       }, 50);
       
@@ -353,32 +353,30 @@ export default function Profile() {
   // Sync selectedLanguage with current user's language preference
   useEffect(() => {
     if (currentUser?.language) {
-      console.log('Profile: Syncing selectedLanguage with currentUser.language:', currentUser.language);
+      
       setSelectedLanguage(currentUser.language);
       // Also ensure i18n is in sync
       if (i18n.language !== currentUser.language) {
-        console.log('Profile: i18n language mismatch, updating from', i18n.language, 'to', currentUser.language);
+        
         i18n.changeLanguage(currentUser.language);
       }
     } else {
       // If user has no language preference, sync with current i18n language
-      console.log('Profile: No user language preference, using i18n language:', i18n.language);
+      
       setSelectedLanguage(i18n.language);
     }
   }, [currentUser, i18n]);
 
   const handleLanguageChange = async (newLanguage: string) => {
     try {
-      console.log('Language change requested:', newLanguage);
-      console.log('Current i18n language:', i18n.language);
+      
+      
       
       setSelectedLanguage(newLanguage);
       
       // Update UI language immediately and wait for it to complete
       // This also updates localStorage 'i18nextLng' automatically
       await i18n.changeLanguage(newLanguage);
-      console.log('i18n language changed to:', i18n.language);
-      console.log('localStorage i18nextLng:', localStorage.getItem('i18nextLng'));
       
       // Force a small delay to ensure all components have time to re-render
       // This helps with components that might be slow to subscribe to language changes
@@ -392,8 +390,6 @@ export default function Profile() {
           ? 'http://localhost:5001/api/profile/language'
           : '/api/profile/language';
         
-        console.log('Saving language to backend:', apiUrl);
-        
         const response = await fetch(apiUrl, {
           method: 'PUT',
           headers: {
@@ -402,9 +398,6 @@ export default function Profile() {
           },
           body: JSON.stringify({ language: newLanguage })
         });
-        
-        console.log('Backend response status:', response.status);
-        console.log('Backend response headers:', response.headers.get('content-type'));
         
         // Check response content type to detect HTML responses
         const contentType = response.headers.get('content-type');
@@ -415,7 +408,6 @@ export default function Profile() {
         
         if (response.ok) {
           const data = await response.json();
-          console.log('Backend response data:', data);
           
           // Update local storage with new user data
           localStorage.setItem('userData', JSON.stringify(data.user));
@@ -429,7 +421,6 @@ export default function Profile() {
           // Ensure i18nextLng is in sync with user preference
           // This is critical for page reloads
           localStorage.setItem('i18nextLng', newLanguage);
-          console.log('Synchronized i18nextLng with user preference:', newLanguage);
           
           toast({
             title: t('notifications:success.languageUpdated'),
@@ -441,7 +432,7 @@ export default function Profile() {
           throw new Error(errorData.error || 'Failed to update language preference');
         }
       } else {
-        console.log('Not saving to backend - not own profile or not authenticated');
+        
       }
     } catch (error) {
       console.error('Language update error:', error);
@@ -452,7 +443,7 @@ export default function Profile() {
       });
       // Revert language on error
       const previousLanguage = i18n.language;
-      console.log('Reverting to previous language:', previousLanguage);
+      
       await i18n.changeLanguage(previousLanguage);
       setSelectedLanguage(previousLanguage);
     }

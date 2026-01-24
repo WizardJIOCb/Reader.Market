@@ -27,44 +27,40 @@ export function MessageNotificationProvider({
   const currentChannelRef = useRef<string | null>(null);
 
   useEffect(() => {
-    console.log('%c[MESSAGE NOTIFICATION] Provider useEffect triggered', 'color: green; font-weight: bold');
-    console.log('%c[MESSAGE NOTIFICATION] Current user ID:', 'color: green', currentUserId);
-    console.log('%c[MESSAGE NOTIFICATION] Current user ID type:', 'color: green', typeof currentUserId);
+    
+    
+    
     
     // Early return if no user ID
     if (!currentUserId) {
-      console.log('%c[MESSAGE NOTIFICATION] ❌ No current user ID, exiting useEffect', 'color: red');
+      
       return;
     }
 
-    console.log('%c[MESSAGE NOTIFICATION] ✅ User authenticated, setting up listeners', 'color: green');
+    
     
     // Check if we're currently on the messages page
-    console.log('%c[MESSAGE NOTIFICATION] Location data:', 'color: green', location);
-    console.log('%c[MESSAGE NOTIFICATION] Location type:', 'color: green', typeof location);
+    
+    
     const currentPath = typeof location === 'string' ? location : location[0];
     const isOnMessagesPage = currentPath === '/messages';
-    console.log('%c[MESSAGE NOTIFICATION] Current path:', 'color: green', currentPath);
-    console.log('%c[MESSAGE NOTIFICATION] isOnMessagesPage:', 'color: green', isOnMessagesPage);
+    
+    
     
     // Verify socket is connected
     const socket = getSocket();
-    console.log('%c[MESSAGE NOTIFICATION] Socket status:', 'color: green', {
-      socketExists: !!socket,
-      connected: socket?.connected,
-      id: socket?.id
-    });
+    
     
     let cleanupFunction: (() => void) | null | undefined = null;
     
     // If socket doesn't exist yet, wait for it
     if (!socket) {
-      console.log('%c[MESSAGE NOTIFICATION] ⏳ Socket not available yet, waiting for initialization...', 'color: orange');
+      
       const checkSocketInterval = setInterval(() => {
         const newSocket = getSocket();
-        console.log('%c[MESSAGE NOTIFICATION] Checking for socket... Found:', 'color: orange', !!newSocket);
+        
         if (newSocket) {
-          console.log('%c[MESSAGE NOTIFICATION] ✅ Socket initialized, proceeding with setup', 'color: green');
+          
           clearInterval(checkSocketInterval);
           cleanupFunction = setupListeners(newSocket);
         }
@@ -72,7 +68,7 @@ export function MessageNotificationProvider({
       
       // DON'T cleanup interval - let it persist
       // return () => {
-      //   console.log('%c[MESSAGE NOTIFICATION] 🧹 useEffect cleanup called - clearing interval only', 'color: yellow; font-weight: bold');
+      //   
       //   clearInterval(checkSocketInterval);
       // };
     }
@@ -81,7 +77,7 @@ export function MessageNotificationProvider({
     const handleRouteChange = () => {
       const currentPath = typeof location === 'string' ? location : location[0];
       if (currentPath !== '/messages' && currentGroupRef.current !== null) {
-        console.log('%c[MESSAGE NOTIFICATION] 🔄 Route changed, resetting group ref', 'color: orange');
+        
         currentGroupRef.current = null;
         currentChannelRef.current = null;
       }
@@ -98,37 +94,37 @@ export function MessageNotificationProvider({
       const { groupId, channelId } = event.detail;
       currentGroupRef.current = groupId;
       currentChannelRef.current = channelId;
-      console.log('%c[MESSAGE NOTIFICATION] 🔁 Current group/channel updated:', 'color: cyan');
-      console.log('%c[MESSAGE NOTIFICATION]   Group ID:', 'color: cyan', groupId);
-      console.log('%c[MESSAGE NOTIFICATION]   Channel ID:', 'color: cyan', channelId);
-      console.log('%c[MESSAGE NOTIFICATION]   Stored group ref:', 'color: cyan', currentGroupRef.current);
+      
+      
+      
+      
     };
     
     window.addEventListener('current-group-update', handleCurrentGroupUpdate as EventListener);
     
     // Log initial state
-    console.log('%c[MESSAGE NOTIFICATION] 🔍 Initial group ref state:', 'color: purple');
-    console.log('%c[MESSAGE NOTIFICATION]   Current group:', 'color: purple', currentGroupRef.current);
-    console.log('%c[MESSAGE NOTIFICATION]   Current channel:', 'color: purple', currentChannelRef.current);
+    
+    
+    
     
     // Socket exists, proceed with setup
     cleanupFunction = setupListeners(socket);
     
     function setupListeners(sock: any) {
-      console.log('%c[MESSAGE NOTIFICATION] setupListeners called with socket:', 'color: magenta', sock?.id);
+      
       
       // Skip if listeners already registered
       if (listenersRegisteredRef.current) {
-        console.log('%c[MESSAGE NOTIFICATION] ⚠️ Listeners already registered, skipping', 'color: orange');
+        
         return () => {}; // Return empty cleanup
       }
       
-      console.log('%c[MESSAGE NOTIFICATION] ✅ Registering listeners for the first time', 'color: green');
+      
       listenersRegisteredRef.current = true;
       // Fetch user's groups and join channel rooms
       const joinGroupChannels = async () => {
         try {
-          console.log('%c[MESSAGE NOTIFICATION] Fetching user groups...', 'color: blue');
+          
           const response = await fetch('/api/groups', {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -137,7 +133,7 @@ export function MessageNotificationProvider({
           
           if (response.ok) {
             const groups = await response.json();
-            console.log('%c[MESSAGE NOTIFICATION] User groups:', 'color: blue', groups);
+            
             
             // Store groups for lookup
             groupsRef.current = groups;
@@ -153,7 +149,7 @@ export function MessageNotificationProvider({
                 
                 if (channelsResponse.ok) {
                   const channels = await channelsResponse.json();
-                  console.log(`%c[MESSAGE NOTIFICATION] Channels for group ${group.name}:`, 'color: blue', channels);
+                  
                   
                   // Store channels for lookup
                   channelsRef.current = [...channelsRef.current, ...channels];
@@ -162,17 +158,17 @@ export function MessageNotificationProvider({
                   channels.forEach((channel: any) => {
                     if (sock) {
                       sock.emit('join:channel', channel.id);
-                      console.log('%c[MESSAGE NOTIFICATION] 🚪 Sent join:channel for:', 'color: cyan', channel.id);
+                      
                       
                       // Also join group room
                       sock.emit('join_room', `group_${group.id}`);
-                      console.log('%c[MESSAGE NOTIFICATION] 🚪 Sent join_room for group:', 'color: cyan', `group_${group.id}`);
+                      
                       
                       // Check current rooms after delay
                       setTimeout(() => {
                         sock.emit('get_rooms', (rooms: string[]) => {
-                          console.log('%c[MESSAGE NOTIFICATION] 🏠 Current socket rooms:', 'color: purple', rooms);
-                          console.log('%c[MESSAGE NOTIFICATION] 🏠 Looking for:', 'color: purple', [`channel_${channel.id}`, `group_${group.id}`]);
+                          
+                          
                         });
                       }, 1000);
                     }
@@ -198,12 +194,9 @@ export function MessageNotificationProvider({
 
       // Listen for new private messages
       const cleanupPrivateMessage = onSocketEvent('message:new', (data) => {
-        console.log('%c[MESSAGE NOTIFICATION] 📩 New private message event received:', 'color: purple; font-weight: bold');
-        console.log('%c[MESSAGE NOTIFICATION] Event data:', 'color: purple', JSON.stringify(data, null, 2));
-        
         // Don't show notification for messages sent by current user
         if (data.message?.senderId === currentUserId) {
-          console.log('%c[MESSAGE NOTIFICATION] 🚫 Message from self, ignoring', 'color: orange');
+          
           return;
         }
 
@@ -215,14 +208,14 @@ export function MessageNotificationProvider({
         
         const messagePreview = data.message?.content?.substring(0, 50) || 'New message';
         
-        console.log('%c[MESSAGE NOTIFICATION] ✅ Showing notification for message from:', 'color: green', senderName);
+        
         
         // Don't show notification if user is on messages page AND in the same conversation
         if (isOnMessagesPage) {
-          console.log('%c[MESSAGE NOTIFICATION] 🚫 User is on messages page, checking if in same conversation...', 'color: orange');
+          
           // We'll implement conversation-specific check later
           // For now, show notification if not in the exact same conversation
-          console.log('%c[MESSAGE NOTIFICATION] ✅ Showing notification - not in same conversation', 'color: green');
+          
           // return; // Don't skip for now
         }
         
@@ -265,12 +258,12 @@ export function MessageNotificationProvider({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('%c[MESSAGE NOTIFICATION] 📍 Navigating to messages for conversation:', 'color: blue', data.conversationId);
+                  
                   
                   // Close the notification
                   if (notification?.dismiss) {
                     notification.dismiss();
-                    console.log('%c[MESSAGE NOTIFICATION] ✅ Notification dismissed', 'color: green');
+                    
                   }
                   
                   // Navigate to messages page
@@ -295,14 +288,9 @@ export function MessageNotificationProvider({
 
       // Listen for new group messages
       const cleanupGroupMessage = onSocketEvent('channel:message:new', (data) => {
-        console.log('%c[MESSAGE NOTIFICATION] 📢 New group message event received:', 'color: blue; font-weight: bold');
-        console.log('%c[MESSAGE NOTIFICATION] Event data:', 'color: blue', JSON.stringify(data, null, 2));
-        console.log('%c[MESSAGE NOTIFICATION] Current user ID:', 'color: blue', currentUserId);
-        console.log('%c[MESSAGE NOTIFICATION] Message sender ID:', 'color: blue', data.message?.senderId);
-        
         // Don't show notification for messages sent by current user
         if (data.message?.senderId === currentUserId) {
-          console.log('%c[MESSAGE NOTIFICATION] 🚫 Group message from self, ignoring', 'color: orange');
+          
           return;
         }
 
@@ -322,7 +310,7 @@ export function MessageNotificationProvider({
         
         const messagePreview = data.message?.content?.substring(0, 50) || 'New message';
         
-        console.log('%c[MESSAGE NOTIFICATION] ✅ Showing notification for group message from:', 'color: green', `${senderName} in ${groupName}`);
+        
         
         // Don't show notification if user is on messages page AND in the same group/channel
         if (isOnMessagesPage) {
@@ -330,24 +318,24 @@ export function MessageNotificationProvider({
           const messageGroupId = data.groupId;
           const isInSameGroup = currentGroupId === messageGroupId;
           
-          console.log('%c[MESSAGE NOTIFICATION] 🚫 User is on messages page', 'color: orange');
-          console.log('%c[MESSAGE NOTIFICATION] Current group ID:', 'color: orange', currentGroupId);
-          console.log('%c[MESSAGE NOTIFICATION] Message group ID:', 'color: orange', messageGroupId);
-          console.log('%c[MESSAGE NOTIFICATION] Is same group:', 'color: orange', isInSameGroup);
-          console.log('%c[MESSAGE NOTIFICATION] Current group ref value:', 'color: orange', currentGroupRef.current);
-          console.log('%c[MESSAGE NOTIFICATION] Current group ref type:', 'color: orange', typeof currentGroupRef.current);
+          
+          
+          
+          
+          
+          
           
           if (isInSameGroup && currentGroupId !== null) {
-            console.log('%c[MESSAGE NOTIFICATION] 🚫 User is in same group, skipping notification', 'color: orange');
+            
             return;
           } else {
-            console.log('%c[MESSAGE NOTIFICATION] ✅ Showing notification - different group or no current group', 'color: green');
+            
           }
         } else {
-          console.log('%c[MESSAGE NOTIFICATION] ✅ Not on messages page, showing notification', 'color: green');
+          
         }
         
-        console.log('%c[MESSAGE NOTIFICATION] 🎉 About to show toast notification', 'color: magenta; font-weight: bold');
+        
         
         // Test with simple toast first
         // const groupNotification = toast({
@@ -397,19 +385,19 @@ export function MessageNotificationProvider({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('%c[MESSAGE NOTIFICATION] 📍 Navigating to messages for group:', 'color: blue', { groupId: data.groupId, channelId: data.channelId });
+                  
                   
                   // Close the notification
                   if (groupNotification?.dismiss) {
                     groupNotification.dismiss();
-                    console.log('%c[MESSAGE NOTIFICATION] ✅ Group notification dismissed', 'color: green');
+                    
                   }
                   
                   setLocation('/messages');
                   
                   // Wait for Messages component to mount and load data
                   setTimeout(() => {
-                    console.log('%c[MESSAGE NOTIFICATION] 📤 Dispatching focus-group event', 'color: blue');
+                    
                     window.dispatchEvent(new CustomEvent('focus-group', { 
                       detail: { 
                         groupId: data.groupId,
@@ -427,14 +415,14 @@ export function MessageNotificationProvider({
           duration: 8000,
         });
         
-        console.log('%c[MESSAGE NOTIFICATION] 🎉 Toast notification created:', 'color: magenta; font-weight: bold', groupNotification);
+        
       });
 
-      console.log('%c[MESSAGE NOTIFICATION] ✅ Event listeners registered', 'color: green');
+      
       
       // DON'T return cleanup function - let listeners persist
       // return () => {
-      //   console.log('%c[MESSAGE NOTIFICATION] 🧹 useEffect cleanup called - clearing interval only', 'color: yellow; font-weight: bold');
+      //   
       //   clearInterval(checkSocketInterval);
       //   clearInterval(locationInterval);
       //   // DON'T call cleanupFunction - listeners should persist
