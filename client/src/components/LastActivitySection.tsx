@@ -245,7 +245,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       };
       
       loadBatchProgress();
-    }, [activities, progressMap, loadingKeys, requestedKeys]); // Depend on all states to prevent duplicates
+    }, [activities.length]); // Only depend on activities count to avoid infinite loop
     
     return progressMap;
   };
