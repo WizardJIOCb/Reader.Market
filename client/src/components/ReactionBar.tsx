@@ -272,7 +272,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
                 <div className="text-xs font-medium mb-1">{reaction.emoji} {t('reactions:reactionCount', '{{count}} reaction', { count: reaction.count })}</div>
                 <div className="max-h-32 overflow-y-auto">
                   {loadingDetails[reaction.emoji] ? (
-                    <div className="text-xs text-muted-foreground">Loading...</div>
+                    <div className="text-xs text-muted-foreground">{t('reactions:loading', 'Loading...')}</div>
                   ) : reactionDetails[reaction.emoji] && reactionDetails[reaction.emoji].length > 0 ? (
                     <div className="space-y-1">
                       {reactionDetails[reaction.emoji].slice(0, 10).map((detail) => (

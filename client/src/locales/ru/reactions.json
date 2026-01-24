@@ -1,6 +1,7 @@
 {
   "viewAllReactions": "Показать все реакции - {{count}}",
-  "reactionCount": "{{count}} реакция",
+  "reactionCount": "Реакции ({{count}})",
   "dialogTitle": "Реакции ({{count}})",
-  "dateFormat": "dd.MM.yyyy"
+  "dateFormat": "dd.MM.yyyy",
+  "loading": "Загрузка..."
 }
