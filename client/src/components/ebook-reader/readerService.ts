@@ -49,45 +49,32 @@ export class ReaderService {
   private eventListeners: Map<string, Function[]> = new Map();
   
   on(event: string, callback: Function): void {
-    console.log(`Adding listener for event: ${event}`);
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
     this.eventListeners.get(event)?.push(callback);
-    console.log(`Total listeners for event ${event}:`, this.eventListeners.get(event)?.length);
   }
   
   off(event: string, callback: Function): void {
-    console.log(`Removing listener for event: ${event}`);
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
       if (index > -1) {
         listeners.splice(index, 1);
-        console.log(`Listener removed for event: ${event}, remaining listeners:`, listeners.length);
-      } else {
-        console.log(`Listener not found for event: ${event}`);
       }
-    } else {
-      console.log(`No listeners found for event: ${event}`);
     }
   }
   
   emit(event: string, data?: any): void {
-    console.log(`Emitting event: ${event}`, data);
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      console.log(`Found ${listeners.length} listeners for event: ${event}`);
       listeners.forEach((callback, index) => {
-        console.log(`Calling listener ${index} for event: ${event}`);
         try {
           callback(data);
         } catch (error) {
           console.error(`Error calling listener ${index} for event: ${event}`, error);
         }
       });
-    } else {
-      console.log(`No listeners found for event: ${event}`);
     }
   }
 
@@ -96,31 +83,22 @@ export class ReaderService {
    */
   async initialize(bookUrl: string, container: HTMLElement): Promise<void> {
     try {
-      console.log('=== READER SERVICE INITIALIZATION START ===');
-      console.log('Book URL:', bookUrl);
-      console.log('Initial container element:', container);
-      console.log('Initial container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
-      
       // Validate container is actually in the DOM
       if (!document.contains(container)) {
-        console.warn('Container element is not in the DOM');
         // Try to find the container by ID as a fallback
         const containerById = document.getElementById('reader-container');
         if (containerById) {
-          console.log('Found container by ID:', containerById);
           container = containerById;
         } else {
           // Try another approach - query for div with reader-container ID
           const alternativeContainer = document.querySelector('div#reader-container');
           if (alternativeContainer) {
-            console.log('Found container by querySelector:', alternativeContainer);
             container = alternativeContainer as HTMLElement;
           } else {
             // Try yet another approach - look for the container in the document body
             const allDivs = document.querySelectorAll('div');
             for (let i = 0; i < allDivs.length; i++) {
               if (allDivs[i].id === 'reader-container') {
-                console.log('Found container by iterating through divs:', allDivs[i]);
                 container = allDivs[i] as HTMLElement;
                 break;
               }
@@ -128,7 +106,6 @@ export class ReaderService {
             
             if (!container || !document.contains(container)) {
               // If we still can't find it, create a more descriptive error
-              console.error('Container element not found in DOM. Available elements:', document.body.innerHTML.substring(0, 500));
               throw new Error(`Container element is not in the DOM. Book URL: ${bookUrl}, Container ID: reader-container`);
             }
           }
@@ -137,12 +114,8 @@ export class ReaderService {
       
       // Double-check that we have a valid container
       if (!container) {
-        console.error('Container element is null or undefined');
         throw new Error('Container element is null or undefined');
       }
-      
-      console.log('Final validated container element:', container);
-      console.log('Final container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
       
       // Add a small delay to ensure the container is fully rendered
       await new Promise(resolve => setTimeout(resolve, 10));
@@ -150,63 +123,49 @@ export class ReaderService {
       // Check if container is visible
       const containerStyle = window.getComputedStyle(container);
       if (containerStyle.display === 'none') {
-        console.warn('Container element is hidden (display: none)');
         container.style.display = 'block';
-        console.log('Set container display to block');
       }
       
       if (containerStyle.visibility === 'hidden') {
-        console.warn('Container element is hidden (visibility: hidden)');
         container.style.visibility = 'visible';
-        console.log('Set container visibility to visible');
       }
       
       // Ensure container has an ID
       if (!container.id) {
-        console.log('Container missing ID, setting to reader-container');
         container.id = 'reader-container';
       }
       
       // Ensure container is properly attached to DOM and visible
-      console.log('Ensuring container is visible and properly attached');
       if (container.style.display === 'none') {
-        console.log('Container was hidden, making visible');
         container.style.display = 'block';
       }
       
       if (container.style.visibility === 'hidden') {
-        console.log('Container was invisible, making visible');
         container.style.visibility = 'visible';
       }
       
       // Ensure container has proper positioning
       if (!container.style.position || container.style.position === 'static') {
-        console.log('Setting container position to relative');
         container.style.position = 'relative';
       }
       
       // Ensure container has proper dimensions and styles
-      console.log('Ensuring container has proper dimensions and styles');
       
       // Additional validation - ensure container has proper styles
       if (container.style.position === 'static' || container.style.position === '') {
-        console.log('Setting container position to relative');
         container.style.position = 'relative';
       }
       
       if (!container.style.width || container.style.width === '0px') {
-        console.log('Setting container width to 100%');
         container.style.width = '100%';
       }
       
       if (!container.style.height || container.style.height === '0px') {
-        console.log('Setting container height to 100%');
         container.style.height = '100%';
       }
       
       // Ensure minimum height
       if (!container.style.minHeight || container.style.minHeight === '0px') {
-        console.log('Setting container minimum height to 400px');
         container.style.minHeight = '400px';
       }
       
@@ -215,11 +174,9 @@ export class ReaderService {
       
       // Wait a bit to ensure container is properly rendered
       if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-        console.log('Container has zero dimensions, waiting for layout...');
         // Try multiple times with increasing delays
         for (let i = 0; i < 30; i++) { // Increased attempts
           await new Promise(resolve => setTimeout(resolve, 50 * (i + 1)));
-          console.log(`Container dimensions after wait attempt ${i + 1}:`, container.offsetWidth, 'x', container.offsetHeight);
           if (container.offsetWidth > 0 && container.offsetHeight > 0) {
             break;
           }
@@ -227,9 +184,7 @@ export class ReaderService {
         
         // Final check
         if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-          console.warn('Container still has zero dimensions after waiting');
           // Try to force layout with a different approach
-          console.log('Attempting to force layout with explicit sizing');
           container.style.width = '100%';
           container.style.height = '100%';
           container.style.minHeight = '400px';
@@ -240,11 +195,8 @@ export class ReaderService {
           
           // Wait one more time
           await new Promise(resolve => setTimeout(resolve, 100));
-          console.log('Container dimensions after forced layout:', container.offsetWidth, 'x', container.offsetHeight);
         }
       }
-      
-      console.log('Container dimensions after styling:', container.offsetWidth, 'x', container.offsetHeight);
       
       // Check if this is a plain text file or FB2 file
       console.log('Checking file type for plain text handling');
@@ -271,9 +223,7 @@ export class ReaderService {
       console.log('Non-text file detected, attempting to use Foliate.js');
       
       // Dynamically import Foliate.js to avoid SSR issues
-      console.log('Importing Foliate.js module...');
-      const foliateModule = await import('foliate-js/reader.js');
-      console.log('Foliate module imported successfully:', foliateModule);
+      const foliateModule = await import('foliate-js/reader.js') as any;
       const { Reader } = foliateModule;
       
       this.container = container;
@@ -549,7 +499,7 @@ export class ReaderService {
                   resolveWithCleanup();
                 }, 100);
               },
-              (error) => {
+              (error: any) => {
                 console.error('Load promise rejected:', error);
                 onErrorWithCleanup(error);
               }

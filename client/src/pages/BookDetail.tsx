@@ -278,8 +278,11 @@ export default function BookDetail() {
             setBook(bookData);
             setLocalReactions(bookData.reactions || []); // Set reactions from book data
             
-            // Fetch reading progress if user is authenticated
-            if (token) {
+            // Use embedded reading progress if available, otherwise fetch separately
+            if (bookData.readingProgress) {
+              setReadingProgress(bookData.readingProgress);
+            } else if (token) {
+              // Fallback to separate API call for backward compatibility
               try {
                 const progressResponse = await fetch(`/api/books/${bookId}/reading-progress`, {
                   headers: {
@@ -336,8 +339,11 @@ export default function BookDetail() {
           setBook(bookData);
           setLocalReactions(bookData.reactions || []); // Set reactions from book data
           
-          // Fetch reading progress if user is authenticated
-          if (token) {
+          // Use embedded reading progress if available, otherwise fetch separately
+          if (bookData.readingProgress) {
+            setReadingProgress(bookData.readingProgress);
+          } else if (token) {
+            // Fallback to separate API call for backward compatibility
             try {
               const progressResponse = await fetch(`/api/books/${bookId}/reading-progress`, {
                 headers: {

@@ -36,8 +36,11 @@ import {
   Menu,
   ChevronLeft,
   ChevronRight,
-  Settings
+  Settings,
+  Activity
 } from 'lucide-react';
+import { AdminLoggingConfig } from './AdminLoggingConfig';
+import { LogAnalytics } from './LogAnalytics';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatAbsoluteDateTime } from '@/lib/dateUtils';
@@ -156,7 +159,6 @@ const AdminDashboard: React.FC = () => {
           )
         );
         setEditingActivity(null);
-        console.log(`${activityType} updated successfully`);
       } else {
         console.error(`Failed to update ${activityType}:`, await response.text());
       }
@@ -186,7 +188,6 @@ const AdminDashboard: React.FC = () => {
         if (response.ok) {
           // Refresh the activity list
           setRecentActivity(prev => prev.filter(item => item.id !== activity.id));
-          console.log(`${activity.type} deleted successfully`);
         } else {
           const errorText = await response.text();
           console.error(`Failed to delete ${activity.type}:`, errorText);
@@ -320,7 +321,7 @@ const AdminDashboard: React.FC = () => {
             newsChange: statsData.newsChange || 0,
             commentsChange: statsData.commentsChange || 0,
             reviewsChange: statsData.reviewsChange || 0,
-            userStats: statsData.userStats || {
+            userStats: (statsData as any).userStats || {
               total: 0,
               today: 0,
               week: 0,
@@ -432,6 +433,8 @@ const AdminDashboard: React.FC = () => {
     ...(isAdmin ? [{ id: 'users', label: t('admin:navigation.userManagement'), icon: Users }] : []),
     ...(isAdmin ? [{ id: 'rating-system', label: t('admin:navigation.bookRatingSystem'), icon: Settings }] : []),
     ...(isAdmin ? [{ id: 'user-rating-system', label: t('admin:navigation.userRatingSystem'), icon: Settings }] : []),
+    ...(isAdmin ? [{ id: 'logging', label: t('admin:navigation.loggingConfiguration'), icon: Settings }] : []),
+    ...(isAdmin ? [{ id: 'log-analytics', label: t('admin:navigation.logAnalytics'), icon: Activity }] : []),
   ];
 
   return (
@@ -818,6 +821,14 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'user-rating-system' && isAdmin && (
               <UserRatingSystemSettings />
+            )}
+            
+            {activeTab === 'logging' && isAdmin && (
+              <AdminLoggingConfig />
+            )}
+            
+            {activeTab === 'log-analytics' && isAdmin && (
+              <LogAnalytics />
             )}
           </div>
         </main>

@@ -2,9 +2,9 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
-import { getPersonalActivitiesDirect } from "./directStorage";
+import { getPersonalActivitiesDirect, getProfileActivitiesDirect, getProfileCommentsDirect } from './directStorage';
 import { sql } from "drizzle-orm/sql";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Ollama } from "ollama";
@@ -14,8 +14,11 @@ import path from "path";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
 import { createOAuthRoutes } from "./oauth/routes";
-import { profileComments } from "@shared/schema";
+import { profileComments, readingProgress } from "@shared/schema";
 import bookTranslationRoutes from "./routes/bookTranslations";
+import loggingConfigRoutes from "./routes/loggingConfig";
+import logAnalyticsRoutes from "./routes/logAnalytics";
+import { logAggregator, logMiddleware } from './logAggregator';
 
 // Import db from storage module
 import { db } from './storage';
@@ -565,6 +568,15 @@ export async function registerRoutes(
   
   // Register book translation routes
   app.use('/api', bookTranslationRoutes);
+  
+  // Register logging configuration routes
+  app.use('/api/admin', loggingConfigRoutes);
+  
+  // Register log analytics routes
+  app.use('/api/admin', logAnalyticsRoutes);
+  
+  // Add log middleware to capture HTTP requests
+  app.use(logMiddleware(logAggregator));
   
   // put application routes here
   // prefix all routes with /api
@@ -1996,9 +2008,48 @@ export async function registerRoutes(
     }
   });
   
+  // Get shelves with books for the current user (optimized)
+  app.get("/api/shelves/with-books", authenticateToken, async (req, res) => {
+    console.log("Get shelves with books endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const shelvesWithBooks = await storage.getShelvesWithBooks(userId);
+      res.json(shelvesWithBooks);
+    } catch (error) {
+      console.error("Get shelves with books error:", error);
+      res.status(500).json({ error: "Failed to get shelves with books" });
+    }
+  });
+  
+  // Get shelves for a specific user with books (for profile viewing) - open to all users
+  app.get("/api/users/:userId/shelves/with-books", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get user shelves with books endpoint called");
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Verify user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Get the requesting user ID if authenticated
+      const requestingUserId = (req as any).user?.userId || null;
+      
+      const shelvesWithBooks = await storage.getShelvesWithBooks(userId);
+      res.json(shelvesWithBooks);
+    } catch (error) {
+      console.error("Get user shelves with books error:", error);
+      res.status(500).json({ error: "Failed to get user shelves with books" });
+    }
+  });
+  
   // Get shelves for a specific user (for profile viewing) - open to all users
   app.get("/api/users/:userId/shelves", optionalAuthenticateToken, async (req, res) => {
-    console.log("Get user shelves endpoint called");
     try {
       const { userId } = req.params;
       
@@ -2062,7 +2113,51 @@ export async function registerRoutes(
         return res.status(400).json({ error: "bookIds array is required" });
       }
       
-      const books = await storage.getBooksByIds(bookIds);
+      // Get books without reading progress first
+      let books = await storage.getBooksByIds(bookIds);
+      
+      // If user is authenticated, add reading progress data
+      const userId = (req as any).user?.userId;
+      if (userId) {
+        try {
+          // Get reading progress for all these books for this user
+          const readingProgressRecords = await db.select({
+            bookId: readingProgress.bookId,
+            percentage: readingProgress.percentage,
+            currentPage: readingProgress.currentPage,
+            totalPages: readingProgress.totalPages,
+            lastReadAt: readingProgress.lastReadAt
+          })
+          .from(readingProgress)
+          .where(and(
+            eq(readingProgress.userId, userId),
+            inArray(readingProgress.bookId, bookIds)
+          ));
+          
+          // Create a map for quick lookup
+          const readingProgressMap = new Map(readingProgressRecords.map(record => [
+            record.bookId, 
+            {
+              percentage: record.percentage ? parseFloat(record.percentage.toString()) : 0,
+              currentPage: record.currentPage || 0,
+              totalPages: record.totalPages || 0,
+              lastReadAt: record.lastReadAt
+            }
+          ]));
+          
+          // Add reading progress to each book
+          books = books.map(book => ({
+            ...book,
+            readingProgress: readingProgressMap.get(book.id) || null
+          }));
+          
+          console.log(`Added reading progress for ${readingProgressMap.size} books`);
+        } catch (progressError) {
+          console.error('Error fetching reading progress for books by IDs:', progressError);
+          // Continue without reading progress if there's an error
+        }
+      }
+      
       res.json(books);
     } catch (error) {
       console.error("Get books by IDs error:", error);
@@ -6676,7 +6771,7 @@ export async function registerRoutes(
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
       
-      const activities = await getPersonalActivitiesDirect(profileId, limit, offset);
+      const activities = await getProfileActivitiesDirect(profileId, limit, offset);
       
       res.json({
         activities,
@@ -6702,7 +6797,8 @@ export async function registerRoutes(
       const offset = parseInt(req.query.offset as string) || 0;
       const userId = (req as any).user?.userId;
       
-      const result = await storage.getProfileComments(profileId, {
+      // Use direct PostgreSQL implementation
+      const result = await getProfileCommentsDirect(profileId, {
         limit,
         offset,
         currentUserId: userId

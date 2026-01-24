@@ -72,7 +72,10 @@ export function AddToShelfDialog({ bookId, shelves, onToggleShelf, trigger, isOp
             <ScrollArea className="h-[300px] pr-4">
               <div className="space-y-4">
                 {shelves.map((shelf) => {
-                  const isAdded = shelf.bookIds.includes(bookId);
+                  // Check both bookIds array and books array for the book
+                  const isAdded = 
+                    (shelf.bookIds && shelf.bookIds.includes(bookId)) ||
+                    (shelf.books && shelf.books.some((book: any) => book.id === bookId));
                   
                   return (
                     <div key={shelf.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">

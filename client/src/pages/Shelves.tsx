@@ -562,14 +562,14 @@ export default function Shelves() {
                 </div>
               </div>
 
-              {(shelf.bookIds || []).length === 0 ? (
+              {(!(shelf.books && shelf.books.length > 0) && !(shelfBooks[shelf.id] && shelfBooks[shelf.id].length > 0)) ? (
                 <div className={`h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground gap-2 ${shelf.color} bg-opacity-20`}>
                   <BookIcon className="w-8 h-8 opacity-50" />
                   <p>{t('shelves:shelfEmpty')}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {sortBooks(shelfBooks[shelf.id] || [], shelfSortBy, shelfSortDir).map((book: any) => {
+                  {sortBooks(shelf.books || shelfBooks[shelf.id] || [], shelfSortBy, shelfSortDir).map((book: any) => {
                     // Convert book data to match BookCard expectations
                     const bookData = {
                       id: book.id, // Keep the original ID as string (UUID)
@@ -588,6 +588,7 @@ export default function Shelves() {
                       year: book.publishedYear,
                       uploadedAt: book.uploadedAt, // Add upload date
                       publishedAt: book.publishedAt, // Add publication date
+                      reactions: book.reactions || [] // Add reactions data
                     };
                     
                     // Find reading progress for this book

@@ -9,6 +9,7 @@ export interface Shelf {
   description?: string;
   color?: string;
   bookIds: string[];
+  books?: any[]; // Added for optimized shelves endpoint
   createdAt: string;
   updatedAt: string;
 }
@@ -46,7 +47,7 @@ export function useShelves() {
         return;
       }
       
-      const response = await fetch('/api/shelves', {
+      const response = await fetch('/api/shelves/with-books', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

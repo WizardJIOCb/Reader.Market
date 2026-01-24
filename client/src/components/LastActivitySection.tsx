@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Newspaper, BookOpen, MessageCircle, Star, ChevronDown, ChevronUp, Trash2, User, Reply, Quote } from 'lucide-react';
@@ -36,6 +37,13 @@ interface Comment {
   reactions?: Reaction[];
   replyCount?: number;
   replies?: Comment[];
+  metadata?: {
+    readingProgress?: {
+      percentage: number;
+      currentPage: number;
+      totalPages: number;
+    };
+  };
 }
 
 interface Review {
@@ -57,6 +65,13 @@ interface Review {
   parentReviewAuthor?: string | null;
   replyCount?: number;
   replies?: Review[];
+  metadata?: {
+    readingProgress?: {
+      percentage: number;
+      currentPage: number;
+      totalPages: number;
+    };
+  };
 }
 
 interface Activity {
@@ -106,9 +121,8 @@ interface LastActivitySectionProps {
 }
 
 export function LastActivitySection({ profileId, profileUsername }: LastActivitySectionProps) {
-  console.log('=== LastActivitySection RENDERED ===');
   const { t, i18n } = useTranslation(['profile', 'stream']);
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [activities, setActivities] = useState<UserActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
@@ -119,6 +133,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
   const [quotedText, setQuotedText] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [showAllActivities, setShowAllActivities] = useState(false);
 
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
@@ -146,50 +161,32 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
 
   // Handlers for CommentItem and ReviewItem
   const handleToggleReplies = async (commentId: string) => {
-    console.log('=== handleToggleReplies CALLED ===');
-    console.log('Comment ID:', commentId);
-    console.log('Current expandedReplies:', Array.from(expandedReplies));
-    
     if (expandedReplies.has(commentId)) {
-      console.log('Closing replies for:', commentId);
       setExpandedReplies(prev => {
         const newSet = new Set(prev);
         newSet.delete(commentId);
-        console.log('New expanded set:', Array.from(newSet));
         return newSet;
       });
     } else {
-      console.log('Opening replies for:', commentId);
       // Check if we need to load replies data
       const activity = activities.find(a => a.id === commentId);
-      console.log('Found activity:', activity?.id, activity?.type);
       
       if (activity && activity.type === 'comment') {
-        console.log('Activity metadata:', activity.metadata);
         const replyCount = activity.metadata?.reply_count || 0;
         
-        console.log('Reply count from metadata:', replyCount);
-        
         // Always fetch replies regardless of count (temporary fix)
-        console.log('Fetching replies from API (ignoring count)');
         await fetchReplies(commentId, activity.bookId || activity.metadata?.book_id);
       }
       setExpandedReplies(prev => {
         const newSet = new Set(prev).add(commentId);
-        console.log('New expanded set:', Array.from(newSet));
         return newSet;
       });
     }
   };
 
   const fetchReplies = async (commentId: string, bookId?: string) => {
-    console.log('=== fetchReplies CALLED ===');
-    console.log('Comment ID:', commentId);
-    console.log('Book ID:', bookId);
-    
     try {
       if (!bookId) {
-        console.error('No book ID provided');
         return;
       }
       
@@ -202,14 +199,10 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
 
       if (response && response.ok) {
         const replies = await response.json();
-        console.log('Fetched replies:', replies);
-        console.log('Reply count:', replies.length);
         
         // Update the activity with its replies
         setActivities(prev => {
-          console.log('Updating activities state');
           const updated = updateActivityReplies(prev, commentId, replies);
-          console.log('Updated activities:', updated);
           return updated;
         });
       }
@@ -324,11 +317,69 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
   };
 
   const handleReaction = async (id: string, emoji: string) => {
-    if (!user) return;
+    // If auth is still loading, wait a bit and retry
+    if (authLoading) {
+      // Wait up to 2 seconds for auth to load
+      let attempts = 0;
+      const maxAttempts = 20; // 20 * 100ms = 2 seconds
+      
+      while (authLoading && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      
+      // Check if user is available now
+      if (!user) {
+        return;
+      }
+    }
+    
+    if (!user) {
+      return;
+    }
     
     try {
-      const activity = activities.find(act => act.id === id);
-      if (!activity) return;
+      // First, try to find the activity directly
+      let activity = activities.find(act => act.id === id);
+      
+      // If not found, search through nested replies
+      if (!activity) {
+        const findActivityInReplies = (activitiesList: UserActivity[]): Activity | undefined => {
+          for (const act of activitiesList) {
+            if (act.type !== 'user_action') {
+              const typedAct = act as Activity;
+              // Check if this activity has replies and search through them
+              if (typedAct.metadata?.replies) {
+                const findInNestedReplies = (replies: any[]): boolean => {
+                  for (const reply of replies) {
+                    if (reply.id === id) {
+                      return true;
+                    }
+                    if (reply.replies && reply.replies.length > 0) {
+                      if (findInNestedReplies(reply.replies)) {
+                        return true;
+                      }
+                    }
+                  }
+                  return false;
+                };
+                
+                if (findInNestedReplies(typedAct.metadata.replies)) {
+                  return typedAct;
+                }
+              }
+            }
+          }
+          return undefined;
+        };
+        
+        activity = findActivityInReplies(activities);
+      }
+      
+      if (!activity) {
+        console.error('Activity not found for reaction:', id);
+        return;
+      }
 
       let response;
       if (activity.type === 'comment') {
@@ -341,30 +392,37 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
           body: JSON.stringify({ emoji })
         });
       } else if (activity.type === 'review') {
-        response = await fetch(`/api/reviews/${id}/reaction`, {
+        // Use the general reactions endpoint for reviews
+        response = await fetch(`/api/reactions`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ emoji })
+          body: JSON.stringify({ 
+            reviewId: id,
+            emoji 
+          })
         });
       }
-
+      
       if (response && response.ok) {
         const data = await response.json();
         // Update the activity with new reactions
         setActivities(prev => updateActivityReactions(prev, id, data.reactions));
+      } else {
+        console.error('Reaction request failed:', response?.status, response?.statusText);
       }
     } catch (error) {
       console.error('Error adding reaction:', error);
     }
   };
 
-  // Helper function to update activity reactions
+  // Helper function to update activity reactions (including nested replies)
   const updateActivityReactions = (activities: UserActivity[], id: string, reactions: Reaction[]): UserActivity[] => {
-    return activities.map(activity => {
+    const result = activities.map(activity => {
       if (activity.id === id) {
+        // Update top-level activity
         return {
           ...activity,
           metadata: {
@@ -373,8 +431,54 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
           }
         };
       }
+      
+      // If not the target activity, check if it's a parent of the target (nested reply)
+      if (activity.type !== 'user_action') {
+        const typedActivity = activity as Activity;
+        if (typedActivity.metadata?.replies) {
+          // Recursively update replies
+          const updateRepliesRecursively = (replies: any[]): any[] => {
+            return replies.map(reply => {
+              if (reply.id === id) {
+                // Found the target reply
+                return {
+                  ...reply,
+                  reactions
+                };
+              }
+              
+              // Continue searching in nested replies
+              if (reply.replies && reply.replies.length > 0) {
+                return {
+                  ...reply,
+                  replies: updateRepliesRecursively(reply.replies)
+                };
+              }
+              
+              return reply;
+            });
+          };
+          
+          const updatedReplies = updateRepliesRecursively(typedActivity.metadata.replies);
+          
+          // Check if any replies were actually updated
+          const repliesChanged = JSON.stringify(typedActivity.metadata.replies) !== JSON.stringify(updatedReplies);
+          if (repliesChanged) {
+            return {
+              ...activity,
+              metadata: {
+                ...typedActivity.metadata,
+                replies: updatedReplies
+              }
+            };
+          }
+        }
+      }
+      
       return activity;
     });
+    
+    return result;
   };
 
   // Helper function to update activity replies
@@ -588,7 +692,17 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
   };
 
   const transformActivityToComment = (activity: Activity): Comment => {
-    return {
+    console.log('=== transformActivityToComment CALLED ===');
+    console.log('Activity ID:', activity.id);
+    console.log('Activity type:', activity.type);
+    console.log('Full activity metadata:', activity.metadata);
+    console.log('Reading progress in activity:', activity.metadata.readingProgress);
+    console.log('Activity bookId:', activity.bookId);
+    console.log('Activity metadata book_id:', activity.metadata.book_id);
+    console.log('Activity metadata type:', typeof activity.metadata);
+    console.log('Activity metadata keys:', Object.keys(activity.metadata || {}));
+    
+    const result = {
       id: activity.id,
       userId: activity.userId,
       profileId: profileId,
@@ -604,12 +718,36 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       parentCommentAuthor: null,
       reactions: activity.metadata.reactions,
       replyCount: activity.metadata.replyCount || activity.metadata.reply_count,
-      replies: activity.metadata.replies || []  // ← Берем replies из metadata
+      replies: activity.metadata.replies || [],
+      bookId: activity.bookId || activity.metadata.book_id,
+      metadata: {
+        readingProgress: activity.metadata.readingProgress || undefined
+      }
     };
+    
+    console.log('Transformed comment bookId:', result.bookId);
+    console.log('Transformed comment metadata:', result.metadata);
+    console.log('Reading progress in transformed comment:', result.metadata.readingProgress);
+    console.log('Transformed comment metadata type:', typeof result.metadata);
+    console.log('Transformed comment metadata keys:', Object.keys(result.metadata || {}));
+    console.log('Transformed comment metadata.readingProgress type:', typeof result.metadata?.readingProgress);
+    console.log('Transformed comment condition (!comment.metadata?.readingProgress):', !result.metadata?.readingProgress);
+    console.log('Transformed comment condition (comment.metadata?.readingProgress === undefined):', result.metadata?.readingProgress === undefined);
+    console.log('Transformed comment condition ((!comment.metadata || comment.metadata.readingProgress === undefined)):', (!result.metadata || result.metadata.readingProgress === undefined));
+    
+    return result;
   };
 
   const transformActivityToReview = (activity: Activity): Review => {
-    return {
+    console.log('=== transformActivityToReview CALLED ===');
+    console.log('Activity ID:', activity.id);
+    console.log('Activity type:', activity.type);
+    console.log('Full activity metadata:', activity.metadata);
+    console.log('Reading progress in activity:', activity.metadata.readingProgress);
+    console.log('Activity bookId:', activity.bookId);
+    console.log('Activity metadata book_id:', activity.metadata.book_id);
+    
+    const result = {
       id: activity.id,
       bookId: activity.bookId || activity.metadata.book_id,
       author: activity.metadata.author_name,
@@ -627,8 +765,17 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       quotedText: null,
       parentReviewAuthor: null,
       replyCount: activity.metadata.replyCount || activity.metadata.reply_count,
-      replies: activity.metadata.replies || []
+      replies: activity.metadata.replies || [],
+      metadata: {
+        readingProgress: activity.metadata.readingProgress || undefined
+      }
     };
+    
+    console.log('Transformed review bookId:', result.bookId);
+    console.log('Transformed review metadata:', result.metadata);
+    console.log('Reading progress in transformed review:', result.metadata.readingProgress);
+    
+    return result;
   };
 
   const renderActivityContent = (activity: UserActivity) => {
@@ -734,12 +881,10 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
               submitting={submitting}
               onToggleReplies={handleToggleReplies}
               onReply={(comment) => {
-                console.log('Reply button clicked for comment:', comment.id);
                 setReplyingToId(comment.id);
                 setQuotedText('');
               }}
               onCancelReply={() => {
-                console.log('Cancel reply');
                 setReplyingToId(null);
                 setReplyText('');
                 setQuotedText('');
@@ -748,16 +893,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                 setReplyText(text);
               }}
               onSubmitReply={async () => {
-                console.log('Submit reply');
-                console.log('Validation check:', {
-                  user: !!user,
-                  replyText: replyText.trim(),
-                  replyingToId: replyingToId,
-                  hasAll: !!(user && replyText.trim() && replyingToId)
-                });
-                
                 if (!user || !replyText.trim() || !replyingToId) {
-                  console.log('Validation failed');
                   return;
                 }
                 
@@ -823,14 +959,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                   const activity = findActivityRecursively(activities);
                   const bookId = activity?.bookId || activity?.metadata?.book_id;
                   
-                  console.log('Activity lookup:', {
-                    activityId: replyingToId,
-                    foundActivity: !!activity,
-                    bookId: bookId
-                  });
-                  
                   if (!bookId) {
-                    console.error('No book ID found');
                     return;
                   }
                   
@@ -849,7 +978,6 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                   
                   if (response.ok) {
                     const newReply = await response.json();
-                    console.log('Reply created:', newReply);
                     
                     // Ensure the new reply has proper user info for styling
                     const enrichedReply = {
@@ -860,44 +988,13 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                     
                     // Add reply to the correct nested location
                     setActivities(prev => {
-                      console.log('=== Updating activities for new reply ===');
-                      console.log('Replying to ID:', replyingToId);
-                      console.log('New reply ID:', newReply.id);
-                      
-                      // First, let's see what activities we have and where replyingToId might be
-                      prev.forEach(activity => {
-                        if (activity.type === 'comment') {
-                          console.log('Activity:', activity.id, 'has replies:', activity.metadata?.replies?.length || 0);
-                          if (activity.metadata?.replies) {
-                            activity.metadata.replies.forEach((reply: any) => {
-                              console.log('  Reply:', reply.id, 'has nested replies:', reply.replies?.length || 0);
-                              if (reply.id === replyingToId) {
-                                console.log('!!! Found replyingToId in replies of activity:', activity.id);
-                              }
-                              // Also check nested replies
-                              if (reply.replies) {
-                                reply.replies.forEach((nestedReply: any) => {
-                                  console.log('    Nested reply:', nestedReply.id);
-                                  if (nestedReply.id === replyingToId) {
-                                    console.log('!!!! Found replyingToId in NESTED replies of reply:', reply.id);
-                                  }
-                                });
-                              }
-                            });
-                          }
-                        }
-                      });
-                      
                       const updateRecursively = (activity: UserActivity): UserActivity => {
                         if (activity.type !== 'comment') return activity;
                         
                         // Check if this is the direct parent (separate activity)
                         if (activity.id === replyingToId) {
-                          console.log('Found direct parent activity:', activity.id);
                           const existingReplies = activity.metadata?.replies || [];
-                          console.log('Old direct replies count:', existingReplies.length);
                           const newReplies = [...existingReplies, enrichedReply];
-                          console.log('New direct replies count:', newReplies.length);
                           return {
                             ...activity,
                             metadata: {
@@ -914,10 +1011,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                             let wasUpdated = false;
                             const updatedReplies = replies.map((reply: any) => {
                               if (reply.id === replyingToId) {
-                                console.log('Found nested parent reply:', reply.id);
-                                console.log('Old reply replies count:', reply.replies?.length || 0);
                                 const newReplies = [...(reply.replies || []), enrichedReply];
-                                console.log('New reply replies count:', newReplies.length);
                                 wasUpdated = true;
                                 return {
                                   ...reply,
@@ -981,7 +1075,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                 }
               }}
               onDelete={() => {}}
-              onReaction={() => {}}
+              onReaction={handleReaction}
               onTextSelect={() => {}}
               onScrollToComment={() => {}}
               getRatingBadgeVariant={() => 'secondary'}
@@ -1009,12 +1103,10 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
               submitting={submitting}
               onToggleReplies={handleToggleReplies}
               onReply={(comment) => {
-                console.log('Reply button clicked for comment:', comment.id);
                 setReplyingToId(comment.id);
                 setQuotedText('');
               }}
               onCancelReply={() => {
-                console.log('Cancel reply');
                 setReplyingToId(null);
                 setReplyText('');
                 setQuotedText('');
@@ -1023,16 +1115,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                 setReplyText(text);
               }}
               onSubmitReply={async () => {
-                console.log('Submit reply');
-                console.log('Validation check:', {
-                  user: !!user,
-                  replyText: replyText.trim(),
-                  replyingToId: replyingToId,
-                  hasAll: !!(user && replyText.trim() && replyingToId)
-                });
-                
                 if (!user || !replyText.trim() || !replyingToId) {
-                  console.log('Validation failed');
                   return;
                 }
                 
@@ -1098,14 +1181,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                   const activity = findActivityRecursively(activities);
                   const bookId = activity?.bookId || activity?.metadata?.book_id;
                   
-                  console.log('Activity lookup:', {
-                    activityId: replyingToId,
-                    foundActivity: !!activity,
-                    bookId: bookId
-                  });
-                  
                   if (!bookId) {
-                    console.error('No book ID found');
                     return;
                   }
                   
@@ -1124,7 +1200,6 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                   
                   if (response.ok) {
                     const newReply = await response.json();
-                    console.log('Reply created:', newReply);
                     
                     // Ensure the new reply has proper user info for styling
                     const enrichedReply = {
@@ -1135,44 +1210,13 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                     
                     // Add reply to the correct nested location
                     setActivities(prev => {
-                      console.log('=== Updating activities for new reply ===');
-                      console.log('Replying to ID:', replyingToId);
-                      console.log('New reply ID:', newReply.id);
-                      
-                      // First, let's see what activities we have and where replyingToId might be
-                      prev.forEach(activity => {
-                        if (activity.type === 'comment') {
-                          console.log('Activity:', activity.id, 'has replies:', activity.metadata?.replies?.length || 0);
-                          if (activity.metadata?.replies) {
-                            activity.metadata.replies.forEach((reply: any) => {
-                              console.log('  Reply:', reply.id, 'has nested replies:', reply.replies?.length || 0);
-                              if (reply.id === replyingToId) {
-                                console.log('!!! Found replyingToId in replies of activity:', activity.id);
-                              }
-                              // Also check nested replies
-                              if (reply.replies) {
-                                reply.replies.forEach((nestedReply: any) => {
-                                  console.log('    Nested reply:', nestedReply.id);
-                                  if (nestedReply.id === replyingToId) {
-                                    console.log('!!!! Found replyingToId in NESTED replies of reply:', reply.id);
-                                  }
-                                });
-                              }
-                            });
-                          }
-                        }
-                      });
-                      
                       const updateRecursively = (activity: UserActivity): UserActivity => {
                         if (activity.type !== 'comment') return activity;
                         
                         // Check if this is the direct parent (separate activity)
                         if (activity.id === replyingToId) {
-                          console.log('Found direct parent activity:', activity.id);
                           const existingReplies = activity.metadata?.replies || [];
-                          console.log('Old direct replies count:', existingReplies.length);
                           const newReplies = [...existingReplies, enrichedReply];
-                          console.log('New direct replies count:', newReplies.length);
                           return {
                             ...activity,
                             metadata: {
@@ -1189,10 +1233,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                             let wasUpdated = false;
                             const updatedReplies = replies.map((reply: any) => {
                               if (reply.id === replyingToId) {
-                                console.log('Found nested parent reply:', reply.id);
-                                console.log('Old reply replies count:', reply.replies?.length || 0);
                                 const newReplies = [...(reply.replies || []), enrichedReply];
-                                console.log('New reply replies count:', newReplies.length);
                                 wasUpdated = true;
                                 return {
                                   ...reply,
@@ -1256,10 +1297,16 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                 }
               }}
               onDelete={() => {}}
-              onReaction={() => {}}
+              onReaction={handleReaction}
               onTextSelect={() => {}}
               onScrollToReview={() => {}}
               getRatingColor={() => '#6b7280'}
+              getRatingColorClass={(rating) => {
+                if (rating === null || rating === undefined) return 'text-gray-500 bg-gray-100 dark:bg-gray-800';
+                if (rating >= 8) return 'text-green-700 bg-green-100 dark:bg-green-900/30';
+                if (rating >= 5) return 'text-amber-700 bg-amber-100 dark:bg-amber-900/30';
+                return 'text-red-700 bg-red-100 dark:bg-red-900/30';
+              }}
             />
           </div>
         );
@@ -1364,7 +1411,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
             </div>
           ) : (
             <div className="space-y-6">
-              {activities.slice(0, 10).map((activity) => {
+              {activities.slice(0, showAllActivities ? activities.length : 10).map((activity) => {
                 // For comments and reviews, use the respective components
                 if (activity.type === 'comment' || activity.type === 'review') {
                   return renderActivityContent(activity);
@@ -1446,9 +1493,23 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
               
               {activities.length > 10 && (
                 <div className="text-center">
-                  <p className="text-sm text-muted-foreground">
-                    {t('profile:andMore', { count: activities.length - 10 })}
-                  </p>
+                  {showAllActivities ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowAllActivities(false)}
+                    >
+                      {t('profile:showLess')}
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowAllActivities(true)}
+                    >
+                      {t('profile:showAll')} ({activities.length - 10} {t('profile:more')})
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

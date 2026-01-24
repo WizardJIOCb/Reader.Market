@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BookSplashProvider } from "@/lib/bookSplashContext";
 import { StreamNotificationsProvider } from "@/lib/streamNotifications";
 import { useAuth } from "@/lib/auth";
+import { frontendLogger } from "@/lib/frontendLogger";
 import NotFound from "@/pages/not-found";
 import Library from "@/pages/Library";
 import AboutPage from "@/pages/AboutPage";
@@ -70,22 +71,23 @@ function App() {
   const { i18n } = useTranslation();
   const { user } = useAuth();
   
+  // Initialize frontend logger
+  useEffect(() => {
+    // Logger is initialized when imported, but we can add app-specific initialization here
+    frontendLogger.info('app', 'Application started', {
+      location: window.location.href,
+      userAgent: navigator.userAgent
+    });
+  }, []);
+  
   // Handle language parameter from URL - must run BEFORE other effects
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const langParam = params.get('lang');
     
-    console.log('[Language] URL lang param:', langParam);
-    console.log('[Language] Current i18n language:', i18n.language);
-    console.log('[Language] localStorage i18nextLng:', localStorage.getItem('i18nextLng'));
-    
     if (langParam && (langParam === 'ru' || langParam === 'en')) {
-      console.log('[Language] Valid lang param detected:', langParam);
-      
       // Check if i18n has already loaded with this language
       if (i18n.language !== langParam) {
-        console.log('[Language] Language mismatch, i18n.language:', i18n.language, 'param:', langParam);
-        
         // Save to localStorage FIRST (i18next uses 'i18nextLng' key)
         localStorage.setItem('i18nextLng', langParam);
         localStorage.setItem('language', langParam);
@@ -105,10 +107,7 @@ function App() {
         }
         
         // Reload page to apply language change
-        console.log('[Language] Reloading page to apply language change');
         window.location.reload();
-      } else {
-        console.log('[Language] Language already correct:', langParam);
       }
     }
   }, []); // Empty dependency array - run only once on mount

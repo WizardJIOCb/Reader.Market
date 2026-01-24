@@ -25,7 +25,7 @@ import { readerApi } from '@/lib/api';
 import { readingProgressCache } from '@/lib/readingProgressCache';
 
 interface BookCardProps {
-  book: Book;
+  book: Book & { readingProgress?: any };
   variant?: 'standard' | 'detailed';
   readingProgress?: {
     currentPage: number;
@@ -68,20 +68,36 @@ export const BookCard: React.FC<BookCardProps> = ({
   const uploadedAt = book.uploadedAt || book.createdAt;
   const publishedAt = book.publishedAt;
 
-  // Clear cache when user changes
-  useEffect(() => {
-    if (user?.id) {
-      readingProgressCache.clearUserCache(user.id);
-    }
-  }, [user?.id]);
-  
   // Update local reactions when book changes
   React.useEffect(() => {
     setLocalReactions(book.reactions || []);
   }, [book]);
     
-  // Fetch reading progress when user is authenticated
+  // Use passed readingProgress prop if available, otherwise check for embedded reading progress, otherwise fetch from API with caching
   useEffect(() => {
+    // If readingProgress is passed as prop, use it directly
+    if (readingProgress) {
+      setProgress({
+        currentPage: readingProgress.currentPage,
+        totalPages: readingProgress.totalPages,
+        percentage: readingProgress.percentage,
+        lastReadAt: readingProgress.lastReadAt.toISOString()
+      });
+      return;
+    }
+    
+    // Check if book object has embedded reading progress
+    if (book.readingProgress) {
+      setProgress({
+        currentPage: book.readingProgress.currentPage,
+        totalPages: book.readingProgress.totalPages,
+        percentage: book.readingProgress.percentage,
+        lastReadAt: book.readingProgress.lastReadAt || new Date().toISOString()
+      });
+      return;
+    }
+    
+    // Only fetch from API if no readingProgress prop or embedded data is provided
     const fetchProgress = async () => {
       if (!user || !book.id) {
         setProgress(null);
@@ -89,15 +105,22 @@ export const BookCard: React.FC<BookCardProps> = ({
       }
         
       try {
-        const data = await readingProgressCache.getProgress(
+        // Use cached API call to avoid duplicate requests
+        const data = await readingProgressCache.getUserProgress(
           book.id.toString(), 
-          user.id, 
-          () => readerApi.getProgress(book.id.toString())
+          user.id,
+          () => readerApi.getUserProgress(book.id.toString(), user.id)
         );
         
-        // Only set progress if there's actual reading progress (percentage > 0)
-        if (data && data.percentage > 0) {
-          setProgress(data);
+        if (data.ok) {
+          const progressData = await data.json();
+          
+          // Only set progress if there's actual reading progress (percentage > 0)
+          if (progressData && progressData.percentage > 0) {
+            setProgress(progressData);
+          } else {
+            setProgress(null);
+          }
         } else {
           setProgress(null);
         }
@@ -108,7 +131,7 @@ export const BookCard: React.FC<BookCardProps> = ({
     };
       
     fetchProgress();
-  }, [user, book.id]);
+  }, [user, book.id, readingProgress]);
 
   // Handle book reaction
   const handleBookReact = async (emoji: string) => {

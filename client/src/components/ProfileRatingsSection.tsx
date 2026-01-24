@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useToast } from '../hooks/use-toast';
 import { useAuth } from '../lib/auth';
 import { readerApi } from '../lib/api';
@@ -48,6 +49,13 @@ interface Comment {
   reactions?: Reaction[];
   replyCount?: number;
   replies?: Comment[];
+  metadata?: {
+    readingProgress?: {
+      percentage: number;
+      currentPage: number;
+      totalPages: number;
+    };
+  };
 }
 
 // Recursive component for rendering nested comments
@@ -112,18 +120,22 @@ export function CommentItem({
   const isReplyingToThis = replyingToId === comment.id;
   
   // Reading progress state
-  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(null);
+  // Use reading progress from API data if available, otherwise don't show it
+  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(comment.metadata?.readingProgress || null);
   
-  // Load reading progress for this user and book (if available)
+  // Log whether we're using metadata or not showing reading progress
   useEffect(() => {
-    const loadReadingProgress = async () => {
-      // Note: ProfileRatingsSection doesn't have bookId in comments, 
-      // so we can't show reading progress here
-      // This would require modifying the API to include bookId in profile comments
-    };
+    console.log('[ProfileRatingsSection] Comment object received:', comment);
+    console.log('[ProfileRatingsSection] Comment metadata:', comment.metadata);
+    console.log('[ProfileRatingsSection] Comment metadata.readingProgress:', comment.metadata?.readingProgress);
     
-    loadReadingProgress();
-  }, [comment.userId]);
+    if (comment.metadata?.readingProgress) {
+      console.log(`[ProfileRatingsSection] Using reading progress from metadata for comment ${comment.id}:`, comment.metadata.readingProgress);
+      setReadingProgress(comment.metadata.readingProgress);
+    } else {
+      console.log(`[ProfileRatingsSection] No reading progress data available for comment ${comment.id}`);
+    }
+  }, [comment.id, comment.metadata?.readingProgress]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -168,6 +180,25 @@ export function CommentItem({
                   profileRating={null}
                   showRating={true}
                 />
+                
+                {/* Reading progress indicator */}
+                {readingProgress && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full cursor-help">
+                          📖 {Math.round(readingProgress.percentage)}%
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-[#fbf6f0] dark:bg-[#2a2520] border border-[#e8e0d0] dark:border-[#3a3530] text-[#2a2520] dark:text-[#fbf6f0]">
+                        <div className="text-xs">
+                          <div>{t('books:readingProgress.title', 'Reading progress: {{percentage}}%', { percentage: Math.round(readingProgress.percentage) })}</div>
+                          <div className="mt-1 text-[#5a5550] dark:text-[#cbc6c0]">{t('books:readingProgress.pageInfo', 'Page: {{currentPage}} of {{totalPages}}', { currentPage: readingProgress.currentPage, totalPages: readingProgress.totalPages })}</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 {comment.parentCommentAuthor && comment.parentCommentId && (
                   <button
                     onClick={() => onScrollToComment(comment.parentCommentId!)}

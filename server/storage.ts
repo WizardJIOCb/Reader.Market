@@ -406,6 +406,21 @@ export class DBStorage implements IStorage {
         // Get aggregated reactions for this book
         const reactions = await this.getAggregatedBookReactions(id, userId);
         
+        // Get reading progress for authenticated user
+        let readingProgress = null;
+        if (userId) {
+          try {
+            readingProgress = await this.getReadingProgress(userId, id);
+            // Only include progress if user has actually read something (percentage > 0)
+            if (readingProgress && readingProgress.percentage <= 0) {
+              readingProgress = null;
+            }
+          } catch (error) {
+            console.error('Error fetching reading progress for book:', error);
+            // Continue without reading progress if there's an error
+          }
+        }
+        
         // Format dates for the frontend
         const formattedBook = {
           ...result[0],
@@ -422,7 +437,8 @@ export class DBStorage implements IStorage {
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null,
-          reactions: reactions
+          reactions: reactions,
+          readingProgress: readingProgress
         };
         console.log(`Formatted book ${id}:`, formattedBook);
         return formattedBook;
@@ -1078,7 +1094,10 @@ export class DBStorage implements IStorage {
       // Get books that the user is currently reading (have reading progress)
       const readingProgressRecords = await db.select({
         bookId: readingProgress.bookId,
-        percentage: readingProgress.percentage
+        percentage: readingProgress.percentage,
+        currentPage: readingProgress.currentPage,
+        totalPages: readingProgress.totalPages,
+        lastReadAt: readingProgress.lastReadAt
       })
       .from(readingProgress)
       .where(eq(readingProgress.userId, userId))
@@ -1090,6 +1109,17 @@ export class DBStorage implements IStorage {
       if (bookIds.length === 0) {
         return [];
       }
+      
+      // Create a map of bookId to reading progress for easy lookup
+      const readingProgressMap = new Map(readingProgressRecords.map(record => [
+        record.bookId, 
+        {
+          percentage: record.percentage ? parseFloat(record.percentage.toString()) : 0,
+          currentPage: record.currentPage,
+          totalPages: record.totalPages,
+          lastReadAt: record.lastReadAt
+        }
+      ]));
       
       // Get the books and sort by rating (descending, nulls last)
       const booksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
@@ -1151,6 +1181,9 @@ export class DBStorage implements IStorage {
         // Get aggregated reactions for this book
         const reactions = await this.getAggregatedBookReactions(book.id);
         
+        // Get reading progress for this book
+        const readingProgressData = readingProgressMap.get(book.id);
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
@@ -1159,14 +1192,15 @@ export class DBStorage implements IStorage {
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
-          reactions: reactions
+          reactions: reactions,
+          readingProgress: readingProgressData
         };
       }));
       
       // Sort the books using the helper function
       const sortedBooks = sortBooksByOption(result);
       
-      console.log('Current user books fetched with counts:', sortedBooks);
+      console.log('Current user books fetched with counts and reading progress:', sortedBooks);
       
       return sortedBooks;
     } catch (error) {
@@ -1275,6 +1309,191 @@ export class DBStorage implements IStorage {
     }
   }
 
+  async getShelvesWithBooks(userId: string): Promise<any[]> {
+    try {
+      console.log('Fetching shelves with books for user ID:', userId);
+      
+      // First get all shelves for the user
+      const userShelves = await db.select().from(shelves).where(eq(shelves.userId, userId));
+      
+      if (userShelves.length === 0) {
+        return [];
+      }
+      
+      // Get all shelf-book associations
+      const shelfIds = userShelves.map(shelf => shelf.id);
+      const shelfBookRecords = await db.select().from(shelfBooks).where(inArray(shelfBooks.shelfId, shelfIds));
+      
+      // Get all unique book IDs
+      const bookIds: string[] = [];
+      const seenBookIds = new Set<string>();
+      shelfBookRecords.forEach(record => {
+        if (!seenBookIds.has(record.bookId)) {
+          seenBookIds.add(record.bookId);
+          bookIds.push(record.bookId);
+        }
+      });
+      
+      if (bookIds.length === 0) {
+        // Return shelves with empty book arrays
+        return userShelves.map(shelf => ({
+          ...shelf,
+          books: []
+        }));
+      }
+      
+      // Get all books with reading progress for this user
+      let books = await this.getBooksByIdsWithProgress(bookIds, userId);
+      
+      // Create a map for quick book lookup
+      const bookMap = new Map(books.map(book => [book.id, book]));
+      
+      // Create a map of shelfId to bookIds
+      const shelfBookMap = new Map<string, string[]>();
+      shelfBookRecords.forEach(record => {
+        if (!shelfBookMap.has(record.shelfId)) {
+          shelfBookMap.set(record.shelfId, []);
+        }
+        shelfBookMap.get(record.shelfId)!.push(record.bookId);
+      });
+      
+      // Build shelves with books
+      const shelvesWithBooks = userShelves.map(shelf => {
+        const shelfBookIds = shelfBookMap.get(shelf.id) || [];
+        const shelfBooks = shelfBookIds
+          .map(bookId => bookMap.get(bookId))
+          .filter(Boolean) as any[];
+          
+        return {
+          ...shelf,
+          books: shelfBooks
+        };
+      });
+      
+      console.log(`Fetched ${shelvesWithBooks.length} shelves with ${books.length} total books`);
+      
+      return shelvesWithBooks;
+    } catch (error) {
+      console.error("Error getting shelves with books:", error);
+      return [];
+    }
+  }
+  
+  // Helper method to get books by IDs with reading progress
+  async getBooksByIdsWithProgress(bookIds: string[], userId?: string): Promise<any[]> {
+    try {
+      if (bookIds.length === 0) return [];
+      
+      // First get the books and sort by rating (descending, nulls last)
+      const booksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      
+      // For books without ratings, calculate them
+      for (const book of booksResult) {
+        if (book.rating === null || book.rating === undefined) {
+          await this.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      const updatedBooksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      
+      // Get reading progress if userId is provided
+      let readingProgressMap = new Map();
+      if (userId) {
+        try {
+          const readingProgressRecords = await db.select({
+            bookId: readingProgress.bookId,
+            percentage: readingProgress.percentage,
+            currentPage: readingProgress.currentPage,
+            totalPages: readingProgress.totalPages,
+            lastReadAt: readingProgress.lastReadAt
+          })
+          .from(readingProgress)
+          .where(and(
+            eq(readingProgress.userId, userId),
+            inArray(readingProgress.bookId, bookIds)
+          ));
+          
+          readingProgressMap = new Map(readingProgressRecords.map(record => [
+            record.bookId, 
+            {
+              percentage: record.percentage ? parseFloat(record.percentage.toString()) : 0,
+              currentPage: record.currentPage || 0,
+              totalPages: record.totalPages || 0,
+              lastReadAt: record.lastReadAt
+            }
+          ]));
+        } catch (progressError) {
+          console.error('Error fetching reading progress:', progressError);
+        }
+      }
+      
+      // For each book, get the comment and review counts and add reading progress
+      const resultWithCounts = await Promise.all(updatedBooksResult.map(async (book) => {
+        // Get comment count using raw SQL
+        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${book.id}`);
+        
+        // Get review count using raw SQL
+        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id}`);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${book.id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${book.id}
+        ) AS activity`);
+        
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${book.id}`);
+        
+        // Get aggregated reactions for this book
+        const reactions = await this.getAggregatedBookReactions(book.id, userId);
+        
+        // Format dates for the frontend
+        const formattedBook = {
+          ...book,
+          rating: book.rating !== null && book.rating !== undefined ? 
+            (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+            null,
+          uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+          publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+          createdAt: book.createdAt.toISOString(),
+          updatedAt: book.updatedAt.toISOString()
+        };
+        
+        // Get book view statistics
+        const viewStats = await this.getBookViewStats(book.id);
+        
+        // Determine the last activity date
+        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
+          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+          : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
+        
+        // Add reading progress if available
+        const readingProgressData = readingProgressMap.get(book.id) || null;
+        
+        return {
+          ...formattedBook,
+          commentCount: parseInt(commentCountResult.rows[0].count as string),
+          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          cardViewCount: viewStats.card_view || 0,
+          readerOpenCount: viewStats.reader_open || 0,
+          lastActivityDate: lastActivityDate,
+          reactions: reactions,
+          readingProgress: readingProgressData
+        };
+      }));
+      
+      // Sort the books using the helper function
+      const sortedBooks = sortBooksByOption(resultWithCounts);
+      
+      return sortedBooks;
+    } catch (error) {
+      console.error("Error getting books by IDs with progress:", error);
+      return [];
+    }
+  }
   async getShelves(userId: string): Promise<any[]> {
     try {
       console.log('Fetching shelves for user ID:', userId);

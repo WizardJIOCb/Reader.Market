@@ -17,7 +17,9 @@
     "books": "Книги",
     "userManagement": "Пользователи",
     "bookRatingSystem": "Рейтинг книг",
-    "userRatingSystem": "Рейтинг пользователей"
+    "userRatingSystem": "Рейтинг пользователей",
+    "loggingConfiguration": "Логирование",
+    "logAnalytics": "Анализ логов"
   },
   "stats": {
     "totalNews": "Всего новостей",

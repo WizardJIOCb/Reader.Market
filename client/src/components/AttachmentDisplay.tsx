@@ -28,7 +28,6 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
   // Load authenticated image URLs
   React.useEffect(() => {
     const loadImages = async () => {
-      console.log('🖼️ [AttachmentDisplay] Loading images for attachments:', attachments);
       const newUrls = new Map<string, string>();
       
       for (const attachment of attachments) {
@@ -39,7 +38,6 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
             let imageUrl = attachment.mimeType === 'image/gif' 
               ? attachment.url 
               : (attachment.thumbnailUrl || attachment.url);
-            console.log('🖼️ [AttachmentDisplay] Loading image URL:', imageUrl, 'MIME:', attachment.mimeType);
             
             // Handle localhost URLs by stripping them to relative paths
             // This fixes production issue where localhost URLs were stored during development
@@ -47,28 +45,23 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
               // Extract the path portion after the domain and port
               const url = new URL(imageUrl);
               imageUrl = url.pathname;
-              console.log('🔧 [AttachmentDisplay] Stripped localhost URL to relative path:', imageUrl);
             }
             
             // If it's a blob URL, use it directly
             if (imageUrl.startsWith('blob:')) {
-              console.log('🖼️ [AttachmentDisplay] Using blob URL directly:', imageUrl);
               newUrls.set(attachment.url, imageUrl);
             }
             // If it's an absolute URL (but not localhost), use it directly
             else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-              console.log('🖼️ [AttachmentDisplay] Using absolute URL directly:', imageUrl);
               newUrls.set(attachment.url, imageUrl);
             }
             // For relative paths, construct full URL
             else {
               const fullUrl = getFileUrl(imageUrl);
-              console.log('🖼️ [AttachmentDisplay] Processing image:', fullUrl, 'MIME:', attachment.mimeType);
               
               // For GIFs, use direct URL without blob conversion to preserve animation
               // Static files in /uploads don't require authentication
               if (attachment.mimeType === 'image/gif') {
-                console.log('🖼️ [AttachmentDisplay] Using direct URL for GIF (preserves animation):', fullUrl);
                 newUrls.set(attachment.url, fullUrl);
               } else {
                 // For non-GIF images, fetch and create blob URL for better caching
@@ -78,12 +71,9 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
                   }
                 });
                 
-                console.log('🖼️ [AttachmentDisplay] Fetch response status:', response.status);
-                
                 if (response.ok) {
                   const blob = await response.blob();
                   const blobUrl = URL.createObjectURL(blob);
-                  console.log('🖼️ [AttachmentDisplay] Created blob URL:', blobUrl);
                   newUrls.set(attachment.url, blobUrl);
                 } else {
                   console.error('❌ Failed to load image:', imageUrl, 'Status:', response.status);
@@ -96,7 +86,6 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
         }
       }
       
-      console.log('🖼️ [AttachmentDisplay] All images loaded. URLs map:', newUrls);
       setImageUrls(newUrls);
     };
     
@@ -121,19 +110,16 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
 
   // Helper function to load full-size image
   const loadFullSizeImage = async (image: Attachment) => {
-    console.log('🔍 [loadFullSizeImage] Loading full-size for:', image.filename, 'MIME:', image.mimeType, 'URL:', image.url);
     let fullImageUrl = image.url;
     
     // Handle localhost URLs
     if (fullImageUrl.startsWith('http://localhost') || fullImageUrl.startsWith('https://localhost')) {
       const url = new URL(fullImageUrl);
       fullImageUrl = url.pathname;
-      console.log('🔧 [loadFullSizeImage] Stripped localhost to:', fullImageUrl);
     }
     
     // If it's already a blob or absolute URL, use directly
     if (fullImageUrl.startsWith('blob:') || fullImageUrl.startsWith('http://') || fullImageUrl.startsWith('https://')) {
-      console.log('⚠️ [loadFullSizeImage] Using as-is (blob or absolute):', fullImageUrl);
       return fullImageUrl;
     }
     
@@ -142,18 +128,15 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
       // Return the imageUrls map entry if available, otherwise construct URL
       const cachedUrl = imageUrls.get(image.url);
       if (cachedUrl) {
-        console.log('✅ [loadFullSizeImage] Using cached GIF URL:', cachedUrl);
         return cachedUrl;
       }
       const directUrl = getFileUrl(fullImageUrl);
-      console.log('✅ [loadFullSizeImage] Using direct GIF URL:', directUrl);
       return directUrl;
     }
     
     // For non-GIF images, fetch and create blob URL for better quality
     try {
       const fullUrl = getFileUrl(fullImageUrl);
-      console.log('📦 [loadFullSizeImage] Fetching non-GIF as blob:', fullUrl);
       const response = await fetch(fullUrl, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -163,14 +146,12 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
       if (response.ok) {
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
-        console.log('✅ [loadFullSizeImage] Created blob URL for non-GIF:', blobUrl);
         return blobUrl;
       }
     } catch (error) {
       console.error('❌ [loadFullSizeImage] Failed to load full-size image:', error);
     }
     
-    console.log('⚠️ [loadFullSizeImage] Fallback to original URL:', fullImageUrl);
     return fullImageUrl;
   };
 

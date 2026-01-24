@@ -86,11 +86,8 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
   // Fetch detailed reaction information
   const fetchReactionDetails = async (emoji: string) => {
     if (!entityInfo) {
-      console.log('No entityInfo, returning early');
       return;
     }
-    
-    console.log('Starting fetch for emoji:', emoji, 'entityInfo:', entityInfo);
     
     setLoadingDetails(prev => ({ ...prev, [emoji]: true }));
     
@@ -108,24 +105,16 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
         endpoint = `/api/books/${entityInfo.id}/reactions/detail`;
       }
       
-      console.log('Constructed endpoint:', endpoint);
-      
       const token = localStorage.getItem('authToken');
       const headers: Record<string, string> = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      console.log('Making fetch request to:', endpoint);
       const response = await fetch(endpoint, { headers });
-      
-      console.log('Fetch response received:', response.status, response.statusText);
       
       if (response.ok) {
         const allReactions = await response.json();
-        console.log('Fetched reactions for', entityInfo.type, entityInfo.id, ':', allReactions);
-        console.log('Response type:', typeof allReactions);
-        console.log('Is array:', Array.isArray(allReactions));
         
         // Filter reactions for this specific emoji
         // Handle different data structures that different endpoints might return
@@ -134,44 +123,24 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
         if (Array.isArray(allReactions)) {
           // Direct array of reactions
           emojiReactions = allReactions.filter((r: any) => r.emoji === emoji);
-          console.log('Filtered from array:', emojiReactions);
-          if (emojiReactions.length > 0) {
-            console.log('Sample reaction object keys:', Object.keys(emojiReactions[0]));
-            console.log('Sample reaction object:', emojiReactions[0]);
-            console.log('User fields available:', {
-              username: emojiReactions[0].username,
-              fullName: emojiReactions[0].fullName,
-              userUsername: emojiReactions[0].userUsername,
-              userFullName: emojiReactions[0].userFullName
-            });
-          }
         } else if (allReactions && typeof allReactions === 'object') {
           // Check various possible object structures
           if (Array.isArray(allReactions.reactions)) {
             // Object with reactions array
             emojiReactions = allReactions.reactions.filter((r: any) => r.emoji === emoji);
-            console.log('Filtered from reactions array:', emojiReactions);
           } else if (Array.isArray(allReactions.data)) {
             // Object with data array
             emojiReactions = allReactions.data.filter((r: any) => r.emoji === emoji);
-            console.log('Filtered from data array:', emojiReactions);
           } else {
             // Try to find any array property
             const arrayProps = Object.keys(allReactions).filter(key => Array.isArray(allReactions[key]));
-            console.log('Found array properties:', arrayProps);
             if (arrayProps.length > 0) {
               emojiReactions = allReactions[arrayProps[0]].filter((r: any) => r.emoji === emoji);
-              console.log('Filtered from', arrayProps[0], ':', emojiReactions);
             }
           }
         }
         
-        console.log('Final filtered reactions for emoji', emoji, ':', emojiReactions);
-        console.log('Reaction count:', emojiReactions.length);
         setReactionDetails(prev => ({ ...prev, [emoji]: emojiReactions }));
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to fetch reactions, status:', response.status, 'body:', errorText);
       }
     } catch (error) {
       console.error('Failed to fetch reaction details:', error);
@@ -199,17 +168,10 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
   };
   
   const handleReactionHover = (emoji: string) => {
-    console.log('Hover triggered for emoji:', emoji);
-    console.log('Current reactionDetails:', reactionDetails[emoji]);
-    console.log('Current loadingDetails:', loadingDetails[emoji]);
-    
     setHoveredReaction(emoji);
     // Fetch details if we don't have them yet OR if we have empty array
     if ((!reactionDetails[emoji] || reactionDetails[emoji].length === 0) && !loadingDetails[emoji]) {
-      console.log('Fetching reaction details for:', emoji);
       fetchReactionDetails(emoji);
-    } else {
-      console.log('Skipping fetch - already have data or loading');
     }
   };
   
@@ -234,13 +196,11 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
               }`}
               onClick={() => handleReaction(reaction.emoji)}
               onMouseEnter={() => {
-                console.log('Mouse enter on button:', reaction.emoji);
                 handleReactionHover(reaction.emoji);
               }}
               onMouseLeave={() => {
                 // Don't hide immediately if tooltip is hovered
                 if (!tooltipHovered) {
-                  console.log('Mouse leave on button - setting hovered to null');
                   setHoveredReaction(null);
                 }
               }}
@@ -258,12 +218,10 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
               className="absolute bottom-full left-0 -mb-1 z-50 bg-popover border rounded-md shadow-lg min-w-[200px] max-w-xs pointer-events-auto pt-1 cursor-pointer"
               onClick={() => handleReactionClick(reaction.emoji)}
               onMouseEnter={() => {
-                console.log('Mouse entered tooltip');
                 setTooltipHovered(true);
                 setHoveredReaction(reaction.emoji);
               }}
               onMouseLeave={() => {
-                console.log('Mouse left tooltip');
                 setTooltipHovered(false);
                 setHoveredReaction(null);
               }}

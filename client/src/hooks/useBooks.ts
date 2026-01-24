@@ -256,6 +256,13 @@ export function useBook(bookId: string | undefined): UseBookReturn {
         const data = await response.json();
         console.log('Received book data:', data);
         setBook(data);
+        
+        // Set reading progress from embedded data if available
+        if (data.readingProgress) {
+          // We could emit an event or use a callback to notify components
+          // For now, just log it
+          console.log('Embedded reading progress found:', data.readingProgress);
+        }
       } else if (response.status === 404) {
         setError('Book not found');
       } else {

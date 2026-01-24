@@ -51,6 +51,13 @@ export interface Comment {
   parentCommentAuthor?: string | null;
   replyCount?: number;
   replies?: Comment[];
+  metadata?: {
+    readingProgress?: {
+      percentage: number;
+      currentPage: number;
+      totalPages: number;
+    };
+  };
 }
 
 interface CommentsProps {
@@ -120,9 +127,19 @@ export function CommentItem({
   const isOwnComment = user && comment.userId === user.id;
   
   // Reading progress state
-  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(null);
+  // Use reading progress from API data if available, otherwise load it
+  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(comment.metadata?.readingProgress || null);
   // User's book review rating
   const [reviewRating, setReviewRating] = useState<number | null>(null);
+  
+  // Log whether we're using metadata or making API calls
+  useEffect(() => {
+    if (comment.metadata?.readingProgress) {
+      // Using metadata reading progress
+    } else if (comment.userId && comment.bookId) {
+      // Will fetch reading progress from API
+    }
+  }, [comment.id, comment.metadata?.readingProgress, comment.userId, comment.bookId]);
   
   // Get color class based on rating
   const getRatingColorClass = () => {
@@ -132,41 +149,46 @@ export function CommentItem({
     return 'text-red-700 bg-red-100 dark:bg-red-900/30';
   };
   
-  // Load reading progress for this user and book
+  // Load reading progress for this user and book (fallback if not in API data)
   useEffect(() => {
-    const loadReadingProgress = async () => {
-      if (comment.userId && comment.bookId) {
-        try {
-          // Try direct fetch first (like BookDetail page does)
-          const token = localStorage.getItem('authToken');
-          const response = await fetch(`/api/books/${comment.bookId}/reading-progress/${comment.userId}`, {
-            headers: token ? {
-              'Authorization': `Bearer ${token}`
-            } : {}
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
+    // Only load from API if readingProgress wasn't provided in the comment data
+    if ((!comment.metadata || comment.metadata.readingProgress === undefined) && comment.userId && comment.bookId) {
+      const loadReadingProgress = async () => {
+        if (comment.userId && comment.bookId) {
+          try {
+            // Try direct fetch first (like BookDetail page does)
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`/api/books/${comment.bookId}/reading-progress/${comment.userId}`, {
+              headers: token ? {
+                'Authorization': `Bearer ${token}`
+              } : {}
+            });
             
-            if (data) {
-              // Only show progress if user has actually read something
-              if (data.percentage > 0) {
-                setReadingProgress({
-                  percentage: data.percentage,
-                  currentPage: data.currentPage,
-                  totalPages: data.totalPages
-                });
+            if (response.ok) {
+              const data = await response.json();
+              
+              if (data) {
+                // Only show progress if user has actually read something
+                if (data.percentage > 0) {
+                  setReadingProgress({
+                    percentage: parseFloat(data.percentage),
+                    currentPage: data.current_page || data.currentPage,
+                    totalPages: data.total_pages || data.totalPages
+                  });
+                }
               }
             }
+          } catch (error) {
+            console.error('Failed to load reading progress:', error);
           }
-        } catch (error) {
-          console.error('Failed to load reading progress:', error);
         }
-      }
-    };
-    
-    loadReadingProgress();
-  }, [comment.userId, comment.bookId]);
+      };
+      
+      loadReadingProgress();
+    } else if (comment.metadata?.readingProgress) {
+      setReadingProgress(comment.metadata.readingProgress);
+    }
+  }, [comment.id, comment.userId, comment.bookId, comment.metadata?.readingProgress]);
   
   // Load user's review rating for this book
   useEffect(() => {
@@ -531,7 +553,12 @@ export function CommentItem({
               
               <ReactionBar
                 reactions={comment.reactions || []}
-                onReact={(emoji) => onReaction(comment.id, emoji)}
+                onReact={(emoji) => {
+                  console.log('=== ReactionBar onReact called ===');
+                  console.log('Comment ID:', comment.id);
+                  console.log('Emoji:', emoji);
+                  onReaction(comment.id, emoji);
+                }}
                 commentId={comment.id}
               />
             </div>

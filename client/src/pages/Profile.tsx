@@ -107,7 +107,7 @@ interface UserProfile {
     lettersRead: number;
   };
   shelves: (ProfileShelf & { books?: Book[] })[];
-  recentlyReadIds: string[];
+  recentlyReadBooks: any[];
   readingProgress?: ReadingProgress[];
 }
 
@@ -137,6 +137,112 @@ export default function Profile() {
   // State for expanded book lists (carousel vs full view)
   const [expandedRecentlyRead, setExpandedRecentlyRead] = useState(false);
   const [expandedShelves, setExpandedShelves] = useState<Record<string, boolean>>({});
+  
+  // Helper function for fallback to old method
+  const fetchShelvesOldMethod = async (token: string) => {
+    try {
+      const shelvesResponse = await fetch(`/api/shelves`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (shelvesResponse.ok) {
+        const shelves = await shelvesResponse.json();
+        // Fetch books for each shelf (old method)
+        return await Promise.all(
+          shelves.map(async (shelf: ProfileShelf) => {
+            if (shelf.bookIds && shelf.bookIds.length > 0) {
+              try {
+                const booksResponse = await fetch('/api/books/by-ids', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ bookIds: shelf.bookIds })
+                });
+                
+                if (booksResponse.ok) {
+                  const books = await booksResponse.json();
+                  const formattedBooks = books.map((book: any) => ({
+                    ...book,
+                    genre: book.genre !== undefined ? book.genre : ''
+                  }));
+                  return {
+                    ...shelf,
+                    books: formattedBooks
+                  };
+                }
+              } catch (error) {
+                console.error('Error fetching books for shelf:', error);
+              }
+            }
+            return {
+              ...shelf,
+              books: []
+            };
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error in fetchShelvesOldMethod:', error);
+    }
+    return [];
+  };
+  
+  // Helper function for fallback to old method for user shelves
+  const fetchUserShelvesOldMethod = async (userId: string, token: string | null) => {
+    try {
+      const userShelvesResponse = await fetch(`/api/shelves/user/${userId}`, {
+        headers: token ? {
+          'Authorization': `Bearer ${token}`
+        } : {}
+      });
+      
+      if (userShelvesResponse.ok) {
+        const shelves = await userShelvesResponse.json();
+        // Fetch books for each shelf (old method)
+        return await Promise.all(
+          shelves.map(async (shelf: ProfileShelf) => {
+            if (shelf.bookIds && shelf.bookIds.length > 0) {
+              try {
+                const booksResponse = await fetch('/api/books/by-ids', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                  },
+                  body: JSON.stringify({ bookIds: shelf.bookIds })
+                });
+                
+                if (booksResponse.ok) {
+                  const books = await booksResponse.json();
+                  const formattedBooks = books.map((book: any) => ({
+                    ...book,
+                    genre: book.genre !== undefined ? book.genre : ''
+                  }));
+                  return {
+                    ...shelf,
+                    books: formattedBooks
+                  };
+                }
+              } catch (error) {
+                console.error('Error fetching books for shelf:', error);
+              }
+            }
+            return {
+              ...shelf,
+              books: []
+            };
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error in fetchUserShelvesOldMethod:', error);
+    }
+    return [];
+  };
   const recentlyReadScrollRef = useRef<HTMLDivElement>(null);
   const shelfScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [, setLocation] = useLocation();
@@ -699,67 +805,42 @@ export default function Profile() {
         
         // Format the user data to match the expected structure
         // Fetch user's shelves based on whether it's the current user or another user
-        let shelves = [];
+        let shelvesWithBooks = [];
         if (isOwnProfile && token) {
-          // Fetch current user's shelves
-          const shelvesResponse = await fetch(`/api/shelves`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
+          // Fetch current user's shelves with books (optimized)
+          try {
+            const shelvesResponse = await fetch(`/api/shelves/with-books`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (shelvesResponse.ok) {
+              shelvesWithBooks = await shelvesResponse.json();
             }
-          });
-          
-          if (shelvesResponse.ok) {
-            shelves = await shelvesResponse.json();
+          } catch (error) {
+            console.error('Error fetching shelves with books:', error);
+            // Fallback to old method if optimized endpoint fails
+            shelvesWithBooks = await fetchShelvesOldMethod(token);
           }
         } else {
-          // Fetch other user's shelves
-          const userShelvesResponse = await fetch(`/api/shelves/user/${userId}`, {
-            headers: token ? {
-              'Authorization': `Bearer ${token}`
-            } : {}
-          });
-          
-          if (userShelvesResponse.ok) {
-            shelves = await userShelvesResponse.json();
+          // Fetch other user's shelves with books
+          try {
+            const userShelvesResponse = await fetch(`/api/users/${userId}/shelves/with-books`, {
+              headers: token ? {
+                'Authorization': `Bearer ${token}`
+              } : {}
+            });
+            
+            if (userShelvesResponse.ok) {
+              shelvesWithBooks = await userShelvesResponse.json();
+            }
+          } catch (error) {
+            console.error('Error fetching user shelves with books:', error);
+            // Fallback to old method if optimized endpoint fails
+            shelvesWithBooks = await fetchUserShelvesOldMethod(userId, token);
           }
         }
-        
-        // Fetch books for each shelf
-        const shelvesWithBooks = await Promise.all(
-          shelves.map(async (shelf: ProfileShelf) => {
-            if (shelf.bookIds && shelf.bookIds.length > 0) {
-              try {
-                const booksResponse = await fetch('/api/books/by-ids', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                  },
-                  body: JSON.stringify({ bookIds: shelf.bookIds })
-                });
-                
-                if (booksResponse.ok) {
-                  const books = await booksResponse.json();
-                  // Ensure books have proper genre field to match BookCard expectations
-                  const formattedBooks = books.map((book: any) => ({
-                    ...book,
-                    genre: book.genre !== undefined ? book.genre : ''
-                  }));
-                  return {
-                    ...shelf,
-                    books: formattedBooks
-                  };
-                }
-              } catch (error) {
-                console.error('Error fetching books for shelf:', error);
-              }
-            }
-            return {
-              ...shelf,
-              books: []
-            };
-          })
-        );
         
         // Fetch user's reading statistics
         let userStats = {
@@ -789,7 +870,7 @@ export default function Profile() {
         }
         
         // Fetch recently read books (only for own profile)
-        let recentlyReadIds: string[] = [];
+        let recentlyReadBooks: any[] = [];
         
         if (isOwnProfile && token) {
           try {
@@ -800,8 +881,7 @@ export default function Profile() {
             });
             
             if (recentlyReadResponse.ok) {
-              const recentlyReadBooks = await recentlyReadResponse.json();
-              recentlyReadIds = recentlyReadBooks.slice(0, 5).map((book: any) => book.id);
+              recentlyReadBooks = await recentlyReadResponse.json();
             }
           } catch (error) {
             console.error('Error fetching recently read books:', error);
@@ -818,8 +898,7 @@ export default function Profile() {
           avatar: userData.avatarUrl || '',
           stats: userStats,
           shelves: shelvesWithBooks,
-          recentlyReadIds: recentlyReadIds,
-          // For now, we're not fetching reading progress, so we'll leave it empty
+          recentlyReadBooks: recentlyReadBooks,
           readingProgress: []
         };
         
@@ -1123,7 +1202,7 @@ export default function Profile() {
               <ClockIcon className="w-5 h-5 text-muted-foreground" />
               {t('profile:recentlyRead')}
             </h2>
-            {profile.recentlyReadIds.length > 0 && (
+            {profile.recentlyReadBooks.length > 0 && (
               <Button 
                 variant="ghost" 
                 size="sm"
@@ -1133,27 +1212,17 @@ export default function Profile() {
               </Button>
             )}
           </div>
-          {profile.recentlyReadIds.length === 0 ? (
+          {profile.recentlyReadBooks.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('profile:noRecentBooks')}</p>
           ) : expandedRecentlyRead ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {profile.recentlyReadIds.map((bookId: string) => {
-                let book = null;
-                for (const shelf of profile.shelves) {
-                  if (shelf.books) {
-                    book = shelf.books.find(b => b.id === bookId);
-                    if (book) break;
-                  }
-                }
-                if (!book) return null;
-                return (
-                  <BookCard 
-                    key={book.id} 
-                    book={book} 
-                    variant="detailed"
-                  />
-                );
-              })}
+              {profile.recentlyReadBooks.map((book: any) => (
+                <BookCard 
+                  key={book.id} 
+                  book={book} 
+                  variant="detailed"
+                />
+              ))}
             </div>
           ) : (
             <div className="relative group">
@@ -1174,24 +1243,14 @@ export default function Profile() {
                 className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 scroll-smooth"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                {profile.recentlyReadIds.map((bookId: string) => {
-                  let book = null;
-                  for (const shelf of profile.shelves) {
-                    if (shelf.books) {
-                      book = shelf.books.find(b => b.id === bookId);
-                      if (book) break;
-                    }
-                  }
-                  if (!book) return null;
-                  return (
-                    <div key={book.id} className="flex-shrink-0 w-[calc(85%-8px)] md:w-[calc(33.333%-11px)]">
-                      <BookCard 
-                        book={book} 
-                        variant="detailed"
-                      />
-                    </div>
-                  );
-                })}
+                {profile.recentlyReadBooks.map((book: any) => (
+                  <div key={book.id} className="flex-shrink-0 w-[calc(85%-8px)] md:w-[calc(33.333%-11px)]">
+                    <BookCard 
+                      book={book} 
+                      variant="detailed"
+                    />
+                  </div>
+                ))}
               </div>
               <Button
                 variant="ghost"
@@ -1216,10 +1275,16 @@ export default function Profile() {
             // Show all shelves if viewing own profile, otherwise hide empty shelves
             const filteredShelves = isOwnProfile 
               ? profile.shelves 
-              : profile.shelves.filter((shelf: ProfileShelf) => shelf.bookIds.length > 0);
+              : profile.shelves.filter((shelf: ProfileShelf) => 
+                  (shelf.bookIds && shelf.bookIds.length > 0) || 
+                  (shelf.books && shelf.books.length > 0)
+                );
             
             // Count non-empty shelves for the counter
-            const nonEmptyShelfCount = profile.shelves.filter((shelf: ProfileShelf) => shelf.bookIds.length > 0).length;
+            const nonEmptyShelfCount = profile.shelves.filter((shelf: ProfileShelf) => 
+              (shelf.bookIds && shelf.bookIds.length > 0) || 
+              (shelf.books && shelf.books.length > 0)
+            ).length;
             
             return (
               <>
@@ -1236,9 +1301,9 @@ export default function Profile() {
                         <div className="flex items-baseline justify-between mb-4">
                           <div className="flex items-center gap-3">
                             <h3 className="font-serif text-lg font-bold">{shelf.name}</h3>
-                            <Badge variant="secondary" className="rounded-full">{shelf.bookIds.length}</Badge>
+                            <Badge variant="secondary" className="rounded-full">{(shelf.bookIds?.length || 0) + (shelf.books?.length || 0)}</Badge>
                           </div>
-                          {shelf.bookIds.length > 0 && (
+                          {((shelf.bookIds && shelf.bookIds.length > 0) || (shelf.books && shelf.books.length > 0)) && (
                             <Button 
                               variant="ghost" 
                               size="sm"
@@ -1249,7 +1314,7 @@ export default function Profile() {
                           )}
                         </div>
                     
-                        {shelf.bookIds.length === 0 ? (
+                        {((!shelf.bookIds || shelf.bookIds.length === 0) && (!shelf.books || shelf.books.length === 0)) ? (
                           <p className="text-sm text-muted-foreground">{t('profile:emptyShelf')}</p>
                         ) : isExpanded ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

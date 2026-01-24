@@ -55,6 +55,13 @@ interface Review {
   parentReviewAuthor?: string | null;
   replyCount?: number;
   replies?: Review[];
+  metadata?: {
+    readingProgress?: {
+      percentage: number;
+      currentPage: number;
+      totalPages: number;
+    };
+  };
 }
 
 interface ReviewsProps {
@@ -127,12 +134,28 @@ export function ReviewItem({
   const isOwnReview = user && review.userId === user.id;
   
   // Reading progress state
-  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(null);
+  // Use reading progress from API data if available, otherwise load it
+  const [readingProgress, setReadingProgress] = useState<{percentage: number, currentPage: number, totalPages: number} | null>(review.metadata?.readingProgress || null);
   
-  // Load reading progress for this user and book
+  // Log whether we're using metadata or making API calls
   useEffect(() => {
-    const loadReadingProgress = async () => {
-      if (review.userId && review.bookId) {
+    console.log(`[ReviewsSection] Review ${review.id} metadata:`, review.metadata);
+    console.log(`[ReviewsSection] Review ${review.id} readingProgress:`, review.metadata?.readingProgress);
+    console.log(`[ReviewsSection] Review ${review.id} condition result:`, review.metadata?.readingProgress === undefined);
+    
+    if (review.metadata?.readingProgress) {
+      console.log(`[ReviewsSection] Using reading progress from metadata for review ${review.id}:`, review.metadata.readingProgress);
+    } else if (review.userId && review.bookId) {
+      console.log(`[ReviewsSection] Will fetch reading progress from API for review ${review.id}`);
+    }
+  }, [review.id, review.metadata?.readingProgress, review.userId, review.bookId]);
+  
+  // Load reading progress for this user and book (fallback if not in API data)
+  useEffect(() => {
+    // Only load from API if readingProgress wasn't provided in the review data
+    if ((!review.metadata || review.metadata.readingProgress === undefined) && review.userId && review.bookId) {
+      console.log(`[ReviewsSection] Actually making API call for review ${review.id}`);
+      const loadReadingProgress = async () => {
         try {
           // Try direct fetch first (like BookDetail page does)
           const token = localStorage.getItem('authToken');
@@ -149,9 +172,9 @@ export function ReviewItem({
               // Only show progress if user has actually read something
               if (data.percentage > 0) {
                 setReadingProgress({
-                  percentage: data.percentage,
-                  currentPage: data.currentPage,
-                  totalPages: data.totalPages
+                  percentage: parseFloat(data.percentage),
+                  currentPage: data.current_page || data.currentPage,
+                  totalPages: data.total_pages || data.totalPages
                 });
               }
             }
@@ -159,11 +182,11 @@ export function ReviewItem({
         } catch (error) {
           console.error('Failed to load reading progress:', error);
         }
-      }
-    };
-    
-    loadReadingProgress();
-  }, [review.userId, review.bookId]);
+      };
+      
+      loadReadingProgress();
+    }
+  }, [review.userId, review.bookId, review.metadata?.readingProgress]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {

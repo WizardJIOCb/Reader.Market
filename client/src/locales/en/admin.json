@@ -17,7 +17,9 @@
     "books": "Books",
     "userManagement": "Users",
     "bookRatingSystem": "Book Ratings",
-    "userRatingSystem": "User Ratings"
+    "userRatingSystem": "User Ratings",
+    "loggingConfiguration": "Logging",
+    "logAnalytics": "Log Analytics"
   },
   "stats": {
     "totalNews": "Total News",
