@@ -23,6 +23,11 @@ export function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const { t } = useTranslation(['navigation', 'common']);
   const [location] = useLocation();
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('%c[NAVBAR] User state:', 'color: yellow', { user: !!user, isLoading, userId: user?.id });
+  }, [user, isLoading]);
 
   // Helper function to check if a route is active
   const isActive = (path: string, exact = true) => {
@@ -58,14 +63,18 @@ export function Navbar() {
     };
 
     fetchUnreadCount();
-    // Poll for updates every 30 seconds as fallback
-    const interval = setInterval(fetchUnreadCount, 30000);
     
-    // Listen for real-time notification events
+    // Listen for real-time unread count updates via WebSocket
+    const cleanupUnreadUpdate = onSocketEvent('unread-count:update', (data) => {
+      console.log('%c[UNREAD COUNT] Received WebSocket update:', 'color: purple; font-weight: bold', data);
+      setUnreadCount(data.count);
+    });
+    
+    // Listen for notification events as fallback
     const cleanupNotification = onSocketEvent('notification:new', (data) => {
       if (data.type === 'new_message') {
-        // Increment unread count immediately
-        setUnreadCount(prev => prev + 1);
+        // Fallback: fetch count from API if WebSocket update wasn't received
+        fetchUnreadCount();
       }
     });
     
@@ -76,7 +85,7 @@ export function Navbar() {
     window.addEventListener('update-unread-count', handleUpdateUnreadCount);
     
     return () => {
-      clearInterval(interval);
+      cleanupUnreadUpdate();
       cleanupNotification();
       window.removeEventListener('update-unread-count', handleUpdateUnreadCount);
     };

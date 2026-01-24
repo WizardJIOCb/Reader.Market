@@ -482,6 +482,142 @@ export default function Messages() {
     };
   }, [selectedChannel, selectedGroup]);
 
+  // Handle focus events from notifications
+  useEffect(() => {
+    console.log('%c[MESSAGES] Setting up focus event listeners', 'color: cyan; font-weight: bold');
+    
+    const handleFocusConversation = (event: CustomEvent) => {
+      const { conversationId } = event.detail;
+      console.log('%c[MESSAGES] 🎯 Focus conversation event received:', 'color: green; font-weight: bold', conversationId);
+      console.log('%c[MESSAGES] Available conversations:', 'color: green', conversations.map(c => ({id: c.id, name: c.otherUser?.username})));
+      console.log('%c[MESSAGES] Conversations count:', 'color: green', conversations.length);
+      console.log('%c[MESSAGES] Current selected conversation:', 'color: green', selectedConversation?.id);
+      
+      // Find and select the conversation
+      const conversation = conversations.find(c => c.id === conversationId);
+      if (conversation) {
+        console.log('%c[MESSAGES] ✅ Found conversation, selecting:', 'color: green', conversation);
+        setSelectedConversation(conversation);
+        if (isMobile) setShowMobileChat(true);
+        setActiveTab('private');
+        
+        // Scroll to the conversation in the list
+        setTimeout(() => {
+          const element = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add('bg-accent');
+            setTimeout(() => {
+              element.classList.remove('bg-accent');
+            }, 2000);
+          }
+        }, 100);
+      } else {
+        console.log('%c[MESSAGES] ❌ Conversation not found in list', 'color: red');
+        console.log('%c[MESSAGES] Trying to fetch conversations again...', 'color: orange');
+        
+        // Force refresh conversations
+        fetchConversations().then(() => {
+          // Retry after a delay
+          setTimeout(() => {
+            const retryConversation = conversations.find(c => c.id === conversationId);
+            if (retryConversation) {
+              console.log('%c[MESSAGES] ✅ Found conversation on retry:', 'color: green', retryConversation);
+              setSelectedConversation(retryConversation);
+              if (isMobile) setShowMobileChat(true);
+              setActiveTab('private');
+            } else {
+              console.log('%c[MESSAGES] ❌ Still not found after retry', 'color: red');
+              // Show error toast
+              toast({
+                title: "Conversation not found",
+                description: "The conversation may have been deleted or you don't have access to it.",
+                variant: "destructive"
+              });
+            }
+          }, 500);
+        });
+      }
+    };
+    
+    const handleFocusGroup = (event: CustomEvent) => {
+      const { groupId, channelId } = event.detail;
+      console.log('%c[MESSAGES] 🎯 Focus group event received:', 'color: blue; font-weight: bold', { groupId, channelId });
+      console.log('%c[MESSAGES] Available groups:', 'color: blue', groups.map(g => ({id: g.id, name: g.name})));
+      console.log('%c[MESSAGES] Groups count:', 'color: blue', groups.length);
+      console.log('%c[MESSAGES] Channels count:', 'color: blue', channels.length);
+      
+      // Find and select the group
+      const group = groups.find(g => g.id === groupId);
+      if (group) {
+        console.log('%c[MESSAGES] ✅ Found group, selecting:', 'color: blue', group);
+        setSelectedGroup(group);
+        if (isMobile) setShowMobileChat(true);
+        setActiveTab('groups');
+        
+        // Notify MessageNotificationProvider about current group
+        window.dispatchEvent(new CustomEvent('current-group-update', {
+          detail: {
+            groupId: group.id,
+            channelId: channelId
+          }
+        }));
+        
+        // If channel ID provided, select that channel
+        if (channelId) {
+          const channel = channels.find(c => c.id === channelId);
+          if (channel) {
+            console.log('%c[MESSAGES] ✅ Found channel, selecting:', 'color: blue', channel);
+            setSelectedChannel(channel);
+          } else {
+            console.log('%c[MESSAGES] ⚠️ Channel not found, will select first channel', 'color: orange');
+            // Select first channel if available
+            if (channels.length > 0) {
+              setSelectedChannel(channels[0]);
+            }
+          }
+        }
+      } else {
+        console.log('%c[MESSAGES] ❌ Group not found in list', 'color: red');
+        console.log('%c[MESSAGES] Requested group ID:', 'color: red', groupId);
+        
+        // Try to fetch the specific group directly
+        fetchGroupDetails(groupId).then(fullGroupDetails => {
+          if (fullGroupDetails) {
+            console.log('%c[MESSAGES] ✅ Fetched group details, selecting:', 'color: green', fullGroupDetails);
+            setSelectedGroup(fullGroupDetails);
+            if (isMobile) setShowMobileChat(true);
+            setActiveTab('groups');
+            
+            // If channel ID provided, select that channel
+            if (channelId && fullGroupDetails.channels) {
+              const channel = fullGroupDetails.channels.find((c: any) => c.id === channelId);
+              if (channel) {
+                console.log('%c[MESSAGES] ✅ Found channel in fetched group:', 'color: green', channel);
+                setSelectedChannel(channel);
+              }
+            }
+          } else {
+            toast({
+              title: "Group not found",
+              description: "Unable to access this group",
+              variant: "destructive"
+            });
+          }
+        });
+      }
+    };
+    
+    window.addEventListener('focus-conversation', handleFocusConversation as EventListener);
+    window.addEventListener('focus-group', handleFocusGroup as EventListener);
+    
+    return () => {
+      console.log('%c[MESSAGES] 🧹 Cleaning up focus event listeners', 'color: gray');
+      window.removeEventListener('focus-conversation', handleFocusConversation as EventListener);
+      window.removeEventListener('focus-group', handleFocusGroup as EventListener);
+    };
+  }, [conversations, groups, channels, isMobile]);
+
   // Clear search and selected items when switching tabs
   useEffect(() => {
     console.log('Active tab changed to:', activeTab);
@@ -490,6 +626,13 @@ export default function Messages() {
     if (activeTab === 'groups') {
       setSelectedConversation(null);
       console.log('Switched to groups tab, cleared conversation selection');
+      // Clear current group info
+      window.dispatchEvent(new CustomEvent('current-group-update', {
+        detail: {
+          groupId: null,
+          channelId: null
+        }
+      }));
     } else {
       setSelectedGroup(null);
       console.log('Switched to private tab, cleared group selection');
@@ -1865,7 +2008,16 @@ export default function Messages() {
                   {channels.map((channel) => (
                     <button
                       key={channel.id}
-                      onClick={() => setSelectedChannel(channel)}
+                      onClick={() => {
+                        setSelectedChannel(channel);
+                        // Notify MessageNotificationProvider about current channel
+                        window.dispatchEvent(new CustomEvent('current-group-update', {
+                          detail: {
+                            groupId: selectedGroup?.id,
+                            channelId: channel.id
+                          }
+                        }));
+                      }}
                       className={`px-3 py-1 rounded-md text-sm flex items-center gap-1 whitespace-nowrap transition-colors ${
                         selectedChannel?.id === channel.id
                           ? 'bg-primary text-primary-foreground'

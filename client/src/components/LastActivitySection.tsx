@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,9 @@ import { CommentItem } from './ProfileRatingsSection';
 import { ReviewItem } from './ReviewsSection';
 import { EmojiPicker } from './EmojiPicker';
 import { UserNameWithRating } from './UserNameWithRating';
+import { getCachedUserReview, setCachedUserReview, getPendingUserReviewRequest, trackPendingUserReviewRequest, isUserReviewStale, dataCache } from '@/lib/dataCache';
+import { reviewsApi, readerApi } from '@/lib/api';
+import { readingProgressCache } from '@/lib/readingProgressCache';
 
 interface Reaction {
   emoji: string;
@@ -37,12 +40,15 @@ interface Comment {
   reactions?: Reaction[];
   replyCount?: number;
   replies?: Comment[];
+  bookId?: string; // Add bookId property
   metadata?: {
     readingProgress?: {
       percentage: number;
       currentPage: number;
       totalPages: number;
     };
+    userReviewRating?: number | null; // Add user review rating
+    bookRating?: number | null; // Add book rating
   };
 }
 
@@ -134,6 +140,313 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
   const [submitting, setSubmitting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAllActivities, setShowAllActivities] = useState(false);
+  
+  // Batch load reading progress for all comments/reviews
+  const useBatchReadingProgress = (activities: UserActivity[]) => {
+    const [progressMap, setProgressMap] = useState<Record<string, any>>({});
+    // Track which requests are currently in flight to prevent duplicates
+    const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set());
+    // Track all requested keys to prevent duplicates across renders
+    const [requestedKeys, setRequestedKeys] = useState<Set<string>>(new Set());
+    
+    useEffect(() => {
+      // Only load if we have activities
+      if (activities.length === 0) {
+        return;
+      }
+      
+      const loadBatchProgress = async () => {
+        console.log('=== BATCH PROGRESS LOAD START ===');
+        console.log('Activities count:', activities.length);
+        console.log('Already loaded keys:', Object.keys(progressMap));
+        console.log('Currently loading keys:', Array.from(loadingKeys));
+        console.log('Previously requested keys:', Array.from(requestedKeys));
+        
+        // Collect unique book-user pairs that need progress data
+        const progressRequests: {bookId: string, userId: string}[] = [];
+        const newLoadingKeys = new Set(loadingKeys);
+        const newRequestedKeys = new Set(requestedKeys);
+        
+        activities.forEach(activity => {
+          if ((activity.type === 'comment' || activity.type === 'review') && 
+              activity.userId && 
+              (activity as any).bookId &&
+              // Only if progress isn't already in metadata or cache
+              !activity.metadata?.readingProgress) {
+            const bookId = (activity as any).bookId || activity.metadata?.book_id;
+            const userId = activity.userId;
+            const key = `${bookId}-${userId}`;
+            
+            // Avoid duplicates and check if already loaded, loading, or requested
+            if (!progressRequests.some(req => req.bookId === bookId && req.userId === userId) &&
+                !progressMap[key] && 
+                !loadingKeys.has(key) &&
+                !requestedKeys.has(key)) { // Only if not already requested
+              progressRequests.push({ bookId, userId });
+              newLoadingKeys.add(key);
+              newRequestedKeys.add(key); // Mark as requested immediately
+              console.log('Adding request for:', key);
+            } else {
+              console.log('Skipping duplicate request for:', key);
+              console.log('  Already loaded:', !!progressMap[key]);
+              console.log('  Currently loading:', loadingKeys.has(key));
+              console.log('  Previously requested:', requestedKeys.has(key));
+            }
+          }
+        });
+        
+        console.log('Total requests to make:', progressRequests.length);
+        console.log('Request list:', progressRequests);
+        
+        // Update states
+        if (progressRequests.length > 0) {
+          setLoadingKeys(newLoadingKeys);
+          setRequestedKeys(newRequestedKeys);
+        }
+        
+        // If no new requests needed, exit early
+        if (progressRequests.length === 0) {
+          console.log('No new requests needed, exiting');
+          console.log('=== BATCH PROGRESS LOAD END ===\n');
+          return;
+        }
+        
+        try {
+          // Use individual cached requests instead of batch endpoint
+          const token = localStorage.getItem('authToken');
+          const newProgressMap: Record<string, any> = {};
+          
+          // Process each request individually using cache
+          const promises = progressRequests.map(async (req) => {
+            try {
+              const data = await readingProgressCache.getUserProgress(
+                req.bookId, 
+                req.userId,
+                () => readerApi.getUserProgress(req.bookId, req.userId)
+              );
+              
+              if (data.ok) {
+                const progressData = await data.json();
+                if (progressData.percentage > 0) {
+                  const key = `${req.bookId}-${req.userId}`;
+                  newProgressMap[key] = {
+                    percentage: parseFloat(progressData.percentage),
+                    currentPage: progressData.current_page || progressData.currentPage,
+                    totalPages: progressData.total_pages || progressData.totalPages
+                  };
+                  console.log('Successfully loaded progress for:', key);
+                }
+              }
+              // Remove from loading state
+              newLoadingKeys.delete(`${req.bookId}-${req.userId}`);
+            } catch (error) {
+              console.error(`Failed to load progress for ${req.bookId}-${req.userId}:`, error);
+              // Remove from loading state on error
+              newLoadingKeys.delete(`${req.bookId}-${req.userId}`);
+              newRequestedKeys.delete(`${req.bookId}-${req.userId}`);
+            }
+          });
+          
+          // Wait for all requests to complete
+          await Promise.all(promises);
+          
+          // Merge with existing progress map
+          setProgressMap(prev => ({ ...prev, ...newProgressMap }));
+          setLoadingKeys(newLoadingKeys);
+          setRequestedKeys(newRequestedKeys);
+          console.log('Updated progress map with', Object.keys(newProgressMap).length, 'entries');
+        } catch (error) {
+          console.error('Failed to load batch reading progress:', error);
+          // Clear loading state on error
+          progressRequests.forEach(req => {
+            const key = `${req.bookId}-${req.userId}`;
+            newLoadingKeys.delete(key);
+            newRequestedKeys.delete(key);
+          });
+          setLoadingKeys(newLoadingKeys);
+          setRequestedKeys(newRequestedKeys);
+        }
+        
+        console.log('=== BATCH PROGRESS LOAD END ===\n');
+      };
+      
+      loadBatchProgress();
+    }, [activities, progressMap, loadingKeys, requestedKeys]); // Depend on all states to prevent duplicates
+    
+    return progressMap;
+  };
+  
+  // Load batch reading progress for all activities
+  const progressMap = useBatchReadingProgress(activities);
+  
+  // Create a wrapper component to handle hooks properly
+  const ActivityItemWrapper = ({ activity }: { activity: UserActivity }) => {
+    const dateLocale = i18n.language === 'ru' ? ru : enUS;
+    
+    // These hooks are now called unconditionally within this component
+    const commentReviewRating = useCachedUserReview(
+      (activity as any).bookId || activity.metadata?.book_id, 
+      activity.userId
+    );
+    
+    if (activity.type === 'comment') {
+      const comment = transformActivityToComment(activity as Activity);
+      
+      // Get reading progress from batch-loaded data
+      const progressKey = `${comment.bookId || activity.bookId || activity.metadata?.book_id}-${comment.userId}`;
+      const batchProgress = progressMap[progressKey];
+      
+      // Merge batch progress with existing metadata
+      const commentWithProgress = Object.assign({}, comment, {
+        metadata: Object.assign({}, comment.metadata || {}, {
+          userReviewRating: commentReviewRating,
+          readingProgress: comment.metadata?.readingProgress || batchProgress
+        })
+      }) as Comment;
+      
+      return (
+        <div key={`comment-${comment.id}-${comment.replies?.length || 0}`} id={`comment-${comment.id}`}>
+          {/* Book title and rating for comments */}
+          {activity.metadata?.book_title && activity.metadata.book_title !== 'Unknown' && (
+            <div className="mb-2 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{t('stream:in')}</span>
+              <Link href={`/book/${activity.metadata.book_id}`}>
+                <span className="font-medium text-primary hover:underline cursor-pointer">
+                  {activity.metadata.book_title}
+                </span>
+              </Link>
+              {activity.metadata.book_rating !== undefined && activity.metadata.book_rating !== null && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                    <span className="text-xs font-medium">
+                      {activity.metadata.book_rating % 1 === 0 ? activity.metadata.book_rating : activity.metadata.book_rating.toFixed(1)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <CommentItem
+            comment={commentWithProgress}
+            depth={0}
+            user={user}
+            dateLocale={dateLocale}
+            t={t}
+            expandedReplies={expandedReplies}
+            loadingReplies={loadingReplies}
+            highlightedCommentId={highlightedId}
+            replyingToId={replyingToId}
+            replyText={replyText}
+            quotedText={quotedText}
+            submitting={submitting}
+            onToggleReplies={handleToggleReplies}
+            onReply={(comment) => {
+              setReplyingToId(comment.id);
+              setQuotedText('');
+            }}
+            onCancelReply={() => {
+              setReplyingToId(null);
+              setReplyText('');
+              setQuotedText('');
+            }}
+            onReplyTextChange={(text) => {
+              setReplyText(text);
+            }}
+            onSubmitReply={async () => {
+              // Reply submission logic would go here
+              console.log('Reply submission not implemented in this context');
+            }}
+            onDelete={() => {}}
+            onReaction={handleReaction}
+            onTextSelect={() => {}}
+            onScrollToComment={() => {}}
+            getRatingBadgeVariant={() => 'secondary'}
+            onUpdateCommentReactions={() => {}}
+          />
+        </div>
+      );
+    }
+    
+    if (activity.type === 'review') {
+      const review = transformActivityToReview(activity as Activity);
+      
+      return (
+        <div key={`review-${review.id}`} id={`review-${review.id}`}>
+          {/* Book title and rating for reviews */}
+          {activity.metadata?.book_title && activity.metadata.book_title !== 'Unknown' && (
+            <div className="mb-2 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{t('stream:in')}</span>
+              <Link href={`/book/${activity.metadata.book_id}`}>
+                <span className="font-medium text-primary hover:underline cursor-pointer">
+                  {activity.metadata.book_title}
+                </span>
+              </Link>
+              {activity.metadata.book_rating !== undefined && activity.metadata.book_rating !== null && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                    <span className="text-xs font-medium">
+                      {activity.metadata.book_rating % 1 === 0 ? activity.metadata.book_rating : activity.metadata.book_rating.toFixed(1)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <ReviewItem
+            review={{
+              ...review,
+              userBookRating: commentReviewRating // Use cached user rating
+            }}
+            depth={0}
+            user={user}
+            dateLocale={dateLocale}
+            t={t}
+            expandedReplies={expandedReplies}
+            loadingReplies={loadingReplies}
+            highlightedReviewId={highlightedId}
+            replyingToId={replyingToId}
+            replyText={replyText}
+            quotedText={quotedText}
+            submitting={submitting}
+            onToggleReplies={handleToggleReplies}
+            onReply={(comment) => {
+              setReplyingToId(comment.id);
+              setQuotedText('');
+            }}
+            onCancelReply={() => {
+              setReplyingToId(null);
+              setReplyText('');
+              setQuotedText('');
+            }}
+            onReplyTextChange={(text) => {
+              setReplyText(text);
+            }}
+            onSubmitReply={async () => {
+              // Reply submission logic would go here
+              console.log('Review reply submission not implemented in this context');
+            }}
+            onDelete={() => {}}
+            onReaction={handleReaction}
+            onTextSelect={() => {}}
+            onScrollToReview={() => {}}
+            getRatingColor={() => '#6b7280'}
+            getRatingColorClass={(rating) => {
+              if (rating === null || rating === undefined) return 'text-gray-500 bg-gray-100 dark:bg-gray-800';
+              if (rating >= 8) return 'text-green-700 bg-green-100 dark:bg-green-900/30';
+              if (rating >= 5) return 'text-amber-700 bg-amber-100 dark:bg-amber-900/30';
+              return 'text-red-700 bg-red-100 dark:bg-red-900/30';
+            }}
+          />
+        </div>
+      );
+    }
+    
+    return null;
+  };
 
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
@@ -149,6 +462,8 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       if (response.ok) {
         const data = await response.json();
         setActivities(data.activities || []);
+        // Trigger batch loading of reading progress after activities are loaded
+        // This will be handled by the useBatchReadingProgress hook
       } else {
         console.error('Failed to fetch user activities');
       }
@@ -645,11 +960,89 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
     }
   }, []);
 
-  const getRatingBadgeVariant = (rating: number | null) => {
-    if (!rating) return 'secondary';
-    if (rating >= 8) return 'default';
-    if (rating >= 5) return 'secondary';
-    return 'destructive';
+  // Custom hook for loading user review with caching
+  const useCachedUserReview = (bookId: string | undefined, userId: string | undefined) => {
+    const [reviewRating, setReviewRating] = useState<number | null>(null);
+    
+    useEffect(() => {
+      const loadReviewRating = async () => {
+        if (!bookId || !userId) {
+          setReviewRating(null);
+          return;
+        }
+        
+        // Check cache first
+        const cachedReview = getCachedUserReview(bookId, userId);
+        if (cachedReview) {
+          setReviewRating(cachedReview.rating || null);
+          // Check if cache is stale and refresh in background
+          const cacheKey = `${bookId}-${userId}`;
+          const cachedEntry = dataCache.userReviews[cacheKey];
+          if (cachedEntry && isUserReviewStale(cachedEntry.timestamp)) {
+            loadReviewRatingFromAPI(false); // Background refresh
+          }
+          return;
+        }
+        
+        // Check for pending request
+        const pendingRequest = getPendingUserReviewRequest(bookId, userId);
+        if (pendingRequest) {
+          pendingRequest.then(review => {
+            if (review && review.rating) {
+              setReviewRating(review.rating);
+            } else {
+              setReviewRating(null);
+            }
+          }).catch(() => {
+            setReviewRating(null);
+          });
+          return;
+        }
+        
+        // Load from API
+        loadReviewRatingFromAPI(true);
+      };
+      
+      const loadReviewRatingFromAPI = async (showLoading: boolean = true) => {
+        if (!bookId || !userId) return;
+        
+        // Track this request to prevent duplicates
+        const requestPromise = (async () => {
+          try {
+            const response = await reviewsApi.getUserReview(bookId, userId);
+            if (response.ok) {
+              const userReview = await response.json();
+              if (userReview && userReview.rating) {
+                setReviewRating(userReview.rating);
+                setCachedUserReview(bookId, userId, userReview);
+              } else {
+                setReviewRating(null);
+                setCachedUserReview(bookId, userId, null);
+              }
+              return userReview;
+            } else {
+              throw new Error(`API Error: ${response.status}`);
+            }
+          } catch (error) {
+            setReviewRating(null);
+            throw error;
+          }
+        })();
+        
+        // Track the pending request
+        trackPendingUserReviewRequest(bookId, userId, requestPromise);
+        
+        try {
+          await requestPromise;
+        } catch (error) {
+          setReviewRating(null);
+        }
+      };
+      
+      loadReviewRating();
+    }, [bookId, userId]); // Only depend on bookId and userId, not showAllActivities
+    
+    return reviewRating;
   };
 
   const getRatingColor = (rating: number | null | undefined) => {
@@ -721,7 +1114,8 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       replies: activity.metadata.replies || [],
       bookId: activity.bookId || activity.metadata.book_id,
       metadata: {
-        readingProgress: activity.metadata.readingProgress || undefined
+        readingProgress: activity.metadata.readingProgress || undefined,
+        bookRating: activity.metadata.book_rating // Add book rating to metadata
       }
     };
     
@@ -767,7 +1161,8 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
       replyCount: activity.metadata.replyCount || activity.metadata.reply_count,
       replies: activity.metadata.replies || [],
       metadata: {
-        readingProgress: activity.metadata.readingProgress || undefined
+        readingProgress: activity.metadata.readingProgress || undefined,
+        bookRating: activity.metadata.book_rating // Add book rating to metadata
       }
     };
     
@@ -855,461 +1250,9 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
         );
 
       case 'comment':
-        const comment = transformActivityToComment(activity as Activity);
-        /* console.log('Rendering CommentItem with props:', {
-          commentId: comment.id,
-          hasOnToggleReplies: !!handleToggleReplies,
-          onToggleRepliesType: typeof handleToggleReplies,
-          replyCount: comment.replyCount,
-          repliesLength: comment.replies?.length || 0,
-          hasReplies: !!comment.replies && comment.replies.length > 0
-        }); */
-        return (
-          <div key={`comment-${comment.id}-${comment.replies?.length || 0}`} id={`comment-${comment.id}`}>
-            <CommentItem
-              comment={comment}
-              depth={0}
-              user={user}
-              dateLocale={dateLocale}
-              t={t}
-              expandedReplies={expandedReplies}
-              loadingReplies={loadingReplies}
-              highlightedCommentId={highlightedId}
-              replyingToId={replyingToId}
-              replyText={replyText}
-              quotedText={quotedText}
-              submitting={submitting}
-              onToggleReplies={handleToggleReplies}
-              onReply={(comment) => {
-                setReplyingToId(comment.id);
-                setQuotedText('');
-              }}
-              onCancelReply={() => {
-                setReplyingToId(null);
-                setReplyText('');
-                setQuotedText('');
-              }}
-              onReplyTextChange={(text) => {
-                setReplyText(text);
-              }}
-              onSubmitReply={async () => {
-                if (!user || !replyText.trim() || !replyingToId) {
-                  return;
-                }
-                
-                setSubmitting(true);
-                try {
-                  // Find the activity recursively (including nested replies)
-                  const findActivityRecursively = (activitiesList: UserActivity[]): Activity | undefined => {
-                    for (const activity of activitiesList) {
-                      if (activity.id === replyingToId && activity.type !== 'user_action') {
-                        return activity as Activity;
-                      }
-                      
-                      // Check nested replies
-                      const metadata = (activity as Activity).metadata;
-                      if (metadata?.replies) {
-                        // Recursively search in replies
-                        const foundInReplies = findActivityInReplies(metadata.replies, replyingToId);
-                        if (foundInReplies) {
-                          // Merge with activity data to get bookId
-                          const typedActivity = activity as Activity;
-                          return {
-                            ...foundInReplies,
-                            bookId: typedActivity.bookId || metadata.book_id || foundInReplies.bookId,
-                            metadata: {
-                              ...metadata,
-                              ...foundInReplies.metadata,
-                              book_id: typedActivity.bookId || metadata.book_id || foundInReplies.metadata?.book_id
-                            }
-                          } as Activity;
-                        }
-                      }
-                    }
-                    return undefined;
-                  };
-                  
-                  const findActivityInReplies = (replies: any[], targetId: string): Activity | undefined => {
-                    for (const reply of replies) {
-                      if (reply.id === targetId) {
-                        // Create fake activity from reply data
-                        return {
-                          id: reply.id,
-                          type: 'comment',
-                          entityId: reply.id,
-                          userId: reply.userId,
-                          bookId: reply.bookId,
-                          metadata: {
-                            book_id: reply.bookId,
-                            ...reply
-                          },
-                          createdAt: reply.createdAt,
-                          updatedAt: reply.updatedAt
-                        } as Activity;
-                      }
-                      
-                      if (reply.replies && reply.replies.length > 0) {
-                        const found = findActivityInReplies(reply.replies, targetId);
-                        if (found) return found;
-                      }
-                    }
-                    return undefined;
-                  };
-                  
-                  const activity = findActivityRecursively(activities);
-                  const bookId = activity?.bookId || activity?.metadata?.book_id;
-                  
-                  if (!bookId) {
-                    return;
-                  }
-                  
-                  const response = await fetch(`/api/books/${bookId}/comments`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    },
-                    body: JSON.stringify({
-                      content: replyText,
-                      parentCommentId: replyingToId,
-                      quotedText: quotedText || null
-                    })
-                  });
-                  
-                  if (response.ok) {
-                    const newReply = await response.json();
-                    
-                    // Ensure the new reply has proper user info for styling
-                    const enrichedReply = {
-                      ...newReply,
-                      userId: user?.id, // Ensure userId is set for isOwnComment check
-                      isOwnComment: true // Explicitly mark as own comment
-                    };
-                    
-                    // Add reply to the correct nested location
-                    setActivities(prev => {
-                      const updateRecursively = (activity: UserActivity): UserActivity => {
-                        if (activity.type !== 'comment') return activity;
-                        
-                        // Check if this is the direct parent (separate activity)
-                        if (activity.id === replyingToId) {
-                          const existingReplies = activity.metadata?.replies || [];
-                          const newReplies = [...existingReplies, enrichedReply];
-                          return {
-                            ...activity,
-                            metadata: {
-                              ...activity.metadata,
-                              replies: newReplies,
-                              reply_count: newReplies.length
-                            }
-                          };
-                        }
-                        
-                        // Check if replyingToId is a child of this activity (recursive search)
-                        if (activity.metadata?.replies) {
-                          const updateRepliesRecursively = (replies: any[]): [any[], boolean] => {
-                            let wasUpdated = false;
-                            const updatedReplies = replies.map((reply: any) => {
-                              if (reply.id === replyingToId) {
-                                const newReplies = [...(reply.replies || []), enrichedReply];
-                                wasUpdated = true;
-                                return {
-                                  ...reply,
-                                  replies: newReplies,
-                                  replyCount: newReplies.length
-                                };
-                              }
-                              
-                              // Recursively check deeper levels
-                              if (reply.replies && reply.replies.length > 0) {
-                                const [updatedNested, nestedUpdated] = updateRepliesRecursively(reply.replies);
-                                if (nestedUpdated) {
-                                  wasUpdated = true;
-                                  return {
-                                    ...reply,
-                                    replies: updatedNested
-                                  };
-                                }
-                              }
-                              
-                              return reply;
-                            });
-                            
-                            return [updatedReplies, wasUpdated];
-                          };
-                          
-                          const [updatedReplies, wasUpdated] = updateRepliesRecursively(activity.metadata.replies);
-                          
-                          if (wasUpdated) {
-                            console.log('Updated nested replies in activity:', activity.id);
-                            return {
-                              ...activity,
-                              metadata: {
-                                ...activity.metadata,
-                                replies: updatedReplies
-                              }
-                            };
-                          }
-                        }
-                        
-                        return activity;
-                      };
-                      
-                      const result = prev.map(updateRecursively);
-                      console.log('Activities updated, count:', result.length);
-                      return result;
-                    });
-                    
-                    // Automatically expand the parent to show the new reply
-                    setExpandedReplies(prev => new Set(prev).add(replyingToId));
-                    
-                    // Reset form
-                    setReplyingToId(null);
-                    setReplyText('');
-                    setQuotedText('');
-                  }
-                } catch (error) {
-                  console.error('Error submitting reply:', error);
-                } finally {
-                  setSubmitting(false);
-                }
-              }}
-              onDelete={() => {}}
-              onReaction={handleReaction}
-              onTextSelect={() => {}}
-              onScrollToComment={() => {}}
-              getRatingBadgeVariant={() => 'secondary'}
-              onUpdateCommentReactions={() => {}}
-            />
-          </div>
-        );
-
       case 'review':
-        const review = transformActivityToReview(activity as Activity);
-        return (
-          <div key={`review-${review.id}`} id={`review-${review.id}`}>
-            <ReviewItem
-              review={review}
-              depth={0}
-              user={user}
-              dateLocale={dateLocale}
-              t={t}
-              expandedReplies={expandedReplies}
-              loadingReplies={loadingReplies}
-              highlightedReviewId={highlightedId}
-              replyingToId={replyingToId}
-              replyText={replyText}
-              quotedText={quotedText}
-              submitting={submitting}
-              onToggleReplies={handleToggleReplies}
-              onReply={(comment) => {
-                setReplyingToId(comment.id);
-                setQuotedText('');
-              }}
-              onCancelReply={() => {
-                setReplyingToId(null);
-                setReplyText('');
-                setQuotedText('');
-              }}
-              onReplyTextChange={(text) => {
-                setReplyText(text);
-              }}
-              onSubmitReply={async () => {
-                if (!user || !replyText.trim() || !replyingToId) {
-                  return;
-                }
-                
-                setSubmitting(true);
-                try {
-                  // Find the activity recursively (including nested replies)
-                  const findActivityRecursively = (activitiesList: UserActivity[]): Activity | undefined => {
-                    for (const activity of activitiesList) {
-                      if (activity.id === replyingToId && activity.type !== 'user_action') {
-                        return activity as Activity;
-                      }
-                      
-                      // Check nested replies
-                      const metadata = (activity as Activity).metadata;
-                      if (metadata?.replies) {
-                        // Recursively search in replies
-                        const foundInReplies = findActivityInReplies(metadata.replies, replyingToId);
-                        if (foundInReplies) {
-                          // Merge with activity data to get bookId
-                          const typedActivity = activity as Activity;
-                          return {
-                            ...foundInReplies,
-                            bookId: typedActivity.bookId || metadata.book_id || foundInReplies.bookId,
-                            metadata: {
-                              ...metadata,
-                              ...foundInReplies.metadata,
-                              book_id: typedActivity.bookId || metadata.book_id || foundInReplies.metadata?.book_id
-                            }
-                          } as Activity;
-                        }
-                      }
-                    }
-                    return undefined;
-                  };
-                  
-                  const findActivityInReplies = (replies: any[], targetId: string): Activity | undefined => {
-                    for (const reply of replies) {
-                      if (reply.id === targetId) {
-                        // Create fake activity from reply data
-                        return {
-                          id: reply.id,
-                          type: 'comment',
-                          entityId: reply.id,
-                          userId: reply.userId,
-                          bookId: reply.bookId,
-                          metadata: {
-                            book_id: reply.bookId,
-                            ...reply
-                          },
-                          createdAt: reply.createdAt,
-                          updatedAt: reply.updatedAt
-                        } as Activity;
-                      }
-                      
-                      if (reply.replies && reply.replies.length > 0) {
-                        const found = findActivityInReplies(reply.replies, targetId);
-                        if (found) return found;
-                      }
-                    }
-                    return undefined;
-                  };
-                  
-                  const activity = findActivityRecursively(activities);
-                  const bookId = activity?.bookId || activity?.metadata?.book_id;
-                  
-                  if (!bookId) {
-                    return;
-                  }
-                  
-                  const response = await fetch(`/api/books/${bookId}/comments`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    },
-                    body: JSON.stringify({
-                      content: replyText,
-                      parentCommentId: replyingToId,
-                      quotedText: quotedText || null
-                    })
-                  });
-                  
-                  if (response.ok) {
-                    const newReply = await response.json();
-                    
-                    // Ensure the new reply has proper user info for styling
-                    const enrichedReply = {
-                      ...newReply,
-                      userId: user?.id, // Ensure userId is set for isOwnComment check
-                      isOwnComment: true // Explicitly mark as own comment
-                    };
-                    
-                    // Add reply to the correct nested location
-                    setActivities(prev => {
-                      const updateRecursively = (activity: UserActivity): UserActivity => {
-                        if (activity.type !== 'comment') return activity;
-                        
-                        // Check if this is the direct parent (separate activity)
-                        if (activity.id === replyingToId) {
-                          const existingReplies = activity.metadata?.replies || [];
-                          const newReplies = [...existingReplies, enrichedReply];
-                          return {
-                            ...activity,
-                            metadata: {
-                              ...activity.metadata,
-                              replies: newReplies,
-                              reply_count: newReplies.length
-                            }
-                          };
-                        }
-                        
-                        // Check if replyingToId is a child of this activity (recursive search)
-                        if (activity.metadata?.replies) {
-                          const updateRepliesRecursively = (replies: any[]): [any[], boolean] => {
-                            let wasUpdated = false;
-                            const updatedReplies = replies.map((reply: any) => {
-                              if (reply.id === replyingToId) {
-                                const newReplies = [...(reply.replies || []), enrichedReply];
-                                wasUpdated = true;
-                                return {
-                                  ...reply,
-                                  replies: newReplies,
-                                  replyCount: newReplies.length
-                                };
-                              }
-                              
-                              // Recursively check deeper levels
-                              if (reply.replies && reply.replies.length > 0) {
-                                const [updatedNested, nestedUpdated] = updateRepliesRecursively(reply.replies);
-                                if (nestedUpdated) {
-                                  wasUpdated = true;
-                                  return {
-                                    ...reply,
-                                    replies: updatedNested
-                                  };
-                                }
-                              }
-                              
-                              return reply;
-                            });
-                            
-                            return [updatedReplies, wasUpdated];
-                          };
-                          
-                          const [updatedReplies, wasUpdated] = updateRepliesRecursively(activity.metadata.replies);
-                          
-                          if (wasUpdated) {
-                            console.log('Updated nested replies in activity:', activity.id);
-                            return {
-                              ...activity,
-                              metadata: {
-                                ...activity.metadata,
-                                replies: updatedReplies
-                              }
-                            };
-                          }
-                        }
-                        
-                        return activity;
-                      };
-                      
-                      const result = prev.map(updateRecursively);
-                      console.log('Activities updated, count:', result.length);
-                      return result;
-                    });
-                    
-                    // Automatically expand the parent to show the new reply
-                    setExpandedReplies(prev => new Set(prev).add(replyingToId));
-                    
-                    // Reset form
-                    setReplyingToId(null);
-                    setReplyText('');
-                    setQuotedText('');
-                  }
-                } catch (error) {
-                  console.error('Error submitting reply:', error);
-                } finally {
-                  setSubmitting(false);
-                }
-              }}
-              onDelete={() => {}}
-              onReaction={handleReaction}
-              onTextSelect={() => {}}
-              onScrollToReview={() => {}}
-              getRatingColor={() => '#6b7280'}
-              getRatingColorClass={(rating) => {
-                if (rating === null || rating === undefined) return 'text-gray-500 bg-gray-100 dark:bg-gray-800';
-                if (rating >= 8) return 'text-green-700 bg-green-100 dark:bg-green-900/30';
-                if (rating >= 5) return 'text-amber-700 bg-amber-100 dark:bg-amber-900/30';
-                return 'text-red-700 bg-red-100 dark:bg-red-900/30';
-              }}
-            />
-          </div>
-        );
+        // Use the wrapper component that handles hooks properly
+        return <ActivityItemWrapper key={`${activity.type}-${activity.id}`} activity={activity} />;
 
       default:
         return null;

@@ -154,18 +154,20 @@ export function CommentItem({
     // Only load from API if readingProgress wasn't provided in the comment data
     if ((!comment.metadata || comment.metadata.readingProgress === undefined) && comment.userId && comment.bookId) {
       const loadReadingProgress = async () => {
-        if (comment.userId && comment.bookId) {
+        const bookId = comment.bookId;
+        const userId = comment.userId;
+        
+        if (bookId && userId) {
           try {
-            // Try direct fetch first (like BookDetail page does)
-            const token = localStorage.getItem('authToken');
-            const response = await fetch(`/api/books/${comment.bookId}/reading-progress/${comment.userId}`, {
-              headers: token ? {
-                'Authorization': `Bearer ${token}`
-              } : {}
-            });
+            // Use cached API call to avoid duplicate requests
+            const data = await readingProgressCache.getUserProgress(
+              bookId, 
+              userId,
+              () => readerApi.getUserProgress(bookId, userId)
+            );
             
-            if (response.ok) {
-              const data = await response.json();
+            if (data.ok) {
+              const progressData = await data.json();
               
               if (data) {
                 // Only show progress if user has actually read something

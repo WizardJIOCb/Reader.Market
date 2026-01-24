@@ -154,33 +154,36 @@ export function ReviewItem({
   useEffect(() => {
     // Only load from API if readingProgress wasn't provided in the review data
     if ((!review.metadata || review.metadata.readingProgress === undefined) && review.userId && review.bookId) {
-      console.log(`[ReviewsSection] Actually making API call for review ${review.id}`);
       const loadReadingProgress = async () => {
-        try {
-          // Try direct fetch first (like BookDetail page does)
-          const token = localStorage.getItem('authToken');
-          const response = await fetch(`/api/books/${review.bookId}/reading-progress/${review.userId}`, {
-            headers: token ? {
-              'Authorization': `Bearer ${token}`
-            } : {}
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
+        const bookId = review.bookId;
+        const userId = review.userId;
+        
+        if (bookId && userId) {
+          try {
+            // Use cached API call to avoid duplicate requests
+            const data = await readingProgressCache.getUserProgress(
+              bookId, 
+              userId,
+              () => readerApi.getUserProgress(bookId, userId)
+            );
             
-            if (data) {
-              // Only show progress if user has actually read something
-              if (data.percentage > 0) {
-                setReadingProgress({
-                  percentage: parseFloat(data.percentage),
-                  currentPage: data.current_page || data.currentPage,
-                  totalPages: data.total_pages || data.totalPages
-                });
+            if (data.ok) {
+              const progressData = await data.json();
+              
+              if (progressData) {
+                // Only show progress if user has actually read something
+                if (progressData.percentage > 0) {
+                  setReadingProgress({
+                    percentage: parseFloat(progressData.percentage),
+                    currentPage: progressData.current_page || progressData.currentPage,
+                    totalPages: progressData.total_pages || progressData.totalPages
+                  });
+                }
               }
             }
+          } catch (error) {
+            console.error('Failed to load reading progress:', error);
           }
-        } catch (error) {
-          console.error('Failed to load reading progress:', error);
         }
       };
       

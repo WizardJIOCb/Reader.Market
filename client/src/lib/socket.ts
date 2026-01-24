@@ -22,6 +22,9 @@ export interface SocketEvents {
   // Notification events
   'notification:new': (data: { type: string; conversationId?: string; senderId?: string }) => void;
   
+  // Unread count events
+  'unread-count:update': (data: { count: number }) => void;
+  
   // Book chat events
   'book-chat:new-message': (data: any) => void;
   'book-chat:user-joined': (data: { userId: string; bookId: string }) => void;

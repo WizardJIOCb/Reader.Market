@@ -326,7 +326,7 @@ export async function registerRoutes(
         return;
       }
       console.log(`User ${userId} joining channel ${channelId}`);
-      socket.join(`channel:${channelId}`);
+      socket.join(`channel_${channelId}`);
     });
     
     // Handle leaving channel rooms (authenticated only)
@@ -4947,6 +4947,33 @@ export async function registerRoutes(
       const message = await storage.createMessage(messageData);
       console.log('🟠 createMessage returned:', JSON.stringify(message, null, 2));
       
+      // Log message structure for debugging
+      console.log('🔵 Message structure keys:', Object.keys(message));
+      console.log('🔵 Message sender data:', {
+        senderId: message.senderId,
+        senderUsername: message.senderUsername,
+        senderFullName: message.senderFullName
+      });
+      
+      // Create enriched message object with sender information
+      const enrichedMessage = {
+        ...message,
+        sender: {
+          id: message.senderId,
+          username: message.senderUsername,
+          fullName: message.senderFullName,
+          avatarUrl: message.senderAvatarUrl || null,
+          rating: message.senderRating ? Number(message.senderRating) : undefined
+        }
+      };
+      
+      console.log('🟢 Enriched message for WebSocket:', {
+        hasSender: !!enrichedMessage.sender,
+        senderKeys: enrichedMessage.sender ? Object.keys(enrichedMessage.sender) : [],
+        senderUsername: enrichedMessage.sender?.username,
+        senderFullName: enrichedMessage.sender?.fullName
+      });
+      
       // Update file upload entity IDs with the message ID
       if (attachments && Array.isArray(attachments) && attachments.length > 0) {
         for (const uploadId of attachments) {
@@ -4967,14 +4994,24 @@ export async function registerRoutes(
         // Send to conversation room
         const conversationRoom = `conversation:${conversation.id}`;
         console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] Emitting 'message:new' to room: ${conversationRoom}`);
+        
+        // Use the same enriched message for consistency
         io.to(conversationRoom).emit('message:new', {
-          message,
+          message: enrichedMessage,
           conversationId: conversation.id
         });
         
         // Send notification to recipient's personal room
         const recipientRoom = `user:${recipientId}`;
         console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Emitting 'notification:new' to room: ${recipientRoom}`);
+        
+        // ALSO send message:new to recipient's personal room for notifications
+        console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] 📩 ALSO emitting 'message:new' to recipient room: ${recipientRoom}`);
+        
+        io.to(recipientRoom).emit('message:new', {
+          message: enrichedMessage,
+          conversationId: conversation.id
+        });
         const notificationData = {
           type: 'new_message',
           conversationId: conversation.id,
@@ -4982,6 +5019,9 @@ export async function registerRoutes(
         };
         console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] Notification data: ${JSON.stringify(notificationData)}`);
         io.to(recipientRoom).emit('notification:new', notificationData);
+        
+        // Send unread count update to recipient
+        await storage.sendUnreadCountUpdate(recipientId, io);
         
         // Check how many clients are in the recipient's room
         const sockets = await io.in(recipientRoom).fetchSockets();
@@ -5025,6 +5065,12 @@ export async function registerRoutes(
       
       // Mark messages as read
       await storage.markConversationMessagesAsRead(conversationId, userId);
+      
+      // Send unread count update to user
+      const io = (app as any).io;
+      if (io) {
+        await storage.sendUnreadCountUpdate(userId, io);
+      }
       
       res.json(messages);
     } catch (error) {
@@ -5830,11 +5876,19 @@ export async function registerRoutes(
       
       // Broadcast message via WebSocket
       if (io) {
-        io.to(`channel:${channelId}`).emit('channel:message:new', {
+        io.to(`channel_${channelId}`).emit('channel:message:new', {
           message,
           channelId,
           groupId
         });
+        
+        // Send unread count updates to all group members (except sender)
+        const groupMembers = await storage.getGroupMembers(groupId);
+        for (const member of groupMembers) {
+          if (member.userId !== userId) {
+            await storage.sendUnreadCountUpdate(member.userId, io);
+          }
+        }
       }
       
       res.status(201).json(message);

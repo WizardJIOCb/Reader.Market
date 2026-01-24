@@ -25,6 +25,8 @@
   "english": "English",
   "russian": "Русский",
   "showAll": "Показать все",
+  "showLess": "Показать меньше",
+  "more": "ещё",
   "collapse": "Свернуть",
   "changePassword": "Сменить пароль",
   "currentPassword": "Текущий пароль",

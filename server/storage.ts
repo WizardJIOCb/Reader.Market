@@ -3061,6 +3061,8 @@ export class DBStorage implements IStorage {
         readStatus: messages.readStatus,
         senderUsername: users.username,
         senderFullName: users.fullName,
+        senderAvatarUrl: users.avatarUrl,
+        senderRating: users.profileRating,
         attachmentMetadata: messages.attachmentMetadata,
         quotedMessageId: messages.quotedMessageId,
         quotedText: messages.quotedText,
@@ -4602,6 +4604,21 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting unread message count:", error);
       return 0;
+    }
+  }
+
+  // Send unread count update via WebSocket
+  async sendUnreadCountUpdate(userId: string, io: any): Promise<void> {
+    try {
+      const count = await this.getUnreadMessageCount(userId);
+      
+      // Emit to user's personal room
+      const userRoom = `user:${userId}`;
+      io.to(userRoom).emit('unread-count:update', { count });
+      
+      console.log(`[UNREAD COUNT] Sent update to user ${userId}: ${count} unread messages`);
+    } catch (error) {
+      console.error("Error sending unread count update:", error);
     }
   }
 

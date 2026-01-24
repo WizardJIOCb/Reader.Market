@@ -99,5 +99,14 @@
     "byShelfCount": "By Added to Shelves",
     "byUploadDate": "By Upload Date",
     "byPublicationDate": "By Publication Date"
+  },
+  "notifications": {
+    "newMessage": "New message",
+    "newMessageFrom": "New message from",
+    "newMessageIn": "New message in"
+  },
+  "actions": {
+    "openChat": "Open chat",
+    "openGroupChat": "Open group chat"
   }
 }

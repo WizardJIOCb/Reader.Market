@@ -99,5 +99,14 @@
     "byShelfCount": "По добавлениям на полку",
     "byUploadDate": "По дате добавления",
     "byPublicationDate": "По дате публикации"
+  },
+  "notifications": {
+    "newMessage": "Новое сообщение",
+    "newMessageFrom": "Новое сообщение от",
+    "newMessageIn": "Новое сообщение в"
+  },
+  "actions": {
+    "openChat": "Открыть чат",
+    "openGroupChat": "Открыть групповой чат"
   }
 }

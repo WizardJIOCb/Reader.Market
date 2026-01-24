@@ -47,7 +47,7 @@ export function getStreamActionTypeFilters(): ActionType[] {
   } catch (error) {
     console.error('Error loading stream action type filters:', error);
   }
-  return ['news', 'book', 'comment', 'review', 'user_action'];
+  return ['news', 'book', 'comment', 'review'];
 }
 
 export function setStreamActionTypeFilters(filters: ActionType[]): void {
@@ -281,6 +281,12 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
       // Check if this action type is in the user's filters
       const actionFilters = getStreamActionTypeFilters();
       const mappedType = mapActionTypeToFilter(action.action_type);
+      
+      // Skip send_group_message - handled by MessageNotificationProvider
+      if (action.action_type === 'send_group_message') {
+        console.log('DEBUG: Skipping send_group_message in StreamNotifications');
+        return;
+      }
       
       if (!mappedType || !actionFilters.includes(mappedType)) {
         return;

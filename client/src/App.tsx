@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BookSplashProvider } from "@/lib/bookSplashContext";
 import { StreamNotificationsProvider } from "@/lib/streamNotifications";
+import { MessageNotificationProvider } from "@/components/MessageNotificationProvider";
+import { WebSocketDebugger } from "@/components/WebSocketDebugger";
 import { useAuth } from "@/lib/auth";
 import { frontendLogger } from "@/lib/frontendLogger";
 import NotFound from "@/pages/not-found";
@@ -69,7 +71,15 @@ function Router() {
 function App() {
   const [location] = useLocation();
   const { i18n } = useTranslation();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  
+  // Debug logging for message notifications
+  useEffect(() => {
+    console.log('%c[APP] Auth state changed', 'color: magenta; font-weight: bold');
+    console.log('%c[APP] User:', 'color: magenta', user);
+    console.log('%c[APP] Is loading:', 'color: magenta', isLoading);
+    console.log('%c[APP] User ID for notifications:', 'color: magenta', user?.id);
+  }, [user, isLoading]);
   
   // Initialize frontend logger
   useEffect(() => {
@@ -139,15 +149,19 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BookSplashProvider>
-          <StreamNotificationsProvider currentUserId={user?.id}>
-            <div className="flex flex-col min-h-screen">
-              <Toaster />
-              <Navbar />
-              <main className="flex-1 pt-14">
-                <Router />
-              </main>
-              {!isReaderPage && !isMessagesPage && <Footer />}
-            </div>
+          <StreamNotificationsProvider key={`stream-${user?.id || 'no-user'}`} currentUserId={user?.id}>
+            {/* Message notification provider wraps entire app */}
+            <MessageNotificationProvider key={`msg-${user?.id || 'no-user'}`} currentUserId={user?.id}>
+              <WebSocketDebugger />
+              <div className="flex flex-col min-h-screen">
+                <Toaster />
+                <Navbar />
+                <main className="flex-1 pt-14">
+                  <Router />
+                </main>
+                {!isReaderPage && !isMessagesPage && <Footer />}
+              </div>
+            </MessageNotificationProvider>
           </StreamNotificationsProvider>
         </BookSplashProvider>
       </TooltipProvider>
