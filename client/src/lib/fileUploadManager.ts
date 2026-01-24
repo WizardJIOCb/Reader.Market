@@ -53,7 +53,7 @@ export class FileUploadManager {
   async compressImageIfNeeded(file: File): Promise<File> {
     // Don't compress GIFs - compression loses animation
     if (file.type === 'image/gif') {
-      
+      console.log('Skipping compression for GIF to preserve animation');
       return file;
     }
     
@@ -70,7 +70,7 @@ export class FileUploadManager {
       };
 
       const compressedFile = await imageCompression(file, options);
-      .toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+      console.log(`Image compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
       return compressedFile;
     } catch (error) {
       console.error('Image compression failed, using original:', error);

@@ -199,8 +199,8 @@ export function useShelves() {
         throw new Error('No authentication token found');
       }
       
-      
-      }...`);
+      console.log(`Adding book ${bookId} to shelf ${shelfId}`);
+      console.log(`Using auth token: ${token.substring(0, 10)}...`);
       
       const response = await fetch(`/api/shelves/${shelfId}/books/${bookId}`, {
         method: 'POST',
@@ -209,10 +209,10 @@ export function useShelves() {
         },
       });
 
-      
+      console.log(`Server response status: ${response.status}`);
       
       if (response.ok) {
-        
+        console.log(`Successfully added book ${bookId} to shelf ${shelfId}`);
         // Update local state
         setShelves(prev => 
           prev.map(shelf => 
@@ -223,7 +223,7 @@ export function useShelves() {
         );
       } else {
         const errorText = await response.text();
-        
+        console.log(`Server error response: ${errorText}`);
         const errorMessage = `Failed to add book to shelf: ${response.status} ${response.statusText} - ${errorText}`;
         console.error(errorMessage);
         throw new Error(errorMessage);
@@ -246,8 +246,8 @@ export function useShelves() {
         throw new Error('No authentication token found');
       }
       
-      
-      }...`);
+      console.log(`Removing book ${bookId} from shelf ${shelfId}`);
+      console.log(`Using auth token: ${token.substring(0, 10)}...`);
       
       const response = await fetch(`/api/shelves/${shelfId}/books/${bookId}`, {
         method: 'DELETE',
@@ -256,10 +256,10 @@ export function useShelves() {
         },
       });
 
-      
+      console.log(`Server response status: ${response.status}`);
       
       if (response.ok) {
-        
+        console.log(`Successfully removed book ${bookId} from shelf ${shelfId}`);
         // Update local state
         setShelves(prev => 
           prev.map(shelf => 
@@ -270,7 +270,7 @@ export function useShelves() {
         );
       } else {
         const errorText = await response.text();
-        
+        console.log(`Server error response: ${errorText}`);
         const errorMessage = `Failed to remove book from shelf: ${response.status} ${response.statusText} - ${errorText}`;
         console.error(errorMessage);
         throw new Error(errorMessage);
