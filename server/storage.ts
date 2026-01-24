@@ -2691,7 +2691,8 @@ export class DBStorage implements IStorage {
         emoji: reactions.emoji,
         createdAt: reactions.createdAt,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(reactions)
       .leftJoin(users, eq(reactions.userId, users.id))
