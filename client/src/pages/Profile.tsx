@@ -156,8 +156,30 @@ export default function Profile() {
     const handlePopState = () => {
       console.log('[Profile] PopState event detected - back/forward navigation');
       setNavigationSource('back'); // Assume back navigation (could be forward too, but we only care about preventing redirect)
-      // Reset after a short delay to avoid affecting future navigations
-      setTimeout(() => setNavigationSource(null), 100);
+      
+      // Also set history state to track back navigation
+      try {
+        const newState = { ...window.history.state, navigationSource: 'back' };
+        window.history.replaceState(newState, '', window.location.href);
+        console.log('[Profile] Set history state for back navigation tracking');
+      } catch (e) {
+        console.warn('[Profile] Could not set history state:', e);
+      }
+      
+      // Reset after a much longer delay to ensure redirect effect has ample time to check the state
+      setTimeout(() => {
+        console.log('[Profile] Resetting navigation source');
+        setNavigationSource(null);
+        
+        // Also clear history state
+        try {
+          const newState = { ...window.history.state };
+          delete newState.navigationSource;
+          window.history.replaceState(newState, '', window.location.href);
+        } catch (e) {
+          console.warn('[Profile] Could not clear history state:', e);
+        }
+      }, 1000);
     };
     
     window.addEventListener('popstate', handlePopState);
@@ -169,12 +191,17 @@ export default function Profile() {
   useEffect(() => {
     if (!userId && currentUser?.username) {
       console.log('[Profile Redirect] No userId provided, current user:', currentUser.username);
+      console.log('[Profile Redirect] Current URL:', window.location.href);
       console.log('[Profile Redirect] Navigation source:', navigationSource);
       
       // Check if we came from /users page - if so, don't redirect
       const referrer = document.referrer;
       const isFromUsersPage = referrer.includes('/users');
       console.log('[Profile Redirect] Referrer:', referrer, 'Is from users page:', isFromUsersPage);
+      
+      // Specific check for coming from book page
+      const isFromBookPage = referrer.includes('/book/');
+      console.log('[Profile Redirect] Is from book page:', isFromBookPage);
       
       // Check if this is a backward navigation (browser back button)
       const isBackNavigation = navigationSource === 'back';
@@ -186,18 +213,31 @@ export default function Profile() {
                              referrer !== '';
       console.log('[Profile Redirect] Is likely back navigation:', isLikelyBackNav);
       
-      const shouldRedirect = !isFromUsersPage && 
-                           !isBackNavigation && 
-                           !isLikelyBackNav;
+      // Check browser history state for back navigation indicators
+      const isHistoryBack = window.history.state?.navigationSource === 'back';
+      console.log('[Profile Redirect] Is history back:', isHistoryBack);
+      
+      // Strong back navigation detection - if ANY back signal is present, prevent redirect
+      const hasBackNavigationSignal = isBackNavigation || isLikelyBackNav || isHistoryBack;
+      console.log('[Profile Redirect] Has back navigation signal:', hasBackNavigationSignal);
+      
+      // Explicit check: if coming from book page, definitely prevent redirect (this is the main use case)
+      const shouldRedirect = !isFromUsersPage && !isFromBookPage && !hasBackNavigationSignal;
       
       console.log('[Profile Redirect] Should redirect:', shouldRedirect);
       
-      if (shouldRedirect) {
-        console.log('[Profile Redirect] Redirecting to own profile');
-        setLocation(`/profile/${currentUser.username}`, { replace: true });
-      } else {
-        console.log('[Profile Redirect] Not redirecting - navigation detected');
-      }
+      // Add a small delay to allow popstate event to fire first
+      const redirectTimer = setTimeout(() => {
+        if (shouldRedirect) {
+          console.log('[Profile Redirect] Redirecting to own profile');
+          setLocation(`/profile/${currentUser.username}`, { replace: true });
+        } else {
+          console.log('[Profile Redirect] Not redirecting - navigation detected');
+        }
+      }, 50);
+      
+      // Clean up timer if component unmounts
+      return () => clearTimeout(redirectTimer);
     }
   }, [userId, currentUser, setLocation, navigationSource]);
 
