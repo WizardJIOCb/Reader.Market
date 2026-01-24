@@ -223,8 +223,8 @@ export function ReviewItem({
                       </TooltipTrigger>
                       <TooltipContent>
                         <div className="text-xs">
-                          <div>Прогресс чтения: {Math.round(readingProgress.percentage)}%</div>
-                          <div>Страница: {readingProgress.currentPage} из {readingProgress.totalPages}</div>
+                          <div>{t('books:readingProgress.title', 'Reading progress: {{percentage}}%', { percentage: Math.round(readingProgress.percentage) })}</div>
+                          <div>{t('books:readingProgress.pageInfo', 'Page: {{currentPage}} of {{totalPages}}', { currentPage: readingProgress.currentPage, totalPages: readingProgress.totalPages })}</div>
                         </div>
                       </TooltipContent>
                     </Tooltip>

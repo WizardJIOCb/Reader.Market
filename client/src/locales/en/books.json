@@ -110,5 +110,9 @@
     "switchLanguage": "Switch Language",
     "translationNotReady": "{{language}} translation is not ready yet",
     "languageSwitched": "Language switched to {{language}}"
+  },
+  "readingProgress": {
+    "title": "Reading progress: {{percentage}}%",
+    "pageInfo": "Page: {{currentPage}} of {{totalPages}}"
   }
 }

@@ -19,6 +19,8 @@ import enAuth from './locales/en/auth.json';
 import enOAuth from './locales/en/oauth.json';
 import enAdmin from './locales/en/admin.json';
 import enUsers from './locales/en/users.json';
+import enComments from './locales/en/comments.json';
+import enReactions from './locales/en/reactions.json';
 
 
 import ruCommon from './locales/ru/common.json';
@@ -37,6 +39,8 @@ import ruAuth from './locales/ru/auth.json';
 import ruOAuth from './locales/ru/oauth.json';
 import ruAdmin from './locales/ru/admin.json';
 import ruUsers from './locales/ru/users.json';
+import ruComments from './locales/ru/comments.json';
+import ruReactions from './locales/ru/reactions.json';
 
 
 // Define resources
@@ -58,6 +62,8 @@ const resources = {
     oauth: enOAuth,
     admin: enAdmin,
     users: enUsers,
+    comments: enComments,
+    reactions: enReactions
   },
   ru: {
     common: ruCommon,
@@ -76,7 +82,9 @@ const resources = {
     oauth: ruOAuth,
     admin: ruAdmin,
     users: ruUsers,
-  },
+    comments: ruComments,
+    reactions: ruReactions
+  }
 };
 
 i18n
@@ -86,7 +94,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'navigation', 'profile', 'notifications', 'shelves', 'search', 'messages', 'home', 'about', 'landing', 'books', 'stream', 'auth', 'oauth', 'admin', 'users'],
+    ns: ['common', 'navigation', 'profile', 'notifications', 'shelves', 'search', 'messages', 'home', 'about', 'landing', 'books', 'stream', 'auth', 'oauth', 'admin', 'users', 'comments', 'reactions'],
     
     interpolation: {
       escapeValue: false, // React already escapes values

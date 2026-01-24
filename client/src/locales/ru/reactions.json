@@ -1,0 +1,6 @@
+{
+  "viewAllReactions": "Показать все реакции - {{count}}",
+  "reactionCount": "{{count}} реакция",
+  "dialogTitle": "Реакции ({{count}})",
+  "dateFormat": "dd.MM.yyyy"
+}

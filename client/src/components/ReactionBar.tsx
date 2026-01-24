@@ -8,6 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Link } from 'wouter';
 import { useAuth } from '@/lib/auth';
+import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
+import { ru, enUS } from 'date-fns/locale';
 
 
 interface Reaction {
@@ -46,6 +49,8 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
   const [hoveredReaction, setHoveredReaction] = useState<string | null>(null);
   const [tooltipHovered, setTooltipHovered] = useState<boolean>(false);
   const { user } = useAuth();
+  const { t, i18n } = useTranslation(['reactions']);
+  const dateLocale = i18n.language === 'ru' ? ru : enUS;
   
   // Determine entity type and ID for API calls
   const getEntityInfo = () => {
@@ -264,7 +269,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
               }}
             >
               <div className="p-2">
-                <div className="text-xs font-medium mb-1">{reaction.emoji} {reaction.count} {reaction.count === 1 ? 'reaction' : 'reactions'}</div>
+                <div className="text-xs font-medium mb-1">{reaction.emoji} {t('reactions:reactionCount', '{{count}} reaction', { count: reaction.count })}</div>
                 <div className="max-h-32 overflow-y-auto">
                   {loadingDetails[reaction.emoji] ? (
                     <div className="text-xs text-muted-foreground">Loading...</div>
@@ -294,7 +299,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground text-center pt-1 border-t mt-1">
-                        Click to view all {reactionDetails[reaction.emoji].length} reactions
+                        {t('reactions:viewAllReactions', 'Click to view all {{count}} reactions', { count: reactionDetails[reaction.emoji].length })}
                       </div>
                     </div>
                   ) : (
@@ -334,7 +339,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span className="text-2xl">{dialogReaction?.emoji}</span>
-              <span>Reactions ({dialogReaction?.users.length})</span>
+              <span>{t('reactions:dialogTitle', 'Reactions ({{count}})', { count: dialogReaction?.users.length || 0 })}</span>
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="flex-1 pr-4">
@@ -362,11 +367,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
                       </div>
                     )}
                     <div className="text-xs text-muted-foreground">
-                      {new Date(detail.createdAt).toLocaleDateString('ru-RU', { 
-                        day: 'numeric', 
-                        month: 'short', 
-                        year: 'numeric' 
-                      })}
+                      {format(new Date(detail.createdAt), t('reactions:dateFormat', 'MM/dd/yyyy'), { locale: dateLocale })}
                     </div>
                   </div>
                   <div className="text-2xl flex-shrink-0">

@@ -308,8 +308,8 @@ export function CommentItem({
                       </TooltipTrigger>
                       <TooltipContent>
                         <div className="text-xs">
-                          <div>Прогресс чтения: {Math.round(readingProgress.percentage)}%</div>
-                          <div>Страница: {readingProgress.currentPage} из {readingProgress.totalPages}</div>
+                          <div>{t('books:readingProgress.title', 'Reading progress: {{percentage}}%', { percentage: Math.round(readingProgress.percentage) })}</div>
+                          <div>{t('books:readingProgress.pageInfo', 'Page: {{currentPage}} of {{totalPages}}', { currentPage: readingProgress.currentPage, totalPages: readingProgress.totalPages })}</div>
                         </div>
                       </TooltipContent>
                     </Tooltip>
@@ -426,8 +426,8 @@ export function CommentItem({
                       </TooltipTrigger>
                       <TooltipContent className="bg-[#fbf6f0] dark:bg-[#2a2520] border border-[#e8e0d0] dark:border-[#3a3530] text-[#2a2520] dark:text-[#fbf6f0]">
                         <div className="text-xs">
-                          <div>Оценка пользователя этой книги</div>
-                          <div className="mt-1 text-[#5a5550] dark:text-[#cbc6c0]">Кликните, чтобы перейти к рецензии</div>
+                          <div>{t('comments:userBookRating', "User's rating of this book")}</div>
+                          <div className="mt-1 text-[#5a5550] dark:text-[#cbc6c0]">{t('comments:clickToViewReview', 'Click to view review')}</div>
                         </div>
                       </TooltipContent>
                     </Tooltip>

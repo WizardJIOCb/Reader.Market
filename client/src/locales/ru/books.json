@@ -110,5 +110,9 @@
     "switchLanguage": "Сменить язык",
     "translationNotReady": "Перевод на {{language}} ещё не готов",
     "languageSwitched": "Язык изменён на {{language}}"
+  },
+  "readingProgress": {
+    "title": "Прогресс чтения: {{percentage}}%",
+    "pageInfo": "Страница: {{currentPage}} из {{totalPages}}"
   }
 }
