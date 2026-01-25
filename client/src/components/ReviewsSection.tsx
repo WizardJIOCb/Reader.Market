@@ -154,19 +154,13 @@ export function ReviewItem({
               () => readerApi.getUserProgress(bookId, userId)
             );
             
-            if (data.ok) {
-              const progressData = await data.json();
-              
-              if (progressData) {
-                // Only show progress if user has actually read something
-                if (progressData.percentage > 0) {
-                  setReadingProgress({
-                    percentage: parseFloat(progressData.percentage),
-                    currentPage: progressData.current_page || progressData.currentPage,
-                    totalPages: progressData.total_pages || progressData.totalPages
-                  });
-                }
-              }
+            if (data && data.percentage > 0) {
+              // Only show progress if user has actually read something
+              setReadingProgress({
+                percentage: parseFloat(data.percentage),
+                currentPage: data.current_page || data.currentPage,
+                totalPages: data.total_pages || data.totalPages
+              });
             }
           } catch (error) {
             console.error('Failed to load reading progress:', error);

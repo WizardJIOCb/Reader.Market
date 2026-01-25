@@ -112,15 +112,9 @@ export const BookCard: React.FC<BookCardProps> = ({
           () => readerApi.getUserProgress(book.id.toString(), user.id)
         );
         
-        if (data.ok) {
-          const progressData = await data.json();
-          
+        if (data && data.percentage > 0) {
           // Only set progress if there's actual reading progress (percentage > 0)
-          if (progressData && progressData.percentage > 0) {
-            setProgress(progressData);
-          } else {
-            setProgress(null);
-          }
+          setProgress(data);
         } else {
           setProgress(null);
         }
