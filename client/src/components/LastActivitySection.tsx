@@ -199,17 +199,14 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
                 () => readerApi.getUserProgress(req.bookId, req.userId)
               );
               
-              if (data.ok) {
-                const progressData = await data.json();
-                if (progressData && progressData.percentage > 0) {
-                  const key = `${req.bookId}-${req.userId}`;
-                  newProgressMap[key] = {
-                    percentage: parseFloat(progressData.percentage),
-                    currentPage: progressData.current_page || progressData.currentPage,
-                    totalPages: progressData.total_pages || progressData.totalPages
-                  };
-                  console.log('Successfully loaded progress for:', key);
-                }
+              if (data && data.percentage > 0) {
+                const key = `${req.bookId}-${req.userId}`;
+                newProgressMap[key] = {
+                  percentage: parseFloat(data.percentage),
+                  currentPage: data.current_page || data.currentPage,
+                  totalPages: data.total_pages || data.totalPages
+                };
+                console.log('Successfully loaded progress for:', key);
               }
               // Remove from loading state
               newLoadingKeys.delete(`${req.bookId}-${req.userId}`);

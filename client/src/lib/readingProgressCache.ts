@@ -19,8 +19,10 @@ class ReadingProgressCache {
     }
     
     // Create new request
-    const requestPromise = fetchFunction().then(data => {
-      // Cache the result
+    const requestPromise = fetchFunction().then(async (response) => {
+      // Parse JSON from response
+      const data = await response.json();
+      // Cache the parsed result
       this.cache[cacheKey] = data;
       // Remove from pending
       this.pendingRequests.delete(cacheKey);
