@@ -70,6 +70,321 @@ export function AdminLoggingConfig() {
   const { config, updateConfig, resetConfig, exportConfig, importConfig } = useLoggerConfig();
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
+  
+  // Кнопки управления консольным выводом
+  const handleEnableConsole = () => {
+    localStorage.setItem('debugMode', 'true');
+    
+    const newConfig = {
+      ...config,
+      globalEnabled: true,
+      globalLevel: 'debug' as const,
+      modules: {
+        ...config.modules,
+        frontend: { ...config.modules.frontend, enabled: true, level: 'debug' as const, showInConsole: true },
+        api: { ...config.modules.api, enabled: true, level: 'debug' as const, showInConsole: true },
+        websocket: { ...config.modules.websocket, enabled: true, level: 'debug' as const, showInConsole: true },
+        auth: { ...config.modules.auth, enabled: true, level: 'debug' as const, showInConsole: true },
+        database: { ...config.modules.database, enabled: true, level: 'debug' as const, showInConsole: true },
+        ui: { ...config.modules.ui, enabled: true, level: 'debug' as const, showInConsole: true },
+        readingProgress: { ...config.modules.readingProgress, enabled: true, level: 'debug' as const, showInConsole: true },
+        books: { ...config.modules.books, enabled: true, level: 'debug' as const, showInConsole: true },
+        shelves: { ...config.modules.shelves, enabled: true, level: 'debug' as const, showInConsole: true },
+        comments: { ...config.modules.comments, enabled: true, level: 'debug' as const, showInConsole: true },
+        reactions: { ...config.modules.reactions, enabled: true, level: 'debug' as const, showInConsole: true },
+        fileHandling: { ...config.modules.fileHandling, enabled: true, level: 'debug' as const, showInConsole: true },
+        performance: { ...config.modules.performance, enabled: true, level: 'debug' as const, showInConsole: true },
+        errors: { ...config.modules.errors, enabled: true, level: 'debug' as const, showInConsole: true },
+        userActions: { ...config.modules.userActions, enabled: true, level: 'debug' as const, showInConsole: true }
+      }
+    };
+    
+    updateConfig(newConfig);
+    
+    toast({
+      title: "Console Enabled",
+      description: "All logs will now appear in browser console"
+    });
+  };
+  
+  const handleDisableConsole = () => {
+    localStorage.setItem('debugMode', 'false');
+    
+    const newConfig = {
+      ...config,
+      globalEnabled: false,
+      globalLevel: 'none' as const,
+      modules: {
+        ...config.modules,
+        frontend: { ...config.modules.frontend, enabled: false, level: 'none' as const, showInConsole: false },
+        api: { ...config.modules.api, enabled: false, level: 'none' as const, showInConsole: false },
+        websocket: { ...config.modules.websocket, enabled: false, level: 'none' as const, showInConsole: false },
+        auth: { ...config.modules.auth, enabled: false, level: 'none' as const, showInConsole: false },
+        database: { ...config.modules.database, enabled: false, level: 'none' as const, showInConsole: false },
+        ui: { ...config.modules.ui, enabled: false, level: 'none' as const, showInConsole: false },
+        readingProgress: { ...config.modules.readingProgress, enabled: false, level: 'none' as const, showInConsole: false },
+        books: { ...config.modules.books, enabled: false, level: 'none' as const, showInConsole: false },
+        shelves: { ...config.modules.shelves, enabled: false, level: 'none' as const, showInConsole: false },
+        comments: { ...config.modules.comments, enabled: false, level: 'none' as const, showInConsole: false },
+        reactions: { ...config.modules.reactions, enabled: false, level: 'none' as const, showInConsole: false },
+        fileHandling: { ...config.modules.fileHandling, enabled: false, level: 'none' as const, showInConsole: false },
+        performance: { ...config.modules.performance, enabled: false, level: 'none' as const, showInConsole: false },
+        errors: { ...config.modules.errors, enabled: false, level: 'none' as const, showInConsole: false },
+        userActions: { ...config.modules.userActions, enabled: false, level: 'none' as const, showInConsole: false }
+      }
+    };
+    
+    updateConfig(newConfig);
+    
+    toast({
+      title: "Console Disabled",
+      description: "Console logging turned off"
+    });
+  };
+  
+  const handleForceRestoreConsole = () => {
+    // Радикальное восстановление - обойти все перехватчики
+    try {
+      // Метод 1: Использовать indirect eval для получения нативной console
+      const nativeConsole = (0, eval)('window.console');
+      
+      // Метод 2: Назначить нативные методы напрямую
+      console.log = nativeConsole.log.bind(nativeConsole);
+      console.warn = nativeConsole.warn.bind(nativeConsole);
+      console.error = nativeConsole.error.bind(nativeConsole);
+      console.info = nativeConsole.info.bind(nativeConsole);
+      console.debug = nativeConsole.debug.bind(nativeConsole);
+      
+      // Сохранить для будущего использования
+      const win = window as any;
+      win._originalConsole = {
+        log: console.log,
+        warn: console.warn,
+        error: console.error,
+        info: console.info,
+        debug: console.debug
+      };
+      
+      // Тестировать немедленно
+      console.log('✅ Force restoration successful!');
+      console.error('✅ Error method also working!');
+      
+      toast({
+        title: "Force Console Restore",
+        description: "Used eval to bypass all interceptors. Console should now work normally."
+      });
+      
+    } catch (e) {
+      // Метод 3: Абсолютный фолбэк - создать полностью новые методы
+      try {
+        const createNativeMethod = (methodName: string) => {
+          return function(...args: any[]) {
+            // Использовать iframe для получения нативной console
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            
+            try {
+              const nativeMethod = (iframe.contentWindow as any).console[methodName];
+              nativeMethod.apply((iframe.contentWindow as any).console, args);
+            } finally {
+              document.body.removeChild(iframe);
+            }
+          };
+        };
+        
+        console.log = createNativeMethod('log');
+        console.warn = createNativeMethod('warn');
+        console.error = createNativeMethod('error');
+        console.info = createNativeMethod('info');
+        console.debug = createNativeMethod('debug');
+        
+        const win = window as any;
+        win._originalConsole = {
+          log: console.log,
+          warn: console.warn,
+          error: console.error,
+          info: console.info,
+          debug: console.debug
+        };
+        
+        console.log('✅ iframe-based restoration successful!');
+        
+        toast({
+          title: "Iframe Console Restore",
+          description: "Created new methods using iframe sandbox. Should work now."
+        });
+        
+      } catch (iframeError) {
+        toast({
+          title: "Complete Restore Failed",
+          description: "Could not restore any console methods",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+  
+  const handleRestoreConsole = () => {
+    const win = window as any;
+    let restoredCount = 0;
+    
+    // Получить нативные методы напрямую из window.console
+    const getNativeMethod = (methodName: string) => {
+      try {
+        // Метод 1: Попробовать получить через descriptor
+        const descriptor = Object.getOwnPropertyDescriptor(console, methodName);
+        if (descriptor && typeof descriptor.value === 'function') {
+          return descriptor.value.bind(console);
+        }
+        
+        // Метод 2: Попробовать через Function.prototype.call
+        if (typeof console[methodName as keyof Console] === 'function') {
+          return Function.prototype.call.bind(console[methodName as keyof Console]);
+        }
+        
+        // Метод 3: Если всё провалилось, создать фолбэк
+        return function(...args: any[]) {
+          // Использовать indirect eval для обхода перехвата
+          try {
+            (0, eval)(`console.${methodName}.apply(console, ${JSON.stringify(args)})`);
+          } catch {
+            // Последний резорт - DOM
+            const logEl = document.createElement('div');
+            logEl.textContent = `[${methodName.toUpperCase()}] ${args.join(' ')}`;
+            logEl.style.cssText = 'position:fixed;top:-1000px;left:-1000px;';
+            document.body.appendChild(logEl);
+            document.body.removeChild(logEl);
+          }
+        };
+      } catch (e) {
+        return function(...args: any[]) {
+          // Safe fallback
+          const logEl = document.createElement('div');
+          logEl.textContent = `[${methodName.toUpperCase()}] ${args.join(' ')}`;
+          logEl.style.cssText = 'position:fixed;top:-1000px;left:-1000px;';
+          document.body.appendChild(logEl);
+          document.body.removeChild(logEl);
+        };
+      }
+    };
+    
+    // Восстановить каждый метод отдельно
+    const methods = ['log', 'warn', 'error', 'info', 'debug'] as const;
+    
+    methods.forEach(methodName => {
+      try {
+        const nativeMethod = getNativeMethod(methodName);
+        console[methodName] = nativeMethod;
+        restoredCount++;
+      } catch (e) {
+        console.warn(`Failed to restore console.${methodName}:`, e);
+      }
+    });
+    
+    // Сохранить восстановленные методы
+    win._originalConsole = {
+      log: console.log,
+      warn: console.warn, 
+      error: console.error,
+      info: console.info,
+      debug: console.debug
+    };
+    
+    // Тестировать восстановление
+    try {
+      console.log('✅ Console restoration test');
+      console.error('✅ Error method working');
+    } catch (e) {
+      console.warn('Restoration test failed:', e);
+    }
+    
+    toast({
+      title: "Console Restoration Attempt",
+      description: `Attempted to restore ${methods.length} methods, ${restoredCount} successful`
+    });
+  };
+  
+  const handleKillLoggingSystem = () => {
+    // Полностью убить систему логгинга и восстановить нативный console
+    try {
+      // 1. Очистить все настройки
+      localStorage.removeItem('debugMode');
+      localStorage.removeItem('loggingConfig');
+      localStorage.removeItem('loggerFactory');
+      
+      // 2. Удалить все кастомные свойства
+      const win = window as any;
+      delete win._originalConsole;
+      delete win.loggerFactory;
+      delete win.appLogger;
+      delete win.toggleDebugMode;
+      
+      // 3. Получить чистый нативный console через iframe
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      
+      const nativeConsole = (iframe.contentWindow as any).console;
+      
+      // 4. Полностью заменить window.console
+      window.console = nativeConsole;
+      
+      // 5. Удалить iframe
+      document.body.removeChild(iframe);
+      
+      // 6. Протестировать
+      console.log('_NATIVE_CONSOLE_RESTORED_');
+      console.error('Native error logging working!');
+      
+      alert('✅ Logging system killed. Native console restored. Check DevTools console.');
+      
+      toast({
+        title: "Logging System Killed",
+        description: "All custom logging removed. Using pure native browser console."
+      });
+      
+    } catch (e) {
+      alert(`Kill failed: ${(e as Error).message}`);
+    }
+  };
+  
+  const handleGlobalConsoleDisable = () => {
+    // Глобальное отключение console для всего сайта
+    try {
+      // Отключить режим отладки
+      localStorage.setItem('debugMode', 'false');
+      
+      // Полностью заглушить все методы
+      console.log = function() {};
+      console.warn = function() {};
+      console.error = function() {};
+      console.info = function() {};
+      console.debug = function() {};
+      
+      // Также заглушить window._originalConsole если есть
+      const win = window as any;
+      if (win._originalConsole) {
+        win._originalConsole.log = function() {};
+        win._originalConsole.warn = function() {};
+        win._originalConsole.error = function() {};
+        win._originalConsole.info = function() {};
+        win._originalConsole.debug = function() {};
+      }
+      
+      toast({
+        title: "Global Console Disabled",
+        description: "All console output suppressed site-wide"
+      });
+      
+    } catch (e) {
+      toast({
+        title: "Disable Failed",
+        description: "Could not disable global console: " + (e as Error).message,
+        variant: "destructive"
+      });
+    }
+  };
 
   const moduleConfigs = [
     {
@@ -217,6 +532,42 @@ export function AdminLoggingConfig() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Console Controls</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Button onClick={handleEnableConsole} variant="default">
+              Enable Console Output
+            </Button>
+            <Button onClick={handleDisableConsole} variant="secondary">
+              Disable Console Output
+            </Button>
+            <Button onClick={handleForceRestoreConsole} variant="default">
+              Force Restore Console
+            </Button>
+            <Button onClick={handleRestoreConsole} variant="outline">
+              Smart Restore Console
+            </Button>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button onClick={handleKillLoggingSystem} variant="destructive" size="lg">
+                ☠ KILL LOGGING SYSTEM
+              </Button>
+              <Button onClick={handleGlobalConsoleDisable} variant="secondary" size="lg">
+                🔴 DISABLE CONSOLE SITE-WIDE
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              "Kill" completely removes custom logging. "Disable" temporarily suppresses output.
+            </p>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Quick actions to control browser console logging. Use individual module settings below for fine-grained control.
+          </p>
+        </CardContent>
+      </Card>
+      
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Logging Configuration</h2>
         <div className="flex gap-2">

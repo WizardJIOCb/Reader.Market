@@ -1,0 +1,16 @@
+{
+  "playback": "Text to Speech",
+  "listen": "Listen",
+  "provider": "Provider",
+  "voice": "Voice",
+  "language": "Language",
+  "speed": "Speed",
+  "queued": "Queued",
+  "processing": "Processing",
+  "readyToPlay": "Ready to play",
+  "clickToGenerate": "Click play to generate audio",
+  "generationFailed": "Generation failed - try again",
+  "defaultProvider": "Default Provider",
+  "defaultLanguage": "Default Language",
+  "defaultSpeed": "Default Speed"
+}

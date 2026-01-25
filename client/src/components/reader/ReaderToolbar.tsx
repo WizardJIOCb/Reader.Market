@@ -24,6 +24,8 @@ import {
   Settings,
   List,
   Globe,
+  Volume2,
+  Mic,
 } from 'lucide-react';
 import { BookContent, Chapter, Position } from './types';
 import { ReaderSettings as ReaderSettingsType } from './types';
@@ -46,6 +48,9 @@ interface ReaderToolbarProps {
   currentPageOverall?: number;
   totalPagesOverall?: number;
   settings: ReaderSettingsType;
+  ttsSettings?: {
+    showInToolbar?: boolean;
+  };
   onPrevPage: () => void;
   onNextPage: () => void;
   // Panel open handlers
@@ -55,6 +60,8 @@ interface ReaderToolbarProps {
   onOpenSettings: () => void;
   onOpenAI: () => void;
   onOpenChat: () => void;
+  onOpenTts: () => void;
+  onOpenCharacterTts: () => void;
   // Active states
   isTocOpen?: boolean;
   isSearchOpen?: boolean;
@@ -62,6 +69,7 @@ interface ReaderToolbarProps {
   isSettingsOpen?: boolean;
   isAIOpen?: boolean;
   isChatOpen?: boolean;
+  isTtsOpen?: boolean;
   unreadChatCount?: number;
   // Language selector
   availableLanguages?: Array<{ language: string; status: string }>;
@@ -80,6 +88,7 @@ export function ReaderToolbar({
   currentPageOverall = 1,
   totalPagesOverall = 1,
   settings,
+  ttsSettings,
   onPrevPage,
   onNextPage,
   onOpenToc,
@@ -88,12 +97,15 @@ export function ReaderToolbar({
   onOpenSettings,
   onOpenAI,
   onOpenChat,
+  onOpenTts,
+  onOpenCharacterTts,
   isTocOpen = false,
   isSearchOpen = false,
   isBookmarksOpen = false,
   isSettingsOpen = false,
   isAIOpen = false,
   isChatOpen = false,
+  isTtsOpen = false,
   unreadChatCount = 0,
   availableLanguages = [],
   currentLanguage = 'original',
@@ -162,6 +174,28 @@ export function ReaderToolbar({
               >
                 <Brain className="w-4 h-4" />
               </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onOpenCharacterTts}
+                title="Озвучить персонажем"
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+              {/* TTS Controls in Toolbar (when enabled) */}
+              {ttsSettings?.showInToolbar && (
+                <div className="flex items-center gap-1 ml-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onOpenTts}
+                    title="Озвучить текст"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
               <Button
                 variant={isChatOpen ? 'default' : 'ghost'}
                 size="icon"
@@ -350,6 +384,26 @@ export function ReaderToolbar({
                   {unreadChatCount > 9 ? '9+' : unreadChatCount}
                 </span>
               )}
+            </Button>
+            
+            {/* Character TTS */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenCharacterTts}
+              title="Озвучить персонажем"
+            >
+              <Mic className="w-5 h-5" />
+            </Button>
+
+            {/* TTS */}
+            <Button
+              variant={isTtsOpen ? 'default' : 'ghost'}
+              size="icon"
+              onClick={onOpenTts}
+              title="Озвучить текст"
+            >
+              <Volume2 className="w-5 h-5" />
             </Button>
 
             {/* Settings */}

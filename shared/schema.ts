@@ -515,5 +515,92 @@ export const userRatingAgg = pgTable("user_rating_agg", {
 // Add likes count to reviews table for weighted rating calculations
 // Note: This will be tracked via reactions table count
 
+// =====================================================================
+// TTS (TEXT-TO-SPEECH) SYSTEM TABLES
+// =====================================================================
+
+// Global TTS configuration managed via admin panel
+export const ttsConfig = pgTable("tts_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ttsEnabled: boolean("tts_enabled").default(true).notNull(),
+  
+  enabledProviders: jsonb("enabled_providers").default(sql`'["rhvoice","piper"]'::jsonb`).notNull(),
+  defaultProvider: text("default_provider").default('piper').notNull(),
+  
+  defaultLang: varchar("default_lang", { length: 10 }).default('en').notNull(),
+  defaultVoiceRu: text("default_voice_ru"),
+  defaultVoiceEn: text("default_voice_en"),
+  
+  defaultRate: numeric("default_rate", { precision: 3, scale: 2 }).default('1.00').notNull(),
+  minRate: numeric("min_rate", { precision: 3, scale: 2 }).default('0.80').notNull(),
+  maxRate: numeric("max_rate", { precision: 3, scale: 2 }).default('1.25').notNull(),
+  
+  chunkMinChars: integer("chunk_min_chars").default(400).notNull(),
+  chunkMaxChars: integer("chunk_max_chars").default(1800).notNull(),
+  
+  audioFormat: text("audio_format").default('mp3').notNull(), // 'mp3' | 'ogg'
+  mp3Bitrate: integer("mp3_bitrate").default(64).notNull(),
+  
+  queueConcurrency: integer("queue_concurrency").default(1).notNull(),
+  
+  cacheMaxGb: integer("cache_max_gb").default(20).notNull(),
+  cacheTtlDays: integer("cache_ttl_days").default(90).notNull(),
+  
+  rhvoiceBinPath: text("rhvoice_bin_path").default('/usr/bin/RHVoice-test'),
+  piperBinPath: text("piper_bin_path").default('/usr/local/bin/piper'),
+  piperModelsDir: text("piper_models_dir").default('/opt/piper/models'),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Cache of synthesized audio files to avoid re-synthesis
+export const ttsCache = pgTable("tts_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  bookId: varchar("book_id").notNull().references(() => books.id, { onDelete: 'cascade' }),
+  chapterIndex: integer("chapter_index"), // nullable if no chapters
+  chunkIndex: integer("chunk_index").notNull(),
+  
+  provider: text("provider").notNull(), // 'rhvoice' | 'piper'
+  lang: varchar("lang", { length: 10 }).notNull(), // 'ru' | 'en'
+  voice: text("voice").notNull(),
+  rate: numeric("rate", { precision: 3, scale: 2 }).default('1.00').notNull(),
+  format: text("format").notNull(), // 'mp3' | 'ogg'
+  
+  textHash: text("text_hash").notNull().unique(), // SHA256 hash for deterministic caching
+  
+  audioPath: text("audio_path").notNull(),
+  audioSize: integer("audio_size"),
+  durationMs: integer("duration_ms"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastAccessedAt: timestamp("last_accessed_at").defaultNow().notNull(),
+});
+
+// Optional job tracking for synthesis processes (for debugging)
+export const ttsJobs = pgTable("tts_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  textHash: text("text_hash").notNull(),
+  status: text("status").notNull(), // 'queued' | 'processing' | 'ready' | 'failed'
+  provider: text("provider").notNull(),
+  lang: varchar("lang", { length: 10 }).notNull(),
+  voice: text("voice").notNull(),
+  rate: numeric("rate", { precision: 3, scale: 2 }).notNull(),
+  format: text("format").notNull(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type TtsConfig = typeof ttsConfig.$inferSelect;
+export type InsertTtsConfig = typeof ttsConfig.$inferInsert;
+
+export type TtsCache = typeof ttsCache.$inferSelect;
+export type InsertTtsCache = typeof ttsCache.$inferInsert;
+
+export type TtsJob = typeof ttsJobs.$inferSelect;
+export type InsertTtsJob = typeof ttsJobs.$inferInsert;
+
 // Create unique constraint for conversations to prevent duplicate user pairs
 // Note: We'll handle this in the migration file

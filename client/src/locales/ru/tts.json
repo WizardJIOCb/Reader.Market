@@ -1,0 +1,16 @@
+{
+  "playback": "Текст в речь",
+  "listen": "Прослушать",
+  "provider": "Провайдер",
+  "voice": "Голос",
+  "language": "Язык",
+  "speed": "Скорость",
+  "queued": "В очереди",
+  "processing": "Обработка",
+  "readyToPlay": "Готово к воспроизведению",
+  "clickToGenerate": "Нажмите воспроизвести для генерации аудио",
+  "generationFailed": "Ошибка генерации - попробуйте снова",
+  "defaultProvider": "Провайдер по умолчанию",
+  "defaultLanguage": "Язык по умолчанию",
+  "defaultSpeed": "Скорость по умолчанию"
+}

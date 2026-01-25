@@ -1,4 +1,4 @@
-import { storage } from './server/storage.js';
+import { storage } from '../server/storage.ts';
 
 // Function to update user access level to admin
 async function updateUserToAdmin() {

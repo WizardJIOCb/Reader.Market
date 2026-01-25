@@ -37,9 +37,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  Activity
+  Activity,
+  Volume2
 } from 'lucide-react';
 import { AdminLoggingConfig } from './AdminLoggingConfig';
+import TtsAdminSettings from '@/pages/TtsAdminSettings';
 import { LogAnalytics } from './LogAnalytics';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -435,6 +437,7 @@ const AdminDashboard: React.FC = () => {
     ...(isAdmin ? [{ id: 'user-rating-system', label: t('admin:navigation.userRatingSystem'), icon: Settings }] : []),
     ...(isAdmin ? [{ id: 'logging', label: t('admin:navigation.loggingConfiguration'), icon: Settings }] : []),
     ...(isAdmin ? [{ id: 'log-analytics', label: t('admin:navigation.logAnalytics'), icon: Activity }] : []),
+    ...(isAdmin ? [{ id: 'tts', label: 'Настройки TTS', icon: Volume2 }] : []),
   ];
 
   return (
@@ -829,6 +832,10 @@ const AdminDashboard: React.FC = () => {
             
             {activeTab === 'log-analytics' && isAdmin && (
               <LogAnalytics />
+            )}
+            
+            {activeTab === 'tts' && isAdmin && (
+              <TtsAdminSettings />
             )}
           </div>
         </main>

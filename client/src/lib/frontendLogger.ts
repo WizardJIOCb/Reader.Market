@@ -71,6 +71,29 @@ class FrontendLogger {
     return undefined;
   }
   
+  // Check if logs should be shown in console for specific module
+  private shouldShowInConsole(module: string, level: string): boolean {
+    // Always show if debug mode is enabled
+    if (localStorage.getItem('debugMode') === 'true') {
+      return true;
+    }
+    
+    // Check module-specific console setting
+    try {
+      const response = localStorage.getItem('loggingConfig');
+      if (response) {
+        const config = JSON.parse(response);
+        const moduleConfig = config.modules?.[module];
+        return moduleConfig?.showInConsole ?? false;
+      }
+    } catch (error) {
+      // If we can't parse config, default to not showing
+      return false;
+    }
+    
+    return false;
+  }
+  
   private interceptConsole() {
     const originalConsole = {
       log: console.log,
@@ -80,11 +103,11 @@ class FrontendLogger {
       debug: console.debug
     };
     
+    // Store originals for debug mode
+    (window as any)._originalConsole = originalConsole;
+    
     const createInterceptor = (level: 'error' | 'warn' | 'info' | 'debug', originalFn: Function) => {
       return (...args: any[]) => {
-        // Call original function
-        originalFn.apply(console, args);
-        
         // Extract log information
         const message = args.map(arg => 
           typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
@@ -95,16 +118,30 @@ class FrontendLogger {
         const moduleMatch = stack.match(/at\s+(?:\w+\.)?(\w+)/);
         const module = moduleMatch ? moduleMatch[1] : 'unknown';
         
+        // Check if this module should show logs in console
+        const shouldShowInConsole = this.shouldShowInConsole(module, level);
+        
+        // Call original function only if showInConsole is enabled
+        if (shouldShowInConsole) {
+          originalFn.apply(console, args);
+        }
+        
         // Send to backend aggregator
         this.sendLog(level, 'frontend', module, message);
       };
     };
     
-    console.log = createInterceptor('info', originalConsole.log);
-    console.info = createInterceptor('info', originalConsole.info);
-    console.warn = createInterceptor('warn', originalConsole.warn);
-    console.error = createInterceptor('error', originalConsole.error);
-    console.debug = createInterceptor('debug', originalConsole.debug);
+    // Check for debug mode
+    const isDebugMode = localStorage.getItem('debugMode') === 'true';
+    
+    if (!isDebugMode) {
+      console.log = createInterceptor('info', originalConsole.log);
+      console.info = createInterceptor('info', originalConsole.info);
+      console.warn = createInterceptor('warn', originalConsole.warn);
+      console.error = createInterceptor('error', originalConsole.error);
+      console.debug = createInterceptor('debug', originalConsole.debug);
+    }
+    // In debug mode, console methods remain untouched for easier copying
   }
   
   private sendLog(
@@ -232,10 +269,23 @@ class FrontendLogger {
 // Initialize frontend logger
 const frontendLogger = new FrontendLogger();
 
+// Expose debug mode toggle
+(window as any).toggleDebugMode = () => {
+  const current = localStorage.getItem('debugMode') === 'true';
+  const newState = !current;
+  localStorage.setItem('debugMode', String(newState));
+  console.log(`Debug mode ${newState ? 'enabled' : 'disabled'}. Reload page to apply changes.`);
+  return newState;
+};
+
+// Show current debug status
+console.log('Frontend logger initialized. Use window.toggleDebugMode() to toggle debug mode.');
+
 // Also expose global logger for easy access
 declare global {
   interface Window {
     appLogger?: FrontendLogger;
+    toggleDebugMode?: () => boolean;
   }
 }
 

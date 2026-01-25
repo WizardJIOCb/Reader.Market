@@ -18,6 +18,8 @@ import { profileComments, readingProgress } from "@shared/schema";
 import bookTranslationRoutes from "./routes/bookTranslations";
 import loggingConfigRoutes from "./routes/loggingConfig";
 import logAnalyticsRoutes from "./routes/logAnalytics";
+import ttsRoutes from "./routes/tts.routes";
+import ttsPersonaRoutes from "./routes/tts.persona.routes";
 import { logAggregator, logMiddleware } from './logAggregator';
 
 // Import db from storage module
@@ -574,6 +576,10 @@ export async function registerRoutes(
   
   // Register log analytics routes
   app.use('/api/admin', logAnalyticsRoutes);
+  
+  // Register TTS routes
+  app.use('/api/tts', ttsRoutes);
+  app.use('/api/tts', ttsPersonaRoutes);
   
   // Add log middleware to capture HTTP requests
   app.use(logMiddleware(logAggregator));

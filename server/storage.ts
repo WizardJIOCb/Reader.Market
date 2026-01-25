@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne } from "drizzle-orm";
 import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
 import { 

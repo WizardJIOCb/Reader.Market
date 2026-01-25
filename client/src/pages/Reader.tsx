@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { booksApi, readerApi } from '@/lib/api';
 import { useBookSplash } from '@/lib/bookSplashContext';
 import { getSocket, joinBookChat, leaveBookChat, sendBookChatMessage, startBookChatTyping, stopBookChatTyping, deleteBookChatMessage, onSocketEvent } from '@/lib/socket';
-import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight, Volume2, Mic } from 'lucide-react';
 
 // Reader Components
 import {
@@ -40,6 +40,10 @@ import type { ReaderSettings } from '@/components/reader/types';
 
 // Legacy components
 import { AISidebar } from '@/components/AISidebar';
+
+// TTS Component
+import TtsComponent from '@/components/TtsComponent';
+import { TtsPersonaPanel } from '@/components/TtsPersonaPanel';
 
 // Book interface
 interface Book {
@@ -132,9 +136,65 @@ export default function Reader() {
   }, []);
   
   // UI state - single panel, no multiple selection
-  type PanelType = 'toc' | 'search' | 'bookmarks' | 'settings' | 'ai' | 'chat' | null;
+  type PanelType = 'toc' | 'search' | 'bookmarks' | 'settings' | 'ai' | 'chat' | 'tts' | 'character-tts' | null;
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+  
+  // Selected text for TTS
+  const [selectedTextForTts, setSelectedTextForTts] = useState('');
+  // Selected text for Character TTS (separate state)
+  const [selectedTextForCharacterTts, setSelectedTextForCharacterTts] = useState('');
+  
+  // Context menu state for text selection
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  
+  // Handle text selection for TTS
+  const handleTextSelection = useCallback(() => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+      const selectedText = selection.toString().trim();
+      if (selectedText.length > 0 && selectedText.length <= 1000) { // Ограничение на длину текста
+        setSelectedTextForTts(selectedText);
+        // Also update Character TTS text when panel is open
+        if (activePanel === 'character-tts') {
+          setSelectedTextForCharacterTts(selectedText);
+        }
+      }
+    }
+  }, [activePanel]);
+
+  // Handle context menu for text selection
+  const handleTextContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+      const selectedText = selection.toString().trim();
+      if (selectedText.length > 0 && selectedText.length <= 1000) {
+        setSelectedTextForTts(selectedText);
+        setContextMenuPosition({ x: e.clientX, y: e.clientY });
+        setContextMenuOpen(true);
+      }
+    }
+  }, []);
+
+  // Close context menu
+  const closeContextMenu = useCallback(() => {
+    setContextMenuOpen(false);
+    setContextMenuPosition(null);
+  }, []);
+
+  // Handle "Speak" action from context menu (Character TTS)
+  const handleSpeakText = useCallback(() => {
+    closeContextMenu();
+    // Get current selection directly instead of relying on state
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+      setSelectedTextForCharacterTts(selection.toString().trim());
+    }
+    setActivePanel('character-tts');
+  }, [closeContextMenu]);
   
   // Store selection range to restore it if browser clears it
   const selectionRangeRef = useRef<Range | null>(null);
@@ -158,7 +218,10 @@ export default function Reader() {
   // Mobile viewport detection
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
   
-  // Bookmark editing state
+  // TTS state
+  const [ttsSettings, setTtsSettings] = useState({
+    showInToolbar: false
+  });
   const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
   const [editBookmarkTitle, setEditBookmarkTitle] = useState('');
   
@@ -240,6 +303,11 @@ export default function Reader() {
     
     loadBookmarks();
   }, [bookId]);
+  
+  // Debug effect to monitor panel changes
+  useEffect(() => {
+    console.log('[DEBUG] activePanel changed to:', activePanel);
+  }, [activePanel]);
   
   // Load chat messages and setup WebSocket listeners when chat panel opens
   useEffect(() => {
@@ -747,13 +815,24 @@ export default function Reader() {
     if (selection?.range) {
       // Use the range from the selection (captured synchronously in ReaderCore)
       selectionRangeRef.current = selection.range;
+      
+      // Also update our TTS text state
+      if (selection.text.trim()) {
+        setSelectedTextForTts(selection.text.trim());
+        // Update Character TTS text when panel is open
+        if (activePanel === 'character-tts') {
+          setSelectedTextForCharacterTts(selection.text.trim());
+        }
+      }
     } else {
       selectionRangeRef.current = null;
+      setSelectedTextForTts('');
+      setSelectedTextForCharacterTts('');
     }
     // Hide popover first, will show after selection is restored
     setShowSelectionPopover(false);
     setSelectedText(selection);
-  }, []);
+  }, [activePanel]);
   
   // Close selection popover when clicking outside
   const selectionPopoverRef = useRef<HTMLDivElement>(null);
@@ -1329,6 +1408,7 @@ export default function Reader() {
         totalPagesOverall={totalPagesOverall}
         overallPercentage={currentPosition?.percentage || 0}
         settings={settings}
+        ttsSettings={ttsSettings}
         onPrevPage={handlePrev}
         onNextPage={handleNext}
         onOpenToc={() => setActivePanel(activePanel === 'toc' ? null : 'toc')}
@@ -1337,12 +1417,30 @@ export default function Reader() {
         onOpenSettings={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
         onOpenAI={() => setActivePanel(activePanel === 'ai' ? null : 'ai')}
         onOpenChat={() => { setActivePanel(activePanel === 'chat' ? null : 'chat'); if (activePanel !== 'chat') setUnreadChatCount(0); }}
+        onOpenTts={() => setActivePanel(activePanel === 'tts' ? null : 'tts')}
+        onOpenCharacterTts={() => {
+          console.log('[DEBUG] onOpenCharacterTts called, current activePanel:', activePanel);
+          // Close any existing panel first to prevent flickering
+          if (activePanel) {
+            setActivePanel(null);
+            // Small delay to ensure panel closes before opening new one
+            setTimeout(() => {
+              console.log('[DEBUG] Opening character-tts panel after delay');
+              setActivePanel('character-tts');
+            }, 50);
+          } else {
+            // No panel open, open character-tts directly
+            console.log('[DEBUG] Opening character-tts panel directly');
+            setActivePanel('character-tts');
+          }
+        }}
         isTocOpen={activePanel === 'toc'}
         isSearchOpen={activePanel === 'search'}
         isBookmarksOpen={activePanel === 'bookmarks'}
         isSettingsOpen={activePanel === 'settings'}
         isAIOpen={activePanel === 'ai'}
         isChatOpen={activePanel === 'chat'}
+        isTtsOpen={activePanel === 'tts'}
         unreadChatCount={unreadChatCount}
         availableLanguages={availableLanguages}
         currentLanguage={selectedLanguage}
@@ -1413,7 +1511,8 @@ export default function Reader() {
               }
             }}
           >
-            <div className="bg-card border rounded-lg shadow-sm h-full">
+            <div className="bg-card border rounded-lg shadow-sm h-full relative"
+                 onContextMenu={handleTextContextMenu}>
               {bookUrl && (
                 <ReaderCore
                   ref={readerRef}
@@ -1434,9 +1533,15 @@ export default function Reader() {
         
         {/* Unified side panel - single container for all menus with slide animation */}
         <div 
-          className={`absolute right-0 top-0 bottom-0 w-[400px] max-w-[90vw] border-l bg-background shadow-lg z-10 transition-transform duration-300 ease-in-out overflow-hidden ${
-            activePanel ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+          className={`absolute right-0 top-0 bottom-0 w-[400px] max-w-[90vw] border-l bg-background shadow-lg z-10 transition-transform duration-300 ease-in-out overflow-hidden $ {
+            activePanel ? 'translate-x-0' : 'translate-x-full'
           }`}
+          key={`panel-${activePanel || 'none'}`}
+          style={{
+            // Completely hide panel when not active to prevent flickering
+            visibility: activePanel ? 'visible' : 'hidden',
+            pointerEvents: activePanel ? 'auto' : 'none'
+          }}
         >
           {activePanel && (
             <div className="h-full flex flex-col">
@@ -1449,6 +1554,8 @@ export default function Reader() {
                   {activePanel === 'settings' && <Settings className="w-5 h-5" />}
                   {activePanel === 'ai' && <Brain className="w-5 h-5" />}
                   {activePanel === 'chat' && <MessageCircle className="w-5 h-5" />}
+                  {activePanel === 'tts' && <Volume2 className="w-5 h-5" />}
+                  {activePanel === 'character-tts' && <Mic className="w-5 h-5" />}
                   <h3 className="font-semibold">
                     {activePanel === 'toc' && t('reader.panelToc')}
                     {activePanel === 'search' && t('reader.panelSearch')}
@@ -1456,6 +1563,8 @@ export default function Reader() {
                     {activePanel === 'settings' && t('reader.panelSettings')}
                     {activePanel === 'ai' && t('reader.panelAI')}
                     {activePanel === 'chat' && t('reader.panelChat')}
+                    {activePanel === 'tts' && t('tts:playback')}
+                    {activePanel === 'character-tts' && 'Озвучить персонажем'}
                   </h3>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setActivePanel(null)}>
@@ -1723,7 +1832,7 @@ export default function Reader() {
                       <Label>{t('settings.textAlign')}</Label>
                       <Select
                         value={settings.textAlign}
-                        onValueChange={(value: 'left' | 'justify' | 'center') => updateSettings({ textAlign: value })}
+                        onValueChange={(value: 'left' | 'justify') => updateSettings({ textAlign: value })}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -2136,6 +2245,36 @@ export default function Reader() {
                     </Tabs>
                   </div>
                 )}
+                
+                {/* Character TTS Panel - Render first to prevent flickering */}
+                {activePanel === 'character-tts' && (
+                  <div className="p-4" key="character-tts-panel">
+                    <TtsPersonaPanel 
+                      selectedText={selectedTextForCharacterTts}
+                      onClose={() => {
+                        setActivePanel(null);
+                        setSelectedTextForCharacterTts('');
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* TTS Panel */}
+                {activePanel === 'tts' && (
+                  <div className="p-4 space-y-4" key="tts-panel">
+                    <TtsComponent 
+                      bookId={bookId}
+                      text={currentChapter?.content || ''}
+                      chapterIndex={currentChapter?.index}
+                      chunkIndex={currentPage}
+                      hideText={true} // Hide original text to prevent duplication
+                      onSettingsChange={(settings) => {
+                        // Handle TTS settings changes if needed
+                        console.log('TTS settings changed:', settings);
+                      }}
+                    />
+                  </div>
+                )}
               </ScrollArea>
             </div>
           )}
@@ -2229,6 +2368,38 @@ export default function Reader() {
             >
               Копировать
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                // Set selected text for Standard TTS and open TTS panel
+                setSelectedTextForTts(selectedText.text);
+                setActivePanel('tts');
+                window.getSelection()?.removeAllRanges();
+                setShowSelectionPopover(false);
+                setSelectedText(null);
+              }}
+            >
+              <Volume2 className="w-4 h-4 mr-1" />
+              Озвучить
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                // Set selected text for Character TTS and open Character TTS panel
+                setSelectedTextForCharacterTts(selectedText.text);
+                setActivePanel('character-tts');
+                window.getSelection()?.removeAllRanges();
+                setShowSelectionPopover(false);
+                setSelectedText(null);
+              }}
+            >
+              <Mic className="w-4 h-4 mr-1" />
+              Озвучить персонажем
+            </Button>
           </div>
         </div>
       )}
@@ -2288,6 +2459,37 @@ export default function Reader() {
           )}
         </div>
       )}
+      
+      {/* Context Menu for Text Selection */}
+      {contextMenuOpen && contextMenuPosition && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={closeContextMenu}
+          />
+          
+          {/* Context Menu */}
+          <div
+            className="fixed z-50 bg-popover border rounded-lg shadow-lg p-1"
+            style={{
+              left: contextMenuPosition.x,
+              top: contextMenuPosition.y,
+            }}
+          >
+            <button
+              className="w-full px-3 py-2 text-left hover:bg-accent rounded flex items-center gap-2"
+              onClick={handleSpeakText} // Открываем Character TTS панель
+            >
+              <Volume2 className="w-4 h-4" />
+              Озвучить персонажем
+            </button>
+          </div>
+        </>
+      )}
+      
+      {/* TTS Persona Panel */}
+      {/* Integrated into main panel system above */}
     </div>
   );
 }
