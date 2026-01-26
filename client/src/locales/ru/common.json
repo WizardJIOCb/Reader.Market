@@ -47,7 +47,8 @@
     "progressBook": "книги, стр.",
     "progressChapter": "Глава",
     "progressPage": "стр.",
-    "progressOf": "из"
+    "progressOf": "из",
+    "read": "Читать"
   },
   "settings": {
     "font": "Шрифт",
@@ -71,9 +72,6 @@
   "ai": {
     "comingSoon": "Функция в разработке",
     "comingSoonDescription": "Функция AI Анализа находится в разработке. Скоро появится!"
-  },
-  "search": {
-    "placeholder": "Поиск по книге..."
   },
   "bookmarks": {
     "addBookmark": "Добавить закладку"

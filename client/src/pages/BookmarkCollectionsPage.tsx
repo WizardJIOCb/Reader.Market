@@ -245,7 +245,7 @@ export function BookmarkCollectionsPage() {
       </div>
 
       {/* Controls */}
-      <div className="mb-6 flex flex-col md:flex-row gap-4">
+      <div className="mb-6 flex flex-col gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -255,10 +255,11 @@ export function BookmarkCollectionsPage() {
             className="w-full pl-10"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-1">
           <Button
             variant={filter === 'all' ? 'default' : 'outline'}
             size="sm"
+            className="w-full px-2 py-2 text-xs sm:w-auto sm:px-2 sm:py-1"
             onClick={() => setFilter('all')}
           >
             {t('collections:filters.all')}
@@ -266,6 +267,7 @@ export function BookmarkCollectionsPage() {
           <Button
             variant={filter === 'own' ? 'default' : 'outline'}
             size="sm"
+            className="w-full px-2 py-2 text-xs sm:w-auto sm:px-2 sm:py-1"
             onClick={() => setFilter('own')}
           >
             {t('collections:filters.own')}
@@ -273,6 +275,7 @@ export function BookmarkCollectionsPage() {
           <Button
             variant={filter === 'others' ? 'default' : 'outline'}
             size="sm"
+            className="w-full px-2 py-2 text-xs sm:w-auto sm:px-2 sm:py-1"
             onClick={() => setFilter('others')}
           >
             {t('collections:filters.others')}
@@ -280,6 +283,7 @@ export function BookmarkCollectionsPage() {
           <Button
             variant={filter === 'clones' ? 'default' : 'outline'}
             size="sm"
+            className="w-full px-2 py-2 text-xs sm:w-auto sm:px-2 sm:py-1"
             onClick={() => setFilter('clones')}
           >
             {t('collections:filters.clones')}
@@ -287,6 +291,7 @@ export function BookmarkCollectionsPage() {
           <Button
             variant={filter === 'recent' ? 'default' : 'outline'}
             size="sm"
+            className="w-full px-2 py-2 text-xs sm:w-auto sm:px-2 sm:py-1"
             onClick={() => setFilter('recent')}
           >
             {t('collections:filters.recent')}
@@ -294,19 +299,22 @@ export function BookmarkCollectionsPage() {
           <Button
             variant={filter === 'popular' ? 'default' : 'outline'}
             size="sm"
+            className="w-full px-2 py-2 text-xs sm:w-auto sm:px-2 sm:py-1"
             onClick={() => setFilter('popular')}
           >
             {t('collections:filters.popular')}
           </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleCreateCollection}
-            className="ml-auto"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {t('collections:createCollection')}
-          </Button>
+          <div className="col-span-3 sm:col-span-1 sm:w-auto">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleCreateCollection}
+              className="w-full py-2 text-xs sm:w-auto sm:py-1 flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4 flex-shrink-0" />
+              <span>{t('collections:createCollection')}</span>
+            </Button>
+          </div>
         </div>
       </div>
 

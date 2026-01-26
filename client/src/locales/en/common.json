@@ -47,7 +47,8 @@
     "progressBook": "of book, p.",
     "progressChapter": "Chapter",
     "progressPage": "p.",
-    "progressOf": "of"
+    "progressOf": "of",
+    "read": "Read"
   },
   "settings": {
     "font": "Font",
@@ -71,9 +72,6 @@
   "ai": {
     "comingSoon": "Feature in Development",
     "comingSoonDescription": "AI Analysis feature is currently under development. Coming soon!"
-  },
-  "search": {
-    "placeholder": "Search in book..."
   },
   "bookmarks": {
     "addBookmark": "Add Bookmark"

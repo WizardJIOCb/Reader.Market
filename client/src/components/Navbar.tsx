@@ -215,10 +215,10 @@ export function Navbar() {
                       aria-current={isActive('/profile', false) ? 'page' : undefined}
                     >
                       <User className="w-4 h-4" />
-                      <span className="hidden 2xl:inline">{t('navigation:profile')} ({user.username})</span>
+                      <span className="hidden sm:inline">{t('navigation:profile')}</span>
                     </Link>
                   </TooltipTrigger>
-                  <TooltipContent className="2xl:hidden bg-[#f5f0e1] text-[#263542] border-[#d4c9a8]">
+                  <TooltipContent className="bg-[#f5f0e1] text-[#263542] border-[#d4c9a8]">
                     <p className="font-medium">{user.fullName || user.username}</p>
                     {user.fullName && <p className="text-xs text-[#5a5243]">@{user.username}</p>}
                   </TooltipContent>

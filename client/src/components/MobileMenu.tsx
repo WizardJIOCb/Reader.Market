@@ -40,6 +40,7 @@ export function MobileMenu() {
     if (location === '/users') return t('navigation:users');
     if (location === '/search') return t('navigation:search');
     if (location === '/shelves') return t('navigation:shelves');
+    if (location.startsWith('/collections')) return t('navigation:collections');
     if (location.startsWith('/messages')) return t('navigation:messages');
     if (location.startsWith('/profile')) return t('navigation:profile');
     if (location.startsWith('/admin')) return t('navigation:adminPanel');
@@ -262,7 +263,7 @@ export function MobileMenu() {
               aria-current={isActive('/collections') ? 'page' : undefined}
             >
               <Bookmark className="w-4 h-4" />
-              Коллекции
+              {t('navigation:collections')}
             </Link>
           </SheetClose>
           <SheetClose asChild>

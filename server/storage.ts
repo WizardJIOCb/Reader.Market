@@ -1768,22 +1768,6 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async addBookmarkToCollection(collectionId: string, bookmarkId: string): Promise<any> {
-    try {
-      const result = await db.insert(bookmarkCollectionItems)
-        .values({
-          collectionId,
-          bookmarkId
-        })
-        .returning();
-      
-      return result[0];
-    } catch (error) {
-      console.error("Error adding bookmark to collection:", error);
-      throw error;
-    }
-  }
-
   async getBookmarks(userId: string, bookId: string): Promise<any[]> {
     try {
       const result = await db.select().from(bookmarks).where(

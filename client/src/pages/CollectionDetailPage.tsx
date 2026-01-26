@@ -318,16 +318,30 @@ export function CollectionDetailPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {groupedBookmarks.map((group: any) => (
-            <div key={group.bookInfo.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+          {/* DEBUG: Log all book info */}
+          {groupedBookmarks.map((group: any) => {
+            console.log('Book info:', group.bookInfo);
+            console.log('Cover image URL:', group.bookInfo.coverImageUrl);
+            console.log('Constructed URL:', group.bookInfo.coverImageUrl ? `/${group.bookInfo.coverImageUrl}` : 'No cover image');
+            return (
+              <div key={group.bookInfo.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
               {/* Book header */}
               <div className="flex items-start gap-4 mb-6">
-                {group.bookInfo.coverImageUrl && (
+                {group.bookInfo.coverImageUrl ? (
                   <img 
-                    src={group.bookInfo.coverImageUrl} 
+                    src={group.bookInfo.coverImageUrl.startsWith('http') ? group.bookInfo.coverImageUrl : `/${group.bookInfo.coverImageUrl}`}
                     alt={group.bookInfo.title}
-                    className="w-16 h-24 object-cover rounded"
+                    className="w-24 h-36 object-cover rounded"
+                    onError={(e) => {
+                      console.error('Image failed to load:', group.bookInfo.coverImageUrl);
+                      // @ts-ignore
+                      e.target.style.display = 'none';
+                    }}
                   />
+                ) : (
+                  <div className="w-24 h-36 bg-gray-200 rounded flex items-center justify-center text-gray-500 text-sm">
+                    No Cover
+                  </div>
                 )}
                 <div className="flex-1">
                   <h3 className="text-xl font-bold mb-2">{group.bookInfo.title}</h3>
@@ -335,7 +349,6 @@ export function CollectionDetailPage() {
                     <p className="text-muted-foreground mb-3">{group.bookInfo.author}</p>
                   )}
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>{group.bookmarks.length} {t('collections:collectionCard.bookmarks')}</span>
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -344,6 +357,7 @@ export function CollectionDetailPage() {
                       <BookOpen className="w-4 h-4 mr-2" />
                       {t('common:reader.read')}
                     </Button>
+                    <span>{group.bookmarks.length} {t('collections:collectionCard.bookmarks')}</span>
                   </div>
                 </div>
               </div>
@@ -387,7 +401,8 @@ export function CollectionDetailPage() {
                 ))}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>
