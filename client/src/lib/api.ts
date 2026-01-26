@@ -346,4 +346,12 @@ export const bookmarkCollectionsApi = {
       method: 'POST',
       body: JSON.stringify(cloneData),
     }),
+  
+  // Get collections that contain bookmarks for a specific book
+  getCollectionsForBook: (bookId: string) => 
+    apiCall(`/api/bookmark-collections/book/${bookId}`),
+  
+  // Get bookmarks in a specific collection for a specific book
+  getBookmarksForCollection: (collectionId: string, bookId: string) => 
+    apiCall(`/api/bookmark-collections/${collectionId}/bookmarks/${bookId}`),
 };

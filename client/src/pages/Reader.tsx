@@ -19,9 +19,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
 import { booksApi, readerApi } from '@/lib/api';
+import { bookmarkCollectionsApi } from '@/lib/api';
+import { CreateCollectionModal } from '@/components/CreateCollectionModal';
+import { BookmarkCollection } from '@/types/bookmarkCollections';
 import { useBookSplash } from '@/lib/bookSplashContext';
 import { getSocket, joinBookChat, leaveBookChat, sendBookChatMessage, startBookChatTyping, stopBookChatTyping, deleteBookChatMessage, onSocketEvent } from '@/lib/socket';
-import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight, Volume2, Mic } from 'lucide-react';
+import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight, Volume2, Mic, ArrowLeft } from 'lucide-react';
 
 // Reader Components
 import {
@@ -139,6 +142,13 @@ export default function Reader() {
   type PanelType = 'toc' | 'search' | 'bookmarks' | 'settings' | 'ai' | 'chat' | 'tts' | 'character-tts' | null;
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+  
+  // Bookmark collections state
+  const [collections, setCollections] = useState<BookmarkCollection[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [filteredBookmarks, setFilteredBookmarks] = useState<BookmarkItem[]>([]);
+  const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
+  const [showCreateCollectionModal, setShowCreateCollectionModal] = useState(false);
   
   // Selected text for TTS
   const [selectedTextForTts, setSelectedTextForTts] = useState('');
@@ -303,6 +313,110 @@ export default function Reader() {
     
     loadBookmarks();
   }, [bookId]);
+  
+  // Load collections that have bookmarks in this specific book
+  useEffect(() => {
+    if (!bookId || !user) return;
+    
+    const loadCollections = async () => {
+      try {
+        console.log('Loading collections for book:', bookId);
+        const response = await bookmarkCollectionsApi.getCollectionsForBook(bookId);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Loaded collections with bookmarks for this book:', data);
+          setCollections(data);
+        } else {
+          console.log('Failed to load collections for book, status:', response.status);
+          // If no collections found for this book, load empty array
+          setCollections([]);
+        }
+      } catch (e) {
+        console.error('Failed to load collections for book:', e);
+        setCollections([]);
+      }
+    };
+    
+    loadCollections();
+  }, [bookId, user]);
+  
+  // Handler for deleting a collection
+  const handleDeleteCollection = useCallback(async (collectionId: string, collectionName: string) => {
+    // Confirm deletion
+    if (!confirm(`Вы уверены, что хотите удалить коллекцию \"${collectionName}\"? Это действие нельзя отменить.`)) {
+      return;
+    }
+    
+    try {
+      const response = await bookmarkCollectionsApi.deleteCollection(collectionId);
+      if (response.ok) {
+        // Remove from collections list
+        setCollections(prev => prev.filter(c => c.id !== collectionId));
+        
+        // If this was the selected collection, deselect it
+        if (selectedCollectionId === collectionId) {
+          setSelectedCollectionId(null);
+          // Show all bookmarks
+          setFilteredBookmarks(bookmarks);
+        }
+        
+        toastRef.current({
+          title: "Успех",
+          description: `Коллекция \"${collectionName}\" удалена`
+        });
+      } else {
+        const errorData = await response.json();
+        toastRef.current({
+          title: "Ошибка",
+          description: errorData.error || "Не удалось удалить коллекцию",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting collection:', error);
+      toastRef.current({
+        title: "Ошибка",
+        description: "Произошла ошибка при удалении коллекции",
+        variant: "destructive"
+      });
+    }
+  }, [selectedCollectionId, bookmarks]);
+  
+  // Filter bookmarks based on selected collection
+  useEffect(() => {
+    if (!bookId || !user) return;
+    
+    const filterBookmarks = async () => {
+      if (selectedCollectionId) {
+        try {
+          const response = await bookmarkCollectionsApi.getBookmarksForCollection(selectedCollectionId, bookId);
+          if (response.ok) {
+            const data = await response.json();
+            setFilteredBookmarks(data.map((b: any) => ({
+              ...b,
+              createdAt: new Date(b.createdAt),
+            })));
+          } else {
+            setFilteredBookmarks([]);
+          }
+        } catch (e) {
+          console.error('Failed to load bookmarks for collection:', e);
+          setFilteredBookmarks([]);
+        }
+      } else {
+        // No collection selected, show all bookmarks
+        setFilteredBookmarks(bookmarks);
+      }
+    };
+    
+    filterBookmarks();
+  }, [bookmarks, selectedCollectionId, bookId, user]);
+  
+  // Filter collections based on search query
+  const filteredCollections = collections.filter(collection => 
+    collection.name.toLowerCase().includes(collectionSearchQuery.toLowerCase()) ||
+    (collection.description && collection.description.toLowerCase().includes(collectionSearchQuery.toLowerCase()))
+  );
   
   // Debug effect to monitor panel changes
   useEffect(() => {
@@ -1029,6 +1143,7 @@ export default function Reader() {
       percentage: position.percentage,
       selectedText: selectedText?.text,
       pageInChapter: position.pageInChapter,
+      collectionId: selectedCollectionId // Include currently selected collection
     };
     
     const authToken = localStorage.getItem('authToken');
@@ -1046,6 +1161,23 @@ export default function Reader() {
           // Update localStorage cache
           const updatedBookmarks = [newBookmark, ...bookmarks];
           localStorage.setItem(`${BOOKMARKS_KEY}-${bookId}`, JSON.stringify(updatedBookmarks));
+          
+          // Refresh collections to update bookmark counts
+          if (bookId && user) {
+            const loadCollections = async () => {
+              try {
+                const response = await bookmarkCollectionsApi.getCollectionsForBook(bookId);
+                if (response.ok) {
+                  const data = await response.json();
+                  setCollections(data);
+                }
+              } catch (e) {
+                console.error('Failed to refresh collections after bookmark creation:', e);
+              }
+            };
+            loadCollections();
+          }
+          
           toastRef.current({
             title: "Закладка добавлена",
             description: title,
@@ -1069,11 +1201,28 @@ export default function Reader() {
       localStorage.setItem(`${BOOKMARKS_KEY}-${bookId}`, JSON.stringify(updated));
       return updated;
     });
+    
+    // Refresh collections to update bookmark counts (even for local bookmarks)
+    if (bookId && user) {
+      const loadCollections = async () => {
+        try {
+          const response = await bookmarkCollectionsApi.getCollectionsForBook(bookId);
+          if (response.ok) {
+            const data = await response.json();
+            setCollections(data);
+          }
+        } catch (e) {
+          console.error('Failed to refresh collections after local bookmark creation:', e);
+        }
+      };
+      loadCollections();
+    }
+    
     toastRef.current({
       title: "Закладка добавлена",
       description: title,
     });
-  }, [currentChapter, selectedText, bookId, bookmarks]);
+  }, [currentChapter, selectedText, bookId, bookmarks, selectedCollectionId]);
   
   const handleRemoveBookmark = useCallback(async (id: string) => {
     const authToken = localStorage.getItem('authToken');
@@ -1087,6 +1236,23 @@ export default function Reader() {
             localStorage.setItem(`${BOOKMARKS_KEY}-${bookId}`, JSON.stringify(updated));
             return updated;
           });
+          
+          // Refresh collections to update bookmark counts
+          if (bookId && user) {
+            const loadCollections = async () => {
+              try {
+                const response = await bookmarkCollectionsApi.getCollectionsForBook(bookId);
+                if (response.ok) {
+                  const data = await response.json();
+                  setCollections(data);
+                }
+              } catch (e) {
+                console.error('Failed to refresh collections after bookmark deletion:', e);
+              }
+            };
+            loadCollections();
+          }
+          
           return;
         }
       } catch (e) {
@@ -1106,6 +1272,22 @@ export default function Reader() {
       localStorage.setItem(`${BOOKMARKS_KEY}-${bookId}`, JSON.stringify(updated));
       return updated;
     });
+    
+    // Refresh collections to update bookmark counts (even for local bookmarks)
+    if (bookId && user) {
+      const loadCollections = async () => {
+        try {
+          const response = await bookmarkCollectionsApi.getCollectionsForBook(bookId);
+          if (response.ok) {
+            const data = await response.json();
+            setCollections(data);
+          }
+        } catch (e) {
+          console.error('Failed to refresh collections after local bookmark deletion:', e);
+        }
+      };
+      loadCollections();
+    }
   }, [bookId]);
   
   const handleRenameBookmark = useCallback(async (id: string, newTitle: string) => {
@@ -1310,6 +1492,81 @@ export default function Reader() {
       setActivePanel(null);
     }
   }, [settings.autoCloseBookmarksPanel]);
+  
+  // Navigate to next bookmark in the same collection
+  const handleNextCollectionBookmark = useCallback(() => {
+    if (!selectedCollectionId || filteredBookmarks.length === 0) return;
+    
+    // Get current position
+    const currentPosition = readerRef.current?.getPosition();
+    if (!currentPosition) return;
+    
+    // Find bookmarks in current collection that are after current position
+    const laterBookmarks = filteredBookmarks
+      .filter(b => 
+        b.chapterIndex > currentPosition.chapterIndex || 
+        (b.chapterIndex === currentPosition.chapterIndex && b.percentage > currentPosition.percentage)
+      )
+      .sort((a, b) => {
+        if (a.chapterIndex !== b.chapterIndex) {
+          return a.chapterIndex - b.chapterIndex;
+        }
+        return a.percentage - b.percentage;
+      });
+    
+    if (laterBookmarks.length > 0) {
+      handleGoToBookmark(laterBookmarks[0]);
+    }
+  }, [selectedCollectionId, filteredBookmarks, handleGoToBookmark]);
+  
+  // Handler for when a new collection is created
+  const handleCollectionCreated = useCallback((newCollection: BookmarkCollection) => {
+    // Add the new collection to our list
+    setCollections(prev => [...prev, newCollection]);
+    
+    // Optionally select it
+    setSelectedCollectionId(newCollection.id);
+    
+    // Refresh collections for this book
+    if (bookId && user) {
+      const loadCollections = async () => {
+        try {
+          const response = await bookmarkCollectionsApi.getCollectionsForBook(bookId);
+          if (response.ok) {
+            const data = await response.json();
+            setCollections(data);
+          }
+        } catch (e) {
+          console.error('Failed to refresh collections:', e);
+        }
+      };
+      loadCollections();
+    }
+  }, [bookId, user]);
+  const handlePreviousCollectionBookmark = useCallback(() => {
+    if (!selectedCollectionId || filteredBookmarks.length === 0) return;
+    
+    // Get current position
+    const currentPosition = readerRef.current?.getPosition();
+    if (!currentPosition) return;
+    
+    // Find bookmarks in current collection that are before current position
+    const earlierBookmarks = filteredBookmarks
+      .filter(b => 
+        b.chapterIndex < currentPosition.chapterIndex || 
+        (b.chapterIndex === currentPosition.chapterIndex && b.percentage < currentPosition.percentage)
+      )
+      .sort((a, b) => {
+        if (a.chapterIndex !== b.chapterIndex) {
+          return b.chapterIndex - a.chapterIndex;
+        }
+        return b.percentage - a.percentage;
+      });
+    
+    if (earlierBookmarks.length > 0) {
+      handleGoToBookmark(earlierBookmarks[0]);
+    }
+  }, [selectedCollectionId, filteredBookmarks, handleGoToBookmark]);
   
   // Search handlers
   const handleSearchInput = useCallback((query: string) => {
@@ -1673,15 +1930,132 @@ export default function Reader() {
                       {t('bookmarks.addBookmark')}
                     </Button>
                     
-                    {bookmarks.length === 0 ? (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <Bookmark className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>Нет закладок</p>
-                        <p className="text-sm">Добавьте закладку, чтобы вернуться к этому месту позже</p>
+                    {/* Create new collection button */}
+                    <Button
+                      variant="default"
+                      className="w-full mb-4"
+                      onClick={() => setShowCreateCollectionModal(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Создать коллекцию
+                    </Button>
+                                    
+                    {/* Collection search - same as /collections page */}
+                    <div className="mb-4">
+                      <Label className="text-sm mb-2 block">Поиск по коллекциям</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Поиск коллекций..."
+                          value={collectionSearchQuery}
+                          onChange={(e) => setCollectionSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              // Trigger search on Enter
+                              e.preventDefault();
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => {
+                            // Force re-render/search
+                            setCollectionSearchQuery(prev => prev + ' ');
+                            setTimeout(() => {
+                              setCollectionSearchQuery(prev => prev.trim());
+                            }, 10);
+                          }}
+                        >
+                          <Search className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Collections list - only those with bookmarks in this book */}
+                    {collections.length > 0 ? (
+                      <div className="mb-4">
+                        <Label className="text-sm mb-2 block">Коллекции с закладками в этой книге</Label>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {(collectionSearchQuery ? filteredCollections : collections).map(collection => (
+                            <div 
+                              key={collection.id}
+                              className={`p-3 rounded-lg border transition-colors relative $ {
+                                selectedCollectionId === collection.id 
+                                  ? 'bg-primary/10 border-primary' 
+                                  : 'hover:bg-muted'
+                              }`}
+                            >
+                              <div 
+                                className="cursor-pointer"
+                                onClick={() => setSelectedCollectionId(collection.id)}
+                              >
+                                <div className="font-medium">{collection.name}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {collection.bookmarkCount} закладок в этой книге
+                                </div>
+                                {collection.description && (
+                                  <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                    {collection.description}
+                                  </div>
+                                )}
+                              </div>
+                                                        
+                              {/* Delete button - only show for user's own collections */}
+                              {collection.isOwn && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute top-2 right-2 h-8 w-8 opacity-0 hover:opacity-100 focus:opacity-100 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Prevent collection selection
+                                    handleDeleteCollection(collection.id, collection.name);
+                                  }}
+                                  title="Удалить коллекцию"
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ) : (
+                      <div className="mb-4 p-4 text-center text-muted-foreground text-sm">
+                        {collectionSearchQuery 
+                          ? 'Коллекции не найдены' 
+                          : 'У вас пока нет коллекций с закладками в этой книге'}
+                      </div>
+                    )}
+                    
+                    {/* Collection navigation header */}
+                    {selectedCollectionId && (
+                      <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium text-sm">
+                              {collections.find(c => c.id === selectedCollectionId)?.name}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {collections.find(c => c.id === selectedCollectionId)?.bookmarkCount || 0} закладок в этой книге
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedCollectionId(null)}
+                          >
+                            <ArrowLeft className="w-4 h-4 mr-1" />
+                            Назад к поиску
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                                    
+                    {/* Bookmarks list - filtered by selected collection */}
+                    {(selectedCollectionId ? filteredBookmarks : bookmarks).length > 0 ? (
                       <div className="space-y-2">
-                        {bookmarks.map((bookmark) => (
+                        {(selectedCollectionId ? filteredBookmarks : bookmarks).map((bookmark) => (
                           <div
                             key={bookmark.id}
                             className="flex items-center gap-2 p-3 rounded-lg hover:bg-muted group"
@@ -1756,9 +2130,24 @@ export default function Reader() {
                           </div>
                         ))}
                       </div>
+                    ) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Bookmark className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>Нет закладок</p>
+                        <p className="text-sm">{selectedCollectionId ? 'В этой коллекции нет закладок в этой книге' : 'Добавьте закладку, чтобы вернуться к этому месту позже'}</p>
+                      </div>
                     )}
                   </div>
                 )}
+                                
+                {/* Create Collection Modal */}
+                <CreateCollectionModal 
+                  open={showCreateCollectionModal}
+                  onOpenChange={setShowCreateCollectionModal}
+                  onCollectionCreated={handleCollectionCreated}
+                  currentBookId={bookId}
+                  currentBookTitle={book?.title}
+                />
                 
                 {/* Settings Panel */}
                 {activePanel === 'settings' && (

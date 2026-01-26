@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
 import { CloneCollectionModal } from '@/components/CloneCollectionModal';
+import { CreateCollectionModal } from '@/components/CreateCollectionModal';
 import { useTranslation } from 'react-i18next';
 import { 
   Plus, 
@@ -31,6 +32,7 @@ export function BookmarkCollectionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'recent' | 'popular' | 'own' | 'others' | 'clones'>('all');
   const [cloneModalOpen, setCloneModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [collectionToClone, setCollectionToClone] = useState<BookmarkCollection | null>(null);
 
   useEffect(() => {
@@ -164,6 +166,19 @@ export function BookmarkCollectionsPage() {
     setCollectionToClone(null);
   };
 
+  const handleCreateCollection = () => {
+    setCreateModalOpen(true);
+  };
+
+  const handleCreateSuccess = () => {
+    // Refresh collections list
+    fetchCollections();
+    setCreateModalOpen(false);
+  };
+
+  const handleCloseCreateModal = () => {
+    setCreateModalOpen(false);
+  };
   const formatDate = (dateString: string) => {
     const locale = localStorage.getItem('i18nextLng') || 'ru';
     return new Date(dateString).toLocaleDateString(locale, {
@@ -283,6 +298,15 @@ export function BookmarkCollectionsPage() {
           >
             {t('collections:filters.popular')}
           </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleCreateCollection}
+            className="ml-auto"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {t('collections:createCollection')}
+          </Button>
         </div>
       </div>
 
@@ -302,11 +326,9 @@ export function BookmarkCollectionsPage() {
             }
           </p>
           {!searchTerm && (
-            <Button asChild>
-              <Link href="/collections/create">
-                <Plus className="w-4 h-4 mr-2" />
-                {t('collections:createCollection')}
-              </Link>
+            <Button onClick={handleCreateCollection}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t('collections:createCollection')}
             </Button>
           )}
         </div>
@@ -404,6 +426,12 @@ export function BookmarkCollectionsPage() {
         collectionId={collectionToClone?.id || ''}
         originalName={collectionToClone?.name || ''}
         onCloneSuccess={handleCloneSuccess}
+      />
+      
+      <CreateCollectionModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        onCollectionCreated={handleCreateSuccess}
       />
     </div>
   );

@@ -4,7 +4,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import { getPersonalActivitiesDirect, getProfileActivitiesDirect, getProfileCommentsDirect } from './directStorage';
 import { sql } from "drizzle-orm/sql";
-import { eq, and, inArray, or, ilike, desc } from "drizzle-orm";
+import { eq, and, inArray, or, ilike, desc, asc, exists } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Ollama } from "ollama";
@@ -2551,12 +2551,21 @@ export async function registerRoutes(
     try {
       const { bookId } = req.params;
       const userId = (req as any).user.userId;
-      const { title, chapterIndex, percentage, selectedText, pageInChapter } = req.body;
+      const { title, chapterIndex, percentage, selectedText, pageInChapter, collectionId } = req.body;
       
       if (!title) {
         return res.status(400).json({ error: "Bookmark title is required" });
       }
       
+      // Get book title for default collection name
+      const book = await db.select({ title: books.title }).from(books).where(eq(books.id, bookId));
+      if (book.length === 0) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      const bookTitle = book[0].title;
+      
+      // Create the bookmark
       const bookmark = await storage.createBookmark({
         userId,
         bookId,
@@ -2567,7 +2576,28 @@ export async function registerRoutes(
         pageInChapter,
       });
       
-      res.status(201).json(bookmark);
+      // Add to collection (either specified or default)
+      let targetCollectionId = collectionId;
+      
+      if (!targetCollectionId) {
+        // Try to get existing default collection
+        let defaultCollection = await storage.getDefaultBookmarkCollection(userId, bookId);
+        
+        // If no default collection exists, create one
+        if (!defaultCollection) {
+          defaultCollection = await storage.createDefaultBookmarkCollection(userId, bookId, bookTitle);
+        }
+        
+        targetCollectionId = defaultCollection.id;
+      }
+      
+      // Add bookmark to the collection
+      await storage.addBookmarkToCollection(targetCollectionId, bookmark.id, userId);
+      
+      res.status(201).json({
+        ...bookmark,
+        collectionId: targetCollectionId
+      });
     } catch (error) {
       console.error("Error creating bookmark:", error);
       res.status(500).json({ error: "Failed to create bookmark" });
@@ -2597,7 +2627,7 @@ export async function registerRoutes(
   app.post("/api/bookmark-collections", authenticateToken, async (req, res) => {
     try {
       const userId = (req as any).user.userId;
-      const { name, description, color, isPublic } = req.body;
+      const { name, description, color, isPublic, bookId } = req.body;
       
       if (!name) {
         return res.status(400).json({ error: "Collection name is required" });
@@ -2608,7 +2638,8 @@ export async function registerRoutes(
         name,
         description: description || '',
         color: color || '#3b82f6',
-        isPublic: isPublic || false
+        isPublic: isPublic || false,
+        bookId: bookId || null // Include bookId if provided
       });
       
       res.status(201).json(collection);
@@ -2928,6 +2959,142 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error cloning bookmark collection:", error);
       res.status(500).json({ error: "Failed to clone bookmark collection" });
+    }
+  });
+  
+  // Get bookmarks in a specific collection for the current book
+  app.get("/api/bookmark-collections/:collectionId/bookmarks/:bookId", authenticateToken, async (req, res) => {
+    try {
+      const { collectionId, bookId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Verify the collection belongs to the user
+      const collection = await db.select()
+        .from(bookmarkCollections)
+        .where(and(
+          eq(bookmarkCollections.id, collectionId),
+          eq(bookmarkCollections.userId, userId)
+        ));
+      
+      if (collection.length === 0) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      
+      // Get bookmarks in this collection for the specified book
+      const bookmarksInCollection = await db.select({
+        id: bookmarks.id,
+        title: bookmarks.title,
+        chapterIndex: bookmarks.chapterIndex,
+        percentage: bookmarks.percentage,
+        selectedText: bookmarks.selectedText,
+        pageInChapter: bookmarks.pageInChapter,
+        createdAt: bookmarks.createdAt
+      })
+      .from(bookmarkCollectionItems)
+      .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+      .where(and(
+        eq(bookmarkCollectionItems.collectionId, collectionId),
+        eq(bookmarks.bookId, bookId),
+        eq(bookmarks.userId, userId)
+      ))
+      .orderBy(asc(bookmarks.chapterIndex), asc(bookmarks.percentage));
+      
+      res.json(bookmarksInCollection);
+    } catch (error) {
+      console.error("Error getting bookmarks for collection:", error);
+      res.status(500).json({ error: "Failed to get bookmarks for collection" });
+    }
+  });
+  
+  // Get collections that contain bookmarks for a specific book
+  app.get("/api/bookmark-collections/book/:bookId", authenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Get collections that either:
+      // 1. Contain bookmarks for this book
+      // 2. Are specifically linked to this book via book_id
+      
+      // First get collections with bookmarks for this book
+      const collectionsWithBookmarks = await db.selectDistinct({
+        id: bookmarkCollections.id,
+        name: bookmarkCollections.name,
+        description: bookmarkCollections.description,
+        color: bookmarkCollections.color,
+        isPublic: bookmarkCollections.isPublic,
+        bookId: bookmarkCollections.bookId, // Include bookId in response
+        createdAt: bookmarkCollections.createdAt,
+        updatedAt: bookmarkCollections.updatedAt,
+        ownerId: users.id,
+        ownerUsername: users.username,
+        ownerFullName: users.fullName,
+        ownerAvatarUrl: users.avatarUrl,
+        ownerProfileRating: users.profileRating
+      })
+      .from(bookmarkCollections)
+      .innerJoin(bookmarkCollectionItems, eq(bookmarkCollections.id, bookmarkCollectionItems.collectionId))
+      .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+      .leftJoin(users, eq(bookmarkCollections.userId, users.id))
+      .where(and(
+        eq(bookmarks.bookId, bookId),
+        eq(bookmarkCollections.userId, userId)
+      ));
+      
+      // Then get collections specifically linked to this book
+      const collectionsForBook = await db.select({
+        id: bookmarkCollections.id,
+        name: bookmarkCollections.name,
+        description: bookmarkCollections.description,
+        color: bookmarkCollections.color,
+        isPublic: bookmarkCollections.isPublic,
+        bookId: bookmarkCollections.bookId, // Include bookId in response
+        createdAt: bookmarkCollections.createdAt,
+        updatedAt: bookmarkCollections.updatedAt,
+        ownerId: users.id,
+        ownerUsername: users.username,
+        ownerFullName: users.fullName,
+        ownerAvatarUrl: users.avatarUrl,
+        ownerProfileRating: users.profileRating
+      })
+      .from(bookmarkCollections)
+      .leftJoin(users, eq(bookmarkCollections.userId, users.id))
+      .where(and(
+        eq(bookmarkCollections.bookId, bookId),
+        eq(bookmarkCollections.userId, userId)
+      ));
+      
+      // Combine and deduplicate results
+      const allCollections = [...collectionsWithBookmarks, ...collectionsForBook];
+      const uniqueCollections = Array.from(
+        new Map(allCollections.map(item => [item.id, item])).values()
+      ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // Add bookmark count for each collection
+      const collectionsWithCounts = await Promise.all(uniqueCollections.map(async (collection) => {
+        const itemCount = await db.select({ count: sql`count(*)` })
+          .from(bookmarkCollectionItems)
+          .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+          .where(and(
+            eq(bookmarkCollectionItems.collectionId, collection.id),
+            eq(bookmarks.bookId, bookId)
+          ));
+        
+        // Check if this is a clone
+        const isClone = collection.name.startsWith('Копия ');
+        
+        return {
+          ...collection,
+          bookmarkCount: parseInt((itemCount[0] as any).count.toString()),
+          isClone,
+          isOwn: collection.ownerId === userId
+        };
+      }));
+      
+      res.json(collectionsWithCounts);
+    } catch (error) {
+      console.error("Error getting collections for book:", error);
+      res.status(500).json({ error: "Failed to get collections for book" });
     }
   });
   

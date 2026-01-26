@@ -156,6 +156,7 @@ export const bookmarkCollections = pgTable("bookmark_collections", {
   description: text("description"),
   color: varchar("color").default("#3b82f6"),
   isPublic: boolean("is_public").default(false),
+  bookId: varchar("book_id").references(() => books.id, { onDelete: "set null" }), // Optional book association
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

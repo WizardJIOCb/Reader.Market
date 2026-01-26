@@ -101,15 +101,35 @@ export function CollectionDetailPage() {
 
   const handleReadBookmark = (bookmark: BookmarkWithBookInfo) => {
     // Navigate to reader at the bookmark position
-    window.open(`/read/${bookmark.bookId}/${bookmark.chapterIndex || 0}`, '_blank');
+    window.location.href = `/read/${bookmark.bookId}/${bookmark.chapterIndex || 0}`;
   };
 
-  const handleCloneCollection = () => {
-    // Implement clone functionality
-    toast({
-      title: t('common:info'),
-      description: t('collections:toasts.comingSoon')
+  const handleReadBook = (bookId: string) => {
+    // Navigate to reader at the beginning of the book
+    window.location.href = `/read/${bookId}/0`;
+  };
+
+  // Group bookmarks by book
+  const groupBookmarksByBook = (bookmarks: BookmarkWithBookInfo[]) => {
+    const grouped: Record<string, { bookInfo: any; bookmarks: BookmarkWithBookInfo[] }> = {};
+    
+    bookmarks.forEach(bookmark => {
+      const bookId = bookmark.bookId;
+      if (!grouped[bookId]) {
+        grouped[bookId] = {
+          bookInfo: {
+            id: bookmark.bookId,
+            title: bookmark.bookTitle,
+            author: bookmark.bookAuthor,
+            coverImageUrl: bookmark.bookCoverImageUrl
+          },
+          bookmarks: []
+        };
+      }
+      grouped[bookId].bookmarks.push(bookmark);
     });
+    
+    return Object.values(grouped);
   };
 
   if (!user) {
@@ -152,6 +172,17 @@ export function CollectionDetailPage() {
       </div>
     );
   }
+
+  const handleCloneCollection = () => {
+    // Implement clone functionality
+    toast({
+      title: t('common:info'),
+      description: t('collections:toasts.comingSoon')
+    });
+  };
+
+  // Group bookmarks by book for rendering
+  const groupedBookmarks = collection ? groupBookmarksByBook(collection.bookmarks) : [];
 
   // DEBUG: Log collection data
   console.log('Collection data in detail page:', {
@@ -208,7 +239,7 @@ export function CollectionDetailPage() {
             <Button asChild variant="outline">
               <Link href={`/collections/${collection.id}/edit`}>
                 <Edit className="w-4 h-4 mr-2" />
-                Редактировать
+                {t('collections:detailPage.edit')}
               </Link>
             </Button>
           )}
@@ -217,7 +248,7 @@ export function CollectionDetailPage() {
             onClick={handleCloneCollection}
           >
             <Copy className="w-4 h-4 mr-2" />
-            Клонировать
+            {t('collections:detailPage.clone')}
           </Button>
           {collection.isOwn && (
             <Button 
@@ -231,7 +262,7 @@ export function CollectionDetailPage() {
         
         <div className="flex items-center gap-2">
           {collection.isClone && (
-            <Badge variant="secondary">Клон</Badge>
+            <Badge variant="secondary">{t('collections:collectionCard.clone')}</Badge>
           )}
         </div>
       </div>
@@ -265,10 +296,10 @@ export function CollectionDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Bookmarks list */}
+      {/* Books and their bookmarks */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-4">
-          {t('collections:detailPage.bookmarksTitle')} ({collection.bookmarks.length})
+          {t('collections:detailPage.bookmarksTitle')} ({collection.bookmarks.length} {t('collections:detailPage.metadata.bookmarksCount')})
         </h2>
       </div>
 
@@ -286,54 +317,76 @@ export function CollectionDetailPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {collection.bookmarks.map((bookmark) => (
-            <Card key={bookmark.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg mb-2 line-clamp-2">
-                      {bookmark.title}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-2">
-                      <span className="truncate">{bookmark.bookTitle}</span>
-                      {bookmark.bookAuthor && (
-                        <span className="text-muted-foreground">•</span>
-                      )}
-                      {bookmark.bookAuthor && (
-                        <span className="truncate">{bookmark.bookAuthor}</span>
-                      )}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {bookmark.selectedText && (
-                  <div className="mb-4">
-                    <p className="text-sm text-muted-foreground line-clamp-3 italic">
-                      "{bookmark.selectedText}"
-                    </p>
-                  </div>
+        <div className="space-y-8">
+          {groupedBookmarks.map((group: any) => (
+            <div key={group.bookInfo.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+              {/* Book header */}
+              <div className="flex items-start gap-4 mb-6">
+                {group.bookInfo.coverImageUrl && (
+                  <img 
+                    src={group.bookInfo.coverImageUrl} 
+                    alt={group.bookInfo.title}
+                    className="w-16 h-24 object-cover rounded"
+                  />
                 )}
-                
-                <div className="flex justify-between items-center text-xs text-muted-foreground mb-4">
-                  <span>
-                    {t('common:reader.progressChapter')}: {bookmark.chapterIndex !== null ? bookmark.chapterIndex + 1 : 'N/A'}
-                  </span>
-                  {bookmark.percentage !== null && (
-                    <span>{Math.round(bookmark.percentage)}% {t('common:reader.progressBook')}</span>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold mb-2">{group.bookInfo.title}</h3>
+                  {group.bookInfo.author && (
+                    <p className="text-muted-foreground mb-3">{group.bookInfo.author}</p>
                   )}
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>{group.bookmarks.length} {t('collections:collectionCard.bookmarks')}</span>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleReadBook(group.bookInfo.id)}
+                    >
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      {t('common:reader.read')}
+                    </Button>
+                  </div>
                 </div>
-                
-                <Button 
-                  className="w-full"
-                  onClick={() => handleReadBookmark(bookmark)}
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  {t('common:reader.read')}
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+              
+              {/* Bookmarks list for this book */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {group.bookmarks.map((bookmark: BookmarkWithBookInfo) => (
+                  <Card key={bookmark.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg mb-2 line-clamp-2">
+                        {bookmark.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {bookmark.selectedText && (
+                        <div className="mb-4">
+                          <p className="text-sm text-muted-foreground line-clamp-3 italic">
+                            "{bookmark.selectedText}"
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-center text-xs text-muted-foreground mb-4">
+                        <span>
+                          {t('common:reader.progressChapter')}: {bookmark.chapterIndex !== null ? bookmark.chapterIndex + 1 : 'N/A'}
+                        </span>
+                        {bookmark.percentage !== null && (
+                          <span>{Math.round(bookmark.percentage)}% {t('common:reader.progressBook')}</span>
+                        )}
+                      </div>
+                      
+                      <Button 
+                        className="w-full"
+                        onClick={() => handleReadBookmark(bookmark)}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        {t('collections:collectionCard.view')}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}

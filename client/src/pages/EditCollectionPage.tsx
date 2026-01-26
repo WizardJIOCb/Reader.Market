@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useParams } from 'wouter';
 import { useAuth } from '@/lib/auth';
-import { bookmarkCollectionsApi } from '@/lib/api';
+import { bookmarkCollectionsApi, booksApi } from '@/lib/api';
 import { BookmarkCollection } from '@/types/bookmarkCollections';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Palette } from 'lucide-react';
+import { ArrowLeft, Save, Palette, Search, X, BookOpen } from 'lucide-react';
 
 const PRESET_COLORS = [
   '#3b82f6', // blue
@@ -30,8 +30,14 @@ export function EditCollectionPage() {
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#3b82f6');
   const [isPublic, setIsPublic] = useState(false);
+  const [bookId, setBookId] = useState<string | null>(null);
+  const [selectedBook, setSelectedBook] = useState<{id: string, title: string, author: string} | null>(null);
+  const [bookSearchQuery, setBookSearchQuery] = useState('');
+  const [bookSearchResults, setBookSearchResults] = useState<Array<{id: string, title: string, author: string}>>([]);
+  const [showBookSearch, setShowBookSearch] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (user && id) {
@@ -45,6 +51,27 @@ export function EditCollectionPage() {
       setDescription(collection.description || '');
       setColor(collection.color);
       setIsPublic(collection.isPublic);
+      setBookId(collection.bookId || null);
+      
+      // If collection has a bookId, fetch the book info
+      if (collection.bookId) {
+        const fetchBookInfo = async () => {
+          try {
+            const response = await booksApi.getBookById(collection.bookId!);
+            if (response.ok) {
+              const bookData = await response.json();
+              setSelectedBook({
+                id: bookData.id,
+                title: bookData.title,
+                author: bookData.author
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching book info:', error);
+          }
+        };
+        fetchBookInfo();
+      }
     }
   }, [collection]);
 
@@ -74,6 +101,63 @@ export function EditCollectionPage() {
     }
   };
 
+  // Book search functionality
+  const handleBookSearch = async (query: string) => {
+    if (query.trim().length < 2) {
+      setBookSearchResults([]);
+      return;
+    }
+    
+    try {
+      const response = await booksApi.searchBooks(query, 'title', 'asc');
+      if (response.ok) {
+        const data = await response.json();
+        // Transform the data to match our expected format
+        const results = data.map((book: any) => ({
+          id: book.id,
+          title: book.title,
+          author: book.author
+        }));
+        setBookSearchResults(results);
+      }
+    } catch (error) {
+      console.error('Error searching books:', error);
+    }
+  };
+
+  const handleSelectBook = (book: {id: string, title: string, author: string}) => {
+    setSelectedBook(book);
+    setBookId(book.id);
+    setShowBookSearch(false);
+    setBookSearchQuery('');
+    setBookSearchResults([]);
+  };
+
+  const handleRemoveBook = () => {
+    setSelectedBook(null);
+    setBookId(null);
+  };
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    if (bookSearchQuery.trim().length >= 2) {
+      searchTimeoutRef.current = setTimeout(() => {
+        handleBookSearch(bookSearchQuery);
+      }, 300);
+    } else {
+      setBookSearchResults([]);
+    }
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [bookSearchQuery]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -93,7 +177,8 @@ export function EditCollectionPage() {
         name: name.trim(),
         description: description.trim() || undefined,
         color,
-        isPublic
+        isPublic,
+        bookId: bookId || undefined // Include bookId if selected
       });
       
       if (response.ok) {
@@ -217,6 +302,78 @@ export function EditCollectionPage() {
               />
               <p className="text-sm text-muted-foreground">
                 {description.length}/500 символов
+              </p>
+            </div>
+
+            {/* Book Selection */}
+            <div className="space-y-2">
+              <Label>Книга (опционально)</Label>
+              {selectedBook ? (
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">{selectedBook.title}</p>
+                      <p className="text-sm text-muted-foreground">{selectedBook.author}</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRemoveBook}
+                    title="Удалить книгу"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => setShowBookSearch(!showBookSearch)}
+                  >
+                    <Search className="w-4 h-4 mr-2" />
+                    {showBookSearch ? 'Отменить выбор книги' : 'Выбрать книгу'}
+                  </Button>
+                  
+                  {showBookSearch && (
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Поиск книг..."
+                        value={bookSearchQuery}
+                        onChange={(e) => setBookSearchQuery(e.target.value)}
+                        className="w-full"
+                      />
+                      
+                      {bookSearchResults.length > 0 && (
+                        <div className="border rounded-lg max-h-60 overflow-y-auto">
+                          {bookSearchResults.map((book) => (
+                            <div
+                              key={book.id}
+                              className="p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                              onClick={() => handleSelectBook(book)}
+                            >
+                              <p className="font-medium truncate">{book.title}</p>
+                              <p className="text-sm text-muted-foreground truncate">{book.author}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {bookSearchQuery.trim().length >= 2 && bookSearchResults.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Книги не найдены
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Выберите книгу, к которой будет принадлежать эта коллекция (опционально)
               </p>
             </div>
 

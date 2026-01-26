@@ -1722,6 +1722,68 @@ export class DBStorage implements IStorage {
     }
   }
 
+  async getDefaultBookmarkCollection(userId: string, bookId: string): Promise<any> {
+    try {
+      // First try to find existing collection for this user and book
+      const existingCollections = await db.select()
+        .from(bookmarkCollections)
+        .where(and(
+          eq(bookmarkCollections.userId, userId),
+          eq(bookmarkCollections.bookId, bookId)
+        ))
+        .orderBy(asc(bookmarkCollections.createdAt));
+      
+      if (existingCollections.length > 0) {
+        return existingCollections[0];
+      }
+      
+      // If no collection exists, return null - we'll create it when needed
+      return null;
+    } catch (error) {
+      console.error("Error getting default bookmark collection:", error);
+      return null;
+    }
+  }
+
+  async createDefaultBookmarkCollection(userId: string, bookId: string, bookTitle: string): Promise<any> {
+    try {
+      const collectionName = `Закладки для ${bookTitle}`;
+      const collectionDescription = `Автоматическая коллекция для книги ${bookTitle}`;
+      
+      const result = await db.insert(bookmarkCollections)
+        .values({
+          userId,
+          name: collectionName,
+          description: collectionDescription,
+          color: '#3b82f6',
+          isPublic: false,
+          bookId
+        })
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error creating default bookmark collection:", error);
+      throw error;
+    }
+  }
+
+  async addBookmarkToCollection(collectionId: string, bookmarkId: string): Promise<any> {
+    try {
+      const result = await db.insert(bookmarkCollectionItems)
+        .values({
+          collectionId,
+          bookmarkId
+        })
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error adding bookmark to collection:", error);
+      throw error;
+    }
+  }
+
   async getBookmarks(userId: string, bookId: string): Promise<any[]> {
     try {
       const result = await db.select().from(bookmarks).where(

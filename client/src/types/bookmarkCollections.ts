@@ -5,6 +5,7 @@ export interface BookmarkCollection {
   description: string | null;
   color: string;
   isPublic: boolean;
+  bookId?: string | null;
   createdAt: string;
   updatedAt: string;
   bookmarkCount?: number;
@@ -55,4 +56,5 @@ export interface UpdateBookmarkCollectionRequest {
   description?: string;
   color?: string;
   isPublic?: boolean;
+  bookId?: string | null;
 }
