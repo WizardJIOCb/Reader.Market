@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Search, User, Menu, MessageCircle, Rss, Shield, Home, Info, BookMarked, Users } from 'lucide-react';
+import { Search, User, Menu, MessageCircle, Rss, Shield, Home, Info, BookMarked, Users, Bookmark } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -161,6 +161,14 @@ export function Navbar() {
             >
               <Search className="w-4 h-4" />
               <span className="hidden sm:inline">{t('navigation:search')}</span>
+            </Link>
+            <Link 
+              href="/collections" 
+              className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/collections', false) ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
+              aria-current={isActive('/collections', false) ? 'page' : undefined}
+            >
+              <Bookmark className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('navigation:collections')}</span>
             </Link>
             {user && (
               <Link 

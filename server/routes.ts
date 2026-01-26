@@ -4,7 +4,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import { getPersonalActivitiesDirect, getProfileActivitiesDirect, getProfileCommentsDirect } from './directStorage';
 import { sql } from "drizzle-orm/sql";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, or, ilike, desc } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Ollama } from "ollama";
@@ -14,7 +14,7 @@ import path from "path";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
 import { createOAuthRoutes } from "./oauth/routes";
-import { profileComments, readingProgress } from "@shared/schema";
+import { profileComments, readingProgress, bookmarkCollections, bookmarkCollectionItems, users, bookmarks, books } from "@shared/schema";
 import bookTranslationRoutes from "./routes/bookTranslations";
 import loggingConfigRoutes from "./routes/loggingConfig";
 import logAnalyticsRoutes from "./routes/logAnalytics";
@@ -2588,6 +2588,346 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting bookmark:", error);
       res.status(500).json({ error: "Failed to delete bookmark" });
+    }
+  });
+
+  // Bookmark Collections Endpoints
+  
+  // Create a bookmark collection
+  app.post("/api/bookmark-collections", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.userId;
+      const { name, description, color, isPublic } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Collection name is required" });
+      }
+      
+      const collection = await storage.createBookmarkCollection({
+        userId,
+        name,
+        description: description || '',
+        color: color || '#3b82f6',
+        isPublic: isPublic || false
+      });
+      
+      res.status(201).json(collection);
+    } catch (error) {
+      console.error("Error creating bookmark collection:", error);
+      res.status(500).json({ error: "Failed to create bookmark collection" });
+    }
+  });
+
+  // Get all bookmark collections for user (including public collections from others)
+  app.get("/api/bookmark-collections", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.userId;
+      const search = req.query.search as string || '';
+      const includeOthers = req.query.includeOthers === 'true';
+      
+      let collections;
+      
+      if (includeOthers && search) {
+        // Search in both user's collections and public collections from others
+        collections = await db.select({
+          id: bookmarkCollections.id,
+          userId: bookmarkCollections.userId,
+          name: bookmarkCollections.name,
+          description: bookmarkCollections.description,
+          color: bookmarkCollections.color,
+          isPublic: bookmarkCollections.isPublic,
+          createdAt: bookmarkCollections.createdAt,
+          updatedAt: bookmarkCollections.updatedAt,
+          ownerId: users.id,
+          ownerUsername: users.username,
+          ownerFullName: users.fullName,
+          ownerAvatarUrl: users.avatarUrl,
+          ownerProfileRating: users.profileRating
+        })
+        .from(bookmarkCollections)
+        .leftJoin(users, eq(bookmarkCollections.userId, users.id))
+        .where(and(
+          or(
+            eq(bookmarkCollections.userId, userId),
+            eq(bookmarkCollections.isPublic, true)
+          ),
+          or(
+            ilike(bookmarkCollections.name, `%${search}%`),
+            ilike(bookmarkCollections.description || '', `%${search}%`)
+          )
+        ))
+        .orderBy(desc(bookmarkCollections.createdAt));
+      } else {
+        // Get only user's collections
+        collections = await db.select({
+          id: bookmarkCollections.id,
+          userId: bookmarkCollections.userId,
+          name: bookmarkCollections.name,
+          description: bookmarkCollections.description,
+          color: bookmarkCollections.color,
+          isPublic: bookmarkCollections.isPublic,
+          createdAt: bookmarkCollections.createdAt,
+          updatedAt: bookmarkCollections.updatedAt,
+          ownerId: users.id,
+          ownerUsername: users.username,
+          ownerFullName: users.fullName,
+          ownerAvatarUrl: users.avatarUrl,
+          ownerProfileRating: users.profileRating
+        })
+        .from(bookmarkCollections)
+        .leftJoin(users, eq(bookmarkCollections.userId, users.id))
+        .where(eq(bookmarkCollections.userId, userId))
+        .orderBy(desc(bookmarkCollections.createdAt));
+      }
+      
+      // Add bookmark count and clone info for each collection
+      const collectionsWithDetails = await Promise.all(collections.map(async (collection) => {
+        const itemCount = await db.select({ count: sql`count(*)` })
+          .from(bookmarkCollectionItems)
+          .where(eq(bookmarkCollectionItems.collectionId, collection.id));
+        
+        // Check if this is a clone (name starts with "Копия")
+        const isClone = collection.name.startsWith('Копия ');
+        
+        return {
+          ...collection,
+          bookmarkCount: parseInt((itemCount[0] as any).count.toString()),
+          isClone,
+          isOwn: collection.userId === userId
+        };
+      }));
+      
+      res.json(collectionsWithDetails);
+    } catch (error) {
+      console.error("Error getting bookmark collections:", error);
+      res.status(500).json({ error: "Failed to get bookmark collections" });
+    }
+  });
+
+  // Get a specific bookmark collection
+  app.get("/api/bookmark-collections/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Get collection with owner information
+      const result = await db.select({
+        id: bookmarkCollections.id,
+        userId: bookmarkCollections.userId,
+        name: bookmarkCollections.name,
+        description: bookmarkCollections.description,
+        color: bookmarkCollections.color,
+        isPublic: bookmarkCollections.isPublic,
+        createdAt: bookmarkCollections.createdAt,
+        updatedAt: bookmarkCollections.updatedAt,
+        ownerId: users.id,
+        ownerUsername: users.username,
+        ownerFullName: users.fullName,
+        ownerAvatarUrl: users.avatarUrl,
+        ownerProfileRating: users.profileRating
+      })
+      .from(bookmarkCollections)
+      .leftJoin(users, eq(bookmarkCollections.userId, users.id))
+      .where(and(
+        eq(bookmarkCollections.id, id),
+        or(
+          eq(bookmarkCollections.userId, userId),
+          eq(bookmarkCollections.isPublic, true)
+        )
+      ));
+      
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      
+      const collection = result[0];
+      
+      // Get bookmarks in this collection with book details
+      const bookmarksInCollection = await db.select({
+        id: bookmarks.id,
+        title: bookmarks.title,
+        chapterIndex: bookmarks.chapterIndex,
+        percentage: bookmarks.percentage,
+        selectedText: bookmarks.selectedText,
+        pageInChapter: bookmarks.pageInChapter,
+        createdAt: bookmarks.createdAt,
+        bookId: books.id,
+        bookTitle: books.title,
+        bookAuthor: books.author,
+        bookCoverImageUrl: books.coverImageUrl
+      })
+      .from(bookmarkCollectionItems)
+      .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+      .innerJoin(books, eq(bookmarks.bookId, books.id))
+      .where(eq(bookmarkCollectionItems.collectionId, id))
+      .orderBy(bookmarkCollectionItems.addedAt);
+      
+      // Check if this is a clone
+      const isClone = collection.name.startsWith('Копия ');
+      
+      const collectionWithDetails = {
+        ...collection,
+        bookmarks: bookmarksInCollection,
+        isClone,
+        isOwn: collection.userId === userId
+      };
+      
+      res.json(collectionWithDetails);
+    } catch (error) {
+      console.error("Error getting bookmark collection:", error);
+      res.status(500).json({ error: "Failed to get bookmark collection" });
+    }
+  });
+
+  // Update a bookmark collection
+  app.put("/api/bookmark-collections/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      const updateData = req.body;
+      
+      const collection = await storage.updateBookmarkCollection(id, userId, updateData);
+      
+      if (!collection) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      
+      res.json(collection);
+    } catch (error) {
+      console.error("Error updating bookmark collection:", error);
+      res.status(500).json({ error: "Failed to update bookmark collection" });
+    }
+  });
+
+  // Delete a bookmark collection
+  app.delete("/api/bookmark-collections/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      
+      const success = await storage.deleteBookmarkCollection(id, userId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting bookmark collection:", error);
+      res.status(500).json({ error: "Failed to delete bookmark collection" });
+    }
+  });
+
+  // Add bookmark to collection
+  app.post("/api/bookmark-collections/:collectionId/bookmarks/:bookmarkId", authenticateToken, async (req, res) => {
+    try {
+      const { collectionId, bookmarkId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      const result = await storage.addBookmarkToCollection(collectionId, bookmarkId, userId);
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("Error adding bookmark to collection:", error);
+      if (error instanceof Error && error.message.includes("not found")) {
+        return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: "Failed to add bookmark to collection" });
+    }
+  });
+
+  // Remove bookmark from collection
+  app.delete("/api/bookmark-collections/:collectionId/bookmarks/:bookmarkId", authenticateToken, async (req, res) => {
+    try {
+      const { collectionId, bookmarkId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      const success = await storage.removeBookmarkFromCollection(collectionId, bookmarkId, userId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Collection or bookmark not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing bookmark from collection:", error);
+      res.status(500).json({ error: "Failed to remove bookmark from collection" });
+    }
+  });
+
+  // Get collections for a specific bookmark
+  app.get("/api/bookmarks/:bookmarkId/collections", authenticateToken, async (req, res) => {
+    try {
+      const { bookmarkId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      const collections = await storage.getBookmarkCollectionsForBookmark(bookmarkId, userId);
+      res.json(collections);
+    } catch (error) {
+      console.error("Error getting collections for bookmark:", error);
+      res.status(500).json({ error: "Failed to get collections for bookmark" });
+    }
+  });
+
+  // Clone a bookmark collection
+  app.post("/api/bookmark-collections/:id/clone", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      const { name, description } = req.body;
+      
+      // Get the original collection (we'll check if it's public or owned by user)
+      const originalCollection = await db.select().from(bookmarkCollections)
+        .where(eq(bookmarkCollections.id, id));
+      
+      if (originalCollection.length === 0) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      
+      const collectionToClone = originalCollection[0];
+      
+      // Check if user can clone this collection (own collection or public collection)
+      if (collectionToClone.userId !== userId && !collectionToClone.isPublic) {
+        return res.status(403).json({ error: "Cannot clone private collection" });
+      }
+      
+      // Create new collection with user's ID
+      const newCollectionData = {
+        userId,
+        name: name || `Копия ${collectionToClone.name}`,
+        description: description || collectionToClone.description || '',
+        color: collectionToClone.color,
+        isPublic: false // Cloned collections are private by default
+      };
+      
+      const newCollection = await storage.createBookmarkCollection(newCollectionData);
+      
+      // Copy all bookmarks from original collection to new collection
+      const originalItems = await db.select().from(bookmarkCollectionItems)
+        .where(eq(bookmarkCollectionItems.collectionId, id));
+      
+      // Add each bookmark to the new collection
+      for (const item of originalItems) {
+        try {
+          await db.insert(bookmarkCollectionItems).values({
+            collectionId: newCollection.id,
+            bookmarkId: item.bookmarkId
+          });
+        } catch (error) {
+          // Skip if bookmark already exists in collection (due to unique constraint)
+          console.log(`Bookmark ${item.bookmarkId} already exists in collection`);
+        }
+      }
+      
+      // Return the new collection with updated bookmark count
+      const updatedCollection = {
+        ...newCollection,
+        bookmarkCount: originalItems.length
+      };
+      
+      res.status(201).json(updatedCollection);
+    } catch (error) {
+      console.error("Error cloning bookmark collection:", error);
+      res.status(500).json({ error: "Failed to clone bookmark collection" });
     }
   });
   

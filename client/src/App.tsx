@@ -32,6 +32,10 @@ import NewsDetailPage from "@/pages/NewsDetailPage";
 import NewsListPage from "@/pages/NewsListPage";
 import StreamPage from "@/pages/StreamPage";
 import PublicUsers from "@/pages/PublicUsers";
+import { BookmarkCollectionsPage } from "@/pages/BookmarkCollectionsPage";
+import { CreateCollectionPage } from "@/pages/CreateCollectionPage";
+import { CollectionDetailPage } from "@/pages/CollectionDetailPage";
+import { EditCollectionPage } from "@/pages/EditCollectionPage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
@@ -58,6 +62,10 @@ function Router() {
       <Route path="/news" component={NewsListPage} />
       <Route path="/news/:id" component={NewsDetailPage} />
       <Route path="/messages" component={Messages} />
+      <Route path="/collections" component={BookmarkCollectionsPage} />
+      <Route path="/collections/create" component={CreateCollectionPage} />
+      <Route path="/collections/:id" component={CollectionDetailPage} />
+      <Route path="/collections/:id/edit" component={EditCollectionPage} />
       <Route path="/profile/:userId?" component={Profile} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/users" component={UserManagement} />

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, jsonb, boolean, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, boolean, numeric, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -147,6 +147,28 @@ export const bookmarks = pgTable("bookmarks", {
   percentage: numeric("percentage", { precision: 5, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Bookmark collections for thematic grouping
+export const bookmarkCollections = pgTable("bookmark_collections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: varchar("color").default("#3b82f6"),
+  isPublic: boolean("is_public").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Many-to-many relationship between bookmarks and collections
+export const bookmarkCollectionItems = pgTable("bookmark_collection_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: varchar("collection_id").notNull().references(() => bookmarkCollections.id, { onDelete: "cascade" }),
+  bookmarkId: varchar("bookmark_id").notNull().references(() => bookmarks.id, { onDelete: "cascade" }),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueIdx: uniqueIndex("collection_bookmark_unique_idx").on(table.collectionId, table.bookmarkId),
+}));
 
 // Table for book comments
 export const comments = pgTable("comments", {

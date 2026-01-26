@@ -13,7 +13,7 @@ import {
   SheetPortal,
   SheetOverlay,
 } from '@/components/ui/sheet';
-import { Menu, BookOpen, Search, User, X, MessageCircle, Globe, Check, Rss, Shield, Home, Info, BookMarked, Users } from 'lucide-react';
+import { Menu, BookOpen, Search, User, X, MessageCircle, Globe, Check, Rss, Shield, Home, Info, BookMarked, Users, Bookmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { onSocketEvent } from '@/lib/socket';
 
@@ -244,6 +244,19 @@ export function MobileMenu() {
             >
               <Users className="w-4 h-4" />
               {t('navigation:users')}
+            </Link>
+          </SheetClose>
+          <SheetClose asChild>
+            <Link 
+              href="/collections" 
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/collections') ? 'bg-[#f1680c]/10' : ''
+              }`}
+              style={isActive('/collections') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/collections') ? 'page' : undefined}
+            >
+              <Bookmark className="w-4 h-4" />
+              Коллекции
             </Link>
           </SheetClose>
           <SheetClose asChild>

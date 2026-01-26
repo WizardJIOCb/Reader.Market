@@ -291,3 +291,59 @@ export const newsReactionsApi = {
     method: 'DELETE',
   }),
 };
+
+// Bookmark Collections API
+export const bookmarkCollectionsApi = {
+  // Create a new bookmark collection
+  createCollection: (collectionData: any) => apiCall('/api/bookmark-collections', {
+    method: 'POST',
+    body: JSON.stringify(collectionData),
+  }),
+  
+  // Get all bookmark collections for current user
+  getCollections: (params?: { search?: string; includeOthers?: boolean }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.includeOthers) queryParams.append('includeOthers', 'true');
+    
+    const queryString = queryParams.toString();
+    return apiCall(`/api/bookmark-collections${queryString ? '?' + queryString : ''}`);
+  },
+  
+  // Get a specific bookmark collection
+  getCollection: (id: string) => apiCall(`/api/bookmark-collections/${id}`),
+  
+  // Update a bookmark collection
+  updateCollection: (id: string, updateData: any) => apiCall(`/api/bookmark-collections/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updateData),
+  }),
+  
+  // Delete a bookmark collection
+  deleteCollection: (id: string) => apiCall(`/api/bookmark-collections/${id}`, {
+    method: 'DELETE',
+  }),
+  
+  // Add bookmark to collection
+  addBookmarkToCollection: (collectionId: string, bookmarkId: string) => 
+    apiCall(`/api/bookmark-collections/${collectionId}/bookmarks/${bookmarkId}`, {
+      method: 'POST',
+    }),
+  
+  // Remove bookmark from collection
+  removeBookmarkFromCollection: (collectionId: string, bookmarkId: string) => 
+    apiCall(`/api/bookmark-collections/${collectionId}/bookmarks/${bookmarkId}`, {
+      method: 'DELETE',
+    }),
+  
+  // Get collections for a specific bookmark
+  getCollectionsForBookmark: (bookmarkId: string) => 
+    apiCall(`/api/bookmarks/${bookmarkId}/collections`),
+  
+  // Clone a bookmark collection
+  cloneCollection: (id: string, cloneData: { name?: string; description?: string }) => 
+    apiCall(`/api/bookmark-collections/${id}/clone`, {
+      method: 'POST',
+      body: JSON.stringify(cloneData),
+    }),
+};

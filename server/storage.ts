@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, bookmarkCollections, bookmarkCollectionItems, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne } from "drizzle-orm";
 import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
 import { 
@@ -1756,6 +1756,204 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error updating bookmark:", error);
       throw error;
+    }
+  }
+
+  // Bookmark Collections Methods
+  
+  async createBookmarkCollection(collectionData: any): Promise<any> {
+    try {
+      const result = await db.insert(bookmarkCollections).values(collectionData).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating bookmark collection:", error);
+      throw error;
+    }
+  }
+
+  async getBookmarkCollections(userId: string): Promise<any[]> {
+    try {
+      const result = await db.select().from(bookmarkCollections)
+        .where(eq(bookmarkCollections.userId, userId))
+        .orderBy(desc(bookmarkCollections.createdAt));
+      
+      // Add bookmark count for each collection
+      const collectionsWithCounts = await Promise.all(result.map(async (collection) => {
+        const itemCount = await db.select({ count: sql`count(*)` })
+          .from(bookmarkCollectionItems)
+          .where(eq(bookmarkCollectionItems.collectionId, collection.id));
+        
+        return {
+          ...collection,
+          bookmarkCount: parseInt((itemCount[0] as any).count.toString())
+        };
+      }));
+      
+      return collectionsWithCounts;
+    } catch (error) {
+      console.error("Error getting bookmark collections:", error);
+      return [];
+    }
+  }
+
+  async getBookmarkCollection(id: string, userId: string): Promise<any | null> {
+    try {
+      const result = await db.select().from(bookmarkCollections)
+        .where(and(
+          eq(bookmarkCollections.id, id),
+          eq(bookmarkCollections.userId, userId)
+        ));
+      
+      if (result.length === 0) return null;
+      
+      const collection = result[0];
+      
+      // Get bookmarks in this collection with book details
+      const bookmarksInCollection = await db.select({
+        id: bookmarks.id,
+        title: bookmarks.title,
+        chapterIndex: bookmarks.chapterIndex,
+        percentage: bookmarks.percentage,
+        selectedText: bookmarks.selectedText,
+        pageInChapter: bookmarks.pageInChapter,
+        createdAt: bookmarks.createdAt,
+        bookId: books.id,
+        bookTitle: books.title,
+        bookAuthor: books.author,
+        bookCoverImageUrl: books.coverImageUrl
+      })
+      .from(bookmarkCollectionItems)
+      .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+      .innerJoin(books, eq(bookmarks.bookId, books.id))
+      .where(eq(bookmarkCollectionItems.collectionId, id))
+      .orderBy(bookmarkCollectionItems.addedAt);
+      
+      return {
+        ...collection,
+        bookmarks: bookmarksInCollection
+      };
+    } catch (error) {
+      console.error("Error getting bookmark collection:", error);
+      return null;
+    }
+  }
+
+  async updateBookmarkCollection(id: string, userId: string, updateData: any): Promise<any | null> {
+    try {
+      const result = await db.update(bookmarkCollections)
+        .set(updateData)
+        .where(and(
+          eq(bookmarkCollections.id, id),
+          eq(bookmarkCollections.userId, userId)
+        ))
+        .returning();
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating bookmark collection:", error);
+      throw error;
+    }
+  }
+
+  async deleteBookmarkCollection(id: string, userId: string): Promise<boolean> {
+    try {
+      const result = await db.delete(bookmarkCollections)
+        .where(and(
+          eq(bookmarkCollections.id, id),
+          eq(bookmarkCollections.userId, userId)
+        ));
+      
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error("Error deleting bookmark collection:", error);
+      throw error;
+    }
+  }
+
+  async addBookmarkToCollection(collectionId: string, bookmarkId: string, userId: string): Promise<any> {
+    try {
+      // First verify that the collection belongs to the user and bookmark exists
+      const collection = await db.select().from(bookmarkCollections)
+        .where(and(
+          eq(bookmarkCollections.id, collectionId),
+          eq(bookmarkCollections.userId, userId)
+        ));
+      
+      if (collection.length === 0) {
+        throw new Error("Collection not found or unauthorized");
+      }
+      
+      const bookmark = await db.select().from(bookmarks)
+        .where(eq(bookmarks.id, bookmarkId));
+      
+      if (bookmark.length === 0) {
+        throw new Error("Bookmark not found");
+      }
+      
+      // Add bookmark to collection
+      const result = await db.insert(bookmarkCollectionItems)
+        .values({
+          collectionId,
+          bookmarkId
+        })
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error adding bookmark to collection:", error);
+      throw error;
+    }
+  }
+
+  async removeBookmarkFromCollection(collectionId: string, bookmarkId: string, userId: string): Promise<boolean> {
+    try {
+      // Verify that the collection belongs to the user
+      const collection = await db.select().from(bookmarkCollections)
+        .where(and(
+          eq(bookmarkCollections.id, collectionId),
+          eq(bookmarkCollections.userId, userId)
+        ));
+      
+      if (collection.length === 0) {
+        return false;
+      }
+      
+      // Remove bookmark from collection
+      const result = await db.delete(bookmarkCollectionItems)
+        .where(and(
+          eq(bookmarkCollectionItems.collectionId, collectionId),
+          eq(bookmarkCollectionItems.bookmarkId, bookmarkId)
+        ));
+      
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error("Error removing bookmark from collection:", error);
+      throw error;
+    }
+  }
+
+  async getBookmarkCollectionsForBookmark(bookmarkId: string, userId: string): Promise<any[]> {
+    try {
+      const result = await db.select({
+        id: bookmarkCollections.id,
+        name: bookmarkCollections.name,
+        description: bookmarkCollections.description,
+        color: bookmarkCollections.color,
+        isPublic: bookmarkCollections.isPublic,
+        createdAt: bookmarkCollections.createdAt
+      })
+      .from(bookmarkCollectionItems)
+      .innerJoin(bookmarkCollections, eq(bookmarkCollectionItems.collectionId, bookmarkCollections.id))
+      .where(and(
+        eq(bookmarkCollectionItems.bookmarkId, bookmarkId),
+        eq(bookmarkCollections.userId, userId)
+      ))
+      .orderBy(bookmarkCollections.name);
+      
+      return result;
+    } catch (error) {
+      console.error("Error getting collections for bookmark:", error);
+      return [];
     }
   }
 
