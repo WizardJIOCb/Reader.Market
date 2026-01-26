@@ -13,7 +13,7 @@ import {
   SheetPortal,
   SheetOverlay,
 } from '@/components/ui/sheet';
-import { Menu, BookOpen, Search, User, X, MessageCircle, Globe, Check, Rss, Shield, Home, Info, BookMarked, Users, Bookmark } from 'lucide-react';
+import { Menu, Search, User, X, MessageCircle, Globe, Check, Rss, Shield, Home, Info, BookMarked, Users, Bookmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { onSocketEvent } from '@/lib/socket';
 
@@ -191,15 +191,21 @@ export function MobileMenu() {
       </SheetTrigger>
       <SheetPortal>
         <SheetPrimitive.Content
-          className="fixed inset-y-0 right-0 h-full w-3/4 border-l bg-background p-0 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm"
+          className="fixed inset-y-0 right-0 h-full w-3/4 border-l bg-background p-0 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm top-14"
         >
-        <div className="flex justify-between items-start p-6 pb-4 border-b">
-          <SheetTitle className="flex items-center gap-2 text-lg">
-            <BookOpen className="w-6 h-6" />
-            Reader.Market
-          </SheetTitle>
+        <div className="flex justify-center items-center p-4 pb-4 border-b">
           <SheetClose asChild>
-            <Button variant="ghost" size="icon" className="text-foreground -mt-1">
+            <Link href="/" className="flex items-center justify-center gap-2">
+              <img 
+                src="/reader.market.png" 
+                alt="Reader.Market Logo" 
+                className="h-8 w-auto"
+              />
+              <span className="text-lg font-medium text-foreground">{t('navigation:menu')}</span>
+            </Link>
+          </SheetClose>
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon" className="text-foreground ml-auto -mt-1">
               <X className="h-6 w-6" />
               <span className="sr-only">{t('navigation:closeMenu')}</span>
             </Button>
