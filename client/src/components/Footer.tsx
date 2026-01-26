@@ -5,11 +5,22 @@ export function Footer() {
     <footer className="mt-auto border-t bg-card">
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col items-center gap-6">
+          {/* Logo */}
+          <div className="flex justify-center">
+            <a href="/">
+              <img 
+                src="/reader.market.png" 
+                alt="Reader.Market Logo" 
+                className="h-16 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+              />
+            </a>
+          </div>
+          
           {/* Copyright */}
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">
+            <a href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
               © {new Date().getFullYear()} reader.market
-            </p>
+            </a>
           </div>
 
           {/* Contact Links */}
