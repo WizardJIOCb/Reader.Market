@@ -162,7 +162,7 @@ export function CollectionDetailPage() {
   });
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
       {/* Back button, owner info, and collection title at the top */}
       <div className="mb-4">
         <Button 

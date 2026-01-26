@@ -323,7 +323,7 @@ export function BookmarkCollectionsPage() {
                     ></div>
                     <CardTitle 
                       className="text-xl truncate hover:text-primary transition-colors cursor-pointer"
-                      onClick={() => window.open(`/collections/${collection.id}`, '_blank')}
+                      onClick={() => window.location.href = `/collections/${collection.id}`}
                     >
                       {collection.name}
                     </CardTitle>
@@ -336,7 +336,7 @@ export function BookmarkCollectionsPage() {
                   {collection.description && (
                     <CardDescription 
                       className="line-clamp-2 text-sm mt-2 hover:text-primary transition-colors cursor-pointer"
-                      onClick={() => window.open(`/collections/${collection.id}`, '_blank')}
+                      onClick={() => window.location.href = `/collections/${collection.id}`}
                     >
                       {collection.description}
                     </CardDescription>
