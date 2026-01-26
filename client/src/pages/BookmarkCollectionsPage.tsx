@@ -223,31 +223,21 @@ export function BookmarkCollectionsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">{t('collections:pageTitle')}</h1>
-          <p className="text-muted-foreground mt-2">
-            {t('collections:pageDescription')}
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/collections/create">
-            <Plus className="w-4 h-4 mr-2" />
-            {t('collections:createCollection')}
-          </Link>
-        </Button>
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="font-serif text-2xl font-bold mb-2">{t('collections:pageTitle')}</h1>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <div className="relative flex-1">
+      {/* Controls */}
+      <div className="mb-6 flex flex-col md:flex-row gap-4">
+        <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder={t('collections:searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="w-full pl-10"
           />
         </div>
         <div className="flex gap-2">
