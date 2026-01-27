@@ -648,8 +648,13 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         if (engineSearchResults && engineSearchResults.length > 0) {
           // Take the first result's position, but verify it's in the correct chapter
           const firstResult = engineSearchResults[0];
-          console.log(`[TEXT-SEARCH] Found text via regular search engine on page ${firstResult.position.pageInChapter}`);
-          console.log(`[TEXT-SEARCH] Result chapter: ${firstResult.position.chapterIndex}, Target chapter: ${chapterIndex}`);
+          // Safe logging of position data
+          const safePosition = {
+            pageInChapter: firstResult.position.pageInChapter,
+            chapterIndex: firstResult.position.chapterIndex
+          };
+          console.log(`[TEXT-SEARCH] Found text via regular search engine on page ${safePosition.pageInChapter}`);
+          console.log(`[TEXT-SEARCH] Result chapter: ${safePosition.chapterIndex}, Target chapter: ${chapterIndex}`);
                 
           // Verify the result is in the correct chapter
           if (firstResult.position.chapterIndex === chapterIndex) {
@@ -669,7 +674,12 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         if (finalSearchResults && finalSearchResults.length > 0) {
           // Take the first result's position
           const firstResult = finalSearchResults[0];
-          console.log(`[TEXT-SEARCH] Found text via regular search engine on page ${firstResult.position.pageInChapter}`);
+          // Safe logging of position data
+          const safePosition = {
+            pageInChapter: firstResult.position.pageInChapter,
+            chapterIndex: firstResult.position.chapterIndex
+          };
+          console.log(`[TEXT-SEARCH] Found text via regular search engine on page ${safePosition.pageInChapter}`);
           setCurrentPage(firstResult.position.pageInChapter);
           return true;
         }
