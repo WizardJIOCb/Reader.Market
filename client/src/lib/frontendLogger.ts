@@ -109,9 +109,25 @@ class FrontendLogger {
     const createInterceptor = (level: 'error' | 'warn' | 'info' | 'debug', originalFn: Function) => {
       return (...args: any[]) => {
         // Extract log information
-        const message = args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-        ).join(' ');
+        const message = args.map(arg => {
+          if (typeof arg === 'object' && arg !== null) {
+            try {
+              // Try to safely serialize objects
+              return JSON.stringify(arg, (key, value) => {
+                // Skip DOM elements and React components
+                if (value instanceof HTMLElement || 
+                    (value && typeof value === 'object' && value.constructor && 
+                     (value.constructor.name.includes('HTML') || value.constructor.name.includes('Fiber')))) {
+                  return '[DOM Element]';
+                }
+                return value;
+              });
+            } catch (e) {
+              return '[Circular or Complex Object]';
+            }
+          }
+          return String(arg);
+        }).join(' ');
         
         // Try to extract module/component name from stack trace
         const stack = new Error().stack || '';
