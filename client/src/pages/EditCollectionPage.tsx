@@ -30,8 +30,8 @@ export function EditCollectionPage() {
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#3b82f6');
   const [isPublic, setIsPublic] = useState(false);
-  const [bookId, setBookId] = useState<string | null>(null);
-  const [selectedBook, setSelectedBook] = useState<{id: string, title: string, author: string} | null>(null);
+  const [bookIds, setBookIds] = useState<string[]>([]);
+  const [selectedBooks, setSelectedBooks] = useState<Array<{id: string, title: string, author: string}>>([]);
   const [bookSearchQuery, setBookSearchQuery] = useState('');
   const [bookSearchResults, setBookSearchResults] = useState<Array<{id: string, title: string, author: string}>>([]);
   const [showBookSearch, setShowBookSearch] = useState(false);
@@ -51,29 +51,75 @@ export function EditCollectionPage() {
       setDescription(collection.description || '');
       setColor(collection.color);
       setIsPublic(collection.isPublic);
-      setBookId(collection.bookId || null);
       
-      // If collection has a bookId, fetch the book info
-      if (collection.bookId) {
+      // Handle multiple books (new approach)
+      if (collection.books && Array.isArray(collection.books) && collection.books.length > 0) {
+        // Collection has books array with book info
+        const books = collection.books.map((book: any) => ({
+          id: book.id,
+          title: book.title,
+          author: book.author
+        }));
+        setSelectedBooks(books);
+        setBookIds(books.map(book => book.id));
+      } else if (collection.bookIds && Array.isArray(collection.bookIds) && collection.bookIds.length > 0) {
+        // Collection has bookIds array, need to fetch book info
+        const bookIdsArray = collection.bookIds;
+        setBookIds(bookIdsArray);
+        
+        // Fetch book info for each bookId
+        const fetchBooksInfo = async () => {
+          try {
+            const bookPromises = bookIdsArray.map(async (bookId: string) => {
+              const response = await booksApi.getBookById(bookId);
+              if (response.ok) {
+                const bookData = await response.json();
+                return {
+                  id: bookData.id,
+                  title: bookData.title,
+                  author: bookData.author
+                };
+              }
+              return null;
+            });
+            
+            const books = (await Promise.all(bookPromises)).filter(Boolean) as Array<{id: string, title: string, author: string}>;
+            setSelectedBooks(books);
+          } catch (error) {
+            console.error('Error fetching books info:', error);
+          }
+        };
+        
+        fetchBooksInfo();
+      } else if (collection.bookId) {
+        // Handle existing single bookId (backward compatibility)
+        setBookIds([collection.bookId]);
+        
+        // Fetch the book info
         const fetchBookInfo = async () => {
           try {
             const response = await booksApi.getBookById(collection.bookId!);
             if (response.ok) {
               const bookData = await response.json();
-              setSelectedBook({
+              // Set the selected books state
+              setSelectedBooks([{
                 id: bookData.id,
                 title: bookData.title,
                 author: bookData.author
-              });
+              }]);
             }
           } catch (error) {
             console.error('Error fetching book info:', error);
           }
         };
         fetchBookInfo();
+      } else {
+        // If no books, make sure selectedBooks is cleared
+        setBookIds([]);
+        setSelectedBooks([]);
       }
     }
-  }, [collection]);
+  }, [collection, collection?.id]);
 
   const fetchCollection = async () => {
     try {
@@ -126,16 +172,19 @@ export function EditCollectionPage() {
   };
 
   const handleSelectBook = (book: {id: string, title: string, author: string}) => {
-    setSelectedBook(book);
-    setBookId(book.id);
+    // Check if book is already selected
+    if (!bookIds.includes(book.id)) {
+      setSelectedBooks(prev => [...prev, book]);
+      setBookIds(prev => [...prev, book.id]);
+    }
     setShowBookSearch(false);
     setBookSearchQuery('');
     setBookSearchResults([]);
   };
 
-  const handleRemoveBook = () => {
-    setSelectedBook(null);
-    setBookId(null);
+  const handleRemoveBook = (bookId: string) => {
+    setSelectedBooks(prev => prev.filter(book => book.id !== bookId));
+    setBookIds(prev => prev.filter(id => id !== bookId));
   };
 
   // Debounced search
@@ -173,13 +222,26 @@ export function EditCollectionPage() {
     setSaving(true);
     
     try {
-      const response = await bookmarkCollectionsApi.updateCollection(id!, {
+      console.log('Submitting collection update:');
+      console.log('Collection ID:', id);
+      console.log('Name:', name.trim());
+      console.log('Description:', description.trim() || undefined);
+      console.log('Color:', color);
+      console.log('Is Public:', isPublic);
+      console.log('Book IDs:', bookIds);
+      console.log('Selected Books Count:', selectedBooks.length);
+      
+      const requestData = {
         name: name.trim(),
         description: description.trim() || undefined,
         color,
         isPublic,
-        bookId: bookId || undefined // Include bookId if selected
-      });
+        bookIds: bookIds.length > 0 ? bookIds : undefined
+      };
+      
+      console.log('Request Data:', requestData);
+      
+      const response = await bookmarkCollectionsApi.updateCollection(id!, requestData);
       
       if (response.ok) {
         const updatedCollection = await response.json();
@@ -272,7 +334,7 @@ export function EditCollectionPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" key={collection.id}>
             {/* Name */}
             <div className="space-y-2">
               <Label htmlFor="name">Название *</Label>
@@ -305,75 +367,80 @@ export function EditCollectionPage() {
               </p>
             </div>
 
-            {/* Book Selection */}
+            {/* Books Selection */}
             <div className="space-y-2">
-              <Label>Книга (опционально)</Label>
-              {selectedBook ? (
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <BookOpen className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{selectedBook.title}</p>
-                      <p className="text-sm text-muted-foreground">{selectedBook.author}</p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleRemoveBook}
-                    title="Удалить книгу"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
+              <Label>Книги (опционально)</Label>
+              
+              {/* Selected Books Display */}
+              {selectedBooks.length > 0 && (
                 <div className="space-y-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => setShowBookSearch(!showBookSearch)}
-                  >
-                    <Search className="w-4 h-4 mr-2" />
-                    {showBookSearch ? 'Отменить выбор книги' : 'Выбрать книгу'}
-                  </Button>
-                  
-                  {showBookSearch && (
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="Поиск книг..."
-                        value={bookSearchQuery}
-                        onChange={(e) => setBookSearchQuery(e.target.value)}
-                        className="w-full"
-                      />
-                      
-                      {bookSearchResults.length > 0 && (
-                        <div className="border rounded-lg max-h-60 overflow-y-auto">
-                          {bookSearchResults.map((book) => (
-                            <div
-                              key={book.id}
-                              className="p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer transition-colors"
-                              onClick={() => handleSelectBook(book)}
-                            >
-                              <p className="font-medium truncate">{book.title}</p>
-                              <p className="text-sm text-muted-foreground truncate">{book.author}</p>
-                            </div>
-                          ))}
+                  {selectedBooks.map((book) => (
+                    <div key={book.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <BookOpen className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{book.title}</p>
+                          <p className="text-sm text-muted-foreground">{book.author}</p>
                         </div>
-                      )}
-                      
-                      {bookSearchQuery.trim().length >= 2 && bookSearchResults.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          Книги не найдены
-                        </p>
-                      )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveBook(book.id)}
+                        title="Удалить книгу"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Add Book Button */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => setShowBookSearch(!showBookSearch)}
+              >
+                <Search className="w-4 h-4 mr-2" />
+                {showBookSearch ? 'Отменить выбор книг' : 'Добавить книгу'}
+              </Button>
+              
+              {showBookSearch && (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Поиск книг..."
+                    value={bookSearchQuery}
+                    onChange={(e) => setBookSearchQuery(e.target.value)}
+                    className="w-full"
+                  />
+                  
+                  {bookSearchResults.length > 0 && (
+                    <div className="border rounded-lg max-h-60 overflow-y-auto">
+                      {bookSearchResults.map((book) => (
+                        <div
+                          key={book.id}
+                          className="p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => handleSelectBook(book)}
+                        >
+                          <p className="font-medium truncate">{book.title}</p>
+                          <p className="text-sm text-muted-foreground truncate">{book.author}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {bookSearchQuery.trim().length >= 2 && bookSearchResults.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Книги не найдены
+                    </p>
                   )}
                 </div>
               )}
               <p className="text-sm text-muted-foreground">
-                Выберите книгу, к которой будет принадлежать эта коллекция (опционально)
+                Выберите книги, к которым будет принадлежать эта коллекция (опционально)
               </p>
             </div>
 

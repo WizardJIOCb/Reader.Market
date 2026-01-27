@@ -4,7 +4,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import { getPersonalActivitiesDirect, getProfileActivitiesDirect, getProfileCommentsDirect } from './directStorage';
 import { sql } from "drizzle-orm/sql";
-import { eq, and, inArray, or, ilike, desc, asc, exists } from "drizzle-orm";
+import { eq, and, inArray, or, ilike, desc, asc, exists, ne } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Ollama } from "ollama";
@@ -14,7 +14,7 @@ import path from "path";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
 import { createOAuthRoutes } from "./oauth/routes";
-import { profileComments, readingProgress, bookmarkCollections, bookmarkCollectionItems, users, bookmarks, books } from "@shared/schema";
+import { profileComments, readingProgress, bookmarkCollections, bookmarkCollectionItems, collectionBooks, users, bookmarks, books } from "@shared/schema";
 import bookTranslationRoutes from "./routes/bookTranslations";
 import loggingConfigRoutes from "./routes/loggingConfig";
 import logAnalyticsRoutes from "./routes/logAnalytics";
@@ -2627,7 +2627,7 @@ export async function registerRoutes(
   app.post("/api/bookmark-collections", authenticateToken, async (req, res) => {
     try {
       const userId = (req as any).user.userId;
-      const { name, description, color, isPublic, bookId } = req.body;
+      const { name, description, color, isPublic, bookId, bookIds } = req.body;
       
       if (!name) {
         return res.status(400).json({ error: "Collection name is required" });
@@ -2639,7 +2639,8 @@ export async function registerRoutes(
         description: description || '',
         color: color || '#3b82f6',
         isPublic: isPublic || false,
-        bookId: bookId || null // Include bookId if provided
+        bookId: bookId || null, // Include bookId if provided (deprecated)
+        bookIds: bookIds || [] // Include bookIds array if provided
       });
       
       res.status(201).json(collection);
@@ -2653,82 +2654,11 @@ export async function registerRoutes(
   app.get("/api/bookmark-collections", authenticateToken, async (req, res) => {
     try {
       const userId = (req as any).user.userId;
-      const search = req.query.search as string || '';
-      const includeOthers = req.query.includeOthers === 'true';
       
-      let collections;
+      // Use the storage method which properly calculates book counts
+      const collections = await storage.getBookmarkCollections(userId);
       
-      if (includeOthers && search) {
-        // Search in both user's collections and public collections from others
-        collections = await db.select({
-          id: bookmarkCollections.id,
-          userId: bookmarkCollections.userId,
-          name: bookmarkCollections.name,
-          description: bookmarkCollections.description,
-          color: bookmarkCollections.color,
-          isPublic: bookmarkCollections.isPublic,
-          createdAt: bookmarkCollections.createdAt,
-          updatedAt: bookmarkCollections.updatedAt,
-          ownerId: users.id,
-          ownerUsername: users.username,
-          ownerFullName: users.fullName,
-          ownerAvatarUrl: users.avatarUrl,
-          ownerProfileRating: users.profileRating
-        })
-        .from(bookmarkCollections)
-        .leftJoin(users, eq(bookmarkCollections.userId, users.id))
-        .where(and(
-          or(
-            eq(bookmarkCollections.userId, userId),
-            eq(bookmarkCollections.isPublic, true)
-          ),
-          or(
-            ilike(bookmarkCollections.name, `%${search}%`),
-            ilike(bookmarkCollections.description || '', `%${search}%`)
-          )
-        ))
-        .orderBy(desc(bookmarkCollections.createdAt));
-      } else {
-        // Get only user's collections
-        collections = await db.select({
-          id: bookmarkCollections.id,
-          userId: bookmarkCollections.userId,
-          name: bookmarkCollections.name,
-          description: bookmarkCollections.description,
-          color: bookmarkCollections.color,
-          isPublic: bookmarkCollections.isPublic,
-          createdAt: bookmarkCollections.createdAt,
-          updatedAt: bookmarkCollections.updatedAt,
-          ownerId: users.id,
-          ownerUsername: users.username,
-          ownerFullName: users.fullName,
-          ownerAvatarUrl: users.avatarUrl,
-          ownerProfileRating: users.profileRating
-        })
-        .from(bookmarkCollections)
-        .leftJoin(users, eq(bookmarkCollections.userId, users.id))
-        .where(eq(bookmarkCollections.userId, userId))
-        .orderBy(desc(bookmarkCollections.createdAt));
-      }
-      
-      // Add bookmark count and clone info for each collection
-      const collectionsWithDetails = await Promise.all(collections.map(async (collection) => {
-        const itemCount = await db.select({ count: sql`count(*)` })
-          .from(bookmarkCollectionItems)
-          .where(eq(bookmarkCollectionItems.collectionId, collection.id));
-        
-        // Check if this is a clone (name starts with "Копия")
-        const isClone = collection.name.startsWith('Копия ');
-        
-        return {
-          ...collection,
-          bookmarkCount: parseInt((itemCount[0] as any).count.toString()),
-          isClone,
-          isOwn: collection.userId === userId
-        };
-      }));
-      
-      res.json(collectionsWithDetails);
+      res.json(collections);
     } catch (error) {
       console.error("Error getting bookmark collections:", error);
       res.status(500).json({ error: "Failed to get bookmark collections" });
@@ -2741,69 +2671,23 @@ export async function registerRoutes(
       const { id } = req.params;
       const userId = (req as any).user.userId;
       
-      // Get collection with owner information
-      const result = await db.select({
-        id: bookmarkCollections.id,
-        userId: bookmarkCollections.userId,
-        name: bookmarkCollections.name,
-        description: bookmarkCollections.description,
-        color: bookmarkCollections.color,
-        isPublic: bookmarkCollections.isPublic,
-        createdAt: bookmarkCollections.createdAt,
-        updatedAt: bookmarkCollections.updatedAt,
-        ownerId: users.id,
-        ownerUsername: users.username,
-        ownerFullName: users.fullName,
-        ownerAvatarUrl: users.avatarUrl,
-        ownerProfileRating: users.profileRating
-      })
-      .from(bookmarkCollections)
-      .leftJoin(users, eq(bookmarkCollections.userId, users.id))
-      .where(and(
-        eq(bookmarkCollections.id, id),
-        or(
-          eq(bookmarkCollections.userId, userId),
-          eq(bookmarkCollections.isPublic, true)
-        )
-      ));
+      // Use the storage method which properly gets associated books
+      const collection = await storage.getBookmarkCollection(id, userId);
       
-      if (result.length === 0) {
+      if (!collection) {
         return res.status(404).json({ error: "Collection not found" });
       }
       
-      const collection = result[0];
+      // Track collection view (increment view count)
+      try {
+        await db.update(bookmarkCollections)
+          .set({ viewCount: sql`${bookmarkCollections.viewCount} + 1` })
+          .where(eq(bookmarkCollections.id, id));
+      } catch (error) {
+        console.error("Error tracking collection view:", error);
+      }
       
-      // Get bookmarks in this collection with book details
-      const bookmarksInCollection = await db.select({
-        id: bookmarks.id,
-        title: bookmarks.title,
-        chapterIndex: bookmarks.chapterIndex,
-        percentage: bookmarks.percentage,
-        selectedText: bookmarks.selectedText,
-        pageInChapter: bookmarks.pageInChapter,
-        createdAt: bookmarks.createdAt,
-        bookId: books.id,
-        bookTitle: books.title,
-        bookAuthor: books.author,
-        bookCoverImageUrl: books.coverImageUrl
-      })
-      .from(bookmarkCollectionItems)
-      .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
-      .innerJoin(books, eq(bookmarks.bookId, books.id))
-      .where(eq(bookmarkCollectionItems.collectionId, id))
-      .orderBy(bookmarkCollectionItems.addedAt);
-      
-      // Check if this is a clone
-      const isClone = collection.name.startsWith('Копия ');
-      
-      const collectionWithDetails = {
-        ...collection,
-        bookmarks: bookmarksInCollection,
-        isClone,
-        isOwn: collection.userId === userId
-      };
-      
-      res.json(collectionWithDetails);
+      res.json(collection);
     } catch (error) {
       console.error("Error getting bookmark collection:", error);
       res.status(500).json({ error: "Failed to get bookmark collection" });
@@ -3012,11 +2896,22 @@ export async function registerRoutes(
       const { bookId } = req.params;
       const userId = (req as any).user.userId;
       
-      // Get collections that either:
-      // 1. Contain bookmarks for this book
-      // 2. Are specifically linked to this book via book_id
+      console.log('[API] Getting collections for book:', bookId);
+      console.log('[API] Requesting user ID:', userId);
       
-      // First get collections with bookmarks for this book
+      // Debug: Check if this is the collection owner
+      const collectionOwnerId = '605db90f-4691-4281-991e-b2e248e33915'; // From database check
+      console.log('[API] Collection owner ID:', collectionOwnerId);
+      console.log('[API] Is same user?', userId === collectionOwnerId);
+      console.log('[API] Is different user?', userId !== collectionOwnerId);
+      
+      // Get collections that either:
+      // 1. Contain bookmarks for this book (user's own collections)
+      // 2. Are specifically linked to this book via book_id (user's own collections)
+      // 3. Are public collections from other users that contain this book
+      
+      // First get collections with bookmarks for this book (user's own)
+      console.log('[API] Query 1: Collections with bookmarks for this book');
       const collectionsWithBookmarks = await db.selectDistinct({
         id: bookmarkCollections.id,
         name: bookmarkCollections.name,
@@ -3041,7 +2936,10 @@ export async function registerRoutes(
         eq(bookmarkCollections.userId, userId)
       ));
       
-      // Then get collections specifically linked to this book
+      console.log('[API] Query 1 result count:', collectionsWithBookmarks.length);
+      
+      // Then get collections specifically linked to this book (user's own)
+      console.log('[API] Query 2: Collections specifically linked to this book');
       const collectionsForBook = await db.select({
         id: bookmarkCollections.id,
         name: bookmarkCollections.name,
@@ -3064,8 +2962,45 @@ export async function registerRoutes(
         eq(bookmarkCollections.userId, userId)
       ));
       
+      console.log('[API] Query 2 result count:', collectionsForBook.length);
+      
+      // Finally, get public collections from other users that contain this book
+      // This includes collections that are associated with the book via collectionBooks table
+      // Also include user's own collections that are associated via collectionBooks table
+      console.log('[API] Query 3: Public collections from other users (and user\'s own via collectionBooks)');
+      const publicCollectionsFromOthers = await db.selectDistinct({
+        id: bookmarkCollections.id,
+        name: bookmarkCollections.name,
+        description: bookmarkCollections.description,
+        color: bookmarkCollections.color,
+        isPublic: bookmarkCollections.isPublic,
+        bookId: bookmarkCollections.bookId,
+        createdAt: bookmarkCollections.createdAt,
+        updatedAt: bookmarkCollections.updatedAt,
+        ownerId: users.id,
+        ownerUsername: users.username,
+        ownerFullName: users.fullName,
+        ownerAvatarUrl: users.avatarUrl,
+        ownerProfileRating: users.profileRating
+      })
+      .from(bookmarkCollections)
+      .innerJoin(collectionBooks, eq(bookmarkCollections.id, collectionBooks.collectionId))
+      .leftJoin(users, eq(bookmarkCollections.userId, users.id))
+      .where(and(
+        eq(collectionBooks.bookId, bookId),
+        eq(bookmarkCollections.isPublic, true)
+      ));
+      
+      console.log('[API] Query 3 result count:', publicCollectionsFromOthers.length);
+      if (publicCollectionsFromOthers.length > 0) {
+        console.log('[API] Query 3 results:');
+        publicCollectionsFromOthers.forEach((col, i) => {
+          console.log(`  ${i + 1}. ${col.name} (ID: ${col.id}) - Owner: ${col.ownerUsername}`);
+        });
+      }
+      
       // Combine and deduplicate results
-      const allCollections = [...collectionsWithBookmarks, ...collectionsForBook];
+      const allCollections = [...collectionsWithBookmarks, ...collectionsForBook, ...publicCollectionsFromOthers];
       const uniqueCollections = Array.from(
         new Map(allCollections.map(item => [item.id, item])).values()
       ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -7589,6 +7524,83 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get comment replies error:", error);
       res.status(500).json({ error: "Failed to get replies" });
+    }
+  });
+  
+  // Track bookmark click (increment click count)
+  app.post("/api/bookmarks/:bookmarkId/click", authenticateToken, async (req, res) => {
+    try {
+      const { bookmarkId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Verify bookmark exists and belongs to user
+      const bookmark = await db.select()
+        .from(bookmarks)
+        .where(and(
+          eq(bookmarks.id, bookmarkId),
+          eq(bookmarks.userId, userId)
+        ));
+      
+      if (bookmark.length === 0) {
+        return res.status(404).json({ error: "Bookmark not found" });
+      }
+      
+      // Increment click count
+      const result = await db.update(bookmarks)
+        .set({ clickCount: sql`${bookmarks.clickCount} + 1` })
+        .where(eq(bookmarks.id, bookmarkId))
+        .returning();
+      
+      res.json({ success: true, clickCount: result[0].clickCount });
+    } catch (error) {
+      console.error("Error tracking bookmark click:", error);
+      res.status(500).json({ error: "Failed to track bookmark click" });
+    }
+  });
+  
+  // Get collection statistics
+  app.get("/api/bookmark-collections/:id/stats", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Verify collection exists and user has access
+      const collection = await db.select({
+        id: bookmarkCollections.id,
+        viewCount: bookmarkCollections.viewCount,
+        userId: bookmarkCollections.userId,
+        isPublic: bookmarkCollections.isPublic
+      })
+      .from(bookmarkCollections)
+      .where(and(
+        eq(bookmarkCollections.id, id),
+        or(
+          eq(bookmarkCollections.userId, userId),
+          eq(bookmarkCollections.isPublic, true)
+        )
+      ));
+      
+      if (collection.length === 0) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      
+      // Get bookmark click statistics
+      const bookmarkStats = await db.select({
+        totalClicks: sql`COALESCE(SUM(${bookmarks.clickCount}), 0)`.mapWith(Number),
+        bookmarkCount: sql`COUNT(*)`.mapWith(Number)
+      })
+      .from(bookmarkCollectionItems)
+      .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+      .where(eq(bookmarkCollectionItems.collectionId, id));
+      
+      res.json({
+        viewCount: collection[0].viewCount || 0,
+        totalBookmarkClicks: bookmarkStats[0].totalClicks || 0,
+        bookmarkCount: bookmarkStats[0].bookmarkCount || 0
+      });
+    } catch (error) {
+      console.error("Error getting collection stats:", error);
+      res.status(500).json({ error: "Failed to get collection statistics" });
     }
   });
   

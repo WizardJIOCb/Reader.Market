@@ -18,6 +18,7 @@
   },
   "collectionCard": {
     "bookmarks": "bookmarks",
+    "clicks": "clicks",
     "created": "Created:",
     "public": "Public",
     "private": "Private",
@@ -34,10 +35,13 @@
     "clone": "Clone",
     "delete": "Delete",
     "metadata": {
-      "created": "Created:",
+      "created": "Created",
       "bookmarksCount": "bookmarks",
+      "views": "views",
       "collectionColor": "Collection color"
     },
+    "associatedBook": "Associated Book",
+    "readBook": "Read Book",
     "emptyBookmarks": {
       "title": "No bookmarks in collection yet",
       "description": "Add bookmarks to this collection from the reading interface",

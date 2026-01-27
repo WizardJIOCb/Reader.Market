@@ -145,6 +145,7 @@ export const bookmarks = pgTable("bookmarks", {
   selectedText: text("selected_text"),
   pageInChapter: integer("page_in_chapter"),
   percentage: numeric("percentage", { precision: 5, scale: 2 }),
+  clickCount: integer("click_count").default(0), // Number of times bookmark has been clicked
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -156,10 +157,21 @@ export const bookmarkCollections = pgTable("bookmark_collections", {
   description: text("description"),
   color: varchar("color").default("#3b82f6"),
   isPublic: boolean("is_public").default(false),
-  bookId: varchar("book_id").references(() => books.id, { onDelete: "set null" }), // Optional book association
+  bookId: varchar("book_id").references(() => books.id, { onDelete: "set null" }), // Deprecated: Use collection_books table instead
+  viewCount: integer("view_count").default(0), // Number of times collection has been viewed
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Junction table for collection-book relationships (many-to-many)
+export const collectionBooks = pgTable("collection_books", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: varchar("collection_id").notNull().references(() => bookmarkCollections.id, { onDelete: "cascade" }),
+  bookId: varchar("book_id").notNull().references(() => books.id, { onDelete: "cascade" }),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueIdx: uniqueIndex("collection_book_unique_idx").on(table.collectionId, table.bookId),
+}));
 
 // Many-to-many relationship between bookmarks and collections
 export const bookmarkCollectionItems = pgTable("bookmark_collection_items", {

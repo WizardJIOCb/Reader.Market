@@ -38,16 +38,17 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
   // Book search state
   const [bookSearchQuery, setBookSearchQuery] = useState('');
   const [bookSearchResults, setBookSearchResults] = useState<any[]>([]);
-  const [selectedBook, setSelectedBook] = useState<any>(null);
+  const [selectedBooks, setSelectedBooks] = useState<any[]>([]);
   const [showBookSearch, setShowBookSearch] = useState(false);
   
   // Set default book if provided
   useEffect(() => {
-    if (currentBookId && currentBookTitle && !selectedBook) {
-      setSelectedBook({
+    if (currentBookId && currentBookTitle && selectedBooks.length === 0) {
+      const defaultBook = {
         id: currentBookId,
         title: currentBookTitle
-      });
+      };
+      setSelectedBooks([defaultBook]);
       
       // Pre-fill name with book title
       if (!name) {
@@ -59,7 +60,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         setDescription(`Коллекция закладок для книги ${currentBookTitle}`);
       }
     }
-  }, [currentBookId, currentBookTitle, selectedBook, name, description]);
+  }, [currentBookId, currentBookTitle, selectedBooks.length, name, description]);
   
   // Search books
   useEffect(() => {
@@ -110,7 +111,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         description: description.trim(),
         color,
         isPublic,
-        bookId: selectedBook?.id // Include book ID if selected
+        bookIds: selectedBooks.length > 0 ? selectedBooks.map(book => book.id) : undefined // Include multiple book IDs
       });
 
       if (response.ok) {
@@ -125,7 +126,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         setDescription('');
         setColor('#3b82f6');
         setIsPublic(false);
-        setSelectedBook(null);
+        setSelectedBooks([]);
         setBookSearchQuery('');
         setBookSearchResults([]);
         setShowBookSearch(false);
@@ -187,84 +188,108 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           
           {/* Book selection */}
           <div className="space-y-2">
-            <Label>Книга (опционально)</Label>
+            <Label>Книги (опционально)</Label>
             
-            {selectedBook ? (
-              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border">
-                <Book className="w-5 h-5 text-muted-foreground" />
-                <div className="flex-1">
-                  <div className="font-medium">{selectedBook.title}</div>
-                  <div className="text-xs text-muted-foreground">Выбранная книга</div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setSelectedBook(null);
-                    setBookSearchQuery('');
-                    setBookSearchResults([]);
-                    setShowBookSearch(false);
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+            {/* Selected books display */}
+            {selectedBooks.length > 0 && (
+              <div className="space-y-2 max-h-40 overflow-y-auto p-2 bg-muted/30 rounded-lg border">
+                {selectedBooks.map(book => (
+                  <div key={book.id} className="flex items-center gap-2 p-2 bg-background rounded border">
+                    <Book className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{book.title}</div>
+                      <div className="text-xs text-muted-foreground truncate">{book.author}</div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 flex-shrink-0"
+                      onClick={() => {
+                        setSelectedBooks(prev => prev.filter(b => b.id !== book.id));
+                      }}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => setShowBookSearch(!showBookSearch)}
-                >
-                  <Search className="w-4 h-4 mr-2" />
-                  {showBookSearch ? 'Скрыть поиск' : 'Выбрать книгу'}
-                </Button>
+            )}
+            
+            {/* Add book button */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => setShowBookSearch(!showBookSearch)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {selectedBooks.length > 0 ? 'Добавить еще книгу' : 'Выбрать книги'}
+            </Button>
+            
+            {showBookSearch && (
+              <div className="space-y-2">
+                <Input
+                  placeholder="Поиск книг..."
+                  value={bookSearchQuery}
+                  onChange={(e) => setBookSearchQuery(e.target.value)}
+                  className="w-full"
+                  autoFocus
+                />
                 
-                {showBookSearch && (
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Поиск книг..."
-                      value={bookSearchQuery}
-                      onChange={(e) => setBookSearchQuery(e.target.value)}
-                      className="w-full"
-                    />
-                    
-                    {bookSearchResults.length > 0 && (
-                      <div className="max-h-40 overflow-y-auto border rounded-md bg-background">
-                        {bookSearchResults.map(book => (
-                          <div
-                            key={book.id}
-                            className="p-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                            onClick={() => {
-                              setSelectedBook(book);
-                              setShowBookSearch(false);
-                              
-                              // Update name and description if not already customized
-                              if (!name || name.includes('Закладки для')) {
-                                setName(`Закладки для ${book.title}`);
-                              }
-                              if (!description || description.includes('Коллекция закладок')) {
-                                setDescription(`Коллекция закладок для книги ${book.title}`);
-                              }
-                            }}
-                          >
-                            <div className="font-medium text-sm">{book.title}</div>
-                            <div className="text-xs text-muted-foreground">{book.author}</div>
-                          </div>
-                        ))}
+                {bookSearchResults.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto border rounded-md bg-background">
+                    {bookSearchResults.map(book => (
+                      <div
+                        key={book.id}
+                        className={`p-2 hover:bg-muted cursor-pointer border-b last:border-b-0 ${
+                          selectedBooks.some(b => b.id === book.id) 
+                            ? 'bg-muted/50 opacity-50 cursor-not-allowed' 
+                            : ''
+                        }`}
+                        onClick={() => {
+                          // Don't allow selecting already selected books
+                          if (selectedBooks.some(b => b.id === book.id)) return;
+                          
+                          setSelectedBooks(prev => [...prev, book]);
+                          setBookSearchQuery('');
+                          setBookSearchResults([]);
+                          
+                          // Update name and description if it's the first book
+                          if (selectedBooks.length === 0) {
+                            if (!name || name.includes('Закладки для')) {
+                              setName(`Закладки для ${book.title}`);
+                            }
+                            if (!description || description.includes('Коллекция закладок')) {
+                              setDescription(`Коллекция закладок для книги ${book.title}`);
+                            }
+                          } else {
+                            // For multiple books, update to plural form
+                            if (name && name.includes('Закладки для')) {
+                              setName('Тематическая коллекция закладок');
+                            }
+                            if (description && description.includes('Коллекция закладок для книги')) {
+                              setDescription('Коллекция закладок для нескольких книг');
+                            }
+                          }
+                        }}
+                      >
+                        <div className="font-medium text-sm">{book.title}</div>
+                        <div className="text-xs text-muted-foreground">{book.author}</div>
+                        {selectedBooks.some(b => b.id === book.id) && (
+                          <div className="text-xs text-muted-foreground mt-1">Уже выбрана</div>
+                        )}
                       </div>
-                    )}
-                    
-                    {bookSearchQuery.length >= 2 && bookSearchResults.length === 0 && (
-                      <div className="p-4 text-center text-muted-foreground text-sm">
-                        Книги не найдены
-                      </div>
-                    )}
+                    ))}
                   </div>
                 )}
-              </>
+                
+                {bookSearchQuery.length >= 2 && bookSearchResults.length === 0 && (
+                  <div className="p-4 text-center text-muted-foreground text-sm">
+                    Книги не найдены
+                  </div>
+                )}
+              </div>
             )}
           </div>
           

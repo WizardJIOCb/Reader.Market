@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, bookmarkCollections, bookmarkCollectionItems, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, bookmarkCollections, bookmarkCollectionItems, collectionBooks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne } from "drizzle-orm";
 import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
 import { 
@@ -1809,8 +1809,21 @@ export class DBStorage implements IStorage {
   
   async createBookmarkCollection(collectionData: any): Promise<any> {
     try {
+      // Create the collection
       const result = await db.insert(bookmarkCollections).values(collectionData).returning();
-      return result[0];
+      const newCollection = result[0];
+      
+      // If bookIds are provided, associate them with the collection
+      if (collectionData.bookIds && Array.isArray(collectionData.bookIds) && collectionData.bookIds.length > 0) {
+        const bookAssociations = collectionData.bookIds.map((bookId: string) => ({
+          collectionId: newCollection.id,
+          bookId
+        }));
+        
+        await db.insert(collectionBooks).values(bookAssociations).onConflictDoNothing();
+      }
+      
+      return newCollection;
     } catch (error) {
       console.error("Error creating bookmark collection:", error);
       throw error;
@@ -1823,15 +1836,35 @@ export class DBStorage implements IStorage {
         .where(eq(bookmarkCollections.userId, userId))
         .orderBy(desc(bookmarkCollections.createdAt));
       
-      // Add bookmark count for each collection
+      // Add bookmark count, view count, and book count for each collection
       const collectionsWithCounts = await Promise.all(result.map(async (collection) => {
+        // Get bookmark count
         const itemCount = await db.select({ count: sql`count(*)` })
           .from(bookmarkCollectionItems)
           .where(eq(bookmarkCollectionItems.collectionId, collection.id));
         
+        // Get book count (distinct books with bookmarks in this collection)
+        const bookCountResult = await db.select({ count: sql`COUNT(DISTINCT ${bookmarks.bookId})`.mapWith(Number) })
+          .from(bookmarkCollectionItems)
+          .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+          .where(eq(bookmarkCollectionItems.collectionId, collection.id));
+        
+        // Get associated books count (from collection_books table)
+        const associatedBooksCount = await db.select({ count: sql`COUNT(*)`.mapWith(Number) })
+          .from(collectionBooks)
+          .where(eq(collectionBooks.collectionId, collection.id));
+        
+        // Use the higher of the two counts (associated books or books with bookmarks)
+        const bookCount = Math.max(
+          bookCountResult[0]?.count || 0,
+          associatedBooksCount[0]?.count || 0
+        );
+        
         return {
           ...collection,
-          bookmarkCount: parseInt((itemCount[0] as any).count.toString())
+          bookmarkCount: parseInt((itemCount[0] as any).count.toString()),
+          bookCount: bookCount,
+          viewCount: collection.viewCount || 0
         };
       }));
       
@@ -1844,15 +1877,97 @@ export class DBStorage implements IStorage {
 
   async getBookmarkCollection(id: string, userId: string): Promise<any | null> {
     try {
-      const result = await db.select().from(bookmarkCollections)
-        .where(and(
-          eq(bookmarkCollections.id, id),
-          eq(bookmarkCollections.userId, userId)
-        ));
+      // Get collection with owner information
+      const collectionResult = await db.select({
+        id: bookmarkCollections.id,
+        userId: bookmarkCollections.userId,
+        name: bookmarkCollections.name,
+        description: bookmarkCollections.description,
+        color: bookmarkCollections.color,
+        isPublic: bookmarkCollections.isPublic,
+        viewCount: bookmarkCollections.viewCount,
+        createdAt: bookmarkCollections.createdAt,
+        updatedAt: bookmarkCollections.updatedAt,
+        ownerId: users.id,
+        ownerUsername: users.username,
+        ownerFullName: users.fullName,
+        ownerAvatarUrl: users.avatarUrl,
+        ownerProfileRating: users.profileRating
+      })
+      .from(bookmarkCollections)
+      .leftJoin(users, eq(bookmarkCollections.userId, users.id))
+      .where(and(
+        eq(bookmarkCollections.id, id),
+        or(
+          eq(bookmarkCollections.userId, userId),
+          eq(bookmarkCollections.isPublic, true)
+        )
+      ));
       
-      if (result.length === 0) return null;
+      if (collectionResult.length === 0) return null;
       
-      const collection = result[0];
+      const collection = collectionResult[0];
+      
+      // Get all books associated with this collection (regardless of bookmarks)
+      const associatedBooks = await db.select({
+        id: books.id,
+        title: books.title,
+        author: books.author,
+        coverImageUrl: books.coverImageUrl
+      })
+      .from(collectionBooks)
+      .innerJoin(books, eq(collectionBooks.bookId, books.id))
+      .where(eq(collectionBooks.collectionId, id));
+      
+      // Get bookmark counts for each associated book
+      const booksWithCounts = await Promise.all(associatedBooks.map(async (book) => {
+        const countResult = await db.select({ count: sql`COUNT(*)`.mapWith(Number) })
+          .from(bookmarkCollectionItems)
+          .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+          .where(and(
+            eq(bookmarkCollectionItems.collectionId, id),
+            eq(bookmarks.bookId, book.id)
+          ));
+        
+        return {
+          ...book,
+          bookmarkCount: countResult[0].count
+        };
+      }));
+      
+      // Also get books that have bookmarks in this collection (in case they're not in collectionBooks)
+      const booksFromBookmarks = await db.selectDistinct({
+        id: books.id,
+        title: books.title,
+        author: books.author,
+        coverImageUrl: books.coverImageUrl
+      })
+      .from(bookmarkCollectionItems)
+      .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+      .innerJoin(books, eq(bookmarks.bookId, books.id))
+      .where(eq(bookmarkCollectionItems.collectionId, id));
+      
+      // Get bookmark counts for books from bookmarks
+      const bookBookmarkCounts = await Promise.all(booksFromBookmarks.map(async (book) => {
+        const countResult = await db.select({ count: sql`COUNT(*)`.mapWith(Number) })
+          .from(bookmarkCollectionItems)
+          .innerJoin(bookmarks, eq(bookmarkCollectionItems.bookmarkId, bookmarks.id))
+          .where(and(
+            eq(bookmarkCollectionItems.collectionId, id),
+            eq(bookmarks.bookId, book.id)
+          ));
+        
+        return {
+          ...book,
+          bookmarkCount: countResult[0].count
+        };
+      }));
+      
+      // Combine both sources and deduplicate (favor books from collectionBooks)
+      const allBooks = [...booksWithCounts, ...bookBookmarkCounts];
+      const uniqueBooks = Array.from(
+        new Map(allBooks.map(book => [book.id, book])).values()
+      );
       
       // Get bookmarks in this collection with book details
       const bookmarksInCollection = await db.select({
@@ -1862,6 +1977,7 @@ export class DBStorage implements IStorage {
         percentage: bookmarks.percentage,
         selectedText: bookmarks.selectedText,
         pageInChapter: bookmarks.pageInChapter,
+        clickCount: bookmarks.clickCount, // Include click count
         createdAt: bookmarks.createdAt,
         bookId: books.id,
         bookTitle: books.title,
@@ -1876,6 +1992,7 @@ export class DBStorage implements IStorage {
       
       return {
         ...collection,
+        books: uniqueBooks,
         bookmarks: bookmarksInCollection
       };
     } catch (error) {
@@ -1886,15 +2003,89 @@ export class DBStorage implements IStorage {
 
   async updateBookmarkCollection(id: string, userId: string, updateData: any): Promise<any | null> {
     try {
+      console.log('=== UPDATE BOOKMARK COLLECTION DEBUG ===');
+      console.log('Collection ID:', id);
+      console.log('User ID:', userId);
+      console.log('Update Data:', JSON.stringify(updateData, null, 2));
+      console.log('Book IDs in updateData:', updateData.bookIds);
+      console.log('Book IDs type:', typeof updateData.bookIds);
+      console.log('Book IDs isArray:', Array.isArray(updateData.bookIds));
+      
+      // Update the collection with proper fields
       const result = await db.update(bookmarkCollections)
-        .set(updateData)
+        .set({
+          name: updateData.name,
+          description: updateData.description,
+          color: updateData.color,
+          isPublic: updateData.isPublic,
+          bookId: updateData.bookId, // Handle single book ID if provided
+          updatedAt: new Date() // Make sure to update the timestamp
+        })
         .where(and(
           eq(bookmarkCollections.id, id),
           eq(bookmarkCollections.userId, userId)
         ))
-        .returning();
+        .returning({
+          id: bookmarkCollections.id,
+          userId: bookmarkCollections.userId,
+          name: bookmarkCollections.name,
+          description: bookmarkCollections.description,
+          color: bookmarkCollections.color,
+          isPublic: bookmarkCollections.isPublic,
+          viewCount: bookmarkCollections.viewCount,
+          createdAt: bookmarkCollections.createdAt,
+          updatedAt: bookmarkCollections.updatedAt,
+          bookId: bookmarkCollections.bookId
+        });
       
-      return result[0] || null;
+      const updatedCollection = result[0] || null;
+      
+      if (!updatedCollection) {
+        console.log('No collection was updated - likely unauthorized');
+        return null;
+      }
+      
+      console.log('Collection updated successfully:', updatedCollection.name);
+      
+      // If bookIds are provided, update the book associations (for multiple books)
+      if (updateData.bookIds !== undefined) {
+        console.log('Processing multiple book associations...');
+        console.log('Book IDs to process:', updateData.bookIds);
+        
+        // Remove all existing book associations
+        const deleteResult = await db.delete(collectionBooks)
+          .where(eq(collectionBooks.collectionId, id));
+        console.log('Deleted existing book associations:', deleteResult.count);
+        
+        // Add new book associations if provided
+        if (Array.isArray(updateData.bookIds) && updateData.bookIds.length > 0) {
+          const bookAssociations = updateData.bookIds.map((bookId: string) => ({
+            collectionId: id,
+            bookId
+          }));
+          
+          console.log('Inserting book associations:', bookAssociations);
+          const insertResult = await db.insert(collectionBooks).values(bookAssociations).onConflictDoNothing();
+          console.log('Inserted book associations result:', insertResult);
+        } else {
+          console.log('No book IDs to insert (empty array or not array)');
+        }
+      } else {
+        console.log('No bookIds provided in updateData');
+      }
+      
+      // Also handle the deprecated single bookId field for backward compatibility
+      if (updateData.bookId !== undefined && updateData.bookIds === undefined) {
+        console.log('Processing single bookId for backward compatibility:', updateData.bookId);
+        // Update the book_id column in bookmark_collections table
+        await db.update(bookmarkCollections)
+          .set({ bookId: updateData.bookId })
+          .where(eq(bookmarkCollections.id, id));
+      }
+      
+      console.log('=== END UPDATE BOOKMARK COLLECTION DEBUG ===');
+      
+      return updatedCollection;
     } catch (error) {
       console.error("Error updating bookmark collection:", error);
       throw error;

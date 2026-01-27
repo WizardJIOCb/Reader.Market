@@ -445,11 +445,24 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
 
     const goToPosition = useCallback(
       (position: Position) => {
-        if (!content) return;
+        console.log('[GO-TO-POS] goToPosition called with:', position);
+        if (!content) {
+          console.log('[GO-TO-POS] No content available');
+          return;
+        }
         const chapter = content.chapters[position.chapterIndex];
-        if (!chapter) return;
+        if (!chapter) {
+          console.log('[GO-TO-POS] Chapter not found:', position.chapterIndex);
+          return;
+        }
+        
+        console.log('[GO-TO-POS] Setting chapter:', chapter.index);
+        console.log('[GO-TO-POS] Setting page (before):', position.pageInChapter);
+        
         setCurrentChapter(chapter);
         setCurrentPage(position.pageInChapter);
+        
+        console.log('[GO-TO-POS] Page set to:', position.pageInChapter);
         onChapterChange?.(chapter);
       },
       [content, onChapterChange]
@@ -465,12 +478,19 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
     // Navigate to chapter and find page containing specific text
     const goToChapterAndFindText = useCallback(
       async (chapterIndex: number, textToFind: string): Promise<boolean> => {
+        console.log('[TEXT-SEARCH] Starting search for:', textToFind);
+        console.log('[TEXT-SEARCH] Chapter index:', chapterIndex);
+        
         if (!content || chapterIndex < 0 || chapterIndex >= content.chapters.length) {
+          console.log('[TEXT-SEARCH] Invalid chapter index or no content');
           return false;
         }
         
         const chapter = content.chapters[chapterIndex];
         const isChapterChange = currentChapter?.index !== chapterIndex;
+        
+        console.log('[TEXT-SEARCH] Chapter change needed:', isChapterChange);
+        console.log('[TEXT-SEARCH] Current chapter index:', currentChapter?.index);
         
         // Only change chapter if different
         if (isChapterChange) {
@@ -488,7 +508,10 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         
         // Search through all pages to find the one containing the text
         const pages = pagesRef.current;
+        console.log('[TEXT-SEARCH] Pages available:', pages.length);
+        
         if (pages.length === 0) {
+          console.log('[TEXT-SEARCH] No pages available');
           return false;
         }
         
@@ -499,6 +522,8 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
           .substring(0, 50)
           .toLowerCase();
         
+        console.log('[TEXT-SEARCH] Normalized search text:', JSON.stringify(searchText));
+        
         for (let i = 0; i < pages.length; i++) {
           // Strip HTML and search in plain text
           const tempDiv = document.createElement('div');
@@ -507,13 +532,17 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
             .replace(/\s+/g, ' ')
             .toLowerCase();
           
+          console.log(`[TEXT-SEARCH] Page ${i} text sample:`, pageText.substring(0, 100));
+          
           if (pageText.includes(searchText)) {
+            console.log(`[TEXT-SEARCH] Found text on page ${i}`);
             setCurrentPage(i);
             return true;
           }
         }
         
         // Text not found on any page, stay on first page
+        console.log('[TEXT-SEARCH] Text not found on any page');
         setCurrentPage(0);
         return false;
       },

@@ -18,6 +18,7 @@
   },
   "collectionCard": {
     "bookmarks": "закладок",
+    "clicks": "переходов",
     "created": "Создана:",
     "public": "Публичная",
     "private": "Приватная",
@@ -34,10 +35,13 @@
     "clone": "Клонировать",
     "delete": "Удалить",
     "metadata": {
-      "created": "Создана:",
+      "created": "Создана",
       "bookmarksCount": "закладок",
+      "views": "просмотров",
       "collectionColor": "Цвет коллекции"
     },
+    "associatedBook": "Связанная книга",
+    "readBook": "Читать книгу",
     "emptyBookmarks": {
       "title": "В коллекции пока нет закладок",
       "description": "Добавьте закладки в эту коллекцию из интерфейса чтения",

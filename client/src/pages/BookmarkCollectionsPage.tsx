@@ -358,10 +358,15 @@ export function BookmarkCollectionsPage() {
                       {collection.name}
                     </CardTitle>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <Badge variant="secondary">
                       {(collection.bookmarkCount || 0)} {t('collections:collectionCard.bookmarks')}
                     </Badge>
+                    {collection.bookCount !== undefined && collection.bookCount > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {collection.bookCount} {collection.bookCount === 1 ? 'книга' : 'книг'}
+                      </Badge>
+                    )}
                   </div>
                   {collection.description && (
                     <CardDescription 

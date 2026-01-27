@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -24,7 +25,7 @@ import { CreateCollectionModal } from '@/components/CreateCollectionModal';
 import { BookmarkCollection } from '@/types/bookmarkCollections';
 import { useBookSplash } from '@/lib/bookSplashContext';
 import { getSocket, joinBookChat, leaveBookChat, sendBookChatMessage, startBookChatTyping, stopBookChatTyping, deleteBookChatMessage, onSocketEvent } from '@/lib/socket';
-import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight, Volume2, Mic, ArrowLeft } from 'lucide-react';
+import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight, Volume2, Mic, ArrowLeft, User } from 'lucide-react';
 
 // Reader Components
 import {
@@ -150,6 +151,12 @@ export default function Reader() {
   const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
   const [showCreateCollectionModal, setShowCreateCollectionModal] = useState(false);
   
+  // Dedicated search function
+  const performCollectionSearch = useCallback((query: string) => {
+    console.log('[SEARCH] Performing search for:', query);
+    setCollectionSearchQuery(query);
+  }, []);
+  
   // Selected text for TTS
   const [selectedTextForTts, setSelectedTextForTts] = useState('');
   // Selected text for Character TTS (separate state)
@@ -274,6 +281,14 @@ export default function Reader() {
   const bookId = params?.bookId || '';
   const positionParam = params?.position || '';
   
+  // Parse URL search parameters for bookmark navigation
+  const urlParams = new URLSearchParams(window.location.search);
+  const bookmarkIdFromUrl = urlParams.get('bookmarkId');
+  const fromCollection = urlParams.get('fromCollection');
+  
+  // State for automatic bookmark navigation
+  const [pendingBookmarkNavigation, setPendingBookmarkNavigation] = useState<string | null>(bookmarkIdFromUrl);
+  
   // Load bookmarks from API (authenticated) or localStorage (guest)
   useEffect(() => {
     if (!bookId) return;
@@ -292,6 +307,37 @@ export default function Reader() {
             })));
             // Cache to localStorage
             localStorage.setItem(`${BOOKMARKS_KEY}-${bookId}`, JSON.stringify(data));
+                      
+      // Handle automatic bookmark navigation if requested via URL
+      if (pendingBookmarkNavigation) {
+        console.log('[AUTO-NAV] Processing pending bookmark navigation:', pendingBookmarkNavigation);
+        const targetBookmark = data.find((b: any) => b.id === pendingBookmarkNavigation);
+        if (targetBookmark) {
+          console.log('[AUTO-NAV] Found bookmark, scheduling navigation...');
+          console.log('[AUTO-NAV] Bookmark details:', {
+            id: targetBookmark.id,
+            title: targetBookmark.title,
+            chapterIndex: targetBookmark.chapterIndex,
+            pageInChapter: targetBookmark.pageInChapter,
+            percentage: targetBookmark.percentage,
+            selectedText: targetBookmark.selectedText
+          });
+              
+          // Small delay to ensure reader is fully loaded
+          setTimeout(async () => {
+            console.log('[AUTO-NAV] Executing bookmark navigation');
+            await handleGoToBookmark(targetBookmark);
+            setPendingBookmarkNavigation(null);
+            
+            // DON'T remove URL parameters - keep them for sharing
+            // Users can now copy the full bookmark URL from address bar
+            console.log('[AUTO-NAV] Bookmark URL preserved for sharing');
+          }, 800);
+        } else {
+          console.log('[AUTO-NAV] Bookmark not found in loaded bookmarks');
+          setPendingBookmarkNavigation(null);
+        }
+      }
             return;
           }
         } catch (e) {
@@ -312,27 +358,43 @@ export default function Reader() {
     };
     
     loadBookmarks();
-  }, [bookId]);
+  }, [bookId, pendingBookmarkNavigation]);
   
   // Load collections that have bookmarks in this specific book
   useEffect(() => {
-    if (!bookId || !user) return;
+    if (!bookId || !user) {
+      console.log('[COLLECTIONS] Skipping load - missing bookId or user');
+      console.log('[COLLECTIONS] bookId:', bookId);
+      console.log('[COLLECTIONS] user:', user ? `ID: ${user.id}, Username: ${user.username}` : 'null');
+      return;
+    }
+    
+    console.log('[COLLECTIONS] Starting to load collections for book:', bookId);
+    console.log('[COLLECTIONS] User ID:', user.id);
+    console.log('[COLLECTIONS] User object:', user);
     
     const loadCollections = async () => {
       try {
-        console.log('Loading collections for book:', bookId);
+        console.log('[COLLECTIONS] Calling API: bookmarkCollectionsApi.getCollectionsForBook(', bookId, ')');
         const response = await bookmarkCollectionsApi.getCollectionsForBook(bookId);
+        console.log('[COLLECTIONS] API response status:', response.status);
+        console.log('[COLLECTIONS] API response ok:', response.ok);
+        
         if (response.ok) {
           const data = await response.json();
-          console.log('Loaded collections with bookmarks for this book:', data);
+          console.log('[COLLECTIONS] Loaded collections with bookmarks for this book:', data.length, 'collections');
+          console.log('[COLLECTIONS] Collections data:', JSON.stringify(data, null, 2));
           setCollections(data);
         } else {
-          console.log('Failed to load collections for book, status:', response.status);
+          console.log('[COLLECTIONS] Failed to load collections for book, status:', response.status);
+          const errorText = await response.text();
+          console.log('[COLLECTIONS] Error response:', errorText);
           // If no collections found for this book, load empty array
           setCollections([]);
         }
       } catch (e) {
-        console.error('Failed to load collections for book:', e);
+        console.error('[COLLECTIONS] Failed to load collections for book:', e);
+        console.error('[COLLECTIONS] Error details:', (e as Error).message);
         setCollections([]);
       }
     };
@@ -413,15 +475,39 @@ export default function Reader() {
   }, [bookmarks, selectedCollectionId, bookId, user]);
   
   // Filter collections based on search query
-  const filteredCollections = collections.filter(collection => 
-    collection.name.toLowerCase().includes(collectionSearchQuery.toLowerCase()) ||
-    (collection.description && collection.description.toLowerCase().includes(collectionSearchQuery.toLowerCase()))
-  );
+  const filteredCollections = useMemo(() => {
+    console.log('Recomputing filteredCollections:', { collections: collections.length, query: collectionSearchQuery });
+    
+    if (!collectionSearchQuery.trim()) {
+      console.log('Empty query, returning all collections');
+      return collections;
+    }
+    
+    const query = collectionSearchQuery.toLowerCase().trim();
+    const filtered = collections.filter(collection => 
+      collection.name.toLowerCase().includes(query) ||
+      (collection.description && collection.description.toLowerCase().includes(query))
+    );
+    
+    console.log('Filtered results:', filtered.length);
+    return filtered;
+  }, [collections, collectionSearchQuery]);
   
   // Debug effect to monitor panel changes
   useEffect(() => {
     console.log('[DEBUG] activePanel changed to:', activePanel);
   }, [activePanel]);
+  
+  // Debug effect to monitor collections and search query
+  useEffect(() => {
+    console.log('[DEBUG] Collections updated:', collections.length);
+    console.log('[DEBUG] Search query updated:', collectionSearchQuery);
+  }, [collections, collectionSearchQuery]);
+  
+  // Debug effect to monitor filtered collections
+  useEffect(() => {
+    console.log('[DEBUG] Filtered collections updated:', filteredCollections.length);
+  }, [filteredCollections]);
   
   // Load chat messages and setup WebSocket listeners when chat panel opens
   useEffect(() => {
@@ -806,6 +892,12 @@ export default function Reader() {
     
     // Restore reading progress - try API first (for authenticated users), then localStorage
     const restoreProgress = async () => {
+      // Skip progress restoration if we're navigating from a bookmark
+      if (pendingBookmarkNavigation) {
+        console.log('[PROGRESS] Skipping progress restoration due to pending bookmark navigation');
+        return;
+      }
+      
       let progress = null;
       
       // Try to load from API for authenticated users
@@ -836,6 +928,7 @@ export default function Reader() {
       
       // Navigate to saved position
       if (progress && typeof progress.chapterIndex === 'number' && progress.chapterIndex >= 0) {
+        console.log('[PROGRESS] Restoring saved progress:', progress);
         // First go to chapter, then after pagination completes, go to specific page
         setTimeout(() => {
           readerRef.current?.goToChapter(progress.chapterIndex);
@@ -876,6 +969,13 @@ export default function Reader() {
   }, [bookId, user, hideSplash]);
   
   const handlePositionChange = useCallback((position: Position) => {
+    console.log('[POSITION] Position changed:', {
+      chapterIndex: position.chapterIndex,
+      pageInChapter: position.pageInChapter,
+      percentage: position.percentage,
+      charOffset: position.charOffset
+    });
+    
     setCurrentPosition(position);
     // Update page numbers from reader ref
     let currPage = 0;
@@ -889,11 +989,17 @@ export default function Reader() {
       setCurrentPage(currPage);
       setTotalPages(totPages);
       
+      console.log('[POSITION] Current page (0-based):', currPage);
+      console.log('[POSITION] Total pages in chapter:', totPages);
+      
       // Update overall page numbers (across all chapters)
       currPageOverall = readerRef.current.getEstimatedCurrentPageOverall();
       totPagesOverall = readerRef.current.getEstimatedTotalPages();
       setCurrentPageOverall(currPageOverall);
       setTotalPagesOverall(totPagesOverall);
+      
+      console.log('[POSITION] Overall page (1-based):', currPageOverall);
+      console.log('[POSITION] Total overall pages:', totPagesOverall);
     }
     
     // Save progress to localStorage immediately
@@ -1449,15 +1555,40 @@ export default function Reader() {
   }, []);
   
   const handleGoToBookmark = useCallback(async (bookmark: BookmarkItem) => {
-    // If bookmark has selected text, use text search to find correct page
-    // This works across different screen sizes (desktop/mobile)
+    console.log('[GOTO-BOOKMARK] Starting navigation to bookmark:', {
+      id: bookmark.id,
+      title: bookmark.title,
+      hasSelectedText: !!bookmark.selectedText,
+      selectedText: bookmark.selectedText,
+      chapterIndex: bookmark.chapterIndex,
+      pageInChapter: bookmark.pageInChapter,
+      percentage: bookmark.percentage
+    });
+    
+    // Use EXACT positioning data instead of text search
+    // This preserves the precise location where the bookmark was created
+    console.log('[GOTO-BOOKMARK] Using EXACT position approach');
+    
+    // First navigate to the correct chapter
+    await readerRef.current?.goToChapter(bookmark.chapterIndex);
+    
+    // Wait for chapter to load and paginate
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Then go to the exact page position
+    const position: Position = {
+      charOffset: 0,
+      chapterIndex: bookmark.chapterIndex,
+      pageInChapter: bookmark.pageInChapter || 0,
+      totalPagesInChapter: 1,
+      percentage: bookmark.percentage,
+    };
+    
+    console.log('[GOTO-BOOKMARK] Navigating to exact position:', position);
+    readerRef.current?.goToPosition(position);
+    
+    // Show highlight if there's selected text
     if (bookmark.selectedText) {
-      await readerRef.current?.goToChapterAndFindText(
-        bookmark.chapterIndex,
-        bookmark.selectedText
-      );
-      
-      // Show highlight with fade animation
       setBookmarkHighlight({
         text: bookmark.selectedText,
         chapterIndex: bookmark.chapterIndex,
@@ -1474,16 +1605,6 @@ export default function Reader() {
       setTimeout(() => {
         setBookmarkHighlight(null);
       }, 1500);
-    } else {
-      // No selected text - navigate to chapter and specific page
-      const position: Position = {
-        charOffset: 0,
-        chapterIndex: bookmark.chapterIndex,
-        pageInChapter: bookmark.pageInChapter || 0,
-        totalPagesInChapter: 1,
-        percentage: bookmark.percentage,
-      };
-      readerRef.current?.goToPosition(position);
     }
     
     // Close bookmarks panel if setting is enabled OR on mobile (always close on mobile)
@@ -1947,10 +2068,10 @@ export default function Reader() {
                         <Input
                           placeholder="Поиск коллекций..."
                           value={collectionSearchQuery}
-                          onChange={(e) => setCollectionSearchQuery(e.target.value)}
+                          onChange={(e) => performCollectionSearch(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              // Trigger search on Enter
+                              console.log('[SEARCH] Enter pressed with query:', collectionSearchQuery);
                               e.preventDefault();
                             }
                           }}
@@ -1960,11 +2081,14 @@ export default function Reader() {
                           variant="outline" 
                           size="icon"
                           onClick={() => {
-                            // Force re-render/search
-                            setCollectionSearchQuery(prev => prev + ' ');
-                            setTimeout(() => {
-                              setCollectionSearchQuery(prev => prev.trim());
-                            }, 10);
+                            // Trigger search explicitly using the dedicated function
+                            console.log('[SEARCH] Search button clicked');
+                            console.log('[SEARCH] Current query:', collectionSearchQuery);
+                            console.log('[SEARCH] Collections count:', collections.length);
+                            console.log('[SEARCH] Filtered collections count:', filteredCollections.length);
+                            
+                            // Use the dedicated search function
+                            performCollectionSearch(collectionSearchQuery);
                           }}
                         >
                           <Search className="w-4 h-4" />
@@ -1972,17 +2096,17 @@ export default function Reader() {
                       </div>
                     </div>
                     
-                    {/* Collections list - only those with bookmarks in this book */}
-                    {collections.length > 0 ? (
+                    {/* Collections list - all collections with bookmarks in this book (including others' public collections) */}
+                    {(collectionSearchQuery ? filteredCollections.length : collections.length) > 0 ? (
                       <div className="mb-4">
                         <Label className="text-sm mb-2 block">Коллекции с закладками в этой книге</Label>
                         <div className="space-y-2 max-h-40 overflow-y-auto">
                           {(collectionSearchQuery ? filteredCollections : collections).map(collection => (
                             <div 
                               key={collection.id}
-                              className={`p-3 rounded-lg border transition-colors relative $ {
+                              className={`p-3 rounded-lg border transition-colors relative group ${
                                 selectedCollectionId === collection.id 
-                                  ? 'bg-primary/10 border-primary' 
+                                  ? 'bg-primary/10 border-primary ring-2 ring-primary/20' 
                                   : 'hover:bg-muted'
                               }`}
                             >
@@ -1990,15 +2114,37 @@ export default function Reader() {
                                 className="cursor-pointer"
                                 onClick={() => setSelectedCollectionId(collection.id)}
                               >
-                                <div className="font-medium">{collection.name}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {collection.bookmarkCount} закладок в этой книге
-                                </div>
-                                {collection.description && (
-                                  <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                    {collection.description}
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium flex items-center gap-2">
+                                      <span className="truncate">{collection.name}</span>
+                                      {!collection.isOwn && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          Чужая
+                                        </Badge>
+                                      )}
+                                      {collection.isPublic && (
+                                        <Badge variant="outline" className="text-xs">
+                                          Публичная
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      {collection.bookmarkCount} закладок в этой книге
+                                    </div>
+                                    {collection.description && (
+                                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                        {collection.description}
+                                      </div>
+                                    )}
+                                    {!collection.isOwn && (
+                                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                        <User className="w-3 h-3" />
+                                        {collection.ownerFullName || collection.ownerUsername}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
+                                </div>
                               </div>
                                                         
                               {/* Delete button - only show for user's own collections */}
@@ -2024,117 +2170,183 @@ export default function Reader() {
                       <div className="mb-4 p-4 text-center text-muted-foreground text-sm">
                         {collectionSearchQuery 
                           ? 'Коллекции не найдены' 
-                          : 'У вас пока нет коллекций с закладками в этой книге'}
+                          : 'Нет коллекций с закладками в этой книге'}
                       </div>
                     )}
                     
                     {/* Collection navigation header */}
                     {selectedCollectionId && (
-                      <div className="mb-4 p-3 bg-muted/50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="font-medium text-sm">
-                              {collections.find(c => c.id === selectedCollectionId)?.name}
-                            </h3>
-                            <p className="text-xs text-muted-foreground mt-1">
+                      <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-medium text-sm truncate">
+                                {collections.find(c => c.id === selectedCollectionId)?.name}
+                              </h3>
+                              {!collections.find(c => c.id === selectedCollectionId)?.isOwn && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Чужая
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
                               {collections.find(c => c.id === selectedCollectionId)?.bookmarkCount || 0} закладок в этой книге
                             </p>
+                            {!collections.find(c => c.id === selectedCollectionId)?.isOwn && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Коллекция пользователя: {collections.find(c => c.id === selectedCollectionId)?.ownerFullName || collections.find(c => c.id === selectedCollectionId)?.ownerUsername}
+                              </p>
+                            )}
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setSelectedCollectionId(null)}
+                            className="ml-2 flex-shrink-0"
                           >
                             <ArrowLeft className="w-4 h-4 mr-1" />
                             Назад к поиску
                           </Button>
                         </div>
+                        
+                        {/* Collection bookmark navigation */}
+                        {filteredBookmarks.length > 1 && (
+                          <div className="flex items-center justify-center gap-2 pt-2 border-t border-border mt-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handlePreviousCollectionBookmark}
+                              disabled={filteredBookmarks.length <= 1}
+                              className="h-8 px-3"
+                            >
+                              <ChevronLeft className="w-4 h-4 mr-1" />
+                              Предыдущая
+                            </Button>
+                            
+                            <span className="text-xs text-muted-foreground px-2">
+                              {filteredBookmarks.length} закладок
+                            </span>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleNextCollectionBookmark}
+                              disabled={filteredBookmarks.length <= 1}
+                              className="h-8 px-3"
+                            >
+                              Следующая
+                              <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                                     
                     {/* Bookmarks list - filtered by selected collection */}
                     {(selectedCollectionId ? filteredBookmarks : bookmarks).length > 0 ? (
                       <div className="space-y-2">
-                        {(selectedCollectionId ? filteredBookmarks : bookmarks).map((bookmark) => (
-                          <div
-                            key={bookmark.id}
-                            className="flex items-center gap-2 p-3 rounded-lg hover:bg-muted group"
-                          >
-                            {editingBookmarkId === bookmark.id ? (
-                              // Inline editing mode
-                              <div className="flex-1 flex items-center gap-2">
-                                <Input
-                                  value={editBookmarkTitle}
-                                  onChange={(e) => setEditBookmarkTitle(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      handleRenameBookmark(bookmark.id, editBookmarkTitle);
-                                    } else if (e.key === 'Escape') {
-                                      setEditingBookmarkId(null);
-                                      setEditBookmarkTitle('');
-                                    }
-                                  }}
-                                  autoFocus
-                                  className="h-8 text-sm"
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 shrink-0"
-                                  onClick={() => handleRenameBookmark(bookmark.id, editBookmarkTitle)}
-                                >
-                                  <span className="text-xs">OK</span>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 shrink-0"
-                                  onClick={() => {
-                                    setEditingBookmarkId(null);
-                                    setEditBookmarkTitle('');
-                                  }}
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              // Normal display mode
-                              <>
-                                <button
-                                  className="flex-1 text-left"
-                                  onClick={() => handleGoToBookmark(bookmark)}
-                                >
-                                  <p className="font-medium text-sm line-clamp-1">{bookmark.title}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {Math.round(bookmark.percentage)}% • {bookmark.createdAt.toLocaleDateString()}
-                                  </p>
-                                </button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={`transition-opacity ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                  onClick={() => startEditingBookmark(bookmark)}
-                                >
-                                  <Pencil className="w-4 h-4 text-muted-foreground" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={`transition-opacity ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                  onClick={() => handleRemoveBookmark(bookmark.id)}
-                                >
-                                  <Trash2 className="w-4 h-4 text-muted-foreground" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        ))}
+                        {(selectedCollectionId ? filteredBookmarks : bookmarks).map((bookmark) => {
+                          // Check if we can edit this bookmark (only if it's in our own collection)
+                          const canEdit = selectedCollectionId 
+                            ? collections.find(c => c.id === selectedCollectionId)?.isOwn
+                            : true; // Own bookmarks when no collection selected
+                          
+                          return (
+                            <div
+                              key={bookmark.id}
+                              className="flex items-center gap-2 p-3 rounded-lg hover:bg-muted group"
+                            >
+                              {editingBookmarkId === bookmark.id ? (
+                                // Inline editing mode
+                                <div className="flex-1 flex items-center gap-2">
+                                  <Input
+                                    value={editBookmarkTitle}
+                                    onChange={(e) => setEditBookmarkTitle(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleRenameBookmark(bookmark.id, editBookmarkTitle);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingBookmarkId(null);
+                                        setEditBookmarkTitle('');
+                                      }
+                                    }}
+                                    autoFocus
+                                    className="h-8 text-sm"
+                                    disabled={!canEdit}
+                                  />
+                                  {canEdit && (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        onClick={() => handleRenameBookmark(bookmark.id, editBookmarkTitle)}
+                                      >
+                                        <span className="text-xs">OK</span>
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        onClick={() => {
+                                          setEditingBookmarkId(null);
+                                          setEditBookmarkTitle('');
+                                        }}
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              ) : (
+                                // Normal display mode
+                                <>
+                                  <button
+                                    className="flex-1 text-left"
+                                    onClick={() => handleGoToBookmark(bookmark)}
+                                  >
+                                    <p className="font-medium text-sm line-clamp-1">{bookmark.title}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {Math.round(bookmark.percentage)}% • {bookmark.createdAt.toLocaleDateString()}
+                                    </p>
+                                  </button>
+                                  {canEdit && (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={`transition-opacity ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                        onClick={() => startEditingBookmark(bookmark)}
+                                      >
+                                        <Pencil className="w-4 h-4 text-muted-foreground" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={`transition-opacity ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                        onClick={() => handleRemoveBookmark(bookmark.id)}
+                                      >
+                                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
                         <Bookmark className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p>Нет закладок</p>
-                        <p className="text-sm">{selectedCollectionId ? 'В этой коллекции нет закладок в этой книге' : 'Добавьте закладку, чтобы вернуться к этому месту позже'}</p>
+                        <p className="text-sm">
+                          {selectedCollectionId 
+                            ? collections.find(c => c.id === selectedCollectionId)?.isOwn
+                              ? 'В этой коллекции нет закладок в этой книге' 
+                              : 'В этой чужой коллекции нет ваших закладок в этой книге'
+                            : 'Добавьте закладку, чтобы вернуться к этому месту позже'}
+                        </p>
                       </div>
                     )}
                   </div>

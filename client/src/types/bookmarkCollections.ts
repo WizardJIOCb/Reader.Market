@@ -5,10 +5,13 @@ export interface BookmarkCollection {
   description: string | null;
   color: string;
   isPublic: boolean;
-  bookId?: string | null;
+  bookId?: string | null; // Deprecated: Use bookIds instead
+  bookIds?: string[]; // New field for multiple books
+  viewCount?: number; // Number of times collection has been viewed
   createdAt: string;
   updatedAt: string;
   bookmarkCount?: number;
+  bookCount?: number; // Number of books in the collection
   isClone?: boolean;
   isOwn?: boolean;
   // Owner information
@@ -17,6 +20,13 @@ export interface BookmarkCollection {
   ownerFullName?: string;
   ownerAvatarUrl?: string;
   ownerProfileRating?: number;
+  // Associated books (for detail view)
+  books?: Array<{
+    id: string;
+    title: string;
+    author: string;
+    coverImageUrl?: string;
+  }>;
 }
 
 export interface BookmarkCollectionItem {
@@ -37,6 +47,7 @@ export interface BookmarkWithBookInfo {
   percentage: number | null;
   selectedText: string | null;
   pageInChapter: number | null;
+  clickCount?: number; // Number of times bookmark has been clicked
   createdAt: string;
   bookId: string;
   bookTitle: string;
@@ -56,5 +67,6 @@ export interface UpdateBookmarkCollectionRequest {
   description?: string;
   color?: string;
   isPublic?: boolean;
-  bookId?: string | null;
+  bookId?: string | null; // Deprecated: Use bookIds instead
+  bookIds?: string[]; // New field for multiple books
 }

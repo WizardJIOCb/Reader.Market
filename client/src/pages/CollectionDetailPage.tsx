@@ -99,9 +99,67 @@ export function CollectionDetailPage() {
     });
   };
 
-  const handleReadBookmark = (bookmark: BookmarkWithBookInfo) => {
-    // Navigate to reader at the bookmark position
-    window.location.href = `/read/${bookmark.bookId}/${bookmark.chapterIndex || 0}`;
+  const handleReadBookmark = async (bookmark: BookmarkWithBookInfo) => {
+    try {
+      // Track bookmark click
+      const response = await fetch(`/api/bookmarks/${bookmark.id}/click`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+      
+      if (response.ok) {
+        // Update local bookmark click count
+        setCollection(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            bookmarks: prev.bookmarks.map(b => 
+              b.id === bookmark.id 
+                ? { ...b, clickCount: (b.clickCount || 0) + 1 }
+                : b
+            )
+          };
+        });
+      }
+    } catch (error) {
+      console.error('Error tracking bookmark click:', error);
+    }
+    
+    // Debug: Log ALL bookmark data to see what we're working with
+    console.log('[BOOKMARK NAVIGATION] ALL bookmarks in collection:', 
+      collection?.bookmarks.map(b => ({
+        id: b.id,
+        title: b.title,
+        chapterIndex: b.chapterIndex,
+        pageInChapter: b.pageInChapter,
+        percentage: b.percentage,
+        selectedText: b.selectedText ? b.selectedText.substring(0, 50) + '...' : null
+      }))
+    );
+    
+    // Debug: Log the specific bookmark being clicked
+    console.log('[BOOKMARK NAVIGATION] Clicked bookmark data:', {
+      id: bookmark.id,
+      title: bookmark.title,
+      chapterIndex: bookmark.chapterIndex,
+      pageInChapter: bookmark.pageInChapter,
+      percentage: bookmark.percentage,
+      selectedText: bookmark.selectedText
+    });
+    
+    // Navigate to reader with bookmark ID for proper text highlighting
+    // Format: /read/{bookId}/{chapter}.{page}?bookmarkId={id}&collectionId={collectionId}
+    const positionParam = bookmark.pageInChapter !== null && bookmark.pageInChapter !== undefined
+      ? `${bookmark.chapterIndex || 0}.${bookmark.pageInChapter}`
+      : `${bookmark.chapterIndex || 0}`;
+    
+    const url = `/read/${bookmark.bookId}/${positionParam}?bookmarkId=${bookmark.id}&fromCollection=${id}`;
+    
+    console.log('[BOOKMARK NAVIGATION] Navigating to:', url);
+    
+    window.location.href = url;
   };
 
   const handleReadBook = (bookId: string) => {
@@ -131,6 +189,34 @@ export function CollectionDetailPage() {
     
     return Object.values(grouped);
   };
+
+  // Get the associated books for the collection (if any)
+  const getAssociatedBooks = () => {
+    // First check if we have books from the collection.books property
+    if (collection?.books && collection.books.length > 0) {
+      return collection.books;
+    }
+    
+    // Fallback: extract unique books from bookmarks
+    if (collection?.bookmarks && collection.bookmarks.length > 0) {
+      const uniqueBooks = new Map<string, any>();
+      collection.bookmarks.forEach(bookmark => {
+        if (!uniqueBooks.has(bookmark.bookId)) {
+          uniqueBooks.set(bookmark.bookId, {
+            id: bookmark.bookId,
+            title: bookmark.bookTitle,
+            author: bookmark.bookAuthor,
+            coverImageUrl: bookmark.bookCoverImageUrl
+          });
+        }
+      });
+      return Array.from(uniqueBooks.values());
+    }
+    
+    return [];
+  };
+
+  const associatedBooks = getAssociatedBooks();
 
   if (!user) {
     return (
@@ -283,6 +369,14 @@ export function CollectionDetailPage() {
                 {collection.bookmarks.length} {t('collections:detailPage.metadata.bookmarksCount')}
               </span>
             </div>
+            {collection.viewCount !== undefined && (
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {collection.viewCount} {t('collections:detailPage.metadata.views')}
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <div 
                 className="w-3 h-3 rounded-full" 
@@ -293,6 +387,102 @@ export function CollectionDetailPage() {
               </span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Books in Collection */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5" />
+            Книги в коллекции ({associatedBooks.length})
+          </CardTitle>
+          <CardDescription>
+            Все книги, содержащие закладки в этой коллекции
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {associatedBooks.map((book) => {
+              // Get bookmark count for this book in this collection
+              const bookBookmarkCount = collection.bookmarks.filter(b => b.bookId === book.id).length;
+              
+              return (
+                <div 
+                  key={book.id} 
+                  className="flex flex-col border rounded-lg hover:shadow-md transition-all cursor-pointer group"
+                  onClick={() => {
+                    // Scroll to bookmarks section for this book
+                    const bookSection = document.getElementById(`book-${book.id}`);
+                    if (bookSection) {
+                      bookSection.scrollIntoView({ behavior: 'smooth' });
+                      // Highlight the section temporarily
+                      bookSection.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+                      setTimeout(() => {
+                        bookSection.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+                      }, 2000);
+                    }
+                  }}
+                >
+                  <div className="p-4 flex-1">
+                    <div className="flex items-start gap-3">
+                      {book.coverImageUrl ? (
+                        <img 
+                          src={book.coverImageUrl.startsWith('http') ? book.coverImageUrl : `/${book.coverImageUrl}`} 
+                          alt={book.title}
+                          className="w-16 h-20 object-cover rounded shadow-sm flex-shrink-0"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-16 h-20 bg-muted rounded flex items-center justify-center text-muted-foreground text-xs flex-shrink-0">
+                          Нет обложки
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+                          {book.title}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mb-2 truncate">
+                          {book.author}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {bookBookmarkCount} {bookBookmarkCount === 1 ? 'закладка' : 'закладок'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 pt-0 flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="flex-1 text-xs h-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReadBook(book.id);
+                      }}
+                    >
+                      <BookOpen className="w-3 h-3 mr-1" />
+                      Читать
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          {associatedBooks.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>В этой коллекции пока нет книг с закладками</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -324,7 +514,7 @@ export function CollectionDetailPage() {
             console.log('Cover image URL:', group.bookInfo.coverImageUrl);
             console.log('Constructed URL:', group.bookInfo.coverImageUrl ? `/${group.bookInfo.coverImageUrl}` : 'No cover image');
             return (
-              <div key={group.bookInfo.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+              <div key={group.bookInfo.id} id={`book-${group.bookInfo.id}`} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
               {/* Book header */}
               <div className="flex items-start gap-4 mb-6">
                 {group.bookInfo.coverImageUrl ? (
@@ -384,8 +574,19 @@ export function CollectionDetailPage() {
                         <span>
                           {t('common:reader.progressChapter')}: {bookmark.chapterIndex !== null ? bookmark.chapterIndex + 1 : 'N/A'}
                         </span>
+                        {bookmark.pageInChapter !== null && (
+                          <span>
+                            {t('common:reader.page')}: {bookmark.pageInChapter + 1}
+                          </span>
+                        )}
                         {bookmark.percentage !== null && (
                           <span>{Math.round(bookmark.percentage)}% {t('common:reader.progressBook')}</span>
+                        )}
+                        {bookmark.clickCount !== undefined && (
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3 h-3" />
+                            {bookmark.clickCount} {t('collections:collectionCard.clicks')}
+                          </span>
                         )}
                       </div>
                       
