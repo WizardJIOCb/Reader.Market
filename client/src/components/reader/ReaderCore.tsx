@@ -445,24 +445,24 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
 
     const goToPosition = useCallback(
       (position: Position) => {
-        console.log('[GO-TO-POS] goToPosition called with:', position);
+        // console.log('[GO-TO-POS] goToPosition called with:', position);
         if (!content) {
           console.log('[GO-TO-POS] No content available');
           return;
         }
         const chapter = content.chapters[position.chapterIndex];
         if (!chapter) {
-          console.log('[GO-TO-POS] Chapter not found:', position.chapterIndex);
+          // console.log('[GO-TO-POS] Chapter not found:', position.chapterIndex);
           return;
         }
         
         console.log('[GO-TO-POS] Setting chapter:', chapter.index);
-        console.log('[GO-TO-POS] Setting page (before):', position.pageInChapter);
+        // console.log('[GO-TO-POS] Setting page (before):', position.pageInChapter);
         
         setCurrentChapter(chapter);
         setCurrentPage(position.pageInChapter);
         
-        console.log('[GO-TO-POS] Page set to:', position.pageInChapter);
+        // console.log('[GO-TO-POS] Page set to:', position.pageInChapter);
         onChapterChange?.(chapter);
       },
       [content, onChapterChange]

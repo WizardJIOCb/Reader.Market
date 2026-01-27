@@ -1720,7 +1720,7 @@ export default function Reader() {
     
     // Verify we're in the correct chapter
     const currentPosition = readerRef.current?.getPosition();
-    console.log('[GOTO-BOOKMARK] Current position after chapter navigation:', JSON.stringify(currentPosition, null, 2));
+    // console.log('[GOTO-BOOKMARK] Current position after chapter navigation:', JSON.stringify(currentPosition, null, 2));
     
     console.log('[GOTO-BOOKMARK] Current chapter:', currentPosition?.chapterIndex, 'Target chapter:', bookmark.chapterIndex);
     
@@ -1732,7 +1732,7 @@ export default function Reader() {
       await new Promise(resolve => setTimeout(resolve, 200));
       
       const newPosition = readerRef.current?.getPosition();
-      console.log('[GOTO-BOOKMARK] Position after chapter navigation:', JSON.stringify(newPosition, null, 2));
+      // console.log('[GOTO-BOOKMARK] Position after chapter navigation:', JSON.stringify(newPosition, null, 2));
       
       if (newPosition?.chapterIndex !== bookmark.chapterIndex) {
         console.warn('[GOTO-BOOKMARK] Chapter navigation failed! Expected:', bookmark.chapterIndex, 'Got:', newPosition?.chapterIndex);
@@ -1748,7 +1748,7 @@ export default function Reader() {
       percentage: bookmark.percentage,
     };
     
-    console.log('[GOTO-BOOKMARK] Navigating to exact position:', JSON.stringify(position, null, 2));
+    // console.log('[GOTO-BOOKMARK] Navigating to exact position:', JSON.stringify(position, null, 2));
     readerRef.current?.goToPosition(position);
     
     // Wait a moment for the page to settle
@@ -1771,7 +1771,7 @@ export default function Reader() {
         console.log('[GOTO-BOOKMARK] Text not found, staying at exact position');
         // Even if text search fails, ensure we're on the right page
         const finalPosition = readerRef.current?.getPosition();
-        console.log('[GOTO-BOOKMARK] Final position:', JSON.stringify(finalPosition, null, 2));
+        // console.log('[GOTO-BOOKMARK] Final position:', JSON.stringify(finalPosition, null, 2));
       }
       
       // Show highlight once after text search completes and we're on the book page
