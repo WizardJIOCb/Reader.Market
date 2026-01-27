@@ -25,7 +25,7 @@ import { CreateCollectionModal } from '@/components/CreateCollectionModal';
 import { BookmarkCollection } from '@/types/bookmarkCollections';
 import { useBookSplash } from '@/lib/bookSplashContext';
 import { getSocket, joinBookChat, leaveBookChat, sendBookChatMessage, startBookChatTyping, stopBookChatTyping, deleteBookChatMessage, onSocketEvent } from '@/lib/socket';
-import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight, Volume2, Mic, ArrowLeft, User } from 'lucide-react';
+import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight, Volume2, Mic, ArrowLeft, User, AlertTriangle } from 'lucide-react';
 
 // Reader Components
 import {
@@ -90,8 +90,17 @@ export default function Reader() {
   const { t } = useTranslation();
   const { user } = useAuth();
   
+  // Wrapped toast function that respects suppression flag
+  const safeToast = useCallback((options: any) => {
+    if (!suppressToastRef.current) {
+      toast(options);
+    } else {
+      console.log('[TOAST] Suppressed notification:', options.title || options.description);
+    }
+  }, [toast]);
+  
   const readerRef = useRef<ReaderCoreHandle>(null);
-  const toastRef = useRef(toast);
+  const toastRef = useRef(safeToast);
   
   // Book state
   const [book, setBook] = useState<Book | null>(null);
@@ -137,6 +146,16 @@ export default function Reader() {
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Clear sessionStorage flags on component mount
+  useEffect(() => {
+    // Clear all bookmark navigation flags on page load
+    Object.keys(sessionStorage)
+      .filter(key => key.startsWith('bookmark-nav-'))
+      .forEach(key => sessionStorage.removeItem(key));
+    
+    console.log('[SESSION] Cleared bookmark navigation flags from sessionStorage');
   }, []);
   
   // UI state - single panel, no multiple selection
@@ -228,6 +247,12 @@ export default function Reader() {
   } | null>(null);
   const [bookmarkHighlightRect, setBookmarkHighlightRect] = useState<DOMRect | null>(null);
   
+  // Refs for managing highlight timers
+  const highlightTimersRef = useRef<{ fade?: NodeJS.Timeout; remove?: NodeJS.Timeout }>({});
+  
+  // Flag to suppress toast notifications during bookmark operations
+  const suppressToastRef = useRef(false);
+  
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -310,6 +335,13 @@ export default function Reader() {
                       
       // Handle automatic bookmark navigation if requested via URL
       if (pendingBookmarkNavigation) {
+        // Check if this navigation was already processed
+        const navKey = `bookmark-nav-${pendingBookmarkNavigation}`;
+        if (sessionStorage.getItem(navKey)) {
+          console.log('[AUTO-NAV] Bookmark navigation already processed, skipping');
+          return;
+        }
+        
         console.log('[AUTO-NAV] Processing pending bookmark navigation:', pendingBookmarkNavigation);
         const targetBookmark = data.find((b: any) => b.id === pendingBookmarkNavigation);
         if (targetBookmark) {
@@ -326,8 +358,17 @@ export default function Reader() {
           // Small delay to ensure reader is fully loaded
           setTimeout(async () => {
             console.log('[AUTO-NAV] Executing bookmark navigation');
+            // Mark this navigation as processed
+            sessionStorage.setItem(navKey, 'processed');
+            // Suppress toast notifications during bookmark navigation
+            suppressToastRef.current = true;
             await handleGoToBookmark(targetBookmark);
             setPendingBookmarkNavigation(null);
+            
+            // Re-enable toast notifications after a delay
+            setTimeout(() => {
+              suppressToastRef.current = false;
+            }, 2000);
             
             // DON'T remove URL parameters - keep them for sharing
             // Users can now copy the full bookmark URL from address bar
@@ -1128,86 +1169,165 @@ export default function Reader() {
     
     // Wait a bit for the page to render after navigation
     const timer = setTimeout(() => {
+      console.log('[BOOKMARK-HIGHLIGHT] Starting highlight search process');
       const textToFind = bookmarkHighlight.text;
       const contextToFind = bookmarkHighlight.context;
-      if (!textToFind) return;
-      
-      // Find the text in the document
-      const readerContent = document.querySelector('.reader-content');
-      if (!readerContent) return;
-      
-      // Create a TreeWalker to find text nodes
-      const walker = document.createTreeWalker(
-        readerContent,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-      
-      // Collect all text nodes and build a map of positions
-      const textNodes: { node: Node; start: number; end: number }[] = [];
-      let totalOffset = 0;
-      let node: Node | null;
-      
-      while ((node = walker.nextNode())) {
-        const nodeText = node.textContent || '';
-        textNodes.push({
-          node,
-          start: totalOffset,
-          end: totalOffset + nodeText.length
-        });
-        totalOffset += nodeText.length;
+      console.log('[BOOKMARK-HIGHLIGHT] Looking for text:', textToFind);
+      if (!textToFind) {
+        console.log('[BOOKMARK-HIGHLIGHT] No text to find');
+        return;
       }
       
-      // Get full text of the page
-      const fullPageText = readerContent.textContent || '';
+      // Try the simplest approach first - search only in reader content, not in UI elements
+      console.log('[BOOKMARK-HIGHLIGHT] Trying targeted document search');
       
-      // Find the context in the full text to locate the exact position
-      let matchPosition = -1;
-      if (contextToFind) {
-        // Search for context (use a good portion of it for uniqueness)
-        const searchContext = contextToFind.substring(0, 60);
-        matchPosition = fullPageText.indexOf(searchContext);
-        
-        if (matchPosition !== -1) {
-          // Find where the matched text appears within the context
-          const matchInContext = contextToFind.indexOf(textToFind);
-          if (matchInContext !== -1) {
-            matchPosition += matchInContext;
+      // Look specifically for reader content containers, exclude UI elements
+      const readerContainers = [
+        '.reader-container .reader-content',
+        '.reader-content',
+        '[class*="reader"]',
+        '.reader-core',
+        '.reader-page',
+        '[class*="page"]',
+        '.content-text',
+        '[data-testid="reader-content"]'
+      ];
+      
+      let targetContainer = null;
+      for (const selector of readerContainers) {
+        const container = document.querySelector(selector);
+        if (container && container.textContent && container.textContent.length > 100) {
+          // Skip containers that contain CSS styles instead of content
+          const contentText = container.textContent.trim();
+          if (contentText.startsWith('.') || contentText.includes('{') || contentText.includes('user-select')) {
+            console.log(`[BOOKMARK-HIGHLIGHT] Skipping CSS container: ${selector}`);
+            continue;
           }
-        }
-      }
-      
-      // Fallback: just find the text directly
-      if (matchPosition === -1) {
-        matchPosition = fullPageText.indexOf(textToFind);
-      }
-      
-      if (matchPosition === -1) return;
-      
-      // Find which text node contains this position
-      for (const textNode of textNodes) {
-        if (matchPosition >= textNode.start && matchPosition < textNode.end) {
-          const localStart = matchPosition - textNode.start;
-          const nodeText = textNode.node.textContent || '';
-          const localEnd = Math.min(localStart + textToFind.length, nodeText.length);
           
-          try {
-            const range = document.createRange();
-            range.setStart(textNode.node, localStart);
-            range.setEnd(textNode.node, localEnd);
-            const rect = range.getBoundingClientRect();
-            
-            if (rect.width > 0 && rect.height > 0) {
-              setBookmarkHighlightRect(rect);
-              return;
-            }
-          } catch (e) {
-            console.debug('Could not create range for highlight:', e);
+          targetContainer = container;
+          console.log(`[BOOKMARK-HIGHLIGHT] Found reader container with selector: ${selector}`);
+          
+          // Log content sample for debugging
+          const contentSample = container.textContent.substring(0, 200);
+          console.log(`[BOOKMARK-HIGHLIGHT] Content sample from ${selector}:`, contentSample);
+          
+          // Check if our target text exists in this container
+          if (container.textContent.includes(textToFind)) {
+            console.log(`[BOOKMARK-HIGHLIGHT] Target text FOUND in container: ${selector}`);
+          } else {
+            console.log(`[BOOKMARK-HIGHLIGHT] Target text NOT FOUND in container: ${selector}`);
           }
+          
           break;
         }
       }
-    }, 200);
+      
+      // Fallback to document body if no specific container found
+      if (!targetContainer) {
+        targetContainer = document.body;
+        console.log('[BOOKMARK-HIGHLIGHT] Using document body as fallback');
+      }
+      
+      const allText = targetContainer.textContent || '';
+      const textIndex = allText.indexOf(textToFind);
+      
+      if (textIndex !== -1) {
+        console.log('[BOOKMARK-HIGHLIGHT] Text found in document at index:', textIndex);
+        
+        // Try to create a range in the target container
+        try {
+          const range = document.createRange();
+          // Create TreeWalker for the specific container
+          const walker = document.createTreeWalker(
+            targetContainer,
+            NodeFilter.SHOW_TEXT,
+            null
+          );
+          
+          let currentOffset = 0;
+          let foundNode = null;
+          let localOffset = 0;
+          
+          while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const nodeText = node.textContent || '';
+            
+            if (currentOffset <= textIndex && textIndex < currentOffset + nodeText.length) {
+              foundNode = node;
+              localOffset = textIndex - currentOffset;
+              break;
+            }
+            
+            currentOffset += nodeText.length;
+          }
+          
+          if (foundNode) {
+            console.log('[BOOKMARK-HIGHLIGHT] Found text node, creating range');
+            range.setStart(foundNode, localOffset);
+            range.setEnd(foundNode, localOffset + textToFind.length);
+            const rect = range.getBoundingClientRect();
+            
+            console.log('[BOOKMARK-HIGHLIGHT] Raw range rect:', rect);
+            
+            // Validate coordinates - check if they're within reasonable bounds
+            const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            
+            console.log('[BOOKMARK-HIGHLIGHT] Viewport size:', viewportWidth, 'x', viewportHeight);
+            console.log('[BOOKMARK-HIGHLIGHT] Element coordinates:', rect.left, rect.top);
+            
+            // Check if coordinates are reasonable (within 2x viewport bounds)
+            if (rect.left < -viewportWidth * 2 || rect.left > viewportWidth * 3 || 
+                rect.top < -viewportHeight * 2 || rect.top > viewportHeight * 3) {
+              console.log('[BOOKMARK-HIGHLIGHT] WARNING: Coordinates seem unreasonable, might be off-screen');
+              console.log('[BOOKMARK-HIGHLIGHT] Attempting to scroll to element position');
+              
+              // Try to scroll to the element position
+              window.scrollTo({
+                left: Math.max(0, rect.left - 100),
+                top: Math.max(0, rect.top - 100),
+                behavior: 'smooth'
+              });
+              
+              // Return early - let the scroll complete and try again
+              return;
+            }
+            
+            // For position: fixed elements, use raw coordinates directly
+            // getBoundingClientRect() already gives us viewport-relative coordinates
+            console.log('[BOOKMARK-HIGHLIGHT] Using raw viewport coordinates for fixed positioning');
+            
+            if (rect.width > 0 && rect.height > 0) {
+              console.log('[BOOKMARK-HIGHLIGHT] Setting highlight rectangle');
+              setBookmarkHighlightRect(rect);
+              
+              // Log the actual DOM element for debugging
+              setTimeout(() => {
+                const highlightElements = document.querySelectorAll('[style*="rgba(249, 115, 22"]');
+                console.log('[BOOKMARK-HIGHLIGHT] Found highlight elements:', highlightElements.length);
+                if (highlightElements.length > 0) {
+                  const element = highlightElements[0] as HTMLElement;
+                  console.log('[BOOKMARK-HIGHLIGHT] Highlight element:', element);
+                  console.log('[BOOKMARK-HIGHLIGHT] Element computed styles:', window.getComputedStyle(element));
+                }
+              }, 50);
+              
+              return;
+            } else {
+              console.log('[BOOKMARK-HIGHLIGHT] Invalid rectangle dimensions');
+            }
+          } else {
+            console.log('[BOOKMARK-HIGHLIGHT] Could not find text node');
+          }
+        } catch (e) {
+          console.log('[BOOKMARK-HIGHLIGHT] Error creating range:', e);
+        }
+      } else {
+        console.log('[BOOKMARK-HIGHLIGHT] Text not found in document');
+      }
+      
+      console.log('[BOOKMARK-HIGHLIGHT] Highlight search process completed');
+    }, 500); // Increased delay to ensure content is fully rendered
     
     return () => clearTimeout(timer);
   }, [bookmarkHighlight]);
@@ -1242,6 +1362,12 @@ export default function Reader() {
     const title = selectedText?.text 
       ? (selectedText.text.length > 50 ? selectedText.text.substring(0, 50) + '...' : selectedText.text)
       : (currentChapter?.title || `Страница ${Math.round(position.percentage)}%`);
+    
+    // Debug: Log the exact text being bookmarked
+    console.log('[CREATE-BOOKMARK] Selected text:', selectedText?.text);
+    console.log('[CREATE-BOOKMARK] Normalized text:', selectedText?.text
+      ?.replace(/[\s\u00A0]+/g, ' ')  // Normalize whitespace
+      ?.trim());
     
     const bookmarkData = {
       title,
@@ -1450,6 +1576,13 @@ export default function Reader() {
     setEditBookmarkTitle(bookmark.title);
   }, []);
   
+  // Helper function to check if bookmark text exists in current content
+  const bookmarkExistsInContent = useCallback((bookmark: BookmarkItem): boolean => {
+    // Since we can't search file-based content, we'll assume it exists
+    // unless we've explicitly determined it doesn't during navigation
+    return true; // For now, optimistic assumption
+  }, []);
+  
   // Chat handlers
   const handleSendMessage = useCallback(async () => {
     if ((!chatInput.trim() && attachments.length === 0) || !bookId) return;
@@ -1565,17 +1698,48 @@ export default function Reader() {
       percentage: bookmark.percentage
     });
     
-    // Use EXACT positioning data instead of text search
-    // This preserves the precise location where the bookmark was created
-    console.log('[GOTO-BOOKMARK] Using EXACT position approach');
+    // Prevent multiple simultaneous navigations
+    if (bookmarkHighlight?.text === bookmark.selectedText) {
+      console.log('[GOTO-BOOKMARK] Bookmark already being highlighted, skipping');
+      return;
+    }
+    
+    // Clear any existing highlight first
+    setBookmarkHighlight(null);
+    setBookmarkHighlightRect(null);
+    
+    // Use hybrid approach: exact positioning + text anchoring for maximum precision
+    console.log('[GOTO-BOOKMARK] Using HYBRID position approach');
     
     // First navigate to the correct chapter
+    console.log(`[GOTO-BOOKMARK] Navigating to chapter ${bookmark.chapterIndex}`);
     await readerRef.current?.goToChapter(bookmark.chapterIndex);
     
     // Wait for chapter to load and paginate
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 500)); // Increased wait time for mobile
     
-    // Then go to the exact page position
+    // Verify we're in the correct chapter
+    const currentPosition = readerRef.current?.getPosition();
+    console.log('[GOTO-BOOKMARK] Current position after chapter navigation:', currentPosition);
+    
+    console.log('[GOTO-BOOKMARK] Current chapter:', currentPosition?.chapterIndex, 'Target chapter:', bookmark.chapterIndex);
+    
+    if (currentPosition?.chapterIndex !== bookmark.chapterIndex) {
+      console.log('[GOTO-BOOKMARK] Chapter mismatch, navigating to chapter', bookmark.chapterIndex);
+      await readerRef.current?.goToChapter(bookmark.chapterIndex);
+      
+      // Wait for chapter to load
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      const newPosition = readerRef.current?.getPosition();
+      console.log('[GOTO-BOOKMARK] Position after chapter navigation:', newPosition);
+      
+      if (newPosition?.chapterIndex !== bookmark.chapterIndex) {
+        console.warn('[GOTO-BOOKMARK] Chapter navigation failed! Expected:', bookmark.chapterIndex, 'Got:', newPosition?.chapterIndex);
+      }
+    }
+    
+    // First, try to go to the exact page position
     const position: Position = {
       charOffset: 0,
       chapterIndex: bookmark.chapterIndex,
@@ -1587,24 +1751,49 @@ export default function Reader() {
     console.log('[GOTO-BOOKMARK] Navigating to exact position:', position);
     readerRef.current?.goToPosition(position);
     
-    // Show highlight if there's selected text
+    // Wait a moment for the page to settle
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // THEN, if there's selected text, use text search to fine-tune the position
     if (bookmark.selectedText) {
-      setBookmarkHighlight({
-        text: bookmark.selectedText,
-        chapterIndex: bookmark.chapterIndex,
-        pageInChapter: bookmark.pageInChapter || 0,
-        fading: false,
-      });
+      console.log('[GOTO-BOOKMARK] Fine-tuning with text search for:', bookmark.selectedText);
       
-      // Start fade after a short delay
-      setTimeout(() => {
-        setBookmarkHighlight(prev => prev ? { ...prev, fading: true } : null);
-      }, 500);
+      // Search for the exact text on the current page and surrounding pages
+      const found = await readerRef.current?.goToChapterAndFindText(
+        bookmark.chapterIndex,
+        bookmark.selectedText,
+        bookmark.pageInChapter
+      );
       
-      // Remove highlight after fade completes
+      if (found) {
+        console.log('[GOTO-BOOKMARK] Text found and positioned accurately');
+      } else {
+        console.log('[GOTO-BOOKMARK] Text not found, staying at exact position');
+        // Even if text search fails, ensure we're on the right page
+        const finalPosition = readerRef.current?.getPosition();
+        console.log('[GOTO-BOOKMARK] Final position:', finalPosition);
+      }
+      
+      // Show highlight once after text search completes and we're on the book page
+      console.log('[BOOKMARK-HIGHLIGHT] Setting highlight for text:', bookmark.selectedText);
+      
+      // Add small delay to ensure we're on the book page, not the bookmarks panel
       setTimeout(() => {
-        setBookmarkHighlight(null);
-      }, 1500);
+        if (bookmark.selectedText) {
+          setBookmarkHighlight({
+            text: bookmark.selectedText,
+            chapterIndex: bookmark.chapterIndex,
+            pageInChapter: bookmark.pageInChapter || 0,
+            fading: false,
+          });
+          
+          // Remove highlight after reasonable time
+          setTimeout(() => {
+            console.log('[BOOKMARK-HIGHLIGHT] Removing highlight');
+            setBookmarkHighlight(null);
+          }, 2000);
+        }
+      }, 50); // Minimal delay to ensure page transition is complete
     }
     
     // Close bookmarks panel if setting is enabled OR on mobile (always close on mobile)
@@ -1612,33 +1801,15 @@ export default function Reader() {
     if (isMobile || settings.autoCloseBookmarksPanel !== false) {
       setActivePanel(null);
     }
+    
+    // Prevent automatic scrolling/position restoration for a brief period
+    const scrollLockTimer = setTimeout(() => {
+      // Allow normal scrolling behavior after highlight period
+    }, 2500);
+    
+    // Cleanup timer
+    return () => clearTimeout(scrollLockTimer);
   }, [settings.autoCloseBookmarksPanel]);
-  
-  // Navigate to next bookmark in the same collection
-  const handleNextCollectionBookmark = useCallback(() => {
-    if (!selectedCollectionId || filteredBookmarks.length === 0) return;
-    
-    // Get current position
-    const currentPosition = readerRef.current?.getPosition();
-    if (!currentPosition) return;
-    
-    // Find bookmarks in current collection that are after current position
-    const laterBookmarks = filteredBookmarks
-      .filter(b => 
-        b.chapterIndex > currentPosition.chapterIndex || 
-        (b.chapterIndex === currentPosition.chapterIndex && b.percentage > currentPosition.percentage)
-      )
-      .sort((a, b) => {
-        if (a.chapterIndex !== b.chapterIndex) {
-          return a.chapterIndex - b.chapterIndex;
-        }
-        return a.percentage - b.percentage;
-      });
-    
-    if (laterBookmarks.length > 0) {
-      handleGoToBookmark(laterBookmarks[0]);
-    }
-  }, [selectedCollectionId, filteredBookmarks, handleGoToBookmark]);
   
   // Handler for when a new collection is created
   const handleCollectionCreated = useCallback((newCollection: BookmarkCollection) => {
@@ -1664,30 +1835,6 @@ export default function Reader() {
       loadCollections();
     }
   }, [bookId, user]);
-  const handlePreviousCollectionBookmark = useCallback(() => {
-    if (!selectedCollectionId || filteredBookmarks.length === 0) return;
-    
-    // Get current position
-    const currentPosition = readerRef.current?.getPosition();
-    if (!currentPosition) return;
-    
-    // Find bookmarks in current collection that are before current position
-    const earlierBookmarks = filteredBookmarks
-      .filter(b => 
-        b.chapterIndex < currentPosition.chapterIndex || 
-        (b.chapterIndex === currentPosition.chapterIndex && b.percentage < currentPosition.percentage)
-      )
-      .sort((a, b) => {
-        if (a.chapterIndex !== b.chapterIndex) {
-          return b.chapterIndex - a.chapterIndex;
-        }
-        return b.percentage - a.percentage;
-      });
-    
-    if (earlierBookmarks.length > 0) {
-      handleGoToBookmark(earlierBookmarks[0]);
-    }
-  }, [selectedCollectionId, filteredBookmarks, handleGoToBookmark]);
   
   // Search handlers
   const handleSearchInput = useCallback((query: string) => {
@@ -2116,18 +2263,8 @@ export default function Reader() {
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 min-w-0">
-                                    <div className="font-medium flex items-center gap-2">
-                                      <span className="truncate">{collection.name}</span>
-                                      {!collection.isOwn && (
-                                        <Badge variant="secondary" className="text-xs">
-                                          Чужая
-                                        </Badge>
-                                      )}
-                                      {collection.isPublic && (
-                                        <Badge variant="outline" className="text-xs">
-                                          Публичная
-                                        </Badge>
-                                      )}
+                                    <div className="font-medium">
+                                      <span className="break-words">{collection.name}</span>
                                     </div>
                                     <div className="text-xs text-muted-foreground mt-1">
                                       {collection.bookmarkCount} закладок в этой книге
@@ -2179,15 +2316,10 @@ export default function Reader() {
                       <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-medium text-sm truncate">
+                            <div className="flex items-center mb-1">
+                              <h3 className="font-medium text-sm break-words">
                                 {collections.find(c => c.id === selectedCollectionId)?.name}
                               </h3>
-                              {!collections.find(c => c.id === selectedCollectionId)?.isOwn && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Чужая
-                                </Badge>
-                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">
                               {collections.find(c => c.id === selectedCollectionId)?.bookmarkCount || 0} закладок в этой книге
@@ -2208,37 +2340,6 @@ export default function Reader() {
                             Назад к поиску
                           </Button>
                         </div>
-                        
-                        {/* Collection bookmark navigation */}
-                        {filteredBookmarks.length > 1 && (
-                          <div className="flex items-center justify-center gap-2 pt-2 border-t border-border mt-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handlePreviousCollectionBookmark}
-                              disabled={filteredBookmarks.length <= 1}
-                              className="h-8 px-3"
-                            >
-                              <ChevronLeft className="w-4 h-4 mr-1" />
-                              Предыдущая
-                            </Button>
-                            
-                            <span className="text-xs text-muted-foreground px-2">
-                              {filteredBookmarks.length} закладок
-                            </span>
-                            
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleNextCollectionBookmark}
-                              disabled={filteredBookmarks.length <= 1}
-                              className="h-8 px-3"
-                            >
-                              Следующая
-                              <ChevronRight className="w-4 h-4 ml-1" />
-                            </Button>
-                          </div>
-                        )}
                       </div>
                     )}
                                     
@@ -2302,13 +2403,20 @@ export default function Reader() {
                                 // Normal display mode
                                 <>
                                   <button
-                                    className="flex-1 text-left"
+                                    className="flex-1 text-left flex items-start gap-2"
                                     onClick={() => handleGoToBookmark(bookmark)}
                                   >
-                                    <p className="font-medium text-sm line-clamp-1">{bookmark.title}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {Math.round(bookmark.percentage)}% • {bookmark.createdAt.toLocaleDateString()}
-                                    </p>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-sm line-clamp-1 flex items-center gap-1">
+                                        {bookmark.title}
+                                        {!bookmarkExistsInContent(bookmark) && (
+                                          <AlertTriangle className="w-3 h-3 text-yellow-500 flex-shrink-0" />
+                                        )}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {Math.round(bookmark.percentage)}% • {bookmark.createdAt.toLocaleDateString()}
+                                      </p>
+                                    </div>
                                   </button>
                                   {canEdit && (
                                     <>
@@ -2900,20 +3008,22 @@ export default function Reader() {
       {/* Bookmark highlight overlay - orange color with fade animation */}
       {bookmarkHighlight && bookmarkHighlightRect && (
         <div
-          className="fixed pointer-events-none z-40"
+          className="fixed pointer-events-none z-50"
           style={{
             top: bookmarkHighlightRect.top,
             left: bookmarkHighlightRect.left,
             width: bookmarkHighlightRect.width,
             height: bookmarkHighlightRect.height,
-            backgroundColor: 'rgba(249, 115, 22, 0.5)', // Orange like logo
-            borderRadius: '2px',
+            backgroundColor: 'rgba(249, 115, 22, 0.7)', // More opaque orange
+            border: '2px solid #f97316', // Orange border
+            borderRadius: '3px',
             opacity: bookmarkHighlight.fading ? 0 : 1,
             transition: 'opacity 1s ease-out',
+            boxShadow: '0 0 10px rgba(249, 115, 22, 0.5)', // Glow effect
+            zIndex: 10000, // Force highest z-index
           }}
         />
       )}
-      
       {/* Text selection popover - only show after delay to preserve selection */}
       {showSelectionPopover && selectedText && selectedText.rect && (
         <div

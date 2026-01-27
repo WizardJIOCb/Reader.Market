@@ -570,17 +570,17 @@ export function CollectionDetailPage() {
                         </div>
                       )}
                       
-                      <div className="flex justify-between items-center text-xs text-muted-foreground mb-4">
+                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-4">
+                        {bookmark.percentage !== null && (
+                          <span>{Math.round(bookmark.percentage)}% {t('common:reader.progressBook')}</span>
+                        )}
                         <span>
                           {t('common:reader.progressChapter')}: {bookmark.chapterIndex !== null ? bookmark.chapterIndex + 1 : 'N/A'}
                         </span>
                         {bookmark.pageInChapter !== null && (
                           <span>
-                            {t('common:reader.page')}: {bookmark.pageInChapter + 1}
+                            {t('common:reader.progressPage')} {bookmark.pageInChapter + 1}
                           </span>
-                        )}
-                        {bookmark.percentage !== null && (
-                          <span>{Math.round(bookmark.percentage)}% {t('common:reader.progressBook')}</span>
                         )}
                         {bookmark.clickCount !== undefined && (
                           <span className="flex items-center gap-1">

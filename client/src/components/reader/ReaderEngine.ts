@@ -267,7 +267,7 @@ export class ReaderEngine {
           html += '<p>';
           el.childNodes.forEach(processNode);
           html += '</p>';
-          text += '\n';
+          text += '\n\n';  // Add double newline for paragraph separation
           break;
         case 'empty-line':
           html += '<br/>';
@@ -292,13 +292,13 @@ export class ReaderEngine {
           html += '<h3>';
           el.childNodes.forEach(processNode);
           html += '</h3>';
-          text += '\n';
+          text += '\n\n';
           break;
         case 'title':
           html += '<h2>';
           el.childNodes.forEach(processNode);
           html += '</h2>';
-          text += '\n';
+          text += '\n\n';
           break;
         case 'epigraph':
           html += '<blockquote class="epigraph">';

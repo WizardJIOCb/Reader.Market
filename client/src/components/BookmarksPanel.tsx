@@ -11,7 +11,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Bookmark } from '@/lib/mockData';
+import { Bookmark } from '@/components/reader/types';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -53,7 +53,7 @@ export function BookmarksPanel({
           <BookmarkIcon className="w-5 h-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[320px] sm:w-[400px]">
+      <SheetContent side="left" className="w-[400px] sm:w-[500px] lg:w-[600px]">
         <SheetHeader className="mb-6">
           <SheetTitle className="font-serif text-2xl">Закладки</SheetTitle>
         </SheetHeader>
@@ -106,7 +106,7 @@ export function BookmarksPanel({
                     onClick={() => onNavigate(bookmark.chapterId)}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-medium line-clamp-2 pr-6 group-hover:text-primary transition-colors">
+                      <h4 className="font-medium pr-6 group-hover:text-primary transition-colors line-clamp-2">
                         {bookmark.title}
                       </h4>
                       <Button

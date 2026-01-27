@@ -60,7 +60,7 @@ export interface ReaderCoreHandle {
   /** Navigate to chapter */
   goToChapter: (index: number) => void;
   /** Navigate to chapter and find page containing text */
-  goToChapterAndFindText: (chapterIndex: number, text: string) => Promise<boolean>;
+  goToChapterAndFindText: (chapterIndex: number, text: string, targetPage?: number) => Promise<boolean>;
   /** Navigate to chapter at specific character offset */
   goToChapterAtOffset: (chapterIndex: number, charOffset: number, textToHighlight: string) => Promise<boolean>;
   /** Get current position */
@@ -477,7 +477,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
 
     // Navigate to chapter and find page containing specific text
     const goToChapterAndFindText = useCallback(
-      async (chapterIndex: number, textToFind: string): Promise<boolean> => {
+      async (chapterIndex: number, textToFind: string, targetPage?: number): Promise<boolean> => {
         console.log('[TEXT-SEARCH] Starting search for:', textToFind);
         console.log('[TEXT-SEARCH] Chapter index:', chapterIndex);
         
@@ -515,31 +515,167 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
           return false;
         }
         
-        // Normalize search text - remove extra whitespace, take first 50 chars
-        const searchText = textToFind
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 50)
-          .toLowerCase();
+        // More sophisticated text normalization for better matching
+        // Preserve special characters but normalize whitespace
+        const normalizeText = (text: string) => {
+          return text
+            .replace(/[\s\u00A0]+/g, ' ')  // Normalize all whitespace including non-breaking spaces
+            .replace(/\.([А-ЯA-Z])/g, '. $1')  // Add space after periods followed by uppercase letters
+            .replace(/\?([А-ЯA-Z])/g, '? $1')  // Add space after question marks followed by uppercase letters
+            .replace(/\!([А-ЯA-Z])/g, '! $1')  // Add space after exclamation marks followed by uppercase letters
+            .trim()
+            .substring(0, 300);  // Increase character limit for better matching
+        };
         
+        const searchText = normalizeText(textToFind);
         console.log('[TEXT-SEARCH] Normalized search text:', JSON.stringify(searchText));
+        console.log('[TEXT-SEARCH] Search text length:', searchText.length);
         
+        // Try exact match first - check more thoroughly
+        let foundOnPage = -1;
         for (let i = 0; i < pages.length; i++) {
-          // Strip HTML and search in plain text
+          // Strip HTML and normalize text
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = pages[i];
-          const pageText = (tempDiv.textContent || '')
-            .replace(/\s+/g, ' ')
-            .toLowerCase();
+          const pageText = normalizeText(tempDiv.textContent || '');
           
-          console.log(`[TEXT-SEARCH] Page ${i} text sample:`, pageText.substring(0, 100));
+          // Log more detailed info for debugging
+          if (i < 5 || i === pages.length - 1 || i === (targetPage ?? 0)) {  // Log first 5, last page, and target page
+            console.log(`[TEXT-SEARCH] Page ${i} text sample:`, pageText.substring(0, 200));
+                    
+            // If this is the target page, log the full page content for debugging
+            if (i === (targetPage ?? 0)) {
+              console.log(`[TEXT-SEARCH] FULL TARGET PAGE ${i} CONTENT:`, pageText);
+            }
+          }
           
           if (pageText.includes(searchText)) {
-            console.log(`[TEXT-SEARCH] Found text on page ${i}`);
-            setCurrentPage(i);
+            console.log(`[TEXT-SEARCH] Found exact text match on page ${i}`);
+            foundOnPage = i;
+            break;
+          }
+          
+          // Also check if the search text appears in chunks
+          if (searchText.length > 20) {
+            const chunks = [
+              searchText.substring(0, Math.min(30, searchText.length)),
+              searchText.substring(Math.max(0, searchText.length - 30))
+            ];
+            
+            const chunkMatches = chunks.filter(chunk => 
+              pageText.includes(chunk)
+            ).length;
+            
+            if (chunkMatches >= 1) {  // At least one chunk found
+              console.log(`[TEXT-SEARCH] Found chunk match on page ${i} (${chunkMatches}/2 chunks)`);
+              foundOnPage = i;
+              break;
+            }
+          }
+        }
+        
+        if (foundOnPage !== -1) {
+          console.log(`[TEXT-SEARCH] Setting page to: ${foundOnPage}`);
+          setCurrentPage(foundOnPage);
+          return true;
+        }
+        
+        // If we have a target page, let's check it specifically
+        const targetPageIndex = targetPage ?? 0;
+        if (targetPageIndex >= 0 && targetPageIndex < pages.length) {
+          console.log(`[TEXT-SEARCH] Checking target page ${targetPageIndex} specifically`);
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = pages[targetPageIndex];
+          const targetPageText = normalizeText(tempDiv.textContent || '');
+          
+          console.log(`[TEXT-SEARCH] Target page ${targetPageIndex} full text:`, targetPageText);
+          
+          // Check for the exact text on target page
+          if (targetPageText.includes(searchText)) {
+            console.log(`[TEXT-SEARCH] Found exact text on target page ${targetPageIndex}`);
+            setCurrentPage(targetPageIndex);
+            return true;
+          }
+          
+          // Check for partial matches
+          const targetWords = searchText.split(' ').filter(word => word.length > 3);
+          const targetMatches = targetWords.filter(word => 
+            targetPageText.includes(word)
+          ).length;
+          
+          if (targetMatches >= Math.ceil(targetWords.length / 2)) {
+            console.log(`[TEXT-SEARCH] Found partial match on target page ${targetPageIndex} (${targetMatches}/${targetWords.length} words)`);
+            setCurrentPage(targetPageIndex);
             return true;
           }
         }
+        
+        // If exact match fails, try fuzzy matching (partial matches)
+        console.log('[TEXT-SEARCH] Exact match failed, trying fuzzy matching');
+        const searchWords = searchText.split(' ').filter(word => word.length > 2); // Words longer than 2 chars
+        
+        if (searchWords.length > 0) {
+          for (let i = 0; i < pages.length; i++) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = pages[i];
+            const pageText = normalizeText(tempDiv.textContent || '').toLowerCase();
+            const searchLower = searchText.toLowerCase();
+            
+            // Check if major parts of the text are present
+            const wordMatches = searchWords.filter(word => 
+              pageText.includes(word.toLowerCase())
+            ).length;
+            
+            // More lenient matching - accept if at least 2 significant words match
+            // or if a substantial portion of the text is found
+            const hasSubstantialMatch = wordMatches >= Math.max(2, Math.ceil(searchWords.length / 2)) || 
+                                      pageText.includes(searchLower.substring(0, Math.min(15, searchLower.length))) ||
+                                      pageText.includes(searchLower.substring(Math.max(0, searchLower.length - 15)));
+            
+            if (hasSubstantialMatch) {
+              console.log(`[TEXT-SEARCH] Found substantial match on page ${i} (${wordMatches}/${searchWords.length} words match)`);
+              setCurrentPage(i);
+              return true;
+            }
+          }
+        }
+        
+        // INTERMEDIATE FALLBACK: Use the regular search engine if fuzzy matching fails
+        console.log('[TEXT-SEARCH] Fuzzy matching failed, trying regular search engine');
+              
+        // Use the engine's built-in search functionality
+        const engineSearchResults = search(textToFind);
+        if (engineSearchResults && engineSearchResults.length > 0) {
+          // Take the first result's position, but verify it's in the correct chapter
+          const firstResult = engineSearchResults[0];
+          console.log(`[TEXT-SEARCH] Found text via regular search engine on page ${firstResult.position.pageInChapter}`);
+          console.log(`[TEXT-SEARCH] Result chapter: ${firstResult.position.chapterIndex}, Target chapter: ${chapterIndex}`);
+                
+          // Verify the result is in the correct chapter
+          if (firstResult.position.chapterIndex === chapterIndex) {
+            console.log('[TEXT-SEARCH] Chapter verified, using this position');
+            setCurrentPage(firstResult.position.pageInChapter);
+            return true;
+          } else {
+            console.log('[TEXT-SEARCH] Chapter mismatch, continuing to next page search');
+          }
+        }
+        
+        // FINAL FALLBACK: Use the regular search engine if all other methods fail
+        console.log('[TEXT-SEARCH] All matching failed, trying regular search engine as final fallback');
+        
+        // Use the engine's built-in search functionality
+        const finalSearchResults = search(textToFind);
+        if (finalSearchResults && finalSearchResults.length > 0) {
+          // Take the first result's position
+          const firstResult = finalSearchResults[0];
+          console.log(`[TEXT-SEARCH] Found text via regular search engine on page ${firstResult.position.pageInChapter}`);
+          setCurrentPage(firstResult.position.pageInChapter);
+          return true;
+        }
+        
+        // Show final failure message
+        console.log('[TEXT-SEARCH] Exhausted all search methods - text not found in chapter');
         
         // Text not found on any page, stay on first page
         console.log('[TEXT-SEARCH] Text not found on any page');
