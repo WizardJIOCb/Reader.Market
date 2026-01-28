@@ -609,34 +609,12 @@ export async function registerRoutes(
   
   // In-memory cache for GitHub commits
   const commitsCache = {
-    data: [
-      {
-        hash: "abcd1234567890abcdef1234567890abcdef12",
-        message: "Initial commit with basic structure",
-        author: "Rodion",
-        timestamp: "2026-01-28T10:00:00Z",
-        url: "https://github.com/WizardJIOCb/Reader.Market/commit/abcd1234567890abcdef1234567890abcdef12"
-      },
-      {
-        hash: "efgh567890abcdef567890abcdef567890ab",
-        message: "Add user authentication system",
-        author: "Rodion",
-        timestamp: "2026-01-28T11:30:00Z",
-        url: "https://github.com/WizardJIOCb/Reader.Market/commit/efgh567890abcdef567890abcdef567890ab"
-      },
-      {
-        hash: "ijkl90abcdef90abcdef90abcdef90abcdef",
-        message: "Implement book upload functionality",
-        author: "Rodion",
-        timestamp: "2026-01-28T14:15:00Z",
-        url: "https://github.com/WizardJIOCb/Reader.Market/commit/ijkl90abcdef90abcdef90abcdef90abcdef"
-      }
-    ] as any[],
-    timestamp: Date.now() - 60000, // 1 minute ago
+    data: [] as any[],
+    timestamp: 0,
     ttl: 5 * 60 * 1000 // 5 minutes cache TTL
   };
   
-  console.log(`Initialized cache with ${commitsCache.data.length} sample commits`);
+  console.log('Initialized empty commits cache');
   
   // put application routes here
   // prefix all routes with /api
