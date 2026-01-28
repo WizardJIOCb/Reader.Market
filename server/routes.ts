@@ -622,49 +622,324 @@ export async function registerRoutes(
     try {
       const currentTime = Math.floor(Date.now() / 1000);
       
-      // Use GitHub API instead of scraping HTML
-      const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits?per_page=50&_=${currentTime}`;
+      // Get parameters
+      const countParam = req.query.count;
+      const count = countParam !== undefined ? parseInt(countParam as string, 10) : undefined;
+      const template = req.query.template as string | undefined;
       
-      console.log(`Fetching GitHub commits from: ${apiUrl}`);
-      
-      // Fetch from GitHub API
-      const response = await fetch(apiUrl, {
-        headers: {
-          'User-Agent': 'reader.market-app/1.0',
-          'Accept': 'application/vnd.github.v3+json'
+      console.log(`Requested count: ${count}, template: ${template}`);
+            
+      const commits = [];
+      let page = 1;
+      const perPage = 100; // Maximum allowed by GitHub API
+      let hasNextPage = true;
+            
+      // Fetch commits until we have enough or reach the end
+      while (hasNextPage && (count === 0 || commits.length < (count || 100))) {
+        const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits?per_page=${perPage}&page=${page}&_=${currentTime}`;
+        console.log(`Fetching GitHub commits from: ${apiUrl}`);
+              
+        // Fetch from GitHub API
+        const response = await fetch(apiUrl, {
+          headers: {
+            'User-Agent': 'reader.market-app/1.0',
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+              
+        if (!response.ok) {
+          throw new Error(`GitHub API responded with status ${response.status}`);
         }
-      });
+              
+        const commitsData = await response.json();
+              
+        // Transform GitHub API response to our format
+        const pageCommits = commitsData.map((commit: any) => ({
+          hash: commit.sha,
+          message: commit.commit.message.split('\n')[0], // First line only
+          author: commit.commit.author.name,
+          timestamp: commit.commit.author.date,
+          url: commit.html_url
+        }));
+              
+        commits.push(...pageCommits);
+        console.log(`Page ${page}: fetched ${pageCommits.length} commits`);
+              
+        // Check if there are more pages
+        hasNextPage = pageCommits.length === perPage && (count === 0 || commits.length < (count || 100));
+        page++;
+      }
+            
+      // Apply count limit if specified
+      const finalCommits = count !== undefined && count > 0 ? commits.slice(0, count) : commits;
+            
+      console.log(`Total commits fetched: ${finalCommits.length}`);
       
-      if (!response.ok) {
-        throw new Error(`GitHub API responded with status ${response.status}`);
+      // If template is specified, return HTML instead of JSON
+      console.log(`Template requested: ${template}`);
+      if (template === 'cool') {
+        const htmlResponse = `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git History - Reader.Market</title>
+    <style>
+        :root {
+            /* Reader.Market light theme colors */
+            --background: #f5f0e6; /* 35 30% 96% - soft cream paper */
+            --foreground: #262626; /* 220 10% 15% - dark charcoal ink */
+            --primary: #3a5a7a;    /* 230 45% 35% - academic blue */
+            --secondary: #e6d9c2;  /* 35 20% 90% - darker paper for secondary */
+            --accent: #c47a40;     /* 25 60% 50% - subtle orange/sepia highlight */
+            --muted: #d9cab3;      /* 35 15% 85% - muted background */
+            --border: #d9cab3;     /* 35 15% 85% - border color */
+            --button: #3a5a7a;     /* Primary blue for buttons */
+            --card: #faf5eb;       /* Light card background */
+            --card-hover: #f0e6d2; /* Slightly darker on hover */
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: var(--primary);
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+        
+        .header p {
+            color: var(--foreground);
+            margin: 0 0 20px 0;
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-box {
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            color: var(--foreground);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .commits-grid {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .commit-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .commit-card:hover {
+            background: var(--card-hover);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+        
+        .commit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .commit-hash {
+            font-family: 'Monaco', 'Consolas', monospace;
+            background: var(--primary);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .commit-date {
+            color: var(--foreground);
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+        
+        .commit-message {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--foreground);
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .commit-author {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .author-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        
+        .author-name {
+            font-weight: 500;
+            color: var(--foreground);
+            opacity: 0.8;
+        }
+        
+        .commit-link {
+            display: inline-block;
+            background: var(--button);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-top: 12px;
+        }
+        
+        .commit-link:hover {
+            background: #2c4a6a;
+            transform: translateY(-1px);
+        }
+        
+        .footer {
+            text-align: center;
+            color: var(--foreground);
+            margin-top: 40px;
+            padding: 20px;
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border);
+            opacity: 0.7;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .stats {
+                gap: 12px;
+            }
+            
+            .commit-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .commit-card {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Reader.Market Commits</h1>
+            <p>Полная история изменений проекта</p>
+            <div class="stats">
+                <div class="stat-box">Всего коммитов: ${finalCommits.length}</div>
+                <div class="stat-box">Репозиторий: WizardJIOCb/Reader.Market</div>
+                <div class="stat-box">Обновлено: ${new Date().toLocaleString('ru-RU')}</div>
+            </div>
+        </div>
+        
+        <div class="commits-grid">
+            ${finalCommits.map((commit: any) => `
+                <div class="commit-card">
+                    <div class="commit-header">
+                        <div class="commit-hash">${commit.hash.substring(0, 7)}</div>
+                        <div class="commit-date">${new Date(commit.timestamp).toLocaleString('ru-RU')}</div>
+                    </div>
+                    
+                    <div class="commit-message">${commit.message}</div>
+                    
+                    <div class="commit-author">
+                        <div class="author-avatar">${commit.author.charAt(0)}</div>
+                        <div class="author-name">${commit.author}</div>
+                    </div>
+                    
+                    <a href="${commit.url}" target="_blank" class="commit-link">
+                        📄 Посмотреть на GitHub
+                    </a>
+                </div>
+            `).join('')}
+        </div>
+        
+        <div class="footer">
+            Generated by git-to-gpt endpoint • ${new Date().toISOString()}
+        </div>
+    </div>
+</body>
+</html>`;
+        
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(htmlResponse);
       }
       
-      const commitsData = await response.json();
-      
-      // Debug: log the first commit to see structure
-      console.log('First commit data:', JSON.stringify(commitsData[0], null, 2));
-      
-      // Transform GitHub API response to our format
-      const commits = commitsData.map((commit: any) => ({
-        hash: commit.sha,
-        message: commit.commit.message.split('\n')[0], // First line only
-        author: commit.commit.author.name,
-        timestamp: commit.commit.author.date,
-        url: commit.html_url
-      }));
-      
-
-      
-      console.log(`Found ${commits.length} commits`);
-      
+      // Default JSON response
       res.json({
         success: true,
         repository: 'WizardJIOCb/Reader.Market',
         url: `https://github.com/WizardJIOCb/Reader.Market/commits/main?cache=${currentTime}`,
-        api_url: apiUrl,
+        api_url: `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits`,
         timestamp: new Date().toISOString(),
         cache_buster: currentTime,
-        commits: commits.slice(0, 50) // Limit to 50 most recent commits
+        requested_count: count,
+        total_fetched: finalCommits.length,
+        commits: finalCommits
       });
       
     } catch (error) {
