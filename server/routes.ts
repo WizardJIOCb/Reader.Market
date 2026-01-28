@@ -616,6 +616,67 @@ export async function registerRoutes(
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
   
+  // Git commit history endpoint - no authentication required
+  app.get("/git-to-gpt", async (req, res) => {
+    console.log("Git commit history endpoint called");
+    try {
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      // Use GitHub API instead of scraping HTML
+      const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits?per_page=50&_=${currentTime}`;
+      
+      console.log(`Fetching GitHub commits from: ${apiUrl}`);
+      
+      // Fetch from GitHub API
+      const response = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'reader.market-app/1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`GitHub API responded with status ${response.status}`);
+      }
+      
+      const commitsData = await response.json();
+      
+      // Debug: log the first commit to see structure
+      console.log('First commit data:', JSON.stringify(commitsData[0], null, 2));
+      
+      // Transform GitHub API response to our format
+      const commits = commitsData.map((commit: any) => ({
+        hash: commit.sha,
+        message: commit.commit.message.split('\n')[0], // First line only
+        author: commit.commit.author.name,
+        timestamp: commit.commit.author.date,
+        url: commit.html_url
+      }));
+      
+
+      
+      console.log(`Found ${commits.length} commits`);
+      
+      res.json({
+        success: true,
+        repository: 'WizardJIOCb/Reader.Market',
+        url: `https://github.com/WizardJIOCb/Reader.Market/commits/main?cache=${currentTime}`,
+        api_url: apiUrl,
+        timestamp: new Date().toISOString(),
+        cache_buster: currentTime,
+        commits: commits.slice(0, 50) // Limit to 50 most recent commits
+      });
+      
+    } catch (error) {
+      console.error('Error fetching git history:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch commit history',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  
   // Navigation tracking endpoints (lightweight, just for logging)
   app.get("/api/page-view/home", authenticateToken, logUserAction, (req, res) => {
     res.json({ page: "home" });
