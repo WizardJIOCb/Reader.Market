@@ -24,7 +24,7 @@ import { bookmarkCollectionsApi } from '@/lib/api';
 import { CreateCollectionModal } from '@/components/CreateCollectionModal';
 import { BookmarkCollection } from '@/types/bookmarkCollections';
 import { useBookSplash } from '@/lib/bookSplashContext';
-import { getSocket, joinBookChat, leaveBookChat, sendBookChatMessage, startBookChatTyping, stopBookChatTyping, deleteBookChatMessage, onSocketEvent } from '@/lib/socket';
+import { getSocket, joinBookChat, leaveBookChat, sendBookChatMessage, startBookChatTyping, stopBookChatTyping, deleteBookChatMessage, onSocketEvent, sendReadingPosition } from '@/lib/socket';
 import { Bookmark, Plus, Trash2, Brain, MessageCircle, Users, X, List, Search, Settings, Pencil, Send, Paperclip, Reply, ExternalLink, ChevronLeft, ChevronRight, Volume2, Mic, ArrowLeft, User, AlertTriangle } from 'lucide-react';
 
 // Reader Components
@@ -666,6 +666,33 @@ export default function Reader() {
     loadChatMessages();
     loadOnlineUsers();
   }, [bookId, activePanel]);
+  
+  // NEW: Send reading position updates via WebSocket
+  useEffect(() => {
+    if (!bookId || !user || activePanel !== 'chat') return;
+    
+    // Send current position when page changes
+    const sendPosition = () => {
+      if (currentChapter && currentPage !== null) {
+        sendReadingPosition(
+          bookId, 
+          currentChapter.index, 
+          currentPage, 
+          totalPages
+        );
+      }
+    };
+    
+    // Send immediately when entering chat
+    sendPosition();
+    
+    // Also send when page changes
+    const interval = setInterval(sendPosition, 5000); // Send every 5 seconds
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [bookId, user?.id, activePanel, currentChapter?.index, currentPage]);
   
   // Load reading progress and settings on mount (for authenticated users)
   useEffect(() => {
@@ -2933,7 +2960,15 @@ export default function Reader() {
                                     >
                                       {onlineUser.username}
                                     </button>
-                                    <p className="text-xs text-muted-foreground">{t('bookChat.readingBook')}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {t('bookChat.readingBook')}
+                                      {onlineUser.readingPosition && (
+                                        <span className="ml-1">
+                                          • Глава {onlineUser.readingPosition.chapterIndex + 1}, 
+                                          стр. {onlineUser.readingPosition.pageInChapter + 1}/{onlineUser.readingPosition.totalPagesInChapter}
+                                        </span>
+                                      )}
+                                    </p>
                                   </div>
                                   <a
                                     href={`/profile/${onlineUser.username || onlineUser.id}`}

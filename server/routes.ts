@@ -555,6 +555,29 @@ export async function registerRoutes(
         socket.emit('book-chat:error', { error: 'Failed to delete message' });
       }
     });
+    
+    // NEW: Handle reading position updates
+    socket.on('book-chat:reading-position', (data: { 
+      bookId: string; 
+      chapterIndex: number; 
+      pageInChapter: number;
+      totalPagesInChapter: number;
+    }) => {
+      if (!isAuthenticated) return;
+      
+      const roomName = `book-chat:${data.bookId}`;
+      
+      // Broadcast position update to all users in the room except sender
+      socket.to(roomName).emit('book-chat:reading-position', {
+        userId,
+        bookId: data.bookId,
+        chapterIndex: data.chapterIndex,
+        pageInChapter: data.pageInChapter,
+        totalPagesInChapter: data.totalPagesInChapter,
+      });
+      
+      console.log(`[WEBSOCKET] Reading position updated for user ${userId} in ${roomName}: Chapter ${data.chapterIndex}, Page ${data.pageInChapter}/${data.totalPagesInChapter}`);
+    });
     // Handle disconnection
     socket.on('disconnect', () => {
       console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} disconnected from WebSocket`);

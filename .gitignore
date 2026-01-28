@@ -9,3 +9,9 @@ certs/
 .env
 .env.prod
 .env.*
+
+# Database backups
+backups/*.sql
+
+# Log files
+logs/aggregated-logs.json

@@ -33,6 +33,13 @@ export interface SocketEvents {
   'book-chat:user-typing': (data: { userId: string; bookId: string; typing: boolean }) => void;
   'book-chat:message-deleted': (data: { messageId: string }) => void;
   'book-chat:error': (data: { error: string }) => void;
+  'book-chat:reading-position': (data: { 
+    userId: string; 
+    bookId: string; 
+    chapterIndex: number; 
+    pageInChapter: number;
+    totalPagesInChapter: number;
+  }) => void;
 }
 
 export function initializeSocket(token?: string): Socket {
@@ -179,6 +186,12 @@ export function deleteBookChatMessage(bookId: string, messageId: string): void {
     socket.emit('book-chat:delete-message', { bookId, messageId });
   } else {
     console.error('[SOCKET] Cannot delete message - socket not connected');
+  }
+}
+
+export function sendReadingPosition(bookId: string, chapterIndex: number, pageInChapter: number, totalPagesInChapter: number): void {
+  if (socket?.connected) {
+    socket.emit('book-chat:reading-position', { bookId, chapterIndex, pageInChapter, totalPagesInChapter });
   }
 }
 
