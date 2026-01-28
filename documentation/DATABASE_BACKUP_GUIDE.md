@@ -52,7 +52,12 @@ powershell -ExecutionPolicy Bypass -File "C:\Projects\reader.market\scripts\back
 .\scripts\restore-database.ps1
 ```
 
-This will show a list of available backups and prompt you to select one.
+⚠️ **SECURITY WARNING**: This will show a list of available backups and require **three separate confirmations** before proceeding:
+1. Type `RESTORE_DATABASE_NOW`
+2. Type `I_UNDERSTAND_THE_RISK`
+3. Type `PROCEED`
+
+See [Restore Security Guide](RESTORE_SECURITY_GUIDE.md) for details.
 
 ### Cleanup Old Backups
 

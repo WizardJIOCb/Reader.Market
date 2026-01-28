@@ -82,19 +82,49 @@ if [[ ! -f "$BACKUP_PATH" ]]; then
     exit 1
 fi
 
-# Confirmation
+# Confirmation with multiple security checks
 echo ""
-echo "⚠️  WARNING: This will restore the database from backup!"
-echo "All current data will be lost!"
+echo "⚠️  ⚠️  ⚠️  DATABASE RESTORE WARNING ⚠️  ⚠️  ⚠️"
+echo "==================================================="
+echo "THIS WILL COMPLETELY OVERWRITE YOUR CURRENT DATABASE!"
+echo "ALL CURRENT DATA WILL BE PERMANENTLY LOST!"
+echo "==================================================="
 echo ""
-echo "Backup file: $BACKUP_FILE"
-echo "Database: $DB_NAME"
+echo "Backup file to restore: $BACKUP_FILE"
+echo "Target database: $DB_NAME"
+echo "Backup size: $(stat -c%s "$BACKUP_PATH" | awk '{printf "%.2f", $1/1024/1024}') MB"
+echo "Backup date: $(stat -c '%y' "$BACKUP_PATH" | cut -d'.' -f1)"
+echo ""
+echo "Security Verification Required:"
+echo "1. Type exactly: RESTORE_DATABASE_NOW"
+echo "2. Then type your confirmation phrase: I_UNDERSTAND_THE_RISK"
 echo ""
 
-read -p "Type 'CONFIRM' to proceed with restoration: " CONFIRMATION
+# First confirmation
+read -p "Step 1 - Type 'RESTORE_DATABASE_NOW': " CONFIRMATION1
 
-if [[ "$CONFIRMATION" != "CONFIRM" ]]; then
-    echo "Restore cancelled."
+if [[ "$CONFIRMATION1" != "RESTORE_DATABASE_NOW" ]]; then
+    echo "Restore cancelled - incorrect first confirmation."
+    exit 0
+fi
+
+# Second confirmation
+read -p "Step 2 - Type 'I_UNDERSTAND_THE_RISK': " CONFIRMATION2
+
+if [[ "$CONFIRMATION2" != "I_UNDERSTAND_THE_RISK" ]]; then
+    echo "Restore cancelled - incorrect second confirmation."
+    exit 0
+fi
+
+echo ""
+echo "⚠️  FINAL WARNING: This operation cannot be undone!"
+echo ""
+
+# Final confirmation
+read -p "Type 'PROCEED' to execute database restore NOW: " FINAL_CONFIRMATION
+
+if [[ "$FINAL_CONFIRMATION" != "PROCEED" ]]; then
+    echo "Restore cancelled - final confirmation not given."
     exit 0
 fi
 

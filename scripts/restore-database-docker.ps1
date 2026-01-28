@@ -98,18 +98,46 @@ if (!(Test-Path $BackupPath)) {
     exit 1
 }
 
-# Confirmation
+# Confirmation with multiple security checks
 Write-Host ""
-Write-Host "⚠️  WARNING: This will restore the database from backup!" -ForegroundColor Red
-Write-Host "All current data will be lost!" -ForegroundColor Red
+Write-Host "⚠️  ⚠️  ⚠️  DATABASE RESTORE WARNING ⚠️  ⚠️  ⚠️" -ForegroundColor Red
+Write-Host "===================================================" -ForegroundColor Red
+Write-Host "THIS WILL COMPLETELY OVERWRITE YOUR CURRENT DATABASE!" -ForegroundColor Red
+Write-Host "ALL CURRENT DATA WILL BE PERMANENTLY LOST!" -ForegroundColor Red
+Write-Host "===================================================" -ForegroundColor Red
 Write-Host ""
-Write-Host "Backup file: $BackupFile" -ForegroundColor Yellow
-Write-Host "Database: $DB_NAME" -ForegroundColor Yellow
+Write-Host "Backup file to restore: $BackupFile" -ForegroundColor Yellow
+Write-Host "Target database: $DB_NAME" -ForegroundColor Yellow
+Write-Host "Backup size: $([math]::Round((Get-Item $BackupPath).Length / 1MB, 2)) MB" -ForegroundColor Yellow
+Write-Host "Backup date: $((Get-Item $BackupPath).CreationTime)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Security Verification Required:" -ForegroundColor Cyan
+Write-Host "1. Type exactly: RESTORE_DATABASE_NOW" -ForegroundColor Gray
+Write-Host "2. Then type your confirmation phrase: I_UNDERSTAND_THE_RISK" -ForegroundColor Gray
 Write-Host ""
 
-$confirmation = Read-Host "Type 'CONFIRM' to proceed with restoration"
-if ($confirmation -ne "CONFIRM") {
-    Write-Host "Restore cancelled." -ForegroundColor Yellow
+# First confirmation
+$confirmation1 = Read-Host "Step 1 - Type 'RESTORE_DATABASE_NOW'"
+if ($confirmation1 -ne "RESTORE_DATABASE_NOW") {
+    Write-Host "Restore cancelled - incorrect first confirmation." -ForegroundColor Yellow
+    exit 0
+}
+
+# Second confirmation
+$confirmation2 = Read-Host "Step 2 - Type 'I_UNDERSTAND_THE_RISK'"
+if ($confirmation2 -ne "I_UNDERSTAND_THE_RISK") {
+    Write-Host "Restore cancelled - incorrect second confirmation." -ForegroundColor Yellow
+    exit 0
+}
+
+Write-Host ""
+Write-Host "⚠️  FINAL WARNING: This operation cannot be undone!" -ForegroundColor Red
+Write-Host ""
+
+# Final confirmation
+$finalConfirmation = Read-Host "Type 'PROCEED' to execute database restore NOW"
+if ($finalConfirmation -ne "PROCEED") {
+    Write-Host "Restore cancelled - final confirmation not given." -ForegroundColor Yellow
     exit 0
 }
 
