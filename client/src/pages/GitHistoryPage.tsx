@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { useAuth } from '@/lib/auth';
 
 interface Commit {
   hash: string;
@@ -27,6 +28,7 @@ interface Commit {
 export default function GitHistoryPage() {
   const [location, setLocation] = useLocation();
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const [commits, setCommits] = useState<Commit[]>([]);
   const [activityData, setActivityData] = useState<ActivityData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,12 +246,14 @@ export default function GitHistoryPage() {
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{pageTitle}</h1>
           <p className="text-gray-600 mb-4">{pageSubtitle}</p>
-          <button 
-            onClick={() => window.location.href = '/git-to-gpt?template=cool&count=150&cache=false'}
-            className="px-4 py-2 bg-[#7a9a4a] text-white rounded-md hover:bg-[#6a8a3a] transition-colors text-sm"
-          >
-            {refreshButtonLabel}
-          </button>
+          {(user?.accessLevel === 'admin' || user?.accessLevel === 'moder') && (
+            <button 
+              onClick={() => window.location.href = '/git-to-gpt?template=cool&count=150&cache=false'}
+              className="px-4 py-2 bg-[#7a9a4a] text-white rounded-md hover:bg-[#6a8a3a] transition-colors text-sm"
+            >
+              {refreshButtonLabel}
+            </button>
+          )}
           {isFreshData && lastUpdated && (
             <p className="text-xs text-gray-500 mt-2">
               {i18n.language === 'ru' ? 'Данные обновлены:' : 'Data updated:'} {lastUpdated}
@@ -366,21 +370,21 @@ export default function GitHistoryPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-700">{commits.length}</div>
-            <div className="text-blue-600 text-sm">{statsTotal}</div>
+          <div className="bg-blue-50/50 border border-orange-400 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{commits.length}</div>
+            <div className="text-blue-500 text-sm">{statsTotal}</div>
           </div>
-          <div className="bg-green-50 border border-green-300 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-green-700">
+          <div className="bg-green-50/50 border border-orange-400 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">
               {commits.length > 0 ? new Date(commits[0].timestamp.split(', ')[0].split('.').reverse().join('-')).toLocaleDateString(i18n.language) : '—'}
             </div>
-            <div className="text-green-600 text-sm">{statsLast}</div>
+            <div className="text-green-500 text-sm">{statsLast}</div>
           </div>
-          <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-purple-700">
+          <div className="bg-purple-50/50 border border-orange-400 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">
               {activityData.filter(d => d.count > 0).length}
             </div>
-            <div className="text-purple-600 text-sm">{statsDays}</div>
+            <div className="text-purple-500 text-sm">{statsDays}</div>
           </div>
         </div>
 
@@ -393,18 +397,18 @@ export default function GitHistoryPage() {
         ) : (
           <div className="grid gap-4">
             {commits.map((commit, index) => (
-              <div key={index} className="bg-[#faf5eb] border border-orange-400 rounded-lg p-6 hover:shadow-md transition-shadow" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+              <div key={index} className="bg-[#faf5eb] border border-orange-300 rounded-lg p-4 hover:shadow-md transition-shadow w-full max-w-full overflow-hidden" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                         {commit.hash.substring(0, 7)}
                       </span>
-                      <span className="text-sm text-gray-500">{commit.author}</span>
+                      <span className="text-sm text-gray-500 truncate">{commit.author}</span>
                     </div>
-                    <h3 className="font-medium text-gray-900">{commit.message}</h3>
+                    <h3 className="font-medium text-gray-900 break-words">{commit.message}</h3>
                   </div>
-                  <span className="text-sm text-gray-500 whitespace-nowrap">
+                  <span className="text-sm text-gray-500 whitespace-nowrap flex-shrink-0">
                     {commit.timestamp}
                   </span>
                 </div>
