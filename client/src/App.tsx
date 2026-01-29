@@ -36,6 +36,7 @@ import { BookmarkCollectionsPage } from "@/pages/BookmarkCollectionsPage";
 import { CreateCollectionPage } from "@/pages/CreateCollectionPage";
 import { CollectionDetailPage } from "@/pages/CollectionDetailPage";
 import { EditCollectionPage } from "@/pages/EditCollectionPage";
+import GitHistoryPage from "@/pages/GitHistoryPage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/admin/users" component={UserManagement} />
       <Route path="/admin/rating-system" component={RatingSystemSettings} />
       <Route path="/admin/user-rating-system" component={UserRatingSystemSettings} />
+      <Route path="/git-to-gpt" component={GitHistoryPage} />
       <Route component={NotFound} />
     </Switch>
   );

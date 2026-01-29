@@ -614,6 +614,13 @@ export async function registerRoutes(
     ttl: 5 * 60 * 1000 // 5 minutes cache TTL
   };
   
+  // Cache for API git history endpoint
+  const apiGitCache = {
+    data: '' as string,
+    timestamp: 0,
+    ttl: 5 * 60 * 1000 // 5 minutes cache TTL
+  };
+  
   console.log('Initialized empty commits cache');
   
   // put application routes here
@@ -627,7 +634,16 @@ export async function registerRoutes(
   
   // Git commit history endpoint - no authentication required
   app.get("/git-to-gpt", async (req, res) => {
-    console.log("Git commit history endpoint called");
+    console.log("=== GIT-TO-GPT ENDPOINT CALLED ===");
+    console.log("Request URL:", req.url);
+    console.log("Request query:", req.query);
+    console.log("Template param:", req.query.template);
+    console.log("Count param:", req.query.count);
+    console.log("=== GIT-TO-GPT ENDPOINT CALLED ===");
+    console.log("Request URL:", req.url);
+    console.log("Request query:", req.query);
+    console.log("Template param:", req.query.template);
+    console.log("Count param:", req.query.count);
     try {
       const currentTime = Math.floor(Date.now() / 1000);
       
@@ -1043,6 +1059,93 @@ export async function registerRoutes(
       // If template is specified, return HTML instead of JSON
       console.log(`Template requested: ${template}`);
       if (template === 'cool') {
+        // Generate commit activity data for the graph
+        const commitDates = finalCommits.map(commit => new Date(commit.timestamp).toISOString().split('T')[0]);
+        const activityMap = new Map<string, number>();
+        
+        // Count commits per day
+        commitDates.forEach(date => {
+            activityMap.set(date, (activityMap.get(date) || 0) + 1);
+        });
+        
+        // Generate last 365 days
+        const dates = [];
+        const today = new Date();
+        for (let i = 364; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            dates.push({
+                date: dateStr,
+                count: activityMap.get(dateStr) || 0,
+                weekday: date.getDay()
+            });
+        }
+        
+        // Generate activity graph HTML
+        let activityGraph = '<div class="activity-graph">';
+        activityGraph += '<div class="graph-header"><h3>Активность коммитов за год</h3></div>';
+        activityGraph += '<div class="graph-container">';
+        
+        // Weekday labels
+        activityGraph += '<div class="weekday-labels">';
+        activityGraph += '<div></div>'; // Empty corner
+        ['Пн', 'Ср', 'Пт'].forEach(day => {
+            activityGraph += `<div class="weekday-label">${day}</div>`;
+        });
+        activityGraph += '</div>';
+        
+        // Month labels
+        activityGraph += '<div class="month-labels">';
+        const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+        let currentMonth = -1;
+        dates.forEach((day, index) => {
+            const date = new Date(day.date);
+            const month = date.getMonth();
+            if (month !== currentMonth && index % 7 === 0) {
+                activityGraph += `<div class="month-label">${months[month]}</div>`;
+                currentMonth = month;
+            } else if (index % 7 === 0) {
+                activityGraph += '<div class="month-label"></div>';
+            }
+        });
+        activityGraph += '</div>';
+        
+        // Activity squares
+        activityGraph += '<div class="activity-grid">';
+        dates.forEach(day => {
+            const intensity = day.count === 0 ? 0 : 
+                             day.count === 1 ? 1 : 
+                             day.count <= 3 ? 2 : 
+                             day.count <= 6 ? 3 : 4;
+            
+            const intensityColors = [
+                '#ebedf0', // No activity
+                '#9be9a8', // Low
+                '#40c463', // Medium
+                '#30a14e', // High
+                '#216e39'  // Very high
+            ];
+            
+            activityGraph += `<div class="activity-cell" 
+                               style="background-color: ${intensityColors[intensity]};"
+                               title="${day.date}: ${day.count} коммитов"></div>`;
+        });
+        activityGraph += '</div>';
+        
+        // Legend
+        activityGraph += '<div class="graph-legend">';
+        activityGraph += '<span>Меньше</span>';
+        activityGraph += '<div class="legend-colors">';
+        ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'].forEach(color => {
+            activityGraph += `<div class="legend-cell" style="background-color: ${color}"></div>`;
+        });
+        activityGraph += '</div>';
+        activityGraph += '<span>Больше</span>';
+        activityGraph += '</div>';
+        
+        activityGraph += '</div></div>';
+        
         const htmlResponse = `
 <!DOCTYPE html>
 <html lang="ru">
@@ -1229,6 +1332,97 @@ export async function registerRoutes(
             opacity: 0.7;
         }
         
+        /* Activity Graph Styles */
+        .activity-graph {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .graph-header {
+            text-align: center;
+        }
+        
+        .graph-header h3 {
+            margin: 0 0 20px 0;
+            color: var(--primary);
+            font-size: 1.4rem;
+            display: inline-block;
+        }
+        
+        .graph-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .weekday-labels, .month-labels {
+            display: flex;
+            gap: 3px;
+            width: 100%;
+        }
+        
+        .weekday-label, .month-label {
+            width: 12px;
+            height: 16px;
+            font-size: 0.7rem;
+            color: var(--foreground);
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .activity-grid {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .activity-cell {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: transform 0.1s ease;
+        }
+        
+        .activity-cell:hover {
+            transform: scale(1.2);
+            border: 1px solid var(--primary);
+            z-index: 10;
+            position: relative;
+        }
+        
+        .graph-legend {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: var(--foreground);
+            opacity: 0.8;
+        }
+        
+        .legend-colors {
+            display: flex;
+            gap: 3px;
+        }
+        
+        .legend-cell {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 1.8rem;
@@ -1260,6 +1454,8 @@ export async function registerRoutes(
                 <div class="stat-box">Обновлено: ${new Date().toLocaleString('ru-RU')}</div>
             </div>
         </div>
+        
+        ${activityGraph}
         
         <div class="commits-grid">
             ${finalCommits.map((commit: any) => `
@@ -1309,6 +1505,51 @@ export async function registerRoutes(
       
     } catch (error) {
       console.error('Error fetching git history:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch commit history',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  
+  // API endpoint for React frontend to fetch git history
+  app.get("/api/git-history", async (req, res) => {
+    console.log("API Git history endpoint called");
+    try {
+      const count = req.query.count ? parseInt(req.query.count as string, 10) : 50;
+      const template = req.query.template as string || 'cool';
+      const skipCache = req.query.cache === 'false';
+      
+      // Check cache first (unless cache=false is specified)
+      const now = Date.now();
+      if (!skipCache && apiGitCache.data && (now - apiGitCache.timestamp) < apiGitCache.ttl) {
+        console.log(`Using cached API git history. Cache age: ${Math.floor((now - apiGitCache.timestamp) / 1000)} seconds`);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(apiGitCache.data);
+      }
+      
+      if (skipCache) {
+        console.log('Cache bypass requested, fetching fresh data from GitHub');
+      }
+      
+      // Forward to the main git-to-gpt endpoint
+      const response = await fetch(`http://localhost:5001/git-to-gpt?template=${template}&count=${count}`);
+      const html = await response.text();
+      
+      // Cache the result (unless cache=false)
+      if (!skipCache) {
+        apiGitCache.data = html;
+        apiGitCache.timestamp = now;
+        console.log('Cached API git history response');
+      } else {
+        console.log('Skipped caching due to cache=false parameter');
+      }
+      
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (error) {
+      console.error('Error in API git history endpoint:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch commit history',
