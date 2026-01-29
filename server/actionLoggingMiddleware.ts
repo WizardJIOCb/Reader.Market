@@ -7,6 +7,10 @@ import { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
 
 // Feature flag for action tracking
+// In-memory cache to prevent duplicate events
+const recentActionsCache = new Map<string, number>(); // key: userId:actionType:targetId, value: timestamp
+const CACHE_DURATION = 5000; // 5 seconds
+
 const ENABLE_LAST_ACTIONS_TRACKING = process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true';
 console.log('[Action Logging] Feature enabled:', ENABLE_LAST_ACTIONS_TRACKING, '(env value:', process.env.ENABLE_LAST_ACTIONS_TRACKING, ')');
 
@@ -20,8 +24,10 @@ const ROUTE_PATTERNS: { pattern: RegExp; actionType: string; targetType?: string
   { pattern: /^\/api\/page-view\/about$/, actionType: 'navigate_about' },
   { pattern: /^\/api\/page-view\/users$/, actionType: 'navigate_users' },
   { pattern: /^\/api\/page-view\/collections$/, actionType: 'navigate_collections' },
+  { pattern: /^\/api\/page-view\/collection\/([\w-]+)$/, actionType: 'navigate_collection', targetType: 'collection' },
   { pattern: /^\/api\/page-view\/git-to-gpt$/, actionType: 'navigate_git_to_gpt' },
-  { pattern: /^\/api\/collections\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_collection', targetType: 'collection' },
+  // Note: /api/collections/([a-zA-Z0-9-]+) is NOT included here because it's the data API endpoint,
+  // not a page view tracking endpoint. Including it would cause duplicate events.
   { pattern: /^\/api\/profile\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_profile', targetType: 'user' },
   { pattern: /^\/api\/news\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_news', targetType: 'news' },
   { pattern: /^\/api\/books\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_book', targetType: 'book' },
@@ -46,11 +52,22 @@ export async function logActionAsync(actionData: any, io?: any): Promise<void> {
     
     // Fetch additional metadata if needed
     if (actionData.metadata?.needsCollectionName && actionData.targetId) {
+      console.log('[Action Logging] Attempting to fetch collection info for ID:', actionData.targetId);
       try {
         const collection = await storage.getBookmarkCollection(actionData.targetId, actionData.userId);
+        console.log('[Action Logging] Collection fetch result:', collection ? 'SUCCESS' : 'NOT FOUND');
         if (collection) {
           actionData.metadata.collectionName = collection.name;
           actionData.metadata.collectionOwner = collection.ownerUsername;
+          actionData.metadata.collectionOwnerUsername = collection.ownerUsername;
+          actionData.metadata.collectionOwnerId = collection.ownerId;
+          console.log('[Action Logging] Set collection metadata:', {
+            name: collection.name,
+            owner: collection.ownerUsername,
+            ownerId: collection.ownerId
+          });
+        } else {
+          console.log('[Action Logging] Collection not found for ID:', actionData.targetId);
         }
       } catch (error) {
         console.error('[Action Logging] Failed to fetch collection info:', error);
@@ -146,6 +163,14 @@ export async function logActionAsync(actionData: any, io?: any): Promise<void> {
               console.log('[Action Logging] User target:', targetUser.username);
             }
             break;
+          case 'collection':
+            // For collection views, the targetId is the collection ID
+            targetData = {
+              type: 'collection',
+              id: actionData.targetId
+            };
+            console.log('[Action Logging] Collection target:', actionData.targetId);
+            break;
         }
       }
       
@@ -193,6 +218,11 @@ export async function logActionAsync(actionData: any, io?: any): Promise<void> {
  * Should be applied after authentication middleware
  */
 export function logUserAction(req: Request, res: Response, next: NextFunction): void {
+  console.log('[Action Logging] ===== NEW REQUEST =====');
+  console.log('[Action Logging] Middleware called for path:', req.path, 'method:', req.method);
+  console.log('[Action Logging] Request ID:', req.headers['x-request-id'] || 'no-id');
+  console.log('[Action Logging] Timestamp:', new Date().toISOString());
+  
   // Skip if feature is disabled
   if (!ENABLE_LAST_ACTIONS_TRACKING) {
     console.log('[Action Logging] Feature disabled');
@@ -229,9 +259,14 @@ export function logUserAction(req: Request, res: Response, next: NextFunction): 
   for (const { pattern, actionType, targetType } of ROUTE_PATTERNS) {
     if (pattern.test(path)) {
       console.log('[Action Logging] Pattern matched:', actionType, 'for path:', path);
+      console.log('[Action Logging] Pattern regex:', pattern);
+      console.log('[Action Logging] Request headers:', req.headers);
+      console.log('[Action Logging] Request user:', user?.username, user?.userId);
+      
       // Extract target ID if applicable
       const targetId = targetType ? extractTargetId(path, pattern) : null;
       console.log('[Action Logging] Target ID:', targetId);
+      console.log('[Action Logging] Path match result:', path.match(pattern));
 
       // Build action data
       const actionData: any = {
@@ -241,6 +276,32 @@ export function logUserAction(req: Request, res: Response, next: NextFunction): 
         targetId,
         metadata: {}
       };
+
+      // Check for recent duplicate actions
+      const cacheKey = `${user.userId}:${actionType}:${targetId || 'no-target'}`;
+      const now = Date.now();
+      const lastActionTime = recentActionsCache.get(cacheKey);
+      
+      if (lastActionTime && (now - lastActionTime) < CACHE_DURATION) {
+        console.log('[Action Logging] Skipping duplicate action (cached):', cacheKey);
+        next();
+        return;
+      }
+      
+      // Update cache
+      recentActionsCache.set(cacheKey, now);
+      
+      // Clean up old cache entries periodically
+      if (recentActionsCache.size > 1000) {
+        const cutoff = now - CACHE_DURATION;
+        const keysToDelete: string[] = [];
+        recentActionsCache.forEach((timestamp, key) => {
+          if (timestamp < cutoff) {
+            keysToDelete.push(key);
+          }
+        });
+        keysToDelete.forEach(key => recentActionsCache.delete(key));
+      }
 
       // Add metadata for specific action types
       if (actionType === 'navigate_collection' && targetId) {

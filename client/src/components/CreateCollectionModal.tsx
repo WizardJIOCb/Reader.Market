@@ -165,7 +165,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="w-5 h-5" />
@@ -173,7 +173,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 flex-1 overflow-y-auto pr-2">
           <div className="space-y-2">
             <Label htmlFor="name">Название *</Label>
             <Input
@@ -192,19 +192,19 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
             
             {/* Selected books display */}
             {selectedBooks.length > 0 && (
-              <div className="space-y-2 max-h-40 overflow-y-auto p-2 bg-muted/30 rounded-lg border">
+              <div className="space-y-2 max-h-32 overflow-y-auto p-2 bg-muted/30 rounded-lg border">
                 {selectedBooks.map(book => (
                   <div key={book.id} className="flex items-center gap-2 p-2 bg-background rounded border">
                     <Book className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{book.title}</div>
-                      <div className="text-xs text-muted-foreground truncate">{book.author}</div>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="font-medium text-sm truncate" title={book.title}>{book.title}</div>
+                      <div className="text-xs text-muted-foreground truncate" title={book.author}>{book.author}</div>
                     </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 flex-shrink-0"
+                      className="h-6 w-6 flex-shrink-0 ml-1"
                       onClick={() => {
                         setSelectedBooks(prev => prev.filter(b => b.id !== book.id));
                       }}
@@ -238,7 +238,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 />
                 
                 {bookSearchResults.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto border rounded-md bg-background">
+                  <div className="max-h-32 overflow-y-auto border rounded-md bg-background">
                     {bookSearchResults.map(book => (
                       <div
                         key={book.id}
@@ -274,8 +274,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                           }
                         }}
                       >
-                        <div className="font-medium text-sm">{book.title}</div>
-                        <div className="text-xs text-muted-foreground">{book.author}</div>
+                        <div className="font-medium text-sm truncate" title={book.title}>{book.title}</div>
+                        <div className="text-xs text-muted-foreground truncate" title={book.author}>{book.author}</div>
                         {selectedBooks.some(b => b.id === book.id) && (
                           <div className="text-xs text-muted-foreground mt-1">Уже выбрана</div>
                         )}
@@ -306,12 +306,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           
           <div className="space-y-2">
             <Label>Цвет коллекции</Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
               {PRESET_COLORS.map((presetColor) => (
                 <button
                   key={presetColor}
                   type="button"
-                  className={`w-8 h-8 rounded-full border-2 transition-all ${
+                  className={`w-8 h-8 rounded-full border-2 transition-all flex-shrink-0 ${
                     color === presetColor 
                       ? 'border-primary ring-2 ring-primary/30' 
                       : 'border-transparent hover:scale-110'

@@ -27,9 +27,8 @@ export function CollectionDetailPage() {
   const { t } = useTranslation(['collections', 'common']);
   
   // Track page view for navigation logging
-  // For collection detail pages, we use the general collections tracking
-  // The specific collection ID is captured in the server-side middleware
-  usePageView('collections');
+  // Use specific collection detail tracking with ID
+  usePageView(`collection/${id}`);
   const [collection, setCollection] = useState<BookmarkCollectionWithBookmarks | null>(null);
   const [loading, setLoading] = useState(true);
 

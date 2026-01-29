@@ -188,20 +188,66 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
     }
     
     // For collection views, show which collection was viewed
-    if (activity.action_type === 'navigate_collection' && activity.metadata?.collectionName) {
-      const viewerName = activity.user?.username || 'Someone';
-      const collectionName = activity.metadata.collectionName;
-      const collectionOwner = activity.metadata.collectionOwner || 'Unknown';
+    if (activity.action_type === 'navigate_collection') {
+      console.log('[LastActionsActivityCard] Collection view activity:', {
+        hasMetadata: !!activity.metadata,
+        collectionName: activity.metadata?.collectionName,
+        collectionOwner: activity.metadata?.collectionOwner,
+        targetId: activity.target?.id
+      });
       
-      return (
-        <span>
-          <span className="font-medium">{viewerName}</span>
-          <span className="text-muted-foreground"> {t('stream:viewedCollection')} </span>
-          <span className="font-medium">"{collectionName}"</span>
-          <span className="text-muted-foreground"> {t('stream:by')} </span>
-          <span className="font-medium">{collectionOwner}</span>
-        </span>
-      );
+      if (activity.metadata?.collectionName) {
+        console.log('[LastActionsActivityCard] Processing navigate_collection activity:', activity);
+        console.log('[LastActionsActivityCard] activity.target:', activity.target);
+        console.log('[LastActionsActivityCard] activity.metadata:', activity.metadata);
+        
+        const viewerName = activity.user?.username || 'Someone';
+        const viewerLink = `/profile/${activity.user?.username || activity.user?.id || ''}`;
+        const collectionName = activity.metadata.collectionName;
+        const collectionOwner = activity.metadata.collectionOwner || 'Unknown';
+        const collectionOwnerLink = `/profile/${activity.metadata.collectionOwnerUsername || ''}`;
+        const collectionId = activity.target?.id || '';
+        // Fallback to collections page if no ID available
+        const collectionLink = collectionId 
+          ? `/collections/${collectionId}`
+          : '/collections';
+        
+        console.log('[LastActionsActivityCard] Constructed collectionLink:', collectionLink);
+        console.log('[LastActionsActivityCard] collectionId:', collectionId);
+        
+        return (
+          <span>
+            <Link href={viewerLink}>
+              <span className="font-medium text-primary hover:underline cursor-pointer">
+                {viewerName}
+              </span>
+            </Link>
+            <span className="text-muted-foreground"> {t('stream:viewedCollection')} </span>
+            <Link href={collectionLink}>
+              <span className="font-medium text-primary hover:underline cursor-pointer">
+                "{collectionName}"
+              </span>
+            </Link>
+            <span className="text-muted-foreground"> {t('stream:by')} </span>
+            <Link href={collectionOwnerLink}>
+              <span className="font-medium text-primary hover:underline cursor-pointer">
+                {collectionOwner}
+              </span>
+            </Link>
+          </span>
+        );
+      } else {
+        // Fallback when collection name is not available
+        return (
+          <span>
+            <span className="font-medium">{activity.user?.username || 'Someone'}</span>
+            <span className="text-muted-foreground"> {t('stream:actionTypes.navigate_collection')}</span>
+            {activity.target?.id && (
+              <span className="text-muted-foreground"> (ID: {activity.target.id.substring(0, 8)}...)</span>
+            )}
+          </span>
+        );
+      }
     }
     
     // For group messages, remove the trailing " в" or " in" from the bold text

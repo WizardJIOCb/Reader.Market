@@ -1609,6 +1609,11 @@ export async function registerRoutes(
     res.json({ page: "collections" });
   });
   
+  // Collection detail page view tracking
+  app.get("/api/page-view/collection/:id", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "collection-detail", id: req.params.id });
+  });
+  
   app.get("/api/page-view/git-to-gpt", authenticateToken, logUserAction, (req, res) => {
     res.json({ page: "git-to-gpt" });
   });
