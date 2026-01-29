@@ -1525,29 +1525,47 @@ export async function registerRoutes(
       const now = Date.now();
       if (!skipCache && apiGitCache.data && (now - apiGitCache.timestamp) < apiGitCache.ttl) {
         console.log(`Using cached API git history. Cache age: ${Math.floor((now - apiGitCache.timestamp) / 1000)} seconds`);
+        // Add cache timestamp to cached response
+        const timestampComment = `<!-- Cache updated: ${new Date(apiGitCache.timestamp).toLocaleString('ru-RU')} -->`;
+        let cachedHtml = apiGitCache.data;
+        if (!cachedHtml.includes('<!-- Cache updated:')) {
+          cachedHtml = cachedHtml.replace('</body>', `${timestampComment}\n</body>`);
+        }
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(apiGitCache.data);
+        return res.send(cachedHtml);
       }
       
       if (skipCache) {
         console.log('Cache bypass requested, fetching fresh data from GitHub');
+        // Even when bypassing cache, we should update the cache for future requests
       }
       
       // Forward to the main git-to-gpt endpoint
       const response = await fetch(`http://localhost:5001/git-to-gpt?template=${template}&count=${count}`);
       const html = await response.text();
       
-      // Cache the result (unless cache=false)
-      if (!skipCache) {
-        apiGitCache.data = html;
-        apiGitCache.timestamp = now;
-        console.log('Cached API git history response');
+      // Add cache timestamp comment to HTML
+      const timestampComment = `<!-- Cache updated: ${new Date().toLocaleString('ru-RU')} -->`;
+      let modifiedHtml = html;
+      if (!html.includes('<!-- Cache updated:')) {
+        modifiedHtml = html.replace('</body>', `${timestampComment}\n</body>`);
+      }
+      
+      // Cache the result (always cache, even when bypassing for display)
+      // This ensures subsequent cache=true requests get fresh data
+      apiGitCache.data = modifiedHtml;
+      apiGitCache.timestamp = now;
+      console.log('Cached API git history response');
+      
+      // But only send fresh data when cache bypass is requested
+      if (skipCache) {
+        console.log('Sending fresh data due to cache bypass');
       } else {
-        console.log('Skipped caching due to cache=false parameter');
+        console.log('Sending cached data');
       }
       
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(html);
+      res.send(modifiedHtml);
     } catch (error) {
       console.error('Error in API git history endpoint:', error);
       res.status(500).json({

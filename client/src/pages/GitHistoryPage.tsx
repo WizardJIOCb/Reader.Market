@@ -30,6 +30,9 @@ export default function GitHistoryPage() {
   const [commits, setCommits] = useState<Commit[]>([]);
   const [activityData, setActivityData] = useState<ActivityData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [cacheUpdateTime, setCacheUpdateTime] = useState<string | null>(null);
+  const [isFreshData, setIsFreshData] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Language-specific data
@@ -90,6 +93,18 @@ export default function GitHistoryPage() {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const html = await response.text();
+        
+        // Extract cache update time from response headers or HTML
+        const cacheTimeMatch = html.match(/<!-- Cache updated: ([^>]+) -->/);
+        if (cacheTimeMatch) {
+          setCacheUpdateTime(cacheTimeMatch[1]);
+        }
+        
+        // Set fresh data flag if cache was bypassed
+        if (bypassCache) {
+          setIsFreshData(true);
+          setLastUpdated(new Date().toLocaleString(i18n.language === 'ru' ? 'ru-RU' : 'en-US'));
+        }
         
         // Parse HTML to extract commits data
         const parser = new DOMParser();
@@ -157,6 +172,7 @@ export default function GitHistoryPage() {
         
         // Take only first 365 days (53 weeks × 7 days)
         setActivityData(dates.slice(0, 371));
+        setLastUpdated(new Date().toLocaleString(i18n.language === 'ru' ? 'ru-RU' : 'en-US'));
         setError(null);
       } catch (err) {
         console.error('Failed to fetch git history:', err);
@@ -223,7 +239,7 @@ export default function GitHistoryPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 bg-[#f5f0e6] min-h-screen">
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">{pageTitle}</h1>
         <p className="text-gray-600 mb-4">{pageSubtitle}</p>
@@ -233,10 +249,20 @@ export default function GitHistoryPage() {
         >
           {refreshButtonLabel}
         </button>
+        {isFreshData && lastUpdated && (
+          <p className="text-xs text-gray-500 mt-2">
+            {i18n.language === 'ru' ? 'Данные обновлены:' : 'Data updated:'} {lastUpdated}
+          </p>
+        )}
+        {cacheUpdateTime && !isFreshData && (
+          <p className="text-xs text-gray-500 mt-2">
+            {i18n.language === 'ru' ? 'Кэш обновлён:' : 'Cache updated:'} {cacheUpdateTime}
+          </p>
+        )}
       </div>
 
       {/* Activity Graph */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
+      <div className="bg-[#faf5eb] border border-gray-300 rounded-lg p-6 mb-8 shadow-sm" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">{titleText}</h2>
           <p className="text-gray-600">{subtitleText}</p>
@@ -264,7 +290,7 @@ export default function GitHistoryPage() {
                 {activityData.map((day, index) => (
                   <div
                     key={index}
-                    className="w-3 h-3 rounded-sm cursor-pointer transition-all hover:scale-110 hover:shadow-sm"
+                    className="w-3 h-3 rounded-sm cursor-pointer transition-all hover:scale-110 hover:shadow-sm border border-gray-300"
                     style={{
                       backgroundColor: getActivityColor(day.count)
                     }}
@@ -366,7 +392,7 @@ export default function GitHistoryPage() {
       ) : (
         <div className="grid gap-4">
           {commits.map((commit, index) => (
-            <div key={index} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            <div key={index} className="bg-[#faf5eb] border border-gray-300 rounded-lg p-6 hover:shadow-md transition-shadow" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
