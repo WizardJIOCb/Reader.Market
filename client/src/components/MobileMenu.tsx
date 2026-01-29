@@ -16,6 +16,7 @@ import {
 import { Menu, Search, User, X, MessageCircle, Globe, Check, Rss, Shield, Home, Info, BookMarked, Users, Bookmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { onSocketEvent } from '@/lib/socket';
+import { useResponsive } from '@/hooks/use-responsive';
 
 export function MobileMenu() {
   const { user, isLoading, refreshUser } = useAuth();
@@ -23,6 +24,7 @@ export function MobileMenu() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [location] = useLocation();
+  const { showMobileMenu } = useResponsive();
 
   // Helper function to check if a route is active
   const isActive = (path: string, exact = true) => {

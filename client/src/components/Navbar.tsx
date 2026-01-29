@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Search, User, Menu, MessageCircle, Rss, Shield, Home, Info, BookMarked, Users, Bookmark } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useResponsive } from '@/hooks/use-responsive';
 import { MobileMenu } from '@/components/MobileMenu';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { onSocketEvent } from "@/lib/socket";
@@ -19,7 +19,7 @@ import {
 
 export function Navbar() {
   const { user, isLoading } = useAuth();
-  const isMobile = useIsMobile();
+  const { showMobileMenu, hideTextItems } = useResponsive();
   const [unreadCount, setUnreadCount] = useState(0);
   const { t } = useTranslation(['navigation', 'common']);
   const [location] = useLocation();
@@ -125,7 +125,7 @@ export function Navbar() {
           )}
         </div>
         
-        {isMobile ? (
+        {showMobileMenu ? (
           <MobileMenu />
         ) : (
           <div className="flex items-center gap-3">
@@ -202,7 +202,7 @@ export function Navbar() {
                     </Badge>
                   )}
                 </div>
-                <span className="hidden sm:inline">{t('navigation:messages')}</span>
+                <span className={`${hideTextItems ? 'hidden' : 'hidden sm:inline'}`}>{t('navigation:messages')}</span>
               </Link>
             )}
             {user ? (
@@ -215,7 +215,7 @@ export function Navbar() {
                       aria-current={isActive('/profile', false) ? 'page' : undefined}
                     >
                       <User className="w-4 h-4" />
-                      <span className="hidden sm:inline">{t('navigation:profile')}</span>
+                      <span className={`${hideTextItems ? 'hidden' : 'hidden sm:inline'}`}>{t('navigation:profile')}</span>
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent className="bg-[#f5f0e1] text-[#263542] border-[#d4c9a8]">
@@ -227,7 +227,7 @@ export function Navbar() {
             ) : (
               <Link href="/login" className="flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer text-[#263542]">
                 <User className="w-4 h-4" />
-                <span className="hidden 2xl:inline">{t('navigation:profile')}</span>
+                <span className={`${hideTextItems ? 'hidden' : 'hidden 2xl:inline'}`}>{t('navigation:profile')}</span>
               </Link>
             )}
             <div className="-ml-2 -mt-0.5">
