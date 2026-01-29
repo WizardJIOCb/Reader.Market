@@ -14,7 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { adminBooksApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { Upload } from 'lucide-react';
+import { Upload, Download } from 'lucide-react';
 import { TranslationManagement } from './TranslationManagement';
 import { useTranslation } from 'react-i18next';
 
@@ -59,6 +59,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [bookFile, setBookFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
@@ -161,6 +162,67 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
         delete newErrors.bookFile;
         return newErrors;
       });
+    }
+  };
+
+  const handleDownloadBookFile = async () => {
+    if (!book) return;
+    
+    setDownloading(true);
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`/api/admin/books/${book.id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to download file');
+      }
+      
+      // Get filename from Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `${book.title}.${book.fileType?.split('/')[1] || 'file'}`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: t('books.downloadStarted'),
+        description: t('books.downloadComplete', { filename }),
+      });
+      
+    } catch (error) {
+      console.error('Error downloading book file:', error);
+      toast({
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : t('books.failedToDownload'),
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -422,7 +484,22 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
               </div>
 
               <div className="border-t pt-4 space-y-2">
-                <h3 className="font-semibold text-sm">{t('books.currentBookInfo')}</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm">{t('books.currentBookInfo')}</h3>
+                  {book.filePath && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleDownloadBookFile}
+                      disabled={downloading}
+                      className="gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      {downloading ? t('books.downloading') : t('books.downloadFile')}
+                    </Button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">{t('books.fileType')}:</span> {book.fileType || 'N/A'}

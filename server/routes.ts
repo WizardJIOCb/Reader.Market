@@ -6236,6 +6236,45 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to delete book" });
     }
   });
+  
+  // Admin: Download book file
+  app.get("/api/admin/books/:id/download", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Download book file (admin) endpoint called");
+    try {
+      const { id } = req.params;
+      
+      // Get book details
+      const book = await storage.getBook(id);
+      
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      if (!book.filePath) {
+        return res.status(404).json({ error: "Book file not found" });
+      }
+      
+      // Construct full file path
+      const fullPath = path.join(process.cwd(), book.filePath);
+      
+      // Check if file exists
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "File not found on disk" });
+      }
+      
+      // Set headers for download
+      const fileName = path.basename(book.filePath);
+      res.setHeader('Content-Type', book.fileType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      
+      // Send file
+      res.sendFile(fullPath);
+      
+    } catch (error) {
+      console.error("Download book file error:", error);
+      res.status(500).json({ error: "Failed to download book file" });
+    }
+  });
 
   // Rating system configuration endpoints
   app.get("/api/admin/rating-config", authenticateToken, requireAdminOrModerator, async (req, res) => {
