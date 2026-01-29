@@ -1,0 +1,19 @@
+# Production Deployment Commands (Run on server)
+
+## SSH into server
+ssh root@82.146.42.213
+
+## Navigate to project
+cd /var/www/reader.market
+
+## Pull latest changes
+git pull origin main
+
+## Install dependencies
+npm install
+
+## Build project
+npm run build
+
+## Restart application
+pm2 restart all
