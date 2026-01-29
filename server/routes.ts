@@ -2184,6 +2184,43 @@ export async function registerRoutes(
     }
   });
   
+  // Increment profile view count
+  app.post("/api/profile/:userId/view", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { userId: targetUserId } = req.params;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Check if the param is a UUID or a username
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(targetUserId);
+      
+      let user;
+      if (isUuid) {
+        user = await storage.getUser(targetUserId);
+      } else {
+        user = await storage.getUserByUsername(targetUserId);
+      }
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Increment view count (count all views including self-views)
+      const updatedUser = await storage.incrementProfileViewCount(user.id);
+      
+      res.json({ 
+        success: true, 
+        viewCount: updatedUser.profileViewCount || 0 
+      });
+    } catch (error) {
+      console.error('[Profile View API] Error:', error);
+      res.status(500).json({ error: "Failed to increment profile view count" });
+    }
+  });
+  
   // News endpoints
   // Get published news
   app.get("/api/news", async (req, res) => {

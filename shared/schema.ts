@@ -15,6 +15,7 @@ export const users = pgTable("users", {
   isBlocked: boolean("is_blocked").default(false), // Whether user is blocked
   blockReason: text("block_reason"), // Reason for blocking (supports markdown/links)
   profileRating: numeric("profile_rating", { precision: 3, scale: 1 }), // Average profile rating from profile_ratings
+  profileViewCount: integer("profile_view_count").default(0), // Number of times profile has been viewed
   language: varchar("language", { length: 10 }).default('en'), // User's preferred language
   lastLoginAt: timestamp("last_login_at"), // Last successful login timestamp
   lastActivityAt: timestamp("last_activity_at"), // Last user activity (any action on site)

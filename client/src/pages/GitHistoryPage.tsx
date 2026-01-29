@@ -66,8 +66,11 @@ export default function GitHistoryPage() {
     : 'Git Commit History';
   
   const pageSubtitle = i18n.language === 'ru'
-    ? 'Репозиторий: WizardJIOCb/Reader.Market'
-    : 'Repository: WizardJIOCb/Reader.Market';
+    ? 'Репозиторий: '
+    : 'Repository: ';
+  
+  const repoName = 'WizardJIOCb/Reader.Market';
+  const repoUrl = 'https://github.com/WizardJIOCb/Reader.Market';
   
   const noCommitsTitle = i18n.language === 'ru'
     ? 'Коммиты не найдены'
@@ -245,7 +248,17 @@ export default function GitHistoryPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{pageTitle}</h1>
-          <p className="text-gray-600 mb-4">{pageSubtitle}</p>
+          <p className="text-gray-600 mb-4">
+            {pageSubtitle}
+            <a 
+              href="https://github.com/WizardJIOCb/Reader.Market" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              {repoName}
+            </a>
+          </p>
           {(user?.accessLevel === 'admin' || user?.accessLevel === 'moder') && (
             <button 
               onClick={() => window.location.href = '/git-to-gpt?template=cool&count=150&cache=false'}

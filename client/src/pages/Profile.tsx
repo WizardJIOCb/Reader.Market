@@ -36,7 +36,8 @@ import {
   LogOut,
   Pencil,
   Globe,
-  Key
+  Key,
+  Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
@@ -133,6 +134,8 @@ export default function Profile() {
   // Profile ratings state
   const [profileRating, setProfileRating] = useState<number | null>(null);
   const [ratingCount, setRatingCount] = useState(0);
+  // Profile view count state
+  const [profileViewCount, setProfileViewCount] = useState<number>(0);
   
   // State for expanded book lists (carousel vs full view)
   const [expandedRecentlyRead, setExpandedRecentlyRead] = useState(false);
@@ -790,9 +793,24 @@ export default function Profile() {
         
         const userData = await response.json();
         
+        // Increment profile view count (don't await this - it's fire-and-forget)
+        if (currentUser?.id !== userId) {
+          fetch(`/api/profile/${userId}/view`, {
+            method: 'POST',
+            headers: token ? {
+              'Authorization': `Bearer ${token}`
+            } : {}
+          }).catch(err => {
+            // Silent fail - don't spam console
+          });
+        }
+        
         // Profile rating is now included in the userData response
         const profileRating = userData.profileRating || null;
         const ratingCount = userData.ratingCount || 0;
+        
+        // Get profile view count
+        const profileViewCount = userData.profileViewCount || 0;
         
         // Format the user data to match the expected structure
         // Fetch user's shelves based on whether it's the current user or another user
@@ -896,6 +914,7 @@ export default function Profile() {
         setProfile(formattedProfile);
         setProfileRating(profileRating);
         setRatingCount(ratingCount);
+        setProfileViewCount(profileViewCount);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load profile');
         toast({
@@ -1029,17 +1048,24 @@ export default function Profile() {
                   )}
                 </div>
                 
-                {/* Profile Rating Display - moved here */}
-                {profileRating !== null && typeof profileRating === 'number' && (
-                  <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
-                    <Badge variant={profileRating >= 8 ? 'default' : profileRating >= 5 ? 'secondary' : 'destructive'}>
-                      ⭐ {profileRating % 1 === 0 ? profileRating : profileRating.toFixed(1)}/10
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {t('profile:ratings.from')} {ratingCount} {ratingCount === 1 ? t('profile:ratings.rating') : t('profile:ratings.ratingsPlural')}
-                    </span>
+                {/* Profile Rating and View Count Display - moved here */}
+                <div className="flex flex-col items-center md:items-start gap-2 mt-2">
+                  {profileRating !== null && typeof profileRating === 'number' && (
+                    <div className="flex items-center justify-center md:justify-start gap-2">
+                      <Badge variant={profileRating >= 8 ? 'default' : profileRating >= 5 ? 'secondary' : 'destructive'}>
+                        ⭐ {profileRating % 1 === 0 ? profileRating : profileRating.toFixed(1)}/10
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {t('profile:ratings.from')} {ratingCount} {ratingCount === 1 ? t('profile:ratings.rating') : t('profile:ratings.ratingsPlural')}
+                      </span>
+                    </div>
+                  )}
+                  {/* Profile View Count */}
+                  <div className="flex items-center justify-center md:justify-start gap-1 text-sm text-muted-foreground">
+                    <Eye className="w-4 h-4" />
+                    <span>{profileViewCount} {profileViewCount === 1 ? 'просмотр' : profileViewCount < 5 ? 'просмотра' : 'просмотров'}</span>
                   </div>
-                )}
+                </div>
               </div>
               
               {/* Bio - displayed to the right of avatar */}

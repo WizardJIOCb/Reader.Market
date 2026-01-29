@@ -240,6 +240,9 @@ export interface IStorage {
   deleteProfileRating(id: string, userId: string | null): Promise<boolean>;
   updateProfileAverageRating(profileId: string): Promise<void>;
   
+  // Profile view count operations
+  incrementProfileViewCount(userId: string): Promise<any>;
+  
   // Profile comments operations
   createProfileComment(commentData: {userId: string, profileId: string, content: string, attachments?: any, parentCommentId?: string, quotedText?: string}): Promise<any>;
   getProfileComments(profileId: string, options: {limit: number, offset: number, currentUserId?: string}): Promise<{comments: any[], total: number}>;
@@ -8356,6 +8359,58 @@ export class DBStorage implements IStorage {
       return { success: true, usersUpdated: updatedCount };
     } catch (error) {
       console.error("Error recalculating all user ratings:", error);
+      throw error;
+    }
+  }
+  
+  async updateProfileAverageRating(profileId: string): Promise<void> {
+    try {
+      // Get all ratings for this profile
+      const ratings = await db.select({
+        rating: profileRatings.rating
+      })
+      .from(profileRatings)
+      .where(eq(profileRatings.profileId, profileId));
+      
+      if (ratings.length === 0) {
+        // No ratings, set profile rating to null
+        await db.update(users)
+          .set({ profileRating: null })
+          .where(eq(users.id, profileId));
+        return;
+      }
+      
+      // Simple average calculation (you might want to implement Bayesian averaging later)
+      const sum = ratings.reduce((acc, r) => acc + r.rating, 0);
+      const average = sum / ratings.length;
+      
+      // Update the user's profile rating
+      await db.update(users)
+        .set({ profileRating: Number(average.toFixed(1)) })
+        .where(eq(users.id, profileId));
+    } catch (error) {
+      console.error("Error updating profile average rating:", error);
+      throw error;
+    }
+  }
+  
+  async incrementProfileViewCount(userId: string): Promise<any> {
+    try {
+      const result = await db.update(users)
+        .set({ 
+          profileViewCount: sql`COALESCE(${users.profileViewCount}, 0) + 1`,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('User not found');
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error incrementing profile view count:", error);
       throw error;
     }
   }
