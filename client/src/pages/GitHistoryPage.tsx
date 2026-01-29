@@ -370,20 +370,27 @@ export default function GitHistoryPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-blue-50/50 border border-orange-400 rounded-lg p-4 text-center">
+          <div className="bg-blue-50/50 border border-orange-400 rounded-lg p-4 flex flex-col items-center justify-center text-center" style={{ minHeight: '120px' }}>
             <div className="text-2xl font-bold text-blue-600">{commits.length}</div>
             <div className="text-blue-500 text-sm">{statsTotal}</div>
           </div>
-          <div className="bg-green-50/50 border border-orange-400 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {commits.length > 0 ? new Date(commits[0].timestamp.split(', ')[0].split('.').reverse().join('-')).toLocaleDateString(i18n.language) : '—'}
+          <div className="bg-green-50/50 border border-orange-400 rounded-lg p-4 flex flex-col items-center justify-center text-center" style={{ minHeight: '120px' }}>
+            <div className="text-xl font-bold text-green-600 mb-1">
+              {commits.length > 0 ? (
+                <>
+                  <div className="text-lg">
+                    {new Date(commits[0].timestamp.split(', ')[0].split('.').reverse().join('-')).toLocaleDateString(i18n.language)}
+                  </div>
+                  <div className="text-sm font-normal text-green-500">
+                    {commits[0].timestamp.split(', ')[1]}
+                  </div>
+                </>
+              ) : '—'}
             </div>
             <div className="text-green-500 text-sm">{statsLast}</div>
           </div>
-          <div className="bg-purple-50/50 border border-orange-400 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {activityData.filter(d => d.count > 0).length}
-            </div>
+          <div className="bg-purple-50/50 border border-orange-400 rounded-lg p-4 flex flex-col items-center justify-center text-center" style={{ minHeight: '120px' }}>
+            <div className="text-2xl font-bold text-purple-600">{activityData.filter(d => d.count > 0).length}</div>
             <div className="text-purple-500 text-sm">{statsDays}</div>
           </div>
         </div>
@@ -397,11 +404,11 @@ export default function GitHistoryPage() {
         ) : (
           <div className="grid gap-4">
             {commits.map((commit, index) => (
-              <div key={index} className="bg-[#faf5eb] border border-orange-300 rounded-lg p-4 hover:shadow-md transition-shadow w-full max-w-full overflow-hidden" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+              <div key={index} className="bg-[#faf5eb] border border-orange-300 rounded-lg p-4 hover:shadow-md transition-shadow w-full max-w-full overflow-hidden flex flex-col justify-center" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)', minHeight: '120px' }}>
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
+                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                         {commit.hash.substring(0, 7)}
                       </span>
                       <span className="text-sm text-gray-500 truncate">{commit.author}</span>
@@ -412,17 +419,19 @@ export default function GitHistoryPage() {
                     {commit.timestamp}
                   </span>
                 </div>
-                <a 
-                  href={commit.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
-                >
+                <div className="mt-1">
+                  <a 
+                    href={commit.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
+                  >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l-1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
                   </svg>
                   View on GitHub
                 </a>
+                </div>
               </div>
             ))}
           </div>
