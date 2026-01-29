@@ -19,6 +19,9 @@ const ROUTE_PATTERNS: { pattern: RegExp; actionType: string; targetType?: string
   { pattern: /^\/api\/page-view\/messages$/, actionType: 'navigate_messages' },
   { pattern: /^\/api\/page-view\/about$/, actionType: 'navigate_about' },
   { pattern: /^\/api\/page-view\/users$/, actionType: 'navigate_users' },
+  { pattern: /^\/api\/page-view\/collections$/, actionType: 'navigate_collections' },
+  { pattern: /^\/api\/page-view\/git-to-gpt$/, actionType: 'navigate_git_to_gpt' },
+  { pattern: /^\/api\/collections\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_collection', targetType: 'collection' },
   { pattern: /^\/api\/profile\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_profile', targetType: 'user' },
   { pattern: /^\/api\/news\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_news', targetType: 'news' },
   { pattern: /^\/api\/books\/([a-zA-Z0-9-]+)$/, actionType: 'navigate_book', targetType: 'book' },
@@ -40,6 +43,46 @@ function extractTargetId(path: string, pattern: RegExp): string | null {
 export async function logActionAsync(actionData: any, io?: any): Promise<void> {
   try {
     console.log('[Action Logging] Creating action in database:', actionData.actionType);
+    
+    // Fetch additional metadata if needed
+    if (actionData.metadata?.needsCollectionName && actionData.targetId) {
+      try {
+        const collection = await storage.getBookmarkCollection(actionData.targetId, actionData.userId);
+        if (collection) {
+          actionData.metadata.collectionName = collection.name;
+          actionData.metadata.collectionOwner = collection.ownerUsername;
+        }
+      } catch (error) {
+        console.error('[Action Logging] Failed to fetch collection info:', error);
+      }
+      // Remove the temporary flag
+      delete actionData.metadata.needsCollectionName;
+    }
+    
+    // For profile views, if targetId is not a UUID, try to resolve it as a username
+    if (actionData.actionType === 'navigate_profile' && actionData.targetId) {
+      // Check if targetId is a UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(actionData.targetId);
+      
+      if (!isUuid) {
+        // Target ID is a username, resolve it to user ID
+        try {
+          const targetUser = await storage.getUserByUsername(actionData.targetId);
+          if (targetUser) {
+            actionData.targetId = targetUser.id; // Replace username with actual user ID
+            actionData.metadata.resolvedUsername = targetUser.username;
+            actionData.metadata.resolvedFullName = targetUser.fullName || null;
+            console.log('[Action Logging] Resolved username', actionData.metadata.resolvedUsername, 'to user ID', targetUser.id);
+          } else {
+            console.log('[Action Logging] Could not resolve username:', actionData.targetId);
+          }
+        } catch (error) {
+          console.error('[Action Logging] Failed to resolve username to user ID:', error);
+        }
+      }
+    }
+    
     const action = await storage.createUserAction(actionData);
     console.log('[Action Logging] Action created with ID:', action?.id);
     
@@ -78,7 +121,21 @@ export async function logActionAsync(actionData: any, io?: any): Promise<void> {
             }
             break;
           case 'user':
-            const targetUser = await storage.getUser(actionData.targetId);
+            // For profile views, we might have resolved the username already
+            let targetUser;
+            if (actionData.metadata?.resolvedUsername) {
+              // Use the resolved user data
+              targetUser = {
+                id: actionData.targetId,
+                username: actionData.metadata.resolvedUsername,
+                fullName: actionData.metadata.resolvedFullName
+              };
+              console.log('[Action Logging] Using resolved user data for target:', targetUser.username);
+            } else {
+              // Fetch user normally
+              targetUser = await storage.getUser(actionData.targetId);
+            }
+            
             if (targetUser) {
               targetData = {
                 type: 'user',
@@ -184,6 +241,12 @@ export function logUserAction(req: Request, res: Response, next: NextFunction): 
         targetId,
         metadata: {}
       };
+
+      // Add metadata for specific action types
+      if (actionType === 'navigate_collection' && targetId) {
+        // For collection views, we'll fetch the collection name later
+        actionData.metadata.needsCollectionName = true;
+      }
 
       // Get Socket.IO instance from app
       const io = (req.app as any).io;

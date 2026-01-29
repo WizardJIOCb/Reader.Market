@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { UserProfileDisplay } from '@/components/UserProfileDisplay';
 import { useTranslation } from 'react-i18next';
+import { usePageView } from '@/hooks/usePageView';
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -24,6 +25,11 @@ export function CollectionDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const { t } = useTranslation(['collections', 'common']);
+  
+  // Track page view for navigation logging
+  // For collection detail pages, we use the general collections tracking
+  // The specific collection ID is captured in the server-side middleware
+  usePageView('collections');
   const [collection, setCollection] = useState<BookmarkCollectionWithBookmarks | null>(null);
   const [loading, setLoading] = useState(true);
 

@@ -206,6 +206,11 @@
     "imageSizeError": "Размер файла должен быть меньше 5МБ.",
     "invalidBookType": "Неверный тип файла. Поддерживаемые форматы: PDF, DOC, DOCX, EPUB, TXT, FB2",
     "bookFileSizeError": "Размер файла должен быть меньше 100МБ.",
+    "downloadFile": "Скачать файл",
+    "downloading": "Скачивание...",
+    "downloadStarted": "Скачивание начато",
+    "downloadComplete": "Файл скачан: {{filename}}",
+    "failedToDownload": "Не удалось скачать файл",
     "translations": {
       "title": "Переводы",
       "availableTranslations": "Доступные переводы",

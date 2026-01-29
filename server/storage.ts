@@ -6754,6 +6754,7 @@ export class DBStorage implements IStorage {
                   type: 'user',
                   id: targetUser.id,
                   username: targetUser.username,
+                  full_name: targetUser.fullName || null,
                   avatar_url: targetUser.avatarUrl
                 };
               }

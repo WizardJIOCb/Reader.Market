@@ -335,6 +335,19 @@ export function StreamNotificationsProvider({ children, currentUserId }: StreamN
             createTargetLink(targetName, targetLink)
           );
         }
+      } else if (action.action_type === 'navigate_collection' && action.metadata?.collectionName) {
+        title = t('stream:actionTypes.navigate_collection');
+        const collectionName = action.metadata.collectionName;
+        const collectionOwner = action.metadata.collectionOwner || 'Unknown';
+        const collectionLink = `/collections/${action.target?.id || ''}`;
+        
+        description = createElement('span', null,
+          createUserLink(userName, userLink),
+          createElement('span', { className: 'text-muted-foreground' }, ` ${t('stream:viewedCollection')} `),
+          createTargetLink(`"${collectionName}"`, collectionLink),
+          createElement('span', { className: 'text-muted-foreground' }, ` ${t('stream:by')} `),
+          createElement('span', { className: 'font-medium' }, collectionOwner)
+        );
       } else if (action.action_type === 'view_book' || action.action_type === 'navigate_book') {
         title = t('stream:actionTypes.navigate_book');
         const bookTitle = action.target?.title || action.metadata?.title || '';

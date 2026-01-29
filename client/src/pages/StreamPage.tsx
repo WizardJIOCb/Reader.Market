@@ -76,6 +76,14 @@ export default function StreamPage() {
     'last-actions': ['news', 'book', 'comment', 'review', 'user_action']
   });
   
+  // User filter for each tab
+  const [userFilters, setUserFilters] = useState<Record<string, string>>({
+    global: '',
+    personal: '',
+    shelves: '',
+    'last-actions': ''
+  });
+  
   // Track page view for navigation logging
   usePageView('stream');
 
@@ -196,12 +204,95 @@ export default function StreamPage() {
     selectedTypeFilters.includes(activity.type as ActivityType)
   );
   
-  // Apply showMyActivity filter if disabled and user is authenticated
-  // Use the tab-specific showMyActivity state (inverted logic from hideMyActions)
-  if (!showMyActivity[activeTab] && currentUser) {
-    filteredActivities = filteredActivities.filter(activity => 
-      activity.userId !== currentUser.id
-    );
+  // Apply user filter
+  const currentUserFilter = userFilters[activeTab] || '';
+  if (currentUserFilter) {
+    const filterLower = currentUserFilter.toLowerCase().trim();
+    
+    // Debug logging
+    if (activeTab === 'last-actions') {
+      console.log('[StreamPage] Applying user filter:', filterLower);
+      
+      // Show all unique usernames in current dataset
+      const usernameMap: Record<string, boolean> = {};
+      filteredActivities.forEach(a => {
+        const username = a.type === 'user_action' 
+          ? a.user?.username || 'N/A'
+          : a.metadata?.username || a.metadata?.author_name || a.metadata?.uploader_name || 'N/A';
+        if (username !== 'N/A') {
+          usernameMap[username] = true;
+        }
+      });
+      const allUsernames = Object.keys(usernameMap);
+      
+      console.log('[StreamPage] Available usernames in dataset:', allUsernames);
+      
+      console.log('[StreamPage] Sample activities:', filteredActivities.slice(0, 5).map(a => ({
+        id: a.id,
+        type: a.type,
+        username: a.type === 'user_action' 
+          ? a.user?.username || 'N/A'
+          : a.metadata?.username || a.metadata?.author_name || a.metadata?.uploader_name || 'N/A',
+        fullName: a.type === 'user_action'
+          ? a.user?.username || 'N/A'
+          : a.metadata?.fullName || a.metadata?.author_name || a.metadata?.uploader_name || 'N/A'
+      })));
+    }
+    
+    filteredActivities = filteredActivities.filter(activity => {
+      // For user_action activities (Last Actions), check activity.user
+      if (activity.type === 'user_action') {
+        const username = activity.user?.username || '';
+        const fullName = activity.user?.username || ''; // Last actions typically only have username
+        
+        const matches = (
+          username.toLowerCase().includes(filterLower) ||
+          fullName.toLowerCase().includes(filterLower)
+        );
+        
+        if (activeTab === 'last-actions' && filterLower) {
+          console.log(`[StreamPage] Activity ${activity.id}:`);
+          console.log(`  - Raw username: '${activity.user?.username}'`);
+          console.log(`  - Processed username: '${username}'`);
+          console.log(`  - Filter text: '${currentUserFilter}'`);
+          console.log(`  - Filter lower: '${filterLower}'`);
+          console.log(`  - Username includes filter: ${username.toLowerCase().includes(filterLower)}`);
+          console.log(`  - Matches: ${matches}`);
+        }
+        
+        return matches;
+      }
+      
+      // For regular activities, check metadata fields
+      const username = activity.metadata?.username || 
+                      activity.metadata?.user?.username || 
+                      activity.metadata?.author_name || 
+                      activity.metadata?.uploader_name || '';
+      const fullName = activity.metadata?.fullName || 
+                      activity.metadata?.user?.fullName || 
+                      activity.metadata?.author_name || 
+                      activity.metadata?.uploader_name || '';
+      const displayName = activity.metadata?.displayName || 
+                         activity.metadata?.user?.displayName || '';
+      
+      return (
+        username.toLowerCase().includes(filterLower) ||
+        fullName.toLowerCase().includes(filterLower) ||
+        displayName.toLowerCase().includes(filterLower)
+      );
+    });
+    
+    // If user filter is active, skip the "Show my activity" filter
+    // because the user is intentionally searching for specific activities
+    console.log(`[StreamPage] Skipping showMyActivity filter due to active user filter`);
+  } else {
+    // Apply showMyActivity filter if disabled and user is authenticated
+    // Use the tab-specific showMyActivity state (inverted logic from hideMyActions)
+    if (!showMyActivity[activeTab] && currentUser) {
+      filteredActivities = filteredActivities.filter(activity => 
+        activity.userId !== currentUser.id
+      );
+    }
   }
   
   const isLoading = activeTab === 'global' ? globalLoading : 
@@ -588,6 +679,18 @@ export default function StreamPage() {
       [activeTab]: selectedTypes
     }));
   }, [activeTab]);
+  
+  // Handle user filter change
+  const handleUserFilterChange = useCallback((filter: string) => {
+    // Debug logging
+    console.log(`[StreamPage] User filter changed: '${filter}'`);
+    console.log(`[StreamPage] Active tab: ${activeTab}`);
+    
+    setUserFilters(prev => ({
+      ...prev,
+      [activeTab]: filter
+    }));
+  }, [activeTab]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -628,6 +731,9 @@ export default function StreamPage() {
               onHideMyActionsChange={(show) => setShowMyActivity(prev => ({ ...prev, global: show }))}
               isOpen={filterPanelOpen}
               onOpenChange={setFilterPanelOpen}
+              userFilter={userFilters.global}
+              onUserFilterChange={handleUserFilterChange}
+              showUserFilter={true}
             />
             
             {isLoading ? (
@@ -749,6 +855,9 @@ export default function StreamPage() {
               isOpen={filterPanelOpen}
               onOpenChange={setFilterPanelOpen}
               showNotificationToggle={true}
+              userFilter={userFilters['last-actions']}
+              onUserFilterChange={handleUserFilterChange}
+              showUserFilter={true}
             />
             
             {isLoading ? (
@@ -761,13 +870,33 @@ export default function StreamPage() {
                 <p className="text-lg font-medium text-muted-foreground mb-2">
                   {currentActivities.length === 0 
                     ? t('stream:noLastActions')
-                    : t('stream:activityTypeFilter.noResults')
+                    : currentUserFilter
+                      ? t('stream:userFilter.noResults', { username: currentUserFilter })
+                      : t('stream:activityTypeFilter.noResults')
                   }
                 </p>
                 {currentActivities.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     {t('stream:noLastActionsSubtext')}
                   </p>
+                )}
+                {currentUserFilter && currentActivities.length > 0 && (
+                  <div className="text-center mt-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {t('stream:userFilter.tryDifferentName')}
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        // Clear the user filter
+                        setUserFilters(prev => ({ ...prev, [activeTab]: '' }));
+                      }}
+                      className="mt-2"
+                    >
+                      {t('stream:userFilter.clearFilter')}
+                    </Button>
+                  </div>
                 )}
               </div>
             ) : (

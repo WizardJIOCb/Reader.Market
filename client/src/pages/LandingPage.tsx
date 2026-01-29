@@ -150,7 +150,7 @@ const LandingPage = () => {
             </Link>
             <Link href="/git-to-gpt">
               <Button size="lg" className="px-8 py-6 text-lg bg-[#4e8d3f] hover:bg-[#3d7c2e] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
-                Последние обновления
+                {t('landing:latestUpdates')}
               </Button>
             </Link>
             <a href="#how-it-works" onClick={(e) => {

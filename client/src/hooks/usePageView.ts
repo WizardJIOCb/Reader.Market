@@ -5,7 +5,7 @@ import { useEffect } from 'react';
  * Makes a single GET request to the page-specific endpoint
  * which triggers server-side logging via middleware
  */
-export function usePageView(page: 'home' | 'stream' | 'search' | 'shelves' | 'messages' | 'users') {
+export function usePageView(page: 'home' | 'stream' | 'search' | 'shelves' | 'messages' | 'users' | 'collections' | 'git-to-gpt') {
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (!token) return;

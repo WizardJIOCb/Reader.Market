@@ -12,6 +12,7 @@ import { toast } from '@/hooks/use-toast';
 import { CloneCollectionModal } from '@/components/CloneCollectionModal';
 import { CreateCollectionModal } from '@/components/CreateCollectionModal';
 import { useTranslation } from 'react-i18next';
+import { usePageView } from '@/hooks/usePageView';
 import { 
   Plus, 
   Search, 
@@ -26,6 +27,9 @@ import {
 export function BookmarkCollectionsPage() {
   const { user } = useAuth();
   const { t } = useTranslation(['collections', 'common']);
+  
+  // Track page view for navigation logging
+  usePageView('collections');
   const [collections, setCollections] = useState<BookmarkCollection[]>([]);
   const [filteredCollections, setFilteredCollections] = useState<BookmarkCollection[]>([]);
   const [loading, setLoading] = useState(true);

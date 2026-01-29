@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from '@/lib/auth';
+import { usePageView } from '@/hooks/usePageView';
 
 interface Commit {
   hash: string;
@@ -29,6 +30,9 @@ export default function GitHistoryPage() {
   const [location, setLocation] = useLocation();
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  
+  // Track page view for navigation logging
+  usePageView('git-to-gpt');
   const [commits, setCommits] = useState<Commit[]>([]);
   const [activityData, setActivityData] = useState<ActivityData[]>([]);
   const [loading, setLoading] = useState(true);

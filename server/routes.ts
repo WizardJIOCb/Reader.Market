@@ -1605,6 +1605,33 @@ export async function registerRoutes(
     res.json({ page: "users" });
   });
   
+  app.get("/api/page-view/collections", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "collections" });
+  });
+  
+  app.get("/api/page-view/git-to-gpt", authenticateToken, logUserAction, (req, res) => {
+    res.json({ page: "git-to-gpt" });
+  });
+  
+  // Collection detail page view tracking
+  app.get("/api/collections/:id", authenticateToken, logUserAction, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Verify collection exists using the correct storage method
+      const collection = await storage.getBookmarkCollection(id, userId);
+      if (!collection) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      
+      res.json(collection);
+    } catch (error) {
+      console.error("Get collection error:", error);
+      res.status(500).json({ error: "Failed to get collection" });
+    }
+  });
+  
   // Get popular books for landing page
   app.get("/api/popular-books", async (req, res) => {
     try {

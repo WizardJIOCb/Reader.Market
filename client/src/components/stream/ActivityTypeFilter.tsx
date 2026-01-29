@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { X, ChevronDown, ChevronUp, Filter, Bell } from "lucide-react";
+import { X, ChevronDown, ChevronUp, Filter, Bell, Search } from "lucide-react";
 import { 
   getStreamNotificationsEnabled, 
   setStreamNotificationsEnabled,
@@ -25,6 +26,9 @@ interface ActivityTypeFilterProps {
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   showNotificationToggle?: boolean;
+  userFilter?: string;
+  onUserFilterChange?: (filter: string) => void;
+  showUserFilter?: boolean;
 }
 
 export function ActivityTypeFilter({ 
@@ -37,7 +41,10 @@ export function ActivityTypeFilter({
   showHideMyActions = false,
   isOpen: externalIsOpen,
   onOpenChange: externalOnOpenChange,
-  showNotificationToggle = false
+  showNotificationToggle = false,
+  userFilter = '',
+  onUserFilterChange,
+  showUserFilter = false
 }: ActivityTypeFilterProps) {
   const { t } = useTranslation(['stream']);
   const [internalIsOpen, setInternalIsOpen] = useState(false);
@@ -84,6 +91,37 @@ export function ActivityTypeFilter({
 
   const content = (
     <CardContent className="space-y-3">
+      {/* User filter input */}
+      {showUserFilter && onUserFilterChange && (
+        <div className="pb-2 border-b">
+          <div className="flex items-center gap-2 mb-2">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <Label className="text-sm font-medium">
+              {t('stream:userFilter.title')}
+            </Label>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              placeholder={t('stream:userFilter.placeholder')}
+              value={userFilter}
+              onChange={(e) => onUserFilterChange(e.target.value)}
+              className="flex-1"
+            />
+            {userFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onUserFilterChange('')}
+                className="h-9 px-2"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+      
       {/* Activity type checkboxes */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:flex md:flex-wrap">
         {availableTypes.map((type) => (

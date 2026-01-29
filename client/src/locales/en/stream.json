@@ -29,6 +29,9 @@
     "navigate_news": "Read news",
     "navigate_book": "Viewed book",
     "navigate_reader": "Started reading",
+    "navigate_collections": "Viewed collections",
+    "navigate_collection": "Viewed collection",
+    "navigate_git_to_gpt": "Visited Git to GPT",
     "send_group_message": "Sent message in",
     "user_registered": "User registered",
     "shelf_created": "Created shelf",
@@ -50,6 +53,8 @@
   "uploadedBy": "Uploaded by",
   "on": "On",
   "viewedOwnProfile": "viewed their profile",
+  "viewedCollection": "viewed collection",
+  "by": "by",
   "for": "For",
   "activityDeleted": "Activity deleted",
   "activityDeletedDescription": "The activity has been removed from the stream",
@@ -115,5 +120,12 @@
   "showMyActivity": "Show my activity",
   "showMyActivityDescription": "When enabled, shows your own activities along with others",
   "showStreamNotifications": "Show stream notifications",
-  "unknownUser": "Unknown user"
+  "unknownUser": "Unknown user",
+  "userFilter": {
+    "placeholder": "Filter by username or name...",
+    "title": "User Filter",
+    "clearFilter": "Clear user filter",
+    "noResults": "No activities found for user {{username}}",
+    "tryDifferentName": "Try a different username or check the spelling"
+  }
 }

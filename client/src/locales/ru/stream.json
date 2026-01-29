@@ -29,6 +29,9 @@
     "navigate_news": "Прочитал новость",
     "navigate_book": "Посмотрел книгу",
     "navigate_reader": "Начал читать",
+    "navigate_collections": "Просмотрел коллекции",
+    "navigate_collection": "Просмотрел коллекцию",
+    "navigate_git_to_gpt": "Посетил Git to GPT",
     "send_group_message": "Отправил сообщение в",
     "user_registered": "Зарегистрировался пользователь",
     "shelf_created": "Создал полку",
@@ -50,6 +53,8 @@
   "uploadedBy": "Загрузил",
   "on": "К",
   "viewedOwnProfile": "посмотрел свой профиль",
+  "viewedCollection": "просмотрел коллекцию",
+  "by": "от",
   "for": "Для",
   "activityDeleted": "Активность удалена",
   "activityDeletedDescription": "Активность удалена из ленты",
@@ -115,5 +120,12 @@
   "showMyActivity": "Показывать мою активность",
   "showMyActivityDescription": "Если включено, показывается ваша активность вместе с активностью других пользователей",
   "showStreamNotifications": "Показывать уведомления из ленты",
-  "unknownUser": "Неизвестный пользователь"
+  "unknownUser": "Неизвестный пользователь",
+  "userFilter": {
+    "placeholder": "Фильтр по логину или имени...",
+    "title": "Фильтр по пользователю",
+    "clearFilter": "Сбросить фильтр по пользователю",
+    "noResults": "Не найдено активности для пользователя {{username}}",
+    "tryDifferentName": "Попробуйте другое имя пользователя или проверьте правописание"
+  }
 }

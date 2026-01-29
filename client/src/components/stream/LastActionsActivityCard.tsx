@@ -153,6 +153,57 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
     // For navigation actions, show translated action text
     const actionText = t(`stream:actionTypes.${activity.action_type}`, activity.action_type);
     
+    // For profile views, show descriptive text including both viewer and target
+    if (activity.action_type === 'navigate_profile' && activity.target) {
+      const viewerName = activity.user?.username || 'Someone';
+      const targetName = activity.target.full_name 
+        ? `${activity.target.full_name} (@${activity.target.username})`
+        : (activity.target.username || 'Unknown User');
+      
+      // Check if viewer is viewing their own profile
+      const isViewingOwnProfile = activity.user?.id === activity.target?.id || 
+                                 activity.user?.username === activity.target?.username;
+      
+      if (isViewingOwnProfile) {
+        return (
+          <span>
+            <span className="font-medium">{viewerName}</span>
+            <span className="text-muted-foreground"> {t('stream:viewedOwnProfile')}</span>
+          </span>
+        );
+      } else {
+        const targetLink = `/profile/${activity.target.username || activity.target.id || ''}`;
+        return (
+          <span>
+            <span className="font-medium">{viewerName}</span>
+            <span className="text-muted-foreground"> {t('stream:on')} </span>
+            <Link href={targetLink}>
+              <span className="font-medium text-primary hover:underline cursor-pointer">
+                {targetName}
+              </span>
+            </Link>
+          </span>
+        );
+      }
+    }
+    
+    // For collection views, show which collection was viewed
+    if (activity.action_type === 'navigate_collection' && activity.metadata?.collectionName) {
+      const viewerName = activity.user?.username || 'Someone';
+      const collectionName = activity.metadata.collectionName;
+      const collectionOwner = activity.metadata.collectionOwner || 'Unknown';
+      
+      return (
+        <span>
+          <span className="font-medium">{viewerName}</span>
+          <span className="text-muted-foreground"> {t('stream:viewedCollection')} </span>
+          <span className="font-medium">"{collectionName}"</span>
+          <span className="text-muted-foreground"> {t('stream:by')} </span>
+          <span className="font-medium">{collectionOwner}</span>
+        </span>
+      );
+    }
+    
     // For group messages, remove the trailing " в" or " in" from the bold text
     if (activity.action_type === 'send_group_message') {
       return actionText.replace(/ в$/, '').replace(/ in$/, '');
@@ -237,6 +288,11 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
     // For user_registered action type, suppress target description to avoid redundancy
     // since the user is already shown in the user info section
     if (activity.action_type === 'user_registered') {
+      return null;
+    }
+    
+    // For navigate_profile, suppress target description since it's shown in the action label
+    if (activity.action_type === 'navigate_profile') {
       return null;
     }
 
