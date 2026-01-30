@@ -13,7 +13,11 @@ import {
   FileText,
   Users,
   GraduationCap,
-  Search
+  Search,
+  Bookmark,
+  MessageCircle,
+  Star,
+  UserCheck
 } from 'lucide-react';
 
 const LandingPage = () => {
@@ -212,7 +216,7 @@ const LandingPage = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             <Card className="h-full text-center">
               <CardHeader>
                 <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
@@ -258,6 +262,54 @@ const LandingPage = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">{t('landing:step4Description')}</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="h-full text-center">
+              <CardHeader>
+                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
+                  <Bookmark className="w-8 h-8" />
+                </div>
+                <CardTitle className="text-xl">{t('landing:step5Title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">{t('landing:step5Description')}</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="h-full text-center">
+              <CardHeader>
+                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
+                  <MessageCircle className="w-8 h-8" />
+                </div>
+                <CardTitle className="text-xl">{t('landing:step6Title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">{t('landing:step6Description')}</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="h-full text-center">
+              <CardHeader>
+                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
+                  <Star className="w-8 h-8" />
+                </div>
+                <CardTitle className="text-xl">{t('landing:step7Title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">{t('landing:step7Description')}</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="h-full text-center">
+              <CardHeader>
+                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary mx-auto mb-4">
+                  <UserCheck className="w-8 h-8" />
+                </div>
+                <CardTitle className="text-xl">{t('landing:step8Title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">{t('landing:step8Description')}</p>
               </CardContent>
             </Card>
           </div>
