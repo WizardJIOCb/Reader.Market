@@ -175,6 +175,10 @@ export default function GitHistoryPage() {
     ? 'строк изменено'
     : 'lines changed';
   
+  const statsLimitNoticeText = i18n.language === 'ru'
+    ? 'Статистика отображается только для последних 50 коммитов'
+    : 'Statistics shown only for the 50 most recent commits';
+  
   const statsLoadErrorText = i18n.language === 'ru'
     ? 'Не удалось загрузить статистику коммитов. Попробуйте обновить страницу позже.'
     : 'Failed to load commit statistics. Try refreshing the page later.';
@@ -386,8 +390,11 @@ export default function GitHistoryPage() {
     
     setStatsLoading(true);
     
+    // Limit to first 50 commits to respect API limits and improve performance
+    const commitsToProcess = commitsList.slice(0, 50);
+    
     // Get commits that need stats (not cached and have full SHA)
-    const commitsToFetch = commitsList
+    const commitsToFetch = commitsToProcess
       .filter(commit => !commitStatsCache[commit.hash] && commit.fullSha)
       .map(commit => ({
         hash: commit.hash,
@@ -753,21 +760,33 @@ export default function GitHistoryPage() {
                       </div>
                     )}
                     
-                    {!statsLoading && !statsFetchError && commitStatsCache[commit.hash] && (
-                      <div className="flex flex-wrap gap-3 text-xs text-gray-600 mt-2">
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium text-green-600">+{commitStatsCache[commit.hash].additions}</span>
-                          <span>{linesAddedText}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium text-red-600">-{commitStatsCache[commit.hash].deletions}</span>
-                          <span>{linesDeletedText}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium text-gray-700">{commitStatsCache[commit.hash].total}</span>
-                          <span>{linesChangedText}</span>
-                        </div>
-                      </div>
+                    {!statsLoading && !statsFetchError && (
+                      <>
+                        {/* Stats Limit Notice */}
+                        {commits.length > 50 && (
+                          <div className="text-xs text-gray-500 italic mt-2">
+                            {statsLimitNoticeText}
+                          </div>
+                        )}
+                        
+                        {/* Actual Stats */}
+                        {commitStatsCache[commit.hash] && (
+                          <div className="flex flex-wrap gap-3 text-xs text-gray-600 mt-2">
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium text-green-600">+{commitStatsCache[commit.hash].additions}</span>
+                              <span>{linesAddedText}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium text-red-600">-{commitStatsCache[commit.hash].deletions}</span>
+                              <span>{linesDeletedText}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium text-gray-700">{commitStatsCache[commit.hash].total}</span>
+                              <span>{linesChangedText}</span>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                   <span className="text-sm text-gray-500 whitespace-nowrap flex-shrink-0">

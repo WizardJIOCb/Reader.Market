@@ -1397,12 +1397,13 @@ export async function registerRoutes(
       // Apply count limit if specified
       const finalCommits = count !== undefined && count > 0 ? commits.slice(0, count) : commits;
             
-      console.log(`Total commits fetched: ${finalCommits.length}`);
+      console.log(`Total commits fetched: ${commits.length}`);
+      console.log(`Returning ${finalCommits.length} commits (requested count: ${count})`);
             
-      // Save to cache
-      commitsCache.data = finalCommits;
+      // Save ALL fetched commits to cache (not just the sliced amount)
+      commitsCache.data = commits;  // Save full list for future requests
       commitsCache.timestamp = now;
-      console.log(`Saved ${finalCommits.length} commits to cache`);
+      console.log(`Saved ${commits.length} commits to cache for future use`);
       
       // If template is specified, return HTML instead of JSON
       console.log(`Template requested: ${template}`);
