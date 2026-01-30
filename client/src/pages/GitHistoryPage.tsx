@@ -308,6 +308,23 @@ export default function GitHistoryPage() {
     fetchCommits();
   }, []);
 
+  // Watch for newly expanded commits and fetch their stats if needed
+  useEffect(() => {
+    // Get commits that have been expanded but don't have stats cached
+    const commitsNeedingStats = commits
+      .filter(commit => {
+        const isExpanded = expandedCommits[commit.hash]?.expanded;
+        const hasDetails = expandedCommits[commit.hash]?.details;
+        const hasStats = commitStatsCache[commit.hash];
+        return isExpanded && hasDetails && !hasStats && commit.fullSha;
+      });
+    
+    if (commitsNeedingStats.length > 0 && !statsFetchError) {
+      // Fetch stats for these commits
+      fetchAllCommitStats(commits);
+    }
+  }, [expandedCommits, commits, commitStatsCache, statsFetchError]);
+
   const fetchCommitDetails = async (commitSha: string) => {
     // If already loading or loaded, don't fetch again
     const currentState = expandedCommits[commitSha];
@@ -368,6 +385,18 @@ export default function GitHistoryPage() {
         }
       }));
       
+      // Extract and cache statistics from commit details
+      if (data.commit?.stats) {
+        setCommitStatsCache(prev => ({
+          ...prev,
+          [commitSha]: {
+            additions: data.commit.stats.additions,
+            deletions: data.commit.stats.deletions,
+            total: data.commit.stats.total
+          }
+        }));
+      }
+      
     } catch (err) {
       console.error('Failed to fetch commit details:', err);
       setExpandedCommits(prev => ({
@@ -390,12 +419,15 @@ export default function GitHistoryPage() {
     
     setStatsLoading(true);
     
-    // Limit to first 50 commits to respect API limits and improve performance
-    const commitsToProcess = commitsList.slice(0, 50);
-    
-    // Get commits that need stats (not cached and have full SHA)
-    const commitsToFetch = commitsToProcess
-      .filter(commit => !commitStatsCache[commit.hash] && commit.fullSha)
+    // Only fetch stats for commits that have been expanded but don't have stats cached
+    // This leverages the fact that users click "Подробнее" to get commit details
+    const commitsToFetch = commitsList
+      .filter(commit => {
+        // Only fetch if commit has been expanded (has details) but no stats cached
+        const hasDetails = expandedCommits[commit.hash]?.details;
+        const hasStats = commitStatsCache[commit.hash];
+        return hasDetails && !hasStats && commit.fullSha;
+      })
       .map(commit => ({
         hash: commit.hash,
         fullSha: commit.fullSha!
