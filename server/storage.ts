@@ -8364,37 +8364,6 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async updateProfileAverageRating(profileId: string): Promise<void> {
-    try {
-      // Get all ratings for this profile
-      const ratings = await db.select({
-        rating: profileRatings.rating
-      })
-      .from(profileRatings)
-      .where(eq(profileRatings.profileId, profileId));
-      
-      if (ratings.length === 0) {
-        // No ratings, set profile rating to null
-        await db.update(users)
-          .set({ profileRating: null })
-          .where(eq(users.id, profileId));
-        return;
-      }
-      
-      // Simple average calculation (you might want to implement Bayesian averaging later)
-      const sum = ratings.reduce((acc, r) => acc + r.rating, 0);
-      const average = sum / ratings.length;
-      
-      // Update the user's profile rating
-      await db.update(users)
-        .set({ profileRating: Number(average.toFixed(1)) })
-        .where(eq(users.id, profileId));
-    } catch (error) {
-      console.error("Error updating profile average rating:", error);
-      throw error;
-    }
-  }
-  
   async incrementProfileViewCount(userId: string): Promise<any> {
     try {
       const result = await db.update(users)
