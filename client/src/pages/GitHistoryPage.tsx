@@ -24,6 +24,49 @@ interface Commit {
   author: string;
   timestamp: string;
   url: string;
+  fullSha?: string; // Full 40-character SHA extracted from URL
+}
+
+interface CommitFile {
+  filename: string;
+  status: 'added' | 'modified' | 'removed';
+  additions: number;
+  deletions: number;
+  changes: number;
+  blob_url: string;
+  raw_url: string;
+  patch?: string;
+}
+
+interface CommitDetails {
+  sha: string;
+  message: string;
+  author: {
+    name: string;
+    email: string;
+    date: string;
+  };
+  committer: {
+    name: string;
+    email: string;
+    date: string;
+  };
+  url: string;
+  stats: {
+    additions: number;
+    deletions: number;
+    total: number;
+  };
+  files: CommitFile[];
+}
+
+interface ExpandedCommitState {
+  [key: string]: {
+    expanded: boolean;
+    loading: boolean;
+    details: CommitDetails | null;
+    error: string | null;
+  };
 }
 
 export default function GitHistoryPage() {
@@ -40,6 +83,10 @@ export default function GitHistoryPage() {
   const [cacheUpdateTime, setCacheUpdateTime] = useState<string | null>(null);
   const [isFreshData, setIsFreshData] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedCommits, setExpandedCommits] = useState<ExpandedCommitState>({});
+  const [commitStatsCache, setCommitStatsCache] = useState<Record<string, { additions: number; deletions: number; total: number }>>({});
+  const [statsFetchError, setStatsFetchError] = useState<boolean>(false);
+  const [statsLoading, setStatsLoading] = useState<boolean>(false);
 
   // Language-specific data
   const weekdays = i18n.language === 'ru' 
@@ -87,6 +134,54 @@ export default function GitHistoryPage() {
   const refreshButtonLabel = i18n.language === 'ru'
     ? 'Обновить данные (сбросить кэш)'
     : 'Refresh Data (Clear Cache)';
+  
+  const detailsButtonText = i18n.language === 'ru'
+    ? 'Подробнее'
+    : 'Details';
+  
+  const hideDetailsText = i18n.language === 'ru'
+    ? 'Скрыть'
+    : 'Hide';
+  
+  const loadingDetailsText = i18n.language === 'ru'
+    ? 'Загрузка деталей...'
+    : 'Loading details...';
+  
+  const filesChangedText = i18n.language === 'ru'
+    ? 'Изменённые файлы'
+    : 'Changed Files';
+  
+  const additionsText = i18n.language === 'ru'
+    ? 'Добавлено'
+    : 'Additions';
+  
+  const deletionsText = i18n.language === 'ru'
+    ? 'Удалено'
+    : 'Deletions';
+  
+  const noChangesText = i18n.language === 'ru'
+    ? 'Нет изменений'
+    : 'No changes';
+  
+  const linesAddedText = i18n.language === 'ru'
+    ? 'строк добавлено'
+    : 'lines added';
+  
+  const linesDeletedText = i18n.language === 'ru'
+    ? 'строк удалено'
+    : 'lines deleted';
+  
+  const linesChangedText = i18n.language === 'ru'
+    ? 'строк изменено'
+    : 'lines changed';
+  
+  const statsLoadErrorText = i18n.language === 'ru'
+    ? 'Не удалось загрузить статистику коммитов. Попробуйте обновить страницу позже.'
+    : 'Failed to load commit statistics. Try refreshing the page later.';
+  
+  const retryLaterText = i18n.language === 'ru'
+    ? 'Повторить позже'
+    : 'Retry later';
 
   useEffect(() => {
     const fetchCommits = async () => {
@@ -131,17 +226,28 @@ export default function GitHistoryPage() {
           const linkElement = element.querySelector('.commit-link') as HTMLAnchorElement;
           
           if (hashElement && messageElement && authorElement && dateElement && linkElement) {
+            // Extract full SHA from GitHub URL
+            // URL format: https://github.com/WizardJIOCb/Reader.Market/commit/896d42de061959d1cd4d695402b2b21ce89e93a3
+            const urlParts = linkElement.href.split('/');
+            const fullSha = urlParts[urlParts.length - 1] || '';
+            
             parsedCommits.push({
               hash: hashElement.textContent?.trim() || '',
               message: messageElement.textContent?.trim() || '',
               author: authorElement.textContent?.trim() || '',
               timestamp: dateElement.textContent?.trim() || '',
-              url: linkElement.href || ''
+              url: linkElement.href || '',
+              fullSha: fullSha
             });
           }
         });
         
         setCommits(parsedCommits);
+        
+        // Fetch stats for all commits to show in the list (if no error occurred yet)
+        if (!statsFetchError) {
+          fetchAllCommitStats(parsedCommits);
+        }
         
         // Generate activity data for graph
         const commitDates = parsedCommits.map(commit => {
@@ -193,6 +299,166 @@ export default function GitHistoryPage() {
 
     fetchCommits();
   }, []);
+
+  const fetchCommitDetails = async (commitSha: string) => {
+    // If already loading or loaded, don't fetch again
+    const currentState = expandedCommits[commitSha];
+    if (currentState?.loading || currentState?.details) {
+      return;
+    }
+
+    // Find the full commit object to get the full SHA
+    const commit = commits.find(c => c.hash === commitSha);
+    const fullSha = commit?.fullSha;
+    
+    if (!fullSha) {
+      console.error('Full SHA not found for commit:', commitSha);
+      setExpandedCommits(prev => ({
+        ...prev,
+        [commitSha]: {
+          expanded: true,
+          loading: false,
+          details: null,
+          error: 'Full commit SHA not available'
+        }
+      }));
+      return;
+    }
+
+    // Set loading state
+    setExpandedCommits(prev => ({
+      ...prev,
+      [commitSha]: {
+        expanded: true,
+        loading: true,
+        details: null,
+        error: null
+      }
+    }));
+
+    try {
+      const response = await fetch(`/api/commit/${fullSha}/details`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch commit details');
+      }
+      
+      // Update state with fetched details
+      setExpandedCommits(prev => ({
+        ...prev,
+        [commitSha]: {
+          expanded: true,
+          loading: false,
+          details: data.commit,
+          error: null
+        }
+      }));
+      
+    } catch (err) {
+      console.error('Failed to fetch commit details:', err);
+      setExpandedCommits(prev => ({
+        ...prev,
+        [commitSha]: {
+          expanded: true,
+          loading: false,
+          details: null,
+          error: err instanceof Error ? err.message : 'Failed to load commit details'
+        }
+      }));
+    }
+  };
+
+  const fetchAllCommitStats = async (commitsList: Commit[]) => {
+    // Don't fetch if we already encountered an error
+    if (statsFetchError) {
+      return;
+    }
+    
+    setStatsLoading(true);
+    
+    // Process commits one by one with delay to avoid rate limiting
+    const newStatsCache = { ...commitStatsCache };
+    let hasError = false;
+    
+    for (const commit of commitsList) {
+      // Skip if already cached or no full SHA
+      if (newStatsCache[commit.hash] || !commit.fullSha) {
+        continue;
+      }
+      
+      try {
+        // Add small delay between requests
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const response = await fetch(`/api/commit/${commit.fullSha}/details`);
+        
+        if (!response.ok) {
+          if (response.status === 429) {
+            // Rate limit hit - stop fetching and show error
+            console.warn('GitHub rate limit reached');
+            hasError = true;
+            break;
+          }
+          // Skip other errors and continue
+          continue;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.commit?.stats) {
+          newStatsCache[commit.hash] = {
+            additions: data.commit.stats.additions,
+            deletions: data.commit.stats.deletions,
+            total: data.commit.stats.total
+          };
+        }
+      } catch (err) {
+        console.error(`Failed to fetch stats for commit ${commit.hash}:`, err);
+        // Continue with other commits, don't fail everything
+      }
+    }
+    
+    setCommitStatsCache(newStatsCache);
+    setStatsFetchError(hasError);
+    setStatsLoading(false);
+  };
+
+  const toggleCommitExpansion = (commitSha: string) => {
+    const currentState = expandedCommits[commitSha];
+    
+    if (currentState?.expanded) {
+      // Collapse
+      setExpandedCommits(prev => ({
+        ...prev,
+        [commitSha]: {
+          ...currentState,
+          expanded: false
+        }
+      }));
+    } else {
+      // Expand and fetch details if not already loaded
+      setExpandedCommits(prev => ({
+        ...prev,
+        [commitSha]: {
+          expanded: true,
+          loading: currentState?.loading || false,
+          details: currentState?.details || null,
+          error: currentState?.error || null
+        }
+      }));
+      
+      // Fetch details if not already loaded
+      if (!currentState?.details && !currentState?.loading) {
+        fetchCommitDetails(commitSha);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -430,25 +696,171 @@ export default function GitHistoryPage() {
                       </span>
                       <span className="text-sm text-gray-500 truncate">{commit.author}</span>
                     </div>
-                    <h3 className="font-medium text-gray-900 break-words">{commit.message}</h3>
+                    <h3 className="font-medium text-gray-900 break-words mb-2">{commit.message}</h3>
+                    
+                    {/* Commit Statistics */}
+                    {statsLoading && (
+                      <div className="flex items-center gap-2 text-gray-500 text-xs mt-2">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                        <span>Loading statistics...</span>
+                      </div>
+                    )}
+                    
+                    {statsFetchError && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mt-2 text-xs text-yellow-700">
+                        <p className="mb-1">⚠️ {statsLoadErrorText}</p>
+                        <button 
+                          onClick={() => window.location.reload()} 
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          {retryLaterText}
+                        </button>
+                      </div>
+                    )}
+                    
+                    {!statsLoading && !statsFetchError && commitStatsCache[commit.hash] && (
+                      <div className="flex flex-wrap gap-3 text-xs text-gray-600 mt-2">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-green-600">+{commitStatsCache[commit.hash].additions}</span>
+                          <span>{linesAddedText}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-red-600">-{commitStatsCache[commit.hash].deletions}</span>
+                          <span>{linesDeletedText}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-gray-700">{commitStatsCache[commit.hash].total}</span>
+                          <span>{linesChangedText}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <span className="text-sm text-gray-500 whitespace-nowrap flex-shrink-0">
                     {commit.timestamp}
                   </span>
                 </div>
-                <div className="mt-1">
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <button
+                    onClick={() => toggleCommitExpansion(commit.hash)}
+                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${expandedCommits[commit.hash]?.expanded ? 'rotate-180' : ''}`} 
+                      fill="currentColor" 
+                      viewBox="0 0 20 20"
+                    >
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    {expandedCommits[commit.hash]?.expanded ? hideDetailsText : detailsButtonText}
+                  </button>
+                  
                   <a 
                     href={commit.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
                   >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l-1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-                  </svg>
-                  View on GitHub
-                </a>
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l-1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
+                    </svg>
+                    View on GitHub
+                  </a>
                 </div>
+                
+                {/* Expanded Details */}
+                {expandedCommits[commit.hash]?.expanded && (
+                  <div className="mt-4 pt-4 border-t border-orange-200">
+                    {expandedCommits[commit.hash]?.loading ? (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span>{loadingDetailsText}</span>
+                      </div>
+                    ) : expandedCommits[commit.hash]?.error ? (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700">
+                        <p className="font-medium">Error:</p>
+                        <p>{expandedCommits[commit.hash]?.error}</p>
+                      </div>
+                    ) : expandedCommits[commit.hash]?.details ? (
+                      <div className="space-y-4">
+                        {/* Stats Summary */}
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium text-green-600">+{expandedCommits[commit.hash]!.details!.stats.additions}</span>
+                            <span className="text-gray-500">{additionsText}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium text-red-600">-{expandedCommits[commit.hash]!.details!.stats.deletions}</span>
+                            <span className="text-gray-500">{deletionsText}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium text-gray-700">{expandedCommits[commit.hash]!.details!.stats.total}</span>
+                            <span className="text-gray-500">total changes</span>
+                          </div>
+                        </div>
+                        
+                        {/* Files List */}
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3">{filesChangedText} ({expandedCommits[commit.hash]!.details!.files.length})</h4>
+                          
+                          {expandedCommits[commit.hash]!.details!.files.length === 0 ? (
+                            <p className="text-gray-500 italic">{noChangesText}</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {expandedCommits[commit.hash]!.details!.files.map((file, fileIndex) => (
+                                <div key={fileIndex} className="bg-white border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <span className={`px-2 py-1 rounded text-xs font-medium ${{
+                                        added: 'bg-green-100 text-green-800',
+                                        modified: 'bg-blue-100 text-blue-800',
+                                        removed: 'bg-red-100 text-red-800'
+                                      }[file.status] || 'bg-gray-100 text-gray-800'}`}>
+                                        {file.status.charAt(0).toUpperCase() + file.status.slice(1)}
+                                      </span>
+                                      <span className="font-mono text-sm truncate">{file.filename}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs">
+                                      {file.additions > 0 && (
+                                        <span className="text-green-600 font-medium">+{file.additions}</span>
+                                      )}
+                                      {file.deletions > 0 && (
+                                        <span className="text-red-600 font-medium">-{file.deletions}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* File Diff Preview */}
+                                  {file.patch && (
+                                    <div className="mt-2 bg-gray-900 rounded text-xs overflow-x-auto">
+                                      <pre className="p-3 text-gray-200 font-mono">
+                                        {file.patch.split('\n').slice(0, 10).map((line, lineIndex) => (
+                                          <div key={lineIndex} className="whitespace-pre">
+                                            {line.startsWith('+') ? (
+                                              <span className="text-green-400">{line}</span>
+                                            ) : line.startsWith('-') ? (
+                                              <span className="text-red-400">{line}</span>
+                                            ) : (
+                                              <span>{line}</span>
+                                            )}
+                                          </div>
+                                        ))}
+                                        {file.patch.split('\n').length > 10 && (
+                                          <div className="text-gray-400 italic mt-1">
+                                            ... and {file.patch.split('\n').length - 10} more lines
+                                          </div>
+                                        )}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             ))}
           </div>

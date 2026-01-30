@@ -611,14 +611,20 @@ export async function registerRoutes(
   const commitsCache = {
     data: [] as any[],
     timestamp: 0,
-    ttl: 5 * 60 * 1000 // 5 minutes cache TTL
+    ttl: 30 * 60 * 1000 // 30 minutes cache TTL (increased from 5 minutes)
+  };
+  
+  // In-memory cache for individual commit details
+  const commitDetailsCache = {
+    data: new Map<string, { details: any; timestamp: number }>(),
+    ttl: 30 * 60 * 1000 // 30 minutes cache TTL (increased from 5 minutes)
   };
   
   // Cache for API git history endpoint
   const apiGitCache = {
     data: '' as string,
     timestamp: 0,
-    ttl: 5 * 60 * 1000 // 5 minutes cache TTL
+    ttl: 30 * 60 * 1000 // 30 minutes cache TTL (increased from 5 minutes)
   };
   
   console.log('Initialized empty commits cache');
@@ -630,6 +636,153 @@ export async function registerRoutes(
   app.get("/api/health", (req, res) => {
     console.log("Health check endpoint called");
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+  
+  // Git commit details endpoint - get changed files and stats
+  app.get("/api/commit/:sha/details", async (req, res) => {
+    console.log("=== COMMIT DETAILS ENDPOINT CALLED ===");
+    console.log("Commit SHA:", req.params.sha);
+    
+    try {
+      const { sha } = req.params;
+      
+      if (!sha) {
+        return res.status(400).json({
+          success: false,
+          error: 'Commit SHA is required'
+        });
+      }
+      
+      // Validate SHA format (should be 40 characters hex)
+      if (!/^[0-9a-f]{40}$/i.test(sha)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid commit SHA format'
+        });
+      }
+      
+      // Check if we have cached data for this commit
+      const now = Date.now();
+      const cachedEntry = commitDetailsCache.data.get(sha);
+      
+      if (cachedEntry && (now - cachedEntry.timestamp) < commitDetailsCache.ttl) {
+        console.log(`Returning cached commit details for ${sha.substring(0, 7)}`);
+        console.log(`Cache age: ${Math.floor((now - cachedEntry.timestamp) / 1000)} seconds`);
+        
+        return res.json({
+          success: true,
+          commit: cachedEntry.details,
+          cache_hit: true,
+          cache_age_seconds: Math.floor((now - cachedEntry.timestamp) / 1000)
+        });
+      }
+      
+      // Check GitHub rate limit headers before making request
+      const rateLimitResponse = await fetch('https://api.github.com/rate_limit', {
+        headers: {
+          'User-Agent': 'reader.market-app/1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (rateLimitResponse.ok) {
+        const rateLimitData = await rateLimitResponse.json();
+        const coreLimit = rateLimitData.resources.core;
+        
+        console.log(`GitHub Rate Limit - Remaining: ${coreLimit.remaining}/${coreLimit.limit}`);
+        
+        // If we're close to the limit, return cached data or error
+        if (coreLimit.remaining < 10) {
+          console.warn('GitHub rate limit is low, returning error');
+          return res.status(429).json({
+            success: false,
+            error: 'GitHub API rate limit exceeded. Please try again later.',
+            rate_limit_remaining: coreLimit.remaining
+          });
+        }
+      }
+      
+      const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits/${sha}`;
+      console.log(`Fetching commit details from: ${apiUrl}`);
+      
+      // Fetch from GitHub API
+      const response = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'reader.market-app/1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return res.status(404).json({
+            success: false,
+            error: 'Commit not found'
+          });
+        }
+        throw new Error(`GitHub API responded with status ${response.status}`);
+      }
+      
+      const commitData = await response.json();
+      
+      // Transform the response to include file changes
+      const result = {
+        success: true,
+        commit: {
+          sha: commitData.sha,
+          message: commitData.commit.message,
+          author: {
+            name: commitData.commit.author.name,
+            email: commitData.commit.author.email,
+            date: commitData.commit.author.date
+          },
+          committer: {
+            name: commitData.commit.committer.name,
+            email: commitData.commit.committer.email,
+            date: commitData.commit.committer.date
+          },
+          url: commitData.html_url,
+          stats: {
+            additions: commitData.stats?.additions || 0,
+            deletions: commitData.stats?.deletions || 0,
+            total: commitData.stats?.total || 0
+          },
+          files: (commitData.files || []).map((file: any) => ({
+            filename: file.filename,
+            status: file.status, // added, modified, removed
+            additions: file.additions || 0,
+            deletions: file.deletions || 0,
+            changes: file.changes || 0,
+            blob_url: file.blob_url,
+            raw_url: file.raw_url,
+            patch: file.patch // The actual diff content
+          }))
+        }
+      };
+      
+      // Cache the result
+      commitDetailsCache.data.set(sha, {
+        details: result.commit,
+        timestamp: now
+      });
+      
+      console.log(`Successfully fetched and cached details for commit ${sha.substring(0, 7)}`);
+      console.log(`Files changed: ${result.commit.files.length}`);
+      console.log(`Additions: ${result.commit.stats.additions}, Deletions: ${result.commit.stats.deletions}`);
+      
+      res.json({
+        ...result,
+        cache_hit: false
+      });
+      
+    } catch (error) {
+      console.error('Error fetching commit details:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch commit details',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   });
   
   // Git commit history endpoint - no authentication required
@@ -655,11 +808,18 @@ export async function registerRoutes(
       
       console.log(`Requested count: ${count}, template: ${template}, clear: ${clearCache}`);
       
-      // Handle cache clearing
+      // Handle cache clearing for all caches
       if (clearCache) {
-        console.log('Clearing commits cache');
+        console.log('Clearing all caches');
         commitsCache.data = [];
         commitsCache.timestamp = 0;
+          
+        // Clear commit details cache
+        commitDetailsCache.data.clear();
+          
+        // Clear API git history cache
+        apiGitCache.data = '';
+        apiGitCache.timestamp = 0;
         
         if (template === 'cool') {
           const htmlResponse = `
