@@ -10,6 +10,7 @@ import { MobileMenu } from '@/components/MobileMenu';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { onSocketEvent } from "@/lib/socket";
 import { useTranslation } from "react-i18next";
+import { scrollToAnchor } from '@/utils/scrollToAnchor';
 import {
   Tooltip,
   TooltipContent,
@@ -182,6 +183,13 @@ export function Navbar() {
             )}
             <Link 
               href="/" 
+              onClick={(e) => {
+                // If we're already on the homepage, scroll to how-it-works section
+                if (location === '/') {
+                  e.preventDefault();
+                  scrollToAnchor('how-it-works');
+                }
+              }}
               className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/') ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
               aria-current={isActive('/') ? 'page' : undefined}
             >

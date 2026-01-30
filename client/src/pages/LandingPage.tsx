@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
 import NewsBlock from '@/components/NewsBlock';
 import { BookCard } from '@/components/BookCard';
+import { handleInitialHashScroll } from '@/utils/scrollToAnchor';
 import { 
   BookOpen, 
   Brain, 
@@ -54,27 +55,18 @@ const LandingPage = () => {
   
   // Handle hash scrolling separately (wouter doesn't handle hash)
   useEffect(() => {
-    const handleHashScroll = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash) {
-        // Use a longer delay to ensure the component has fully rendered
-        setTimeout(() => {
-          const element = document.getElementById(hash);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 300);
-      }
-    };
-    
-    // Scroll on mount if hash exists
-    handleHashScroll();
+    // Handle initial hash scroll when component mounts
+    handleInitialHashScroll();
     
     // Listen for hash changes
-    window.addEventListener('hashchange', handleHashScroll);
+    const handleHashChange = () => {
+      handleInitialHashScroll();
+    };
+    
+    window.addEventListener('hashchange', handleHashChange);
     
     return () => {
-      window.removeEventListener('hashchange', handleHashScroll);
+      window.removeEventListener('hashchange', handleHashChange);
     };
   }, []);
   
@@ -161,7 +153,14 @@ const LandingPage = () => {
               e.preventDefault();
               const element = document.getElementById('how-it-works');
               if (element) {
-                element.scrollIntoView({ behavior: 'smooth' });
+                const headerOffset = 80;
+                const elementPosition = element.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                
+                window.scrollTo({
+                  top: offsetPosition,
+                  behavior: 'smooth'
+                });
               }
             }}>
               <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#e67e22] hover:bg-[#d35400] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
@@ -169,40 +168,6 @@ const LandingPage = () => {
               </Button>
             </a>
           </div>
-        </div>
-      </section>
-
-      {/* Popular Books Section */}
-      <section className="py-20 bg-[#f7f4f0]">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold font-serif mb-4">{t('landing:popularBooksTitle')}</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              {t('landing:popularBooksSubtitle')}
-            </p>
-          </div>
-          
-          {loadingBooks ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">{t('common:loading')}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {popularBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
-              ))}
-            </div>
-          )}
-          
-          {!loadingBooks && popularBooks.length > 0 && (
-            <div className="text-center mt-8">
-              <Link href="/home">
-                <Button size="lg" variant="outline">
-                  {t('landing:viewAllBooks')}
-                </Button>
-              </Link>
-            </div>
-          )}
         </div>
       </section>
 
@@ -313,6 +278,40 @@ const LandingPage = () => {
               </CardContent>
             </Card>
           </div>
+        </div>
+      </section>
+
+      {/* Popular Books Section */}
+      <section className="py-20 bg-[#f7f4f0]">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold font-serif mb-4">{t('landing:popularBooksTitle')}</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              {t('landing:popularBooksSubtitle')}
+            </p>
+          </div>
+          
+          {loadingBooks ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">{t('common:loading')}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {popularBooks.map((book) => (
+                <BookCard key={book.id} book={book} />
+              ))}
+            </div>
+          )}
+          
+          {!loadingBooks && popularBooks.length > 0 && (
+            <div className="text-center mt-8">
+              <Link href="/home">
+                <Button size="lg" variant="outline">
+                  {t('landing:viewAllBooks')}
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
