@@ -1,7 +1,7 @@
 // Centralized Logging Configuration System
 // Allows granular control over different logging modules and levels
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface LoggingModuleConfig {
   enabled: boolean;
@@ -161,7 +161,9 @@ class LoggerFactory {
   private loggers: Map<string, Logger> = new Map();
 
   private constructor() {
-    this.config = this.loadConfig();
+    // Initialize with default config, don't load from server immediately
+    // Server loading will be triggered explicitly when needed
+    this.config = DEFAULT_LOGGING_CONFIG;
   }
 
   static getInstance(): LoggerFactory {
@@ -213,34 +215,32 @@ class LoggerFactory {
     return this.config;
   }
 
-  private loadConfig(): LoggingConfig {
+  // Explicitly load configuration from server (call this when user is authenticated)
+  async loadConfigFromServer(): Promise<void> {
     try {
-      // First try to load from server
-      this.fetchServerConfig().then(serverConfig => {
-        if (serverConfig) {
-          this.config = serverConfig;
-          // Update all existing loggers
-          this.loggers.forEach(logger => logger.updateConfig(this.config));
-        } else {
-          // Fallback to localStorage
-          const savedConfig = localStorage.getItem('loggingConfig');
-          if (savedConfig) {
-            this.config = { ...DEFAULT_LOGGING_CONFIG, ...JSON.parse(savedConfig) };
-          }
-        }
-      }).catch(() => {
-        // Fallback to localStorage on server error
+      const serverConfig = await this.fetchServerConfig();
+      if (serverConfig) {
+        this.config = serverConfig;
+        // Update all existing loggers
+        this.loggers.forEach(logger => logger.updateConfig(this.config));
+      } else {
+        // Fallback to localStorage
         const savedConfig = localStorage.getItem('loggingConfig');
         if (savedConfig) {
           this.config = { ...DEFAULT_LOGGING_CONFIG, ...JSON.parse(savedConfig) };
         }
-      });
+      }
     } catch (error) {
-      console.warn('Failed to load logging config, using defaults');
+      console.warn('Failed to load logging config from server, using defaults or localStorage');
+      // Fallback to localStorage
+      const savedConfig = localStorage.getItem('loggingConfig');
+      if (savedConfig) {
+        this.config = { ...DEFAULT_LOGGING_CONFIG, ...JSON.parse(savedConfig) };
+      }
     }
-    return DEFAULT_LOGGING_CONFIG;
   }
 
+  // Private method to fetch config from server - used by loadConfigFromServer
   private async fetchServerConfig(): Promise<LoggingConfig | null> {
     try {
       const response = await fetch('/api/admin/logging-config', {
@@ -357,6 +357,11 @@ export const userActionsLogger = loggerFactory.getLogger('userActions');
 // Hook for React components to access logger configuration
 export const useLoggerConfig = () => {
   const [config, setConfig] = useState<LoggingConfig>(() => loggerFactory.getConfig());
+
+  // Load server config when hook is used (assuming user is authenticated)
+  useEffect(() => {
+    loggerFactory.loadConfigFromServer().catch(console.warn);
+  }, []);
 
   const updateConfig = useCallback((newConfig: LoggingConfig) => {
     loggerFactory.updateConfig(newConfig);
