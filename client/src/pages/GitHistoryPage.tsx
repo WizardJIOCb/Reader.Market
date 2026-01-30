@@ -7,24 +7,17 @@ import { usePageView } from '@/hooks/usePageView';
 interface Commit {
   hash: string;
   message: string;
+  body?: string; // Commit message body/comment
   author: string;
   timestamp: string;
   url: string;
+  fullSha?: string; // Full 40-character SHA extracted from URL
 }
 
 interface ActivityData {
   date: string;
   count: number;
   weekday: number;
-}
-
-interface Commit {
-  hash: string;
-  message: string;
-  author: string;
-  timestamp: string;
-  url: string;
-  fullSha?: string; // Full 40-character SHA extracted from URL
 }
 
 interface CommitFile {
@@ -242,6 +235,7 @@ export default function GitHistoryPage() {
             parsedCommits.push({
               hash: hashElement.textContent?.trim() || '',
               message: messageElement.textContent?.trim() || '',
+              body: element.querySelector('.commit-body')?.textContent?.trim() || undefined,
               author: authorElement.textContent?.trim() || '',
               timestamp: dateElement.textContent?.trim() || '',
               url: linkElement.href || '',

@@ -10,12 +10,25 @@ certs/
 .env.prod
 .env.*
 
+# IDE and editor files
+.local/
+.qoder/
+.gigaide/
+.idea/
+
+# Runtime and temporary files
+pids.txt
+
 # Database backups
 backups/*.sql
 
 # Log files
+logs/
 logs/aggregated-logs.json
 
 # Generated source code copies
 shared/sources-for-tasks/
+
+# Upload files
+uploads/
 /reader.market.zip

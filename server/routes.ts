@@ -1225,6 +1225,22 @@ export async function registerRoutes(
             line-height: 1.5;
         }
         
+        .commit-body {
+            background: rgba(58, 90, 122, 0.05);
+            border-left: 3px solid var(--accent);
+            padding: 12px 16px;
+            margin-bottom: 15px;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .commit-body-content {
+            font-size: 0.95rem;
+            color: var(--foreground);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
         .commit-author {
             display: flex;
             align-items: center;
@@ -1334,6 +1350,12 @@ export async function registerRoutes(
                     
                     <div class="commit-message">${commit.message}</div>
                     
+                    ${(commit.body && commit.body.trim()) ? `
+                    <div class="commit-body">
+                        <div class="commit-body-content">${commit.body.trim().replace(/\n/g, '<br>')}</div>
+                    </div>
+                    ` : ''}
+                    
                     <div class="commit-author">
                         <div class="author-avatar">${commit.author.charAt(0)}</div>
                         <div class="author-name">${commit.author}</div>
@@ -1406,13 +1428,21 @@ export async function registerRoutes(
         const commitsData = await response.json();
               
         // Transform GitHub API response to our format
-        const pageCommits = commitsData.map((commit: any) => ({
-          hash: commit.sha,
-          message: commit.commit.message.split('\n')[0], // First line only
-          author: commit.commit.author.name,
-          timestamp: commit.commit.author.date,
-          url: commit.html_url
-        }));
+        const pageCommits = commitsData.map((commit: any) => {
+          const fullMessage = commit.commit.message;
+          const messageLines = fullMessage.split('\n');
+          const subject = messageLines[0];
+          const body = messageLines.slice(1).join('\n').trim();
+          
+          return {
+            hash: commit.sha,
+            message: subject,
+            body: body || null, // Full commit message body (without first line)
+            author: commit.commit.author.name,
+            timestamp: commit.commit.author.date,
+            url: commit.html_url
+          };
+        });
               
         commits.push(...pageCommits);
         console.log(`Page ${page}: fetched ${pageCommits.length} commits`);
@@ -1656,6 +1686,22 @@ export async function registerRoutes(
             line-height: 1.5;
         }
         
+        .commit-body {
+            background: rgba(58, 90, 122, 0.05);
+            border-left: 3px solid var(--accent);
+            padding: 12px 16px;
+            margin-bottom: 15px;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .commit-body-content {
+            font-size: 0.95rem;
+            color: var(--foreground);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
         .commit-author {
             display: flex;
             align-items: center;
@@ -1843,6 +1889,12 @@ export async function registerRoutes(
                     </div>
                     
                     <div class="commit-message">${commit.message}</div>
+                    
+                    ${(commit.body && commit.body.trim()) ? `
+                    <div class="commit-body">
+                        <div class="commit-body-content">${commit.body.trim().replace(/\n/g, '<br>')}</div>
+                    </div>
+                    ` : ''}
                     
                     <div class="commit-author">
                         <div class="author-avatar">${commit.author.charAt(0)}</div>
