@@ -144,11 +144,24 @@ const LandingPage = () => {
                 {isEarlyAdopter ? t('landing:joinEarlyAccess') : t('landing:getStarted')}
               </Button>
             </Link>
-            <Link href="/git-to-gpt">
+            <a href="#news" onClick={(e) => {
+              e.preventDefault();
+              const element = document.getElementById('news');
+              if (element) {
+                const headerOffset = 80;
+                const elementPosition = element.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                
+                window.scrollTo({
+                  top: offsetPosition,
+                  behavior: 'smooth'
+                });
+              }
+            }}>
               <Button size="lg" className="px-8 py-6 text-lg bg-[#4e8d3f] hover:bg-[#3d7c2e] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
                 {t('landing:latestUpdates')}
               </Button>
-            </Link>
+            </a>
             <a href="#how-it-works" onClick={(e) => {
               e.preventDefault();
               const element = document.getElementById('how-it-works');
