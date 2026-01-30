@@ -179,6 +179,10 @@ export default function GitHistoryPage() {
     ? 'Не удалось загрузить статистику коммитов. Попробуйте обновить страницу позже.'
     : 'Failed to load commit statistics. Try refreshing the page later.';
   
+  const batchApiErrorText = i18n.language === 'ru'
+    ? 'Слишком много запросов к GitHub. Попробуйте позже.'
+    : 'Too many requests to GitHub. Please try again later.';
+  
   const retryLaterText = i18n.language === 'ru'
     ? 'Повторить позже'
     : 'Retry later';
@@ -382,51 +386,82 @@ export default function GitHistoryPage() {
     
     setStatsLoading(true);
     
-    // Process commits one by one with delay to avoid rate limiting
-    const newStatsCache = { ...commitStatsCache };
-    let hasError = false;
+    // Get commits that need stats (not cached and have full SHA)
+    const commitsToFetch = commitsList
+      .filter(commit => !commitStatsCache[commit.hash] && commit.fullSha)
+      .map(commit => ({
+        hash: commit.hash,
+        fullSha: commit.fullSha!
+      }));
     
-    for (const commit of commitsList) {
-      // Skip if already cached or no full SHA
-      if (newStatsCache[commit.hash] || !commit.fullSha) {
-        continue;
-      }
-      
-      try {
-        // Add small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const response = await fetch(`/api/commit/${commit.fullSha}/details`);
-        
-        if (!response.ok) {
-          if (response.status === 429) {
-            // Rate limit hit - stop fetching and show error
-            console.warn('GitHub rate limit reached');
-            hasError = true;
-            break;
-          }
-          // Skip other errors and continue
-          continue;
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.commit?.stats) {
-          newStatsCache[commit.hash] = {
-            additions: data.commit.stats.additions,
-            deletions: data.commit.stats.deletions,
-            total: data.commit.stats.total
-          };
-        }
-      } catch (err) {
-        console.error(`Failed to fetch stats for commit ${commit.hash}:`, err);
-        // Continue with other commits, don't fail everything
-      }
+    if (commitsToFetch.length === 0) {
+      setStatsLoading(false);
+      return;
     }
     
-    setCommitStatsCache(newStatsCache);
-    setStatsFetchError(hasError);
-    setStatsLoading(false);
+    try {
+      // Use batch endpoint for better performance
+      const response = await fetch('/api/commits/details/batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shas: commitsToFetch.map(c => c.fullSha)
+        })
+      });
+      
+      if (!response.ok) {
+        if (response.status === 429) {
+          console.warn('GitHub rate limit reached');
+          setStatsFetchError(true);
+          setStatsLoading(false);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch commit statistics');
+      }
+      
+      // Update cache with results
+      const newStatsCache = { ...commitStatsCache };
+      let hasErrors = false;
+      
+      // Match results back to commit hashes
+      const shaToHashMap: Record<string, string> = {};
+      commitsToFetch.forEach(commit => {
+        shaToHashMap[commit.fullSha] = commit.hash;
+      });
+      
+      Object.entries(data.commits).forEach(([sha, result]: [string, any]) => {
+        const commitHash = shaToHashMap[sha];
+        if (!commitHash) return;
+        
+        if (result.success && result.commit?.stats) {
+          newStatsCache[commitHash] = {
+            additions: result.commit.stats.additions,
+            deletions: result.commit.stats.deletions,
+            total: result.commit.stats.total
+          };
+        } else {
+          console.warn(`Failed to fetch stats for commit ${commitHash}:`, result.error);
+          hasErrors = true;
+        }
+      });
+      
+      setCommitStatsCache(newStatsCache);
+      setStatsFetchError(hasErrors);
+      
+    } catch (err) {
+      console.error('Failed to fetch commit statistics:', err);
+      setStatsFetchError(true);
+    } finally {
+      setStatsLoading(false);
+    }
   };
 
   const toggleCommitExpansion = (commitSha: string) => {

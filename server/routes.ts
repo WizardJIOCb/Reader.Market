@@ -638,6 +638,194 @@ export async function registerRoutes(
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
   
+  // Batch commit details endpoint - get details for multiple commits in one request
+  app.post("/api/commits/details/batch", async (req, res) => {
+    console.log("=== BATCH COMMIT DETAILS ENDPOINT CALLED ===");
+    console.log("Requested SHAs:", req.body.shas);
+    
+    try {
+      const { shas } = req.body;
+      
+      if (!Array.isArray(shas) || shas.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'SHAs array is required'
+        });
+      }
+      
+      // Validate all SHAs
+      const invalidShas = shas.filter((sha: string) => !/^[0-9a-f]{40}$/i.test(sha));
+      if (invalidShas.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid commit SHA format: ${invalidShas.join(', ')}`
+        });
+      }
+      
+      // Limit batch size to prevent abuse
+      if (shas.length > 50) {
+        return res.status(400).json({
+          success: false,
+          error: 'Maximum 50 commits per request'
+        });
+      }
+      
+      // Check GitHub rate limit before processing
+      const rateLimitResponse = await fetch('https://api.github.com/rate_limit', {
+        headers: {
+          'User-Agent': 'reader.market-app/1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (rateLimitResponse.ok) {
+        const rateLimitData = await rateLimitResponse.json();
+        const coreLimit = rateLimitData.resources.core;
+        
+        console.log(`GitHub Rate Limit - Remaining: ${coreLimit.remaining}/${coreLimit.limit}`);
+        
+        // If we don't have enough requests for all commits, return error
+        if (coreLimit.remaining < shas.length + 5) { // +5 buffer
+          console.warn('Not enough GitHub requests remaining for batch');
+          return res.status(429).json({
+            success: false,
+            error: 'GitHub API rate limit would be exceeded. Please try again later.',
+            rate_limit_remaining: coreLimit.remaining
+          });
+        }
+      }
+      
+      // Process commits with caching
+      const now = Date.now();
+      const results: Record<string, any> = {};
+      const fetchPromises: Promise<void>[] = [];
+      
+      for (const sha of shas) {
+        // Check cache first
+        const cachedEntry = commitDetailsCache.data.get(sha);
+        if (cachedEntry && (now - cachedEntry.timestamp) < commitDetailsCache.ttl) {
+          console.log(`Using cached data for commit ${sha.substring(0, 7)}`);
+          results[sha] = {
+            success: true,
+            commit: cachedEntry.details,
+            cache_hit: true,
+            cache_age_seconds: Math.floor((now - cachedEntry.timestamp) / 1000)
+          };
+          continue;
+        }
+        
+        // Add small delay between requests to be respectful to GitHub
+        const delay = fetchPromises.length * 50; // 50ms between requests
+        
+        const fetchPromise = new Promise<void>(resolve => {
+          setTimeout(async () => {
+            try {
+              const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits/${sha}`;
+              console.log(`Fetching commit details from: ${apiUrl}`);
+              
+              const response = await fetch(apiUrl, {
+                headers: {
+                  'User-Agent': 'reader.market-app/1.0',
+                  'Accept': 'application/vnd.github.v3+json'
+                }
+              });
+              
+              if (!response.ok) {
+                if (response.status === 404) {
+                  results[sha] = {
+                    success: false,
+                    error: 'Commit not found'
+                  };
+                } else {
+                  results[sha] = {
+                    success: false,
+                    error: `GitHub API error: ${response.status}`
+                  };
+                }
+                resolve();
+                return;
+              }
+              
+              const commitData = await response.json();
+              
+              // Transform the response
+              const commitResult = {
+                sha: commitData.sha,
+                message: commitData.commit.message,
+                author: {
+                  name: commitData.commit.author.name,
+                  email: commitData.commit.author.email,
+                  date: commitData.commit.author.date
+                },
+                committer: {
+                  name: commitData.commit.committer.name,
+                  email: commitData.commit.committer.email,
+                  date: commitData.commit.committer.date
+                },
+                url: commitData.html_url,
+                stats: {
+                  additions: commitData.stats?.additions || 0,
+                  deletions: commitData.stats?.deletions || 0,
+                  total: commitData.stats?.total || 0
+                },
+                files: (commitData.files || []).map((file: any) => ({
+                  filename: file.filename,
+                  status: file.status,
+                  additions: file.additions || 0,
+                  deletions: file.deletions || 0,
+                  changes: file.changes || 0,
+                  blob_url: file.blob_url,
+                  raw_url: file.raw_url,
+                  patch: file.patch
+                }))
+              };
+              
+              // Cache the result
+              commitDetailsCache.data.set(sha, {
+                details: commitResult,
+                timestamp: now
+              });
+              
+              results[sha] = {
+                success: true,
+                commit: commitResult,
+                cache_hit: false
+              };
+              
+              console.log(`Successfully fetched and cached details for commit ${sha.substring(0, 7)}`);
+              
+            } catch (error) {
+              console.error(`Error fetching commit ${sha.substring(0, 7)}:`, error);
+              results[sha] = {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error'
+              };
+            }
+            resolve();
+          }, delay);
+        });
+        
+        fetchPromises.push(fetchPromise);
+      }
+      
+      // Wait for all requests to complete
+      await Promise.all(fetchPromises);
+      
+      res.json({
+        success: true,
+        commits: results
+      });
+      
+    } catch (error) {
+      console.error('Error in batch commit details endpoint:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch commit details',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  
   // Git commit details endpoint - get changed files and stats
   app.get("/api/commit/:sha/details", async (req, res) => {
     console.log("=== COMMIT DETAILS ENDPOINT CALLED ===");
