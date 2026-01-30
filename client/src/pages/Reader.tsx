@@ -39,6 +39,7 @@ import {
   Chapter,
   SearchResult,
   THEME_COLORS,
+  ReadingLocatorV2,
 } from '@/components/reader';
 import type { ReaderSettings } from '@/components/reader/types';
 
@@ -169,6 +170,19 @@ export default function Reader() {
   const [filteredBookmarks, setFilteredBookmarks] = useState<BookmarkItem[]>([]);
   const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
   const [showCreateCollectionModal, setShowCreateCollectionModal] = useState(false);
+  
+  // Helper function to build anchor text for locator v2
+  const buildAnchorText = useCallback((content: BookContent | null, chapterIndex: number, charOffsetInBook: number) => {
+    if (!content) return undefined;
+    const chapter = content.chapters[chapterIndex];
+    if (!chapter?.plainText) return undefined;
+
+    const local = Math.max(0, charOffsetInBook - (chapter.startOffset || 0));
+    const start = Math.max(0, local - 40);
+    const end = Math.min(chapter.plainText.length, local + 160);
+    const snippet = chapter.plainText.substring(start, end).replace(/[\s\u00a0]+/g, ' ').trim();
+    return snippet.length ? snippet : undefined;
+  }, []);
   
   // Dedicated search function
   const performCollectionSearch = useCallback((query: string) => {
@@ -981,7 +995,7 @@ export default function Reader() {
           console.error('Failed to load progress from API:', e);
         }
       }
-      
+          
       // Fallback to localStorage
       if (!progress) {
         try {
@@ -993,26 +1007,55 @@ export default function Reader() {
           console.error('Failed to load progress from localStorage:', e);
         }
       }
-      
+          
       // Navigate to saved position
       if (progress && typeof progress.chapterIndex === 'number' && progress.chapterIndex >= 0) {
         console.log('[PROGRESS] Restoring saved progress:', progress);
+            
+        // Check for locator v2 first
+        const locator: ReadingLocatorV2 | undefined =
+          (progress.locator && progress.locator.v === 2) ? progress.locator : undefined;
+      
+        if (locator && typeof locator.charOffsetInBook === 'number') {
+          // Use precise locator v2 restoration
+          setTimeout(() => {
+            const p = readerRef.current?.goToCharOffset(locator.charOffsetInBook, {
+              anchorText: locator.anchorText,
+              chapterIndexHint: locator.chapterIndex,
+              pageHintInChapter: locator.pageHintInChapter,
+            });
+            p?.catch(() => {});
+          }, 150);
+          return;
+        }
+            
+        // Fallback to legacy restoration
         // First go to chapter, then after pagination completes, go to specific page
         setTimeout(() => {
           readerRef.current?.goToChapter(progress.chapterIndex);
-          
+              
           // After chapter change and pagination, restore page position
-          // currentPage is 1-based (from getCurrentPage), convert to 0-based for goToPosition
-          if (typeof progress.currentPage === 'number' && progress.currentPage > 1) {
+          // Use pageInChapter if available (correct chapter-local page), otherwise fall back to percentage
+          if (typeof progress.pageInChapter === 'number') {
             setTimeout(() => {
               const position: Position = {
                 charOffset: 0,
                 chapterIndex: progress.chapterIndex,
-                pageInChapter: progress.currentPage - 1, // Convert to 0-based
-                totalPagesInChapter: progress.totalPages || 1,
+                pageInChapter: progress.pageInChapter, // Already 0-based
+                totalPagesInChapter: progress.totalPagesInChapter || 1,
                 percentage: progress.percentage || 0,
               };
               readerRef.current?.goToPosition(position);
+            }, 300);
+          } else if (typeof progress.percentage === 'number') {
+            // Fallback to percentage-based restoration
+            setTimeout(() => {
+              const p = readerRef.current?.goToChapterAtOffset(
+                progress.chapterIndex, 
+                Math.floor((progress.percentage || 0) * 100),
+                ''
+              );
+              p?.catch(() => {});
             }, 300);
           }
         }, 200);
@@ -1072,11 +1115,41 @@ export default function Reader() {
     
     // Save progress to localStorage immediately
     // Store OVERALL pages, not chapter pages
+    const chapterStartOffset = bookContent?.chapters?.[position.chapterIndex]?.startOffset ?? 0;
+    const charOffsetInBook = position.charOffset;
+    const charOffsetInChapter = Math.max(0, charOffsetInBook - chapterStartOffset);
+
+    const locator: ReadingLocatorV2 = {
+      v: 2,
+      bookId,
+      chapterIndex: position.chapterIndex,
+      charOffsetInBook,
+      charOffsetInChapter,
+      percentage: position.percentage,
+      pageHintInChapter: position.pageInChapter,
+      totalPagesHintInChapter: position.totalPagesInChapter,
+      anchorText: buildAnchorText(bookContent, position.chapterIndex, charOffsetInBook),
+      viewport: {
+        w: window.innerWidth,
+        h: window.innerHeight,
+        fontSize: settings.fontSize,
+        lineHeight: settings.lineHeight,
+        margins: settings.margins,
+        fontFamily: settings.fontFamily,
+        viewMode: settings.viewMode,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
     const progressData = {
       currentPage: currPageOverall,
       totalPages: totPagesOverall,
       percentage: position.percentage,
       chapterIndex: position.chapterIndex,
+      // Add explicit chapter page fields for backend
+      pageInChapter: position.pageInChapter,
+      totalPagesInChapter: position.totalPagesInChapter,
+      locator,
     };
     localStorage.setItem(`reading-progress-${bookId}`, JSON.stringify(progressData));
     
@@ -1090,6 +1163,7 @@ export default function Reader() {
       // Debounce: save after 2 seconds of no changes
       progressSaveTimeoutRef.current = setTimeout(async () => {
         try {
+          // Send both legacy fields and locator v2 for backward compatibility
           await readerApi.updateProgress(bookId, progressData);
           lastProgressSaveRef.current = Date.now();
         } catch (e) {
@@ -1097,7 +1171,7 @@ export default function Reader() {
         }
       }, 2000);
     }
-  }, [user, bookId]);
+  }, [user, bookId, bookContent, settings, buildAnchorText]);
   
   const handleTextSelect = useCallback((selection: TextSelection | null) => {
     if (selection?.range) {
@@ -1916,7 +1990,111 @@ export default function Reader() {
     // On desktop, don't close panel - user can continue searching
   }, []);
   
-  // Loading state
+  // Function to manually restore saved position
+  const handleRestorePosition = useCallback(() => {
+    console.log('[RESTORE] handleRestorePosition called');
+    
+    if (!readerRef.current) {
+      console.log('[RESTORE] Reader not ready');
+      toastRef.current({
+        title: "Ошибка",
+        description: "Читалка не готова",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!bookContent || !bookContent.chapters || bookContent.chapters.length === 0) {
+      console.log('[RESTORE] Book content not loaded');
+      toastRef.current({
+        title: "Ошибка",
+        description: "Книга еще не загрузилась",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Get fresh data from localStorage
+    try {
+      const bookId = params?.bookId || '';
+      const savedProgress = localStorage.getItem(`reading-progress-${bookId}`);
+      if (!savedProgress) {
+        console.log('[RESTORE] No saved position found');
+        toastRef.current({
+          title: "Ошибка",
+          description: "Нет сохраненной позиции",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const progress = JSON.parse(savedProgress);
+      console.log('[RESTORE] Fresh progress data:', progress);
+      
+      // Check for locator v2 first (highest priority)
+      const locator: ReadingLocatorV2 | undefined =
+        (progress?.locator && progress.locator.v === 2) ? progress.locator : undefined;
+
+      if (locator && typeof locator.charOffsetInBook === 'number') {
+        console.log('[RESTORE] Using locator v2 for precise restoration');
+        const p = readerRef.current?.goToCharOffset(locator.charOffsetInBook, {
+          anchorText: locator.anchorText,
+          chapterIndexHint: locator.chapterIndex,
+          pageHintInChapter: locator.pageHintInChapter,
+        });
+        p?.catch(() => {});
+        
+        toastRef.current({
+          title: "Позиция восстановлена",
+          description: `Глава ${locator.chapterIndex + 1}`,
+        });
+        return;
+      }
+      
+      // Fallback to legacy restoration
+      
+      // Validate chapter exists
+      if (progress.chapterIndex >= bookContent.chapters.length) {
+        console.warn('[RESTORE] Chapter index out of bounds:', progress.chapterIndex);
+        toastRef.current({
+          title: "Ошибка восстановления",
+          description: `Глава ${progress.chapterIndex + 1} не существует`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Use saved position data
+      const pageInChapter = progress.pageInChapter ?? 0;
+      const totalPagesInChapter = progress.totalPagesInChapter ?? 1;
+      
+      const position = {
+        chapterIndex: progress.chapterIndex,
+        pageInChapter: pageInChapter,
+        percentage: progress.percentage || 0,
+        charOffset: 0, // Legacy fallback doesn't have charOffset, set to 0
+        totalPagesInChapter: totalPagesInChapter
+      };
+      
+      console.log('[RESTORE] Restoring to position:', position);
+      
+      readerRef.current.goToPosition(position);
+      
+      // Show success message
+      toastRef.current({
+        title: "Позиция восстановлена",
+        description: `Глава ${progress.chapterIndex + 1}, страница ${(pageInChapter || 0) + 1}`
+      });
+      
+    } catch (error) {
+      console.error('[RESTORE] Failed to restore position:', error);
+      toastRef.current({
+        title: "Ошибка",
+        description: "Не удалось восстановить позицию",
+        variant: "destructive"
+      });
+    }
+  }, [params?.bookId, bookContent]);
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -2499,6 +2677,17 @@ export default function Reader() {
                 {/* Settings Panel */}
                 {activePanel === 'settings' && (
                   <div className="p-4 space-y-6">
+                    {/* Restore Position Button */}
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={handleRestorePosition}
+                    >
+                      Вернуться к последней позиции
+                    </Button>
+                    
+                    <div className="border-t pt-4" />
+                    
                     {/* Font Family */}
                     <div className="space-y-2">
                       <Label>{t('settings.font')}</Label>

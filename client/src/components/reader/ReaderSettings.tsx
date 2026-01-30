@@ -23,6 +23,7 @@ import { Settings, Type, Sun, Moon, AlignLeft, AlignJustify, BookOpen, ScrollTex
 interface ReaderSettingsPanelProps {
   settings: ReaderSettingsType;
   onChange: (settings: Partial<ReaderSettingsType>) => void;
+  onRestorePosition?: () => void;
 }
 
 const FONT_OPTIONS = [
@@ -46,6 +47,18 @@ export function ReaderSettingsPanel({ settings, onChange }: ReaderSettingsPanelP
       <PopoverContent className="w-80" align="end">
         <div className="space-y-6">
           <h4 className="font-medium text-sm border-b pb-2">Настройки читалки</h4>
+          
+          {/* Restore Position Button */}
+          {onRestorePosition && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={onRestorePosition}
+            >
+              Вернуться к последней позиции
+            </Button>
+          )}
 
           {/* Font Size */}
           <div className="space-y-2">

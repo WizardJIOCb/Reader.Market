@@ -483,14 +483,21 @@ const LandingPage = () => {
       {/* Transparency Section */}
       <section className="py-20">
         <div className="container mx-auto px-4 max-w-3xl text-center">
-          <Card className="p-8">
-            <CardContent className="text-center">
-              <GraduationCap className="w-12 h-12 mx-auto mb-4 text-primary" />
-              <p className="text-xl text-muted-foreground">
-                {t('landing:transparencyMessage')}
-              </p>
-            </CardContent>
-          </Card>
+          <a 
+            href="https://vk.com/wjiocb" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="block"
+          >
+            <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="text-center">
+                <GraduationCap className="w-12 h-12 mx-auto mb-4 text-primary" />
+                <p className="text-xl text-muted-foreground hover:text-primary transition-colors">
+                  {t('landing:transparencyMessage')}
+                </p>
+              </CardContent>
+            </Card>
+          </a>
         </div>
       </section>
 

@@ -3860,7 +3860,15 @@ export async function registerRoutes(
         });
       }
       
-      res.json(progress);
+      // Extract progress data from settings._progress
+      const prog = (progress.settings as any)?._progress;
+      
+      res.json({
+        ...progress,
+        pageInChapter: prog?.pageInChapter,
+        totalPagesInChapter: prog?.totalPagesInChapter,
+        locator: prog?.locator,
+      });
     } catch (error) {
       console.error("Error getting reading progress:", error);
       res.status(500).json({ error: "Failed to get reading progress" });
@@ -3903,17 +3911,40 @@ export async function registerRoutes(
     try {
       const { bookId } = req.params;
       const userId = (req as any).user.userId;
-      const { currentPage, totalPages, percentage, chapterIndex } = req.body;
+      const { currentPage, totalPages, percentage, chapterIndex, pageInChapter, totalPagesInChapter, locator } = req.body;
+      
+      // Get existing progress to preserve reader settings
+      const existing = await storage.getReadingProgress(userId, bookId);
+      const prevSettings = (existing?.settings && typeof existing.settings === 'object') ? existing.settings : {};
+      
+      // Store progress data in settings._progress to avoid overwriting reader settings
+      const nextSettings = {
+        ...prevSettings,
+        _progress: {
+          ...(prevSettings as any)._progress,
+          pageInChapter,
+          totalPagesInChapter,
+          locator, // Store ReadingLocatorV2 here
+        },
+      };
       
       const progress = await storage.updateReadingProgress(userId, bookId, {
         currentPage,
         totalPages,
         percentage,
         chapterIndex,
+        settings: nextSettings,
         lastReadAt: new Date(),
       });
       
-      res.json(progress);
+      // Return progress data with locator at the top level for easy access
+      const prog = (progress.settings as any)?._progress;
+      res.json({
+        ...progress,
+        pageInChapter: prog?.pageInChapter,
+        totalPagesInChapter: prog?.totalPagesInChapter,
+        locator: prog?.locator,
+      });
     } catch (error) {
       console.error("Error updating reading progress:", error);
       res.status(500).json({ error: "Failed to update reading progress" });
@@ -3932,7 +3963,10 @@ export async function registerRoutes(
         return res.status(404).json({ error: "No reader settings found" });
       }
       
-      res.json(progress.settings);
+      // Return only reader settings, excluding _progress
+      const settingsObj = (progress.settings && typeof progress.settings === 'object') ? progress.settings : {};
+      const { _progress, ...readerSettings } = settingsObj as any;
+      res.json(readerSettings);
     } catch (error) {
       console.error("Error getting reader settings:", error);
       res.status(500).json({ error: "Failed to get reader settings" });
@@ -3946,12 +3980,23 @@ export async function registerRoutes(
       const userId = (req as any).user.userId;
       const settings = req.body;
       
+      // Get existing progress to preserve _progress data
+      const existing = await storage.getReadingProgress(userId, bookId);
+      const prev = (existing?.settings && typeof existing.settings === 'object') ? existing.settings : {};
+      const prevProgress = (prev as any)._progress;
+      
+      // Merge new settings with preserved _progress
+      const next = { ...prev, ...settings, _progress: prevProgress };
+      
       const progress = await storage.updateReadingProgress(userId, bookId, {
-        settings,
-        lastReadAt: new Date(),
+        settings: next,
+        lastReadAt: existing?.lastReadAt ?? new Date(),
       });
       
-      res.json(progress.settings || settings);
+      // Return only reader settings, excluding _progress
+      const settingsObj = (progress.settings && typeof progress.settings === 'object') ? progress.settings : {};
+      const { _progress, ...readerSettings } = settingsObj as any;
+      res.json(readerSettings);
     } catch (error) {
       console.error("Error updating reader settings:", error);
       res.status(500).json({ error: "Failed to update reader settings" });

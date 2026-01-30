@@ -15,3 +15,7 @@ backups/*.sql
 
 # Log files
 logs/aggregated-logs.json
+
+# Generated source code copies
+shared/sources-for-tasks/
+/reader.market.zip

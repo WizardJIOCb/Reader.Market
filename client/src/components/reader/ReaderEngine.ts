@@ -13,6 +13,7 @@ import {
   BookMetadata,
 } from './types';
 import * as pdfjsLib from 'pdfjs-dist';
+import { canonicalizeForOffsets, extractStructuredText } from './textNormalization';
 
 // Configure PDF.js worker - use CDN for reliable cross-environment support
 if (typeof window !== 'undefined') {
@@ -23,6 +24,35 @@ if (typeof window !== 'undefined') {
 export class ReaderEngine {
   private content: BookContent | null = null;
   private currentPosition: Position | null = null;
+
+  /**
+   * Apply canonical text normalization to ensure consistent offset calculations
+   * across ReaderEngine and ReaderCore
+   */
+  private canonicalizeOffsets(content: BookContent): BookContent {
+    let offset = 0;
+
+    // Ensure chapter.index always equals array position (invariant guarantee)
+    const chapters = content.chapters.map((ch, i) => {
+      const plain = canonicalizeForOffsets(ch.plainText ?? '');
+      const charCount = plain.length;
+
+      const next = {
+        ...ch,
+        // Force index to match array position
+        index: i,
+        plainText: plain,
+        charCount,
+        startOffset: offset,
+        endOffset: offset + charCount,
+      };
+
+      offset += charCount;
+      return next;
+    });
+
+    return { ...content, chapters, totalChars: offset };
+  }
 
   /**
    * Load and parse a book from URL
@@ -59,6 +89,9 @@ export class ReaderEngine {
       default:
         throw new Error(`Unsupported format: ${format}`);
     }
+
+    // Apply canonical text normalization for consistent offset calculations
+    content = this.canonicalizeOffsets(content);
 
     this.content = content;
     this.currentPosition = this.createInitialPosition();
@@ -663,6 +696,7 @@ export class ReaderEngine {
       // Read content files in spine order
       const chapters: Chapter[] = [];
       let currentOffset = 0;
+      let chapterIdx = 0; // Dense sequential index
 
       for (let i = 0; i < spine.length; i++) {
         const itemRef = spine[i];
@@ -677,10 +711,12 @@ export class ReaderEngine {
         if (!contentFile) continue;
 
         const htmlContent = await contentFile.async('string');
-        const { title: chapterTitle, html, text } = this.parseEPUBChapter(htmlContent, i);
+        // Pass chapterIdx instead of spine index i
+        const { title: chapterTitle, html, text } = this.parseEPUBChapter(htmlContent, chapterIdx);
 
         chapters.push({
-          index: i,
+          // Use dense sequential index
+          index: chapterIdx,
           title: chapterTitle,
           content: html,
           plainText: text,
@@ -690,6 +726,7 @@ export class ReaderEngine {
         });
 
         currentOffset += text.length;
+        chapterIdx++; // Increment dense index
       }
 
       if (chapters.length === 0) {
@@ -729,11 +766,18 @@ export class ReaderEngine {
     // Get body content
     const body = doc.body;
     let html = body?.innerHTML || '';
-    let text = body?.textContent || '';
 
-    // Clean up HTML
+    // IMPORTANT: Clean HTML first
     html = this.cleanEPUBHTML(html);
-    text = text.replace(/\s+/g, ' ').trim();
+    
+    // IMPORTANT: Extract text FROM the cleaned HTML (same as ReaderCore does)
+    let text = '';
+    if (typeof document !== 'undefined') {
+      text = extractStructuredText(html); // already canonicalizes internally
+    } else {
+      // fallback for environments without DOM
+      text = canonicalizeForOffsets(this.stripTags(html));
+    }
 
     return { title, html, text };
   }

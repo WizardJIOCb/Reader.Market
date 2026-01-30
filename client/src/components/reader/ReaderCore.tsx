@@ -19,12 +19,14 @@ import React, {
   useMemo,
 } from 'react';
 import { ReaderEngine, createReaderEngine } from './ReaderEngine';
+import { canonicalizeForOffsets, normalizeForSearch, extractStructuredText } from './textNormalization';
 import {
   BookContent,
   Chapter,
   Position,
   ReaderSettings,
   TextSelection,
+  PageMapItem,
   DEFAULT_READER_SETTINGS,
   THEME_COLORS,
 } from './types';
@@ -48,6 +50,8 @@ export interface ReaderCoreProps {
   onError?: (error: Error) => void;
   /** Called when chapter changes */
   onChapterChange?: (chapter: Chapter) => void;
+  /** Whether to hide the internal loading spinner (when external splash is shown) */
+  hideInternalLoader?: boolean;
 }
 
 export interface ReaderCoreHandle {
@@ -63,6 +67,11 @@ export interface ReaderCoreHandle {
   goToChapterAndFindText: (chapterIndex: number, text: string, targetPage?: number) => Promise<boolean>;
   /** Navigate to chapter at specific character offset */
   goToChapterAtOffset: (chapterIndex: number, charOffset: number, textToHighlight: string) => Promise<boolean>;
+  /** Navigate to specific global character offset with fallback options */
+  goToCharOffset: (
+    charOffsetInBook: number,
+    opts?: { anchorText?: string; chapterIndexHint?: number; pageHintInChapter?: number }
+  ) => Promise<boolean>;
   /** Get current position */
   getPosition: () => Position | null;
   /** Get book content */
@@ -91,6 +100,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
       onTextSelect,
       onError,
       onChapterChange,
+      hideInternalLoader = false,
     } = props;
 
     // Merge settings with defaults
@@ -102,6 +112,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
     // State
     const [content, setContent] = useState<BookContent | null>(null);
     const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
+    const [currentChapterArrayIndex, setCurrentChapterArrayIndex] = useState<number>(0); // Safe array index
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
@@ -110,14 +121,67 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
       typeof window !== 'undefined' && window.innerWidth < 640
     );
 
+    // Unified position emission function
+    const emitPosition = useCallback(() => {
+      if (!content || !currentChapter) return;
+
+      const pages = pagesRef.current;
+      const pageItem = pages?.[currentPage];
+
+      const pageStartInChapter = pageItem?.startChar ?? 0; // char offset within chapter.plainText
+      const charOffsetInBook = (currentChapter.startOffset ?? 0) + pageStartInChapter;
+
+      const pos: Position = {
+        chapterIndex: currentChapter.index, // важно: плотный индекс
+        pageInChapter: currentPage,
+        totalPagesInChapter: pages?.length ?? 0,
+        charOffset: charOffsetInBook, // ГЛОБАЛЬНЫЙ оффсет по книге
+        percentage:
+          content.totalChars && content.totalChars > 0
+            ? (charOffsetInBook / content.totalChars) * 100
+            : 0,
+      };
+
+      onPositionChange?.(pos);
+    }, [content, currentChapter, currentPage, onPositionChange]);
+
     // Refs
     const engineRef = useRef<ReaderEngine | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
-    const pagesRef = useRef<string[]>([]);
+    const pagesRef = useRef<PageMapItem[]>([]);
+    const currentChapterIndexRef = useRef<number>(0);
+    
+    // Safe chapter navigation helpers
+    const setChapterByArrayIndex = useCallback((arrayIndex: number) => {
+      if (!content) return;
+      const safeIndex = Math.max(0, Math.min(arrayIndex, content.chapters.length - 1));
+      const chapter = content.chapters[safeIndex];
+      setCurrentChapter(chapter);
+      setCurrentChapterArrayIndex(safeIndex);
+      currentChapterIndexRef.current = safeIndex;
+      onChapterChange?.(chapter);
+    }, [content, onChapterChange]);
+    
+    const getCurrentChapterArrayIndex = useCallback(() => {
+      if (!content || !currentChapter) return 0;
+      // Find the actual array index of current chapter
+      const actualIndex = content.chapters.findIndex(ch => ch.index === currentChapter.index);
+      return actualIndex === -1 ? currentChapterArrayIndex : actualIndex;
+    }, [content, currentChapter, currentChapterArrayIndex]);
 
     // Theme colors
     const themeColors = THEME_COLORS[settings.theme];
+
+    // Track current chapter index
+    useEffect(() => {
+      if (currentChapter) {
+        const actualIndex = content?.chapters.findIndex(ch => ch.index === currentChapter.index) ?? 0;
+        const arrayIndex = actualIndex === -1 ? currentChapterArrayIndex : actualIndex;
+        currentChapterIndexRef.current = arrayIndex;
+        setCurrentChapterArrayIndex(arrayIndex);
+      }
+    }, [currentChapter, content, currentChapterArrayIndex]);
 
     // Track mobile viewport
     useEffect(() => {
@@ -180,8 +244,25 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
 
       const paginate = () => {
         if (settings.viewMode === 'scroll') {
-          // In scroll mode, show all content
-          pagesRef.current = [currentChapter.content];
+          // In scroll mode, show all content as one page with character mapping
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = currentChapter.content;
+          const plainText = normalizePlainText(tempDiv.textContent || '');
+          
+          pagesRef.current = [{
+            html: currentChapter.content,
+            text: plainText,
+            startChar: 0,
+            endChar: plainText.length,
+          }];
+          
+          // Validate length matches expected chapter length
+          if (plainText.length !== currentChapter.plainText.length) {
+            console.warn(`[SCROLL-MODE] Length mismatch: measured(${plainText.length}) != expected(${currentChapter.plainText.length})`);
+            // Adjust to match expected length
+            pagesRef.current[0].endChar = currentChapter.plainText.length;
+          }
+          
           setTotalPages(1);
           setCurrentPage(0);
           return;
@@ -195,7 +276,8 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
           currentChapter.content,
           container.clientWidth - settings.margins * 2,
           container.clientHeight - settings.margins * 2,
-          settings
+          settings,
+          currentChapter.plainText.length // Pass expected length for validation
         );
 
         pagesRef.current = pages;
@@ -241,7 +323,8 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
             currentChapter.content,
             containerRef.current.clientWidth - settings.margins * 2,
             containerRef.current.clientHeight - settings.margins * 2,
-            settings
+            settings,
+            currentChapter.plainText.length // Pass expected length for validation
           );
           pagesRef.current = pages;
           setTotalPages(pages.length);
@@ -257,26 +340,10 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
      */
     useEffect(() => {
       if (!content || !currentChapter) return;
-
-      const chapterIndex = currentChapter.index;
-      const percentage = calculatePercentage(
-        content,
-        chapterIndex,
-        currentPage,
-        totalPages
-      );
-
-      const position: Position = {
-        charOffset: currentChapter.startOffset,
-        chapterIndex,
-        pageInChapter: currentPage,
-        totalPagesInChapter: totalPages,
-        percentage,
-      };
-
-      engineRef.current?.setPosition(position);
-      onPositionChange?.(position);
-    }, [content, currentChapter, currentPage, totalPages]);
+      
+      // Use unified position emission
+      requestAnimationFrame(() => emitPosition());
+    }, [content, currentChapter, currentPage, emitPosition]);
 
     /**
      * Handle text selection - capture range immediately, then notify parent
@@ -394,53 +461,45 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
      */
     const nextPage = useCallback(() => {
       if (!content || !currentChapter) return;
+      
+      const currentArrayIndex = getCurrentChapterArrayIndex();
 
       if (currentPage < totalPages - 1) {
         // Next page in current chapter
         setCurrentPage(currentPage + 1);
-      } else if (currentChapter.index < content.chapters.length - 1) {
+      } else if (currentArrayIndex < content.chapters.length - 1) {
         // Next chapter
-        const nextChapter = content.chapters[currentChapter.index + 1];
-        setCurrentChapter(nextChapter);
+        setChapterByArrayIndex(currentArrayIndex + 1);
         setCurrentPage(0);
-        onChapterChange?.(nextChapter);
       }
-    }, [content, currentChapter, currentPage, totalPages, onChapterChange]);
+    }, [content, currentChapter, currentPage, totalPages, getCurrentChapterArrayIndex, setChapterByArrayIndex]);
 
     const prevPage = useCallback(() => {
       if (!content || !currentChapter) return;
+      
+      const currentArrayIndex = getCurrentChapterArrayIndex();
 
       if (currentPage > 0) {
         // Previous page in current chapter
         setCurrentPage(currentPage - 1);
-      } else if (currentChapter.index > 0) {
+      } else if (currentArrayIndex > 0) {
         // Previous chapter (go to last page)
-        const prevChapter = content.chapters[currentChapter.index - 1];
-        setCurrentChapter(prevChapter);
+        setChapterByArrayIndex(currentArrayIndex - 1);
         // Page will be set after pagination
         setCurrentPage(-1); // Will be corrected after pagination
-        onChapterChange?.(prevChapter);
       }
-    }, [content, currentChapter, currentPage, onChapterChange]);
+    }, [content, currentChapter, currentPage, getCurrentChapterArrayIndex, setChapterByArrayIndex]);
 
     const goToChapter = useCallback(
       (index: number) => {
         if (!content || index < 0 || index >= content.chapters.length) return;
-        const chapter = content.chapters[index];
-        
-        // If already on this chapter, just reset to first page
-        if (currentChapter?.index === index) {
-          setCurrentPage(0);
-          return;
-        }
         
         // Clear pages to force re-render with new chapter content
         pagesRef.current = [];
-        setCurrentChapter(chapter);
+        setChapterByArrayIndex(index);
         setCurrentPage(0);
-        onChapterChange?.(chapter);
       },
-      [content, currentChapter, onChapterChange]
+      [content, setChapterByArrayIndex]
     );
 
     const goToPosition = useCallback(
@@ -457,12 +516,18 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         }
         
         console.log('[GO-TO-POS] Setting chapter:', chapter.index);
-        // console.log('[GO-TO-POS] Setting page (before):', position.pageInChapter);
+        console.log('[GO-TO-POS] Requested pageInChapter:', position.pageInChapter);
+        console.log('[GO-TO-POS] Position totalPagesInChapter:', position.totalPagesInChapter);
+        console.log('[GO-TO-POS] Chapter object:', {
+          index: chapter.index,
+          title: chapter.title,
+          // pages: chapter.pages // This property may not exist
+        });
         
         setCurrentChapter(chapter);
         setCurrentPage(position.pageInChapter);
         
-        // console.log('[GO-TO-POS] Page set to:', position.pageInChapter);
+        console.log('[GO-TO-POS] Actually set page to:', position.pageInChapter);
         onChapterChange?.(chapter);
       },
       [content, onChapterChange]
@@ -536,7 +601,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         for (let i = 0; i < pages.length; i++) {
           // Strip HTML and normalize text
           const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = pages[i];
+          tempDiv.innerHTML = pages[i].html;
           const pageText = normalizeText(tempDiv.textContent || '');
           
           // Log more detailed info for debugging
@@ -585,7 +650,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         if (targetPageIndex >= 0 && targetPageIndex < pages.length) {
           console.log(`[TEXT-SEARCH] Checking target page ${targetPageIndex} specifically`);
           const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = pages[targetPageIndex];
+          tempDiv.innerHTML = pages[targetPageIndex].html;
           const targetPageText = normalizeText(tempDiv.textContent || '');
           
           console.log(`[TEXT-SEARCH] Target page ${targetPageIndex} full text:`, targetPageText);
@@ -617,7 +682,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         if (searchWords.length > 0) {
           for (let i = 0; i < pages.length; i++) {
             const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = pages[i];
+            tempDiv.innerHTML = pages[i].html;
             const pageText = normalizeText(tempDiv.textContent || '').toLowerCase();
             const searchLower = searchText.toLowerCase();
             
@@ -755,7 +820,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
             if (pageIdx < 0 || pageIdx >= pages.length) continue;
             
             const pageTempDiv = document.createElement('div');
-            pageTempDiv.innerHTML = pages[pageIdx];
+            pageTempDiv.innerHTML = pages[pageIdx].html;
             const pageText = (pageTempDiv.textContent || '')
               .replace(/\s+/g, ' ')
               .toLowerCase();
@@ -774,6 +839,177 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
       [content, currentChapter, onChapterChange]
     );
 
+    /**
+     * Navigate to specific global character offset with fallback options
+     * Handles pagination readiness with retry logic and hint optimization
+     */
+    const goToCharOffset = useCallback(
+      async (
+        charOffsetInBook: number,
+        opts?: { anchorText?: string; chapterIndexHint?: number; pageHintInChapter?: number }
+      ): Promise<boolean> => {
+        if (!content) return false;
+
+        const clamped = Math.max(0, Math.min(charOffsetInBook, content.totalChars));
+
+        // 1) Find chapter by offsets
+        let chapterIndex = content.chapters.findIndex(
+          ch => clamped >= ch.startOffset && clamped < ch.endOffset
+        );
+
+        if (chapterIndex === -1) {
+          chapterIndex = content.chapters.length - 1;
+        }
+
+        const chapter = content.chapters[chapterIndex];
+        if (!chapter) return false;
+
+        const localOffset = Math.max(0, clamped - chapter.startOffset);
+
+        // 2) Switch chapter if needed
+        const isChapterChange = currentChapterIndexRef.current !== chapterIndex;
+        if (isChapterChange) {
+          setCurrentChapter(chapter);
+          onChapterChange?.(chapter);
+
+          // Wait for pagination to complete with proper sequencing
+          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve(undefined));
+          }));
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
+
+        // 3) Scroll mode: approximate by ratio
+        if (settings.viewMode === 'scroll') {
+          const el = contentRef.current;
+          if (el) {
+            const ratio = chapter.plainText ? (localOffset / Math.max(1, chapter.plainText.length)) : 0;
+            el.scrollTop = ratio * el.scrollHeight;
+          }
+          setCurrentPage(0);
+          return true;
+        }
+
+        // 4) Paginated mode: find page with retry logic and hint optimization
+        const attemptRestore = async (attempt = 0): Promise<boolean> => {
+          const maxAttempts = 3;
+          const pages = pagesRef.current;
+          
+          if (!pages || pages.length === 0) {
+            if (attempt < maxAttempts) {
+              // Wait and retry with exponential backoff
+              const delay = [50, 150, 300][attempt];
+              console.log(`[RESTORE] Waiting ${delay}ms for pagination (attempt ${attempt + 1}/${maxAttempts})`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              return attemptRestore(attempt + 1);
+            }
+            console.warn('[RESTORE] Pagination not ready after', maxAttempts, 'attempts');
+            setCurrentPage(0);
+            return false;
+          }
+
+          // 5) Find page using hints first, then range search
+          let pageIdx = -1;
+          
+          // Try page hint first if provided and valid
+          if (typeof opts?.pageHintInChapter === 'number' && 
+              opts.pageHintInChapter >= 0 && 
+              opts.pageHintInChapter < pages.length) {
+            const hintedPage = pages[opts.pageHintInChapter];
+            if (localOffset >= hintedPage.startChar && localOffset < hintedPage.endChar) {
+              pageIdx = opts.pageHintInChapter;
+              console.log(`[RESTORE] Using page hint ${opts.pageHintInChapter} (hit)`);
+            } else {
+              // Check neighboring pages around the hint
+              const neighbors = [
+                opts.pageHintInChapter - 1,
+                opts.pageHintInChapter + 1
+              ].filter(i => i >= 0 && i < pages.length);
+              
+              for (const neighborIdx of neighbors) {
+                const neighborPage = pages[neighborIdx];
+                if (localOffset >= neighborPage.startChar && localOffset < neighborPage.endChar) {
+                  pageIdx = neighborIdx;
+                  console.log(`[RESTORE] Using neighbor page ${neighborIdx} near hint ${opts.pageHintInChapter}`);
+                  break;
+                }
+              }
+            }
+          }
+
+          // Fall back to range search if hint didn't work
+          if (pageIdx === -1) {
+            pageIdx = pages.findIndex(p => localOffset >= p.startChar && localOffset < p.endChar);
+            if (pageIdx === -1) {
+              let best = 0;
+              for (let i = 0; i < pages.length; i++) if (pages[i].startChar <= localOffset) best = i;
+              pageIdx = best;
+            }
+            console.log(`[RESTORE] Found page ${pageIdx} via range search`);
+          }
+
+          // 6) Enhanced anchor fallback with drift compensation
+          if (opts?.anchorText && opts.anchorText.trim().length > 10) {
+            const normalizedNeedle = canonicalizeForOffsets(opts.anchorText);
+            if (normalizedNeedle) {
+              const targetPageText = canonicalizeForOffsets(pages[pageIdx]?.text || '');
+              if (!targetPageText.includes(normalizedNeedle)) {
+                console.log(`[RESTORE] Anchor mismatch on page ${pageIdx}, searching alternatives...`);
+                
+                // Enhanced search - look in neighboring pages first
+                const searchRadius = 3;
+                let found = -1;
+                
+                // Search around the hinted page
+                if (typeof opts.pageHintInChapter === 'number') {
+                  const start = Math.max(0, opts.pageHintInChapter - searchRadius);
+                  const end = Math.min(pages.length - 1, opts.pageHintInChapter + searchRadius);
+                  
+                  for (let i = start; i <= end; i++) {
+                    if (i !== pageIdx) {
+                      const searchText = canonicalizeForOffsets(pages[i]?.text || '');
+                      if (searchText.includes(normalizedNeedle)) {
+                        found = i;
+                        console.log(`[RESTORE] Found anchor in neighboring page ${i} (hint radius search)`);
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // If not found nearby, search globally
+                if (found === -1) {
+                  found = pages.findIndex(p => 
+                    canonicalizeForOffsets(p.text || '').includes(normalizedNeedle)
+                  );
+                  if (found !== -1) {
+                    console.log(`[RESTORE] Found anchor in page ${found} (global search)`);
+                  }
+                }
+                
+                if (found !== -1) {
+                  pageIdx = found;
+                  console.log(`[RESTORE] Anchor fallback moved to page ${found}`);
+                } else {
+                  console.log(`[RESTORE] Anchor text not found anywhere, staying on page ${pageIdx}`);
+                }
+              } else {
+                console.log(`[RESTORE] Anchor text matched on target page ${pageIdx}`);
+              }
+            }
+          }
+
+          setCurrentPage(Math.max(0, Math.min(pageIdx, pages.length - 1)));
+          console.log(`[RESTORE] Successfully restored to page ${pageIdx} at offset ${localOffset}`);
+          return true;
+        };
+
+        return attemptRestore();
+      },
+      [content, settings.viewMode, onChapterChange]
+    );
+
     // Expose methods via ref
     useImperativeHandle(
       ref,
@@ -784,6 +1020,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         goToChapter,
         goToChapterAndFindText,
         goToChapterAtOffset,
+        goToCharOffset,
         getPosition: () => engineRef.current?.getPosition() || null,
         getContent: () => content,
         search,
@@ -804,19 +1041,23 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         },
         getEstimatedCurrentPageOverall: () => {
           if (!content || !currentChapter || totalPages === 0) return 1;
+          
+          // Use safe array index for calculation
+          const currentArrayIndex = getCurrentChapterArrayIndex();
+          
           // Estimate pages in previous chapters + current page
           const currentChapterLength = currentChapter.content.length;
           const charsPerPage = currentChapterLength / totalPages;
           if (charsPerPage <= 0) return 1;
           
           let pagesBeforeCurrent = 0;
-          for (let i = 0; i < currentChapter.index; i++) {
+          for (let i = 0; i < currentArrayIndex; i++) {
             pagesBeforeCurrent += Math.max(1, Math.ceil(content.chapters[i].content.length / charsPerPage));
           }
           return pagesBeforeCurrent + currentPage + 1; // +1 for 1-based display
         },
       }),
-      [nextPage, prevPage, goToPosition, goToChapter, goToChapterAndFindText, goToChapterAtOffset, content, search, currentPage, totalPages, currentChapter]
+      [nextPage, prevPage, goToPosition, goToChapter, goToChapterAndFindText, goToChapterAtOffset, goToCharOffset, content, search, currentPage, totalPages, currentChapter, getCurrentChapterArrayIndex]
     );
 
     /**
@@ -896,7 +1137,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
     };
 
     // Render loading state
-    if (loading) {
+    if (loading && !hideInternalLoader) {
       return (
         <div
           className="flex items-center justify-center h-full"
@@ -910,6 +1151,16 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
             <p style={{ color: themeColors.text }}>Loading book...</p>
           </div>
         </div>
+      );
+    }
+    
+    // When hiding internal loader but still loading, render empty container
+    if (loading && hideInternalLoader) {
+      return (
+        <div
+          className="w-full h-full"
+          style={{ backgroundColor: themeColors.background }}
+        />
       );
     }
 
@@ -940,7 +1191,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
     // Render book content
     const currentContent = settings.viewMode === 'scroll'
       ? currentChapter?.content || ''
-      : (pagesRef.current.length > 0 ? pagesRef.current[currentPage] : currentChapter?.content) || '';
+      : (pagesRef.current.length > 0 ? pagesRef.current[currentPage]?.html : currentChapter?.content) || '';
 
     return (
       <div
@@ -1092,6 +1343,14 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
 ReaderCore.displayName = 'ReaderCore';
 
 /**
+ * Normalize plain text consistently with ReaderEngine
+ * Uses canonical form for offset calculations, search form for comparisons
+ */
+function normalizePlainText(text: string): string {
+  return canonicalizeForOffsets(text);
+}
+
+/**
  * Paginate HTML content into pages
  * Uses a more accurate approach by rendering full content and splitting by height
  */
@@ -1099,8 +1358,9 @@ function paginateHTML(
   html: string,
   width: number,
   height: number,
-  settings: ReaderSettings
-): string[] {
+  settings: ReaderSettings,
+  expectedLen?: number
+): PageMapItem[] {
   // Create temporary container for measurement with all reader styles
   const container = document.createElement('div');
   container.style.position = 'absolute';
@@ -1146,7 +1406,25 @@ function paginateHTML(
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  const pages: string[] = [];
+  const pages: PageMapItem[] = [];
+  
+  // Cursor tracks cumulative character count for accurate page mapping
+  let cursor = 0;
+  
+  // Helper function to add page with correct start/end char positions
+  const pushPage = (html: string, text: string) => {
+    // Canonicalize text for consistency and safety
+    const canon = canonicalizeForOffsets(text);
+    const startChar = cursor;
+    const endChar = cursor + canon.length;
+    pages.push({ html, text: canon, startChar, endChar });
+    cursor = endChar;
+    
+    // Dev validation - log if ranges don't look correct
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[PAGE-MAP] Page ${pages.length - 1}: start=${startChar}, end=${endChar}, length=${canon.length}`);
+    }
+  };
   
   // Get all block-level elements (only direct children to avoid duplicates)
   const getBlockElements = (parent: Element): Element[] => {
@@ -1174,10 +1452,11 @@ function paginateHTML(
   const elements = getBlockElements(container);
   
   let currentPageHTML = '';
+  let currentPagePlainText = '';
   let currentHeight = 0;
 
   // Measure each element's height in context with proper styles
-  const measureElement = (el: Element, isFirst: boolean): number => {
+  const measureElement = (el: Element, isFirst: boolean): { height: number; plainText: string } => {
     const measureDiv = document.createElement('div');
     measureDiv.style.position = 'absolute';
     measureDiv.style.visibility = 'hidden';
@@ -1191,40 +1470,180 @@ function paginateHTML(
     document.body.appendChild(measureDiv);
     
     const elementHeight = measureDiv.offsetHeight;
+    const elementText = extractStructuredText(el.outerHTML);
     document.body.removeChild(measureDiv);
     
-    return elementHeight;
+    return { height: elementHeight, plainText: elementText };
   };
 
   elements.forEach((element, index) => {
-    const elementHeight = measureElement(element, currentPageHTML === '');
+    const { height: elementHeight, plainText: elementText } = measureElement(element, currentPageHTML === '');
     
     // If single element is taller than page, we need to include it anyway
     if (elementHeight > height && currentPageHTML === '') {
-      pages.push(element.outerHTML);
+      // This is a standalone tall element - create its own page
+      pushPage(element.outerHTML, elementText);
       return;
     }
 
     if (currentHeight + elementHeight > height && currentPageHTML) {
-      // Start new page
-      pages.push(currentPageHTML);
+      // Start new page with accumulated content
+      pushPage(currentPageHTML, currentPagePlainText);
+      
+      // Boundary spacing fix - ensure proper separation between pages
+      if (pages.length > 0 && currentPagePlainText.trim().length > 0 && elementText.trim().length > 0) {
+        const lastPage = pages[pages.length - 1];
+        // Add space between pages if not already present
+        if (!((lastPage.text || '').endsWith(' '))) {
+          lastPage.text = (lastPage.text || '') + ' ';
+          lastPage.endChar += 1;
+          cursor += 1;
+        }
+      }
+      
       currentPageHTML = element.outerHTML;
+      currentPagePlainText = elementText;
       currentHeight = elementHeight;
     } else {
       currentPageHTML += element.outerHTML;
+      // Add space between blocks to prevent text concatenation
+      currentPagePlainText += (currentPagePlainText ? ' ' : '') + elementText;
       currentHeight += elementHeight;
     }
   });
 
   // Add last page
   if (currentPageHTML) {
-    pages.push(currentPageHTML);
+    pushPage(currentPageHTML, currentPagePlainText);
   }
 
   document.body.removeChild(container);
   document.head.removeChild(styleEl);
 
-  return pages.length > 0 ? pages : [html];
+  // Final validation in development mode
+  if (process.env.NODE_ENV === 'development' && pages.length > 0) {
+    console.log('[PAGE-MAP] Validation results:');
+    console.log('  Pages count:', pages.length);
+    console.log('  First page start:', pages[0].startChar);
+    console.log('  Last page end:', pages[pages.length - 1].endChar);
+    console.log('  Cursor total:', cursor);
+    
+    // Comprehensive validation: sequential + cover check
+    let isValid = true;
+    let validationIssues: string[] = [];
+    
+    // Check 1: First page starts at 0
+    if (pages[0].startChar !== 0) {
+      validationIssues.push(`First page startChar(${pages[0].startChar}) != 0`);
+      isValid = false;
+    }
+    
+    // Check 2: Sequential ranges (no gaps)
+    for (let i = 1; i < pages.length; i++) {
+      if (pages[i].startChar !== pages[i-1].endChar) {
+        validationIssues.push(`Gap between page ${i-1}(end:${pages[i-1].endChar}) and page ${i}(start:${pages[i].startChar})`);
+        isValid = false;
+      }
+    }
+    
+    // Check 2.5: Text length invariant (endChar - startChar === text.length)
+    for (let i = 0; i < pages.length; i++) {
+      const expectedLength = pages[i].endChar - pages[i].startChar;
+      const actualLength = pages[i].text.length;
+      if (expectedLength !== actualLength) {
+        validationIssues.push(`Page ${i} length mismatch: expected ${expectedLength}, got ${actualLength}`);
+        isValid = false;
+      }
+    }
+    
+    // Check 3: Coverage check - last page should end at expected length
+    if (typeof expectedLen === 'number') {
+      const lastPage = pages[pages.length - 1];
+      if (lastPage.endChar !== expectedLen) {
+        validationIssues.push(`Last page endChar(${lastPage.endChar}) != expectedLen(${expectedLen})`);
+        isValid = false;
+      }
+    }
+    
+    // Report validation results
+    if (validationIssues.length > 0) {
+      console.warn('[PAGE-MAP] Validation FAILED:');
+      validationIssues.forEach(issue => console.warn(`  - ${issue}`));
+      
+      // Length correction if needed
+      if (typeof expectedLen === 'number') {
+        const lastPage = pages[pages.length - 1];
+        if (cursor !== expectedLen) {
+          console.warn('[PAGE-MAP] Adjusting last page endChar to match expected length');
+          
+          if (cursor > expectedLen) {
+            // Need to truncate text to match expected length
+            // Ensure needLen is never negative
+            const needLen = Math.max(0, expectedLen - lastPage.startChar);
+            console.log(`[PAGE-MAP] Clamping endChar from ${lastPage.endChar} to ${expectedLen}, truncating text to ${needLen} chars`);
+            lastPage.text = lastPage.text.slice(0, needLen);
+            lastPage.endChar = expectedLen;
+            cursor = expectedLen;
+          } else if (cursor < expectedLen) {
+            // Need to pad text to match expected length
+            // Ensure needLen is never negative
+            const needLen = Math.max(0, expectedLen - lastPage.startChar);
+            console.log(`[PAGE-MAP] Extending endChar from ${lastPage.endChar} to ${expectedLen}, padding text to ${needLen} chars`);
+            lastPage.text = lastPage.text.padEnd(needLen, ' ');
+            lastPage.endChar = expectedLen;
+            cursor = expectedLen;
+          }
+        }
+      }
+      console.log('[PAGE-MAP] ⚠ Page map was adjusted for consistency');
+    } else {
+      console.log('[PAGE-MAP] ✓ All validation checks passed');
+    }
+  }
+
+  // Production validation - always ensure proper coverage
+  if (pages.length > 0 && typeof expectedLen === 'number') {
+    const lastPage = pages[pages.length - 1];
+    const delta = Math.abs(cursor - expectedLen);
+    
+    if (delta > 0) {
+      // Log production warnings for persistent mismatches
+      if (process.env.NODE_ENV !== 'development') {
+        console.warn(`[PAGE-MAP] Production length mismatch detected and corrected:`, {
+          actualLength: cursor,
+          expectedLength: expectedLen,
+          difference: delta,
+          relativeDrift: ((delta / expectedLen) * 100).toFixed(2) + '%'
+        });
+      }
+      
+      // Enhanced drift handling - if significant drift, enable enhanced restore mode
+      if (delta > 50) { // More than 50 characters drift
+        console.warn(`[PAGE-MAP] Significant drift detected (${delta} chars), enabling enhanced restore mode`);
+        // This could trigger enhanced anchor searching in goToCharOffset
+      }
+      
+      // Silently adjust in production to prevent position drift
+      // Ensure needLen is never negative
+      const needLen = Math.max(0, expectedLen - lastPage.startChar);
+      if (cursor > expectedLen) {
+        // Truncate text
+        lastPage.text = lastPage.text.slice(0, needLen);
+      } else {
+        // Pad text
+        lastPage.text = lastPage.text.padEnd(needLen, ' ');
+      }
+      lastPage.endChar = expectedLen;
+      cursor = expectedLen;
+    }
+  }
+
+  return pages.length > 0 ? pages : [{
+    html: html,
+    text: normalizePlainText(container.textContent || ''),
+    startChar: 0,
+    endChar: normalizePlainText(container.textContent || '').length,
+  }];
 }
 
 /**

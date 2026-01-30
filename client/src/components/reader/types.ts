@@ -1,5 +1,41 @@
 // Reader Types and Interfaces
 
+export interface PageMapItem {
+  html: string;      // HTML страницы
+  text: string;      // plainText страницы (нормализованный как в ReaderEngine)
+  startChar: number; // offset в chapter.plainText (включая)
+  endChar: number;   // offset в chapter.plainText (исключая)
+}
+
+export interface ReadingLocatorV2 {
+  v: 2;
+  bookId: string;
+  chapterIndex: number;
+
+  // главный ключ:
+  charOffsetInBook: number;
+  charOffsetInChapter: number;
+
+  percentage: number;
+
+  // подсказки/страховки:
+  pageHintInChapter?: number;
+  totalPagesHintInChapter?: number;
+  anchorText?: string;
+
+  viewport?: {
+    w: number;
+    h: number;
+    fontSize: number;
+    lineHeight: number;
+    margins: number;
+    fontFamily: string;
+    viewMode: 'paginated' | 'scroll';
+  };
+
+  updatedAt: string; // ISO
+}
+
 export interface Position {
   /** Character offset in the book content */
   charOffset: number;
