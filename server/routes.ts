@@ -723,11 +723,18 @@ export async function registerRoutes(
               const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits/${sha}`;
               console.log(`Fetching commit details from: ${apiUrl}`);
               
+              const githubHeaders: Record<string, string> = {
+                'User-Agent': 'reader.market-app/1.0',
+                'Accept': 'application/vnd.github.v3+json'
+              };
+                      
+              // Add GitHub token if available
+              if (process.env.GITHUB_TOKEN) {
+                githubHeaders['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+              }
+                      
               const response = await fetch(apiUrl, {
-                headers: {
-                  'User-Agent': 'reader.market-app/1.0',
-                  'Accept': 'application/vnd.github.v3+json'
-                }
+                headers: githubHeaders
               });
               
               if (!response.ok) {
@@ -866,11 +873,18 @@ export async function registerRoutes(
       }
       
       // Check GitHub rate limit headers before making request
+      const rateLimitHeaders: Record<string, string> = {
+        'User-Agent': 'reader.market-app/1.0',
+        'Accept': 'application/vnd.github.v3+json'
+      };
+      
+      // Add GitHub token if available
+      if (process.env.GITHUB_TOKEN) {
+        rateLimitHeaders['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+      }
+      
       const rateLimitResponse = await fetch('https://api.github.com/rate_limit', {
-        headers: {
-          'User-Agent': 'reader.market-app/1.0',
-          'Accept': 'application/vnd.github.v3+json'
-        }
+        headers: rateLimitHeaders
       });
       
       if (rateLimitResponse.ok) {
@@ -894,11 +908,18 @@ export async function registerRoutes(
       console.log(`Fetching commit details from: ${apiUrl}`);
       
       // Fetch from GitHub API
+      const githubHeaders: Record<string, string> = {
+        'User-Agent': 'reader.market-app/1.0',
+        'Accept': 'application/vnd.github.v3+json'
+      };
+      
+      // Add GitHub token if available
+      if (process.env.GITHUB_TOKEN) {
+        githubHeaders['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+      }
+      
       const response = await fetch(apiUrl, {
-        headers: {
-          'User-Agent': 'reader.market-app/1.0',
-          'Accept': 'application/vnd.github.v3+json'
-        }
+        headers: githubHeaders
       });
       
       if (!response.ok) {
@@ -1364,11 +1385,18 @@ export async function registerRoutes(
         console.log(`Fetching GitHub commits from: ${apiUrl}`);
               
         // Fetch from GitHub API
+        const githubHeaders: Record<string, string> = {
+          'User-Agent': 'reader.market-app/1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        };
+        
+        // Add GitHub token if available
+        if (process.env.GITHUB_TOKEN) {
+          githubHeaders['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+        }
+        
         const response = await fetch(apiUrl, {
-          headers: {
-            'User-Agent': 'reader.market-app/1.0',
-            'Accept': 'application/vnd.github.v3+json'
-          }
+          headers: githubHeaders
         });
               
         if (!response.ok) {
