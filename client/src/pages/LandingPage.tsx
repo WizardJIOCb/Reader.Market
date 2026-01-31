@@ -145,9 +145,9 @@ const LandingPage = () => {
               ? t('landing:heroDescriptionEarly')
               : t('landing:heroDescription')}
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-row flex-wrap gap-3 justify-center">
             <Link href="/register">
-              <Button size="lg" className="px-8 py-6 text-lg bg-[#5a7a3a] hover:bg-[#4b6b2a] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+              <Button size="lg" className="px-6 py-5 text-base bg-[#5a7a3a] hover:bg-[#4b6b2a] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 flex-1 min-w-[120px]">
                 {isEarlyAdopter ? t('landing:joinEarlyAccess') : t('landing:getStarted')}
               </Button>
             </Link>
@@ -165,7 +165,7 @@ const LandingPage = () => {
                 });
               }
             }}>
-              <Button size="lg" className="px-8 py-6 text-lg bg-[#3e7d2f] hover:bg-[#2d6c1e] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+              <Button size="lg" className="px-6 py-5 text-base bg-[#3e7d2f] hover:bg-[#2d6c1e] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 flex-1 min-w-[120px]">
                 {t('landing:latestUpdates')}
               </Button>
             </a>
@@ -183,7 +183,7 @@ const LandingPage = () => {
                 });
               }
             }}>
-              <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#b74d01] hover:bg-[#9a3f01] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+              <Button size="lg" variant="outline" className="px-6 py-5 text-base bg-[#b74d01] hover:bg-[#9a3f01] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 flex-1 min-w-[120px]">
                 {t('landing:seeHowItWorks')}
               </Button>
             </a>
