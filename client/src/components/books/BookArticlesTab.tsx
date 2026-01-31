@@ -54,8 +54,11 @@ export function BookArticlesTab({ bookId, onTotalChange }: { bookId: string; onT
   const [data, setData] = useState<ApiResult | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const authToken = localStorage.getItem("authToken");
-  const headers = authToken ? { Authorization: `Bearer ${authToken}` } : undefined;
+  const authToken = localStorage.getItem("authToken") || "";
+  
+  const headers = useMemo(() => {
+    return authToken ? { Authorization: `Bearer ${authToken}` } : undefined;
+  }, [authToken]);
 
   // If chose role=in_list — it makes sense to sort by sortOrder asc
   useEffect(() => {
@@ -88,20 +91,21 @@ export function BookArticlesTab({ bookId, onTotalChange }: { bookId: string; onT
 
         const res = await fetch(`/api/books/${bookId}/articles?${qs.toString()}`, { headers });
         if (!res.ok) throw new Error(`Failed: ${res.status}`);
+
         const json = (await res.json()) as ApiResult;
         setData(json);
         onTotalChange?.(json.total ?? 0);
       } catch (e) {
         console.error(e);
-        setData({ articles: [], total: 0, page, limit, totalPages: 1 });
-        onTotalChange?.(0);
+        // Don't reset the counter to 0 on error - keep previous value
+        // setData({ articles: [], total: 0, page, limit, totalPages: 1 });
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [bookId, page, limit, role, sortBy, sortOrder, headers, onTotalChange]);
+  }, [bookId, page, limit, role, sortBy, sortOrder, authToken, onTotalChange]);
 
   const toggleReadLater = async (article: ArticleCard) => {
     // Optimistically

@@ -12,7 +12,6 @@ import {
   Search, 
   Calendar, 
   Eye, 
-  MessageCircle,
   Plus,
   Filter,
   Bookmark
