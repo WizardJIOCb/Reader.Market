@@ -4,8 +4,8 @@ setlocal enabledelayedexpansion
 :: Script to copy only source code files while preserving folder structure
 :: Excludes backups, images, node_modules, and other non-source files
 
-set SOURCE_DIR=%~dp0
-set TARGET_DIR=%SOURCE_DIR%shared\sources-for-tasks
+set "SOURCE_DIR=%~dp0"
+set "TARGET_DIR=%SOURCE_DIR%shared\sources-for-tasks"
 
 echo Creating clean source code copy...
 echo Source: %SOURCE_DIR%
@@ -20,13 +20,19 @@ if exist "%TARGET_DIR%" (
 :: Create target directory
 mkdir "%TARGET_DIR%"
 
-:: Copy files with exclusions
+:: Copy files with exclusions - exclude the target directory itself to prevent recursion
 echo Copying files (excluding non-source content)...
 
-robocopy "%SOURCE_DIR%" "%TARGET_DIR%" /E ^
-    /XD node_modules .git .vscode .next dist build coverage tmp temp logs backups screenshots uploads ^
-    /XF *.jpg *.jpeg *.png *.gif *.webp *.ico *.svg *.bmp *.tiff *.mp4 *.avi *.mov *.wmv *.mp3 *.wav *.ogg *.pdf *.doc *.docx *.xls *.xlsx *.zip *.rar *.7z *.tar *.gz *.log *.lock *.sqlite *.db *.env *.env.local *.env.production ^
-    /XD __pycache__ .pytest_cache .coverage .DS_Store Thumbs.db *.tmp *.temp
+:: Use robocopy with proper parameters
+robocopy "%SOURCE_DIR%" "%TARGET_DIR%" /E /XD "node_modules" ".git" ".vscode" ".next" "dist" "build" "coverage" "tmp" "temp" "logs" "backups" "screenshots" "uploads" "shared\sources-for-tasks" "__pycache__" ".pytest_cache" ".coverage" ".DS_Store" "Thumbs.db" /XF "*.jpg" "*.jpeg" "*.png" "*.gif" "*.webp" "*.ico" "*.svg" "*.bmp" "*.tiff" "*.mp4" "*.avi" "*.mov" "*.wmv" "*.mp3" "*.wav" "*.ogg" "*.pdf" "*.doc" "*.docx" "*.xls" "*.xlsx" "*.zip" "*.rar" "*.7z" "*.tar" "*.gz" "*.log" "*.lock" "*.sqlite" "*.db" "*.env" "*.env.local" "*.env.production" "*.tmp" "*.temp"
+
+:: Check if robocopy succeeded (0-3 are success codes)
+set "exit_code=%errorlevel%"
+if %exit_code% leq 3 (
+    echo ROBOCOPY completed successfully
+) else (
+    echo ROBOCOPY encountered errors: %exit_code%
+)
 
 :: Additional cleanup - remove specific file types that might have slipped through
 echo Cleaning up additional non-source files...
@@ -100,4 +106,5 @@ echo - Environment files (.env, .env.local)
 echo - Cache and temporary files
 echo - node_modules directories
 echo.
+
 pause
