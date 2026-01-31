@@ -137,10 +137,10 @@ const LandingPage = () => {
             />
           </div>
           
-          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif text-gray-300 drop-shadow-md">
+          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif text-[#7c3200] drop-shadow-md">
             {isEarlyAdopter ? t('landing:heroTitleEarly') : t('landing:heroTitle')}
           </h1>
-          <p className="text-xl md:text-2xl text-gray-400 mb-10 max-w-3xl mx-auto drop-shadow-sm whitespace-pre-line">
+          <p className="text-xl md:text-2xl text-[#b77d62] mb-10 max-w-3xl mx-auto drop-shadow-sm whitespace-pre-line">
             {isEarlyAdopter 
               ? t('landing:heroDescriptionEarly')
               : t('landing:heroDescription')}
@@ -183,7 +183,7 @@ const LandingPage = () => {
                 });
               }
             }}>
-              <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#c66e12] hover:bg-[#b35400] text-gray-200 border-gray-600 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+              <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#b74d01] hover:bg-[#9a3f01] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
                 {t('landing:seeHowItWorks')}
               </Button>
             </a>
