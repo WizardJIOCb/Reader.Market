@@ -31,6 +31,7 @@ import { ReactionBar } from '@/components/ReactionBar';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import { CommentsSection } from '@/components/CommentsSection';
 import { ReviewsSection } from '@/components/ReviewsSection';
+import { BookArticlesTab } from '@/components/books/BookArticlesTab';
 import { useToast } from '@/hooks/use-toast';
 import { useShelves } from '@/hooks/useShelves';
 import { useAuth } from '@/lib/auth';
@@ -155,6 +156,14 @@ export default function BookDetail() {
   
   // State for tabs
   const [activeTab, setActiveTab] = useState('comments');
+  
+  // State for articles total
+  const [articlesTotal, setArticlesTotal] = useState<number | null>(null);
+  
+  // Reset articles total when bookId changes
+  useEffect(() => {
+    setArticlesTotal(null);
+  }, [bookId]);
   
   // Make tab switch function available globally for comments section
   useEffect(() => {
@@ -1109,9 +1118,15 @@ export default function BookDetail() {
         {/* Tabs for Comments and Reviews */}
         <Card>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="comments">{t('books:commentCount')} ({bookComments.length})</TabsTrigger>
               <TabsTrigger value="reviews">{t('books:reviewCount')} ({bookReviews.length})</TabsTrigger>
+              <TabsTrigger value="articles" className="gap-2">
+                Статьи
+                <span className="ml-1 inline-flex min-w-[24px] items-center justify-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  {articlesTotal === null ? "…" : articlesTotal}
+                </span>
+              </TabsTrigger>
             </TabsList>
             
             {/* Comments Tab */}
@@ -1149,6 +1164,13 @@ export default function BookDetail() {
                     }
                   }}
                 />
+              </CardContent>
+            </TabsContent>
+            
+            {/* Articles Tab */}
+            <TabsContent value="articles" className="mt-0">
+              <CardContent className="pt-4">
+                <BookArticlesTab bookId={bookId} onTotalChange={setArticlesTotal} />
               </CardContent>
             </TabsContent>
           </Tabs>

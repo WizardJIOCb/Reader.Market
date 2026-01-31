@@ -126,7 +126,6 @@ const LandingPage = () => {
       <section className="py-20 md:py-32 bg-black text-white">
         <div className="container mx-auto px-4 text-center max-w-4xl">
           <div className="relative w-full max-w-[510px] h-auto mx-auto mb-8">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 rounded-lg opacity-70"></div>
             <video 
               src="/reader.market.mp4" 
               autoPlay 
@@ -137,7 +136,7 @@ const LandingPage = () => {
             />
           </div>
           
-          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif text-[#7c3200] drop-shadow-md">
+          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif text-[#813400]" style={{ textShadow: '0 0 2px rgba(129, 52, 0, 0.3)' }}>
             {isEarlyAdopter ? t('landing:heroTitleEarly') : t('landing:heroTitle')}
           </h1>
           <p className="text-xl md:text-2xl text-[#b77d62] mb-10 max-w-3xl mx-auto drop-shadow-sm whitespace-pre-line">

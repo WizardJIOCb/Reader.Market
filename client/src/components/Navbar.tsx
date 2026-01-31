@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Search, User, Menu, MessageCircle, Rss, Shield, Home, Info, BookMarked, Users, Bookmark } from 'lucide-react';
+import { Search, User, Menu, MessageCircle, Rss, Shield, Home, Info, BookMarked, Users, Bookmark, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useResponsive } from '@/hooks/use-responsive';
@@ -120,6 +120,7 @@ export function Navbar() {
               className={`transition-colors cursor-pointer ${isActive('/admin', false) ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
               aria-label={t('navigation:adminPanel')}
               aria-current={isActive('/admin', false) ? 'page' : undefined}
+              title={t('navigation:adminPanel')}
             >
               <Shield className="w-4 h-4" />
             </Link>
@@ -132,9 +133,26 @@ export function Navbar() {
           <div className="flex items-center gap-3">
             {/* Show navigation menu for all users */}
             <Link 
+              href="/" 
+              onClick={(e) => {
+                // If we're already on the homepage, scroll to how-it-works section
+                if (location === '/') {
+                  e.preventDefault();
+                  scrollToAnchor('how-it-works');
+                }
+              }}
+              className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/') ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
+              aria-current={isActive('/') ? 'page' : undefined}
+              title={t('navigation:about')}
+            >
+              <Info className="w-4 h-4" />
+              <span className="hidden">{t('navigation:about')}</span>
+            </Link>
+            <Link 
               href="/home" 
               className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/home') ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
               aria-current={isActive('/home') ? 'page' : undefined}
+              title={t('navigation:home')}
             >
               <Home className="w-4 h-4" />
               <span className="hidden sm:inline">{t('navigation:home')}</span>
@@ -143,6 +161,7 @@ export function Navbar() {
               href="/stream" 
               className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/stream') ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
               aria-current={isActive('/stream') ? 'page' : undefined}
+              title={t('navigation:stream')}
             >
               <Rss className="w-4 h-4" />
               <span className="hidden sm:inline">{t('navigation:stream')}</span>
@@ -182,25 +201,19 @@ export function Navbar() {
               </Link>
             )}
             <Link 
-              href="/" 
-              onClick={(e) => {
-                // If we're already on the homepage, scroll to how-it-works section
-                if (location === '/') {
-                  e.preventDefault();
-                  scrollToAnchor('how-it-works');
-                }
-              }}
-              className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/') ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
-              aria-current={isActive('/') ? 'page' : undefined}
+              href="/articles" 
+              className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/articles', false) ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
+              aria-current={isActive('/articles', false) ? 'page' : undefined}
             >
-              <Info className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('navigation:about')}</span>
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('navigation:articles')}</span>
             </Link>
             {user && (
               <Link 
                 href="/messages" 
                 className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/messages', false) ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
                 aria-current={isActive('/messages', false) ? 'page' : undefined}
+                title={t('navigation:messages')}
               >
                 <div className="relative">
                   <MessageCircle className="w-4 h-4" />
@@ -221,6 +234,7 @@ export function Navbar() {
                       href={`/profile/${user.username}`} 
                       className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/profile', false) ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
                       aria-current={isActive('/profile', false) ? 'page' : undefined}
+                      title={`${t('navigation:profile')}: ${user.fullName || user.username}`}
                     >
                       <User className="w-4 h-4" />
                       <span className={`${hideTextItems ? 'hidden' : 'hidden sm:inline'}`}>{t('navigation:profile')}</span>
@@ -233,7 +247,7 @@ export function Navbar() {
                 </Tooltip>
               </TooltipProvider>
             ) : (
-              <Link href="/login" className="flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer text-[#263542]">
+              <Link href="/login" className="flex items-center gap-1 text-sm hover:text-primary transition-colors cursor-pointer text-[#263542]" title={t('navigation:profile')}>
                 <User className="w-4 h-4" />
                 <span className={`${hideTextItems ? 'hidden' : 'hidden 2xl:inline'}`}>{t('navigation:profile')}</span>
               </Link>

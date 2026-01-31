@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, bookmarkCollections, bookmarkCollectionItems, collectionBooks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs } from "@shared/schema";
-import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne } from "drizzle-orm";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, bookmarkCollections, bookmarkCollectionItems, collectionBooks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs, articleCategories, articleTags, articles, articleTagLinks, articleBooks, articleViews, articleReadLater, type Article, type InsertArticle, type ArticleCategory, type InsertArticleCategory, type ArticleTag, type InsertArticleTag } from "@shared/schema";
+import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne, count } from "drizzle-orm";
 import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
 import { 
   calculateUserRatingWeight, 
@@ -295,6 +295,69 @@ export interface IStorage {
   createBookChatMessage(messageData: { bookId: string; userId: string; content: string; mentionedUserId?: string; quotedMessageId?: string; attachmentUrls?: string[]; attachmentMetadata?: any }): Promise<any>;
   getBookChatMessages(bookId: string, limit?: number, offset?: number): Promise<any[]>;
   deleteBookChatMessage(id: string, userId: string, isAdminOrModer?: boolean): Promise<boolean>;
+  
+  // Article operations
+  createArticle(articleData: InsertArticle): Promise<Article>;
+  getArticleById(id: string, currentUserId?: string): Promise<Article | undefined>;
+  getArticleBySlug(slug: string, currentUserId?: string): Promise<Article | undefined>;
+  getArticles(options?: { 
+    page?: number; 
+    limit?: number; 
+    categoryId?: string; 
+    publicationType?: string;
+    category?: string; // New enum field
+    type?: string; // New enum field
+    tagId?: string; 
+    authorId?: string; 
+    status?: string; 
+    search?: string; 
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc'
+  }): Promise<{ articles: Article[]; total: number }>;
+  updateArticle(id: string, articleData: Partial<InsertArticle>): Promise<Article>;
+  deleteArticle(id: string, userId: string | null): Promise<boolean>;
+  publishArticle(id: string): Promise<Article>;
+  unpublishArticle(id: string): Promise<Article>;
+  
+  // Article category operations
+  createArticleCategory(categoryData: InsertArticleCategory): Promise<ArticleCategory>;
+  getArticleCategories(): Promise<ArticleCategory[]>;
+  getArticleCategoryById(id: string): Promise<ArticleCategory | undefined>;
+  updateArticleCategory(id: string, categoryData: Partial<InsertArticleCategory>): Promise<ArticleCategory>;
+  deleteArticleCategory(id: string): Promise<boolean>;
+  
+  // Article tag operations
+  createArticleTag(tagData: InsertArticleTag): Promise<ArticleTag>;
+  getArticleTags(): Promise<ArticleTag[]>;
+  getOrCreateArticleTag(name: string): Promise<ArticleTag>;
+  
+  // Article view operations
+  recordArticleView(articleId: string, userId?: string, ip?: string, userAgent?: string): Promise<void>;
+  getArticleViewCount(articleId: string): Promise<number>;
+  
+  // Article read later operations
+  addArticleToReadLater(userId: string, articleId: string): Promise<void>;
+  removeArticleFromReadLater(userId: string, articleId: string): Promise<boolean>;
+  getUserReadLaterArticles(params: { userId: string; page: number; limit: number; sortBy?: "savedAt" | "publishedAt" | "createdAt" | "views"; sortOrder?: "asc" | "desc" }): Promise<{ articles: any[]; total: number; page: number; limit: number; totalPages: number }>;
+  
+  // Article-book associations
+  getArticlesByBook(params: { bookId: string; page: number; limit: number; role?: "primary" | "in_list" | "mentioned"; sortBy?: "publishedAt" | "createdAt" | "views" | "sortOrder"; sortOrder?: "asc" | "desc"; userId?: string }): Promise<{ articles: any[]; total: number; page: number; limit: number; totalPages: number }>;
+  attachBooksToArticle(articleId: string, bookIds: string[], roles?: string[]): Promise<void>;
+  getArticleAttachedBooks(articleId: string): Promise<any[]>;
+  
+  // Article-tag associations
+  attachTagsToArticle(articleId: string, tagNames: string[]): Promise<void>;
+  getArticleTags(articleId: string): Promise<ArticleTag[]>;
+}
+
+// Article-specific types
+export interface ArticleWithRelations extends Article {
+  author?: User;
+  sectionObj?: ArticleCategory;  // Renamed to avoid conflict with section field
+  tags?: ArticleTag[];
+  attachedBooks?: any[];
+  replyTo?: Article;
+  repliesCount?: number;
 }
 
 export class DBStorage implements IStorage {
@@ -7239,7 +7302,7 @@ export class DBStorage implements IStorage {
 
   // OAuth Account Management
   async createOAuthAccount(data: {
-    userId: number;
+    userId: string;
     provider: string;
     providerUserId: string;
     email?: string;
@@ -7265,7 +7328,7 @@ export class DBStorage implements IStorage {
     return account;
   }
 
-  async getOAuthAccountsByUserId(userId: number) {
+  async getOAuthAccountsByUserId(userId: string) {
     return await db
       .select()
       .from(oauthAccounts)
@@ -7300,7 +7363,7 @@ export class DBStorage implements IStorage {
     return account;
   }
 
-  async unlinkOAuthAccount(userId: number, provider: string): Promise<boolean> {
+  async unlinkOAuthAccount(userId: string, provider: string): Promise<boolean> {
     const result = await db
       .delete(oauthAccounts)
       .where(
@@ -8381,6 +8444,1390 @@ export class DBStorage implements IStorage {
       return result[0];
     } catch (error) {
       console.error("Error incrementing profile view count:", error);
+      throw error;
+    }
+  }
+  
+  // ==================== ARTICLE METHODS ====================
+  
+  
+  // Article category methods
+  async createArticleCategory(categoryData: InsertArticleCategory): Promise<ArticleCategory> {
+    try {
+      const result = await db.insert(articleCategories).values(categoryData).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating article category:", error);
+      throw error;
+    }
+  }
+  
+  async getArticleCategories(): Promise<ArticleCategory[]> {
+    try {
+      return await db.select()
+        .from(articleCategories)
+        .orderBy(asc(articleCategories.sortOrder), asc(articleCategories.title));
+    } catch (error) {
+      console.error("Error getting article categories:", error);
+      throw error;
+    }
+  }
+  
+  async getArticleCategoryById(id: string): Promise<ArticleCategory | undefined> {
+    try {
+      const result = await db.select().from(articleCategories).where(eq(articleCategories.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting article category by ID:", error);
+      return undefined;
+    }
+  }
+  
+  async updateArticleCategory(id: string, categoryData: Partial<InsertArticleCategory>): Promise<ArticleCategory> {
+    try {
+      const result = await db.update(articleCategories)
+        .set({ ...categoryData, updatedAt: new Date() })
+        .where(eq(articleCategories.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Category not found');
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error updating article category:", error);
+      throw error;
+    }
+  }
+  
+  async deleteArticleCategory(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(articleCategories)
+        .where(eq(articleCategories.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting article category:", error);
+      return false;
+    }
+  }
+  
+  // Article tag methods
+  async createArticleTag(tagData: InsertArticleTag): Promise<ArticleTag> {
+    try {
+      const result = await db.insert(articleTags).values(tagData).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating article tag:", error);
+      throw error;
+    }
+  }
+  
+  async getArticleTags(): Promise<ArticleTag[]> {
+    try {
+      return await db.select()
+        .from(articleTags)
+        .orderBy(asc(articleTags.name));
+    } catch (error) {
+      console.error("Error getting article tags:", error);
+      throw error;
+    }
+  }
+  
+  async getOrCreateArticleTag(name: string): Promise<ArticleTag> {
+    try {
+      // Normalize tag name
+      const normalizedName = name.trim().toLowerCase();
+      const slug = normalizedName.replace(/[^a-z0-9]+/g, '-');
+      
+      // Try to find existing tag
+      const existing = await db.select()
+        .from(articleTags)
+        .where(eq(articleTags.name, normalizedName))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return existing[0];
+      }
+      
+      // Create new tag
+      const result = await db.insert(articleTags)
+        .values({
+          name: normalizedName,
+          slug
+        })
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error getting or creating article tag:", error);
+      throw error;
+    }
+  }
+  
+  // Article view methods
+  async recordArticleView(articleId: string, userId?: string, ip?: string, userAgent?: string): Promise<void> {
+    try {
+      // Create hashes for IP and user agent for privacy
+      const ipHash = ip ? require('crypto').createHash('sha256').update(ip).digest('hex').substring(0, 32) : null;
+      const userAgentHash = userAgent ? require('crypto').createHash('sha256').update(userAgent).digest('hex').substring(0, 32) : null;
+      
+      // Insert view record
+      await db.insert(articleViews)
+        .values({
+          articleId,
+          userId: userId || null,
+          ipHash,
+          userAgentHash
+        });
+      
+      // Increment view count
+      await db.update(articles)
+        .set({
+          viewCount: sql`COALESCE(${articles.viewCount}, 0) + 1`
+        })
+        .where(eq(articles.id, articleId));
+    } catch (error) {
+      console.error("Error recording article view:", error);
+      // Don't throw - view recording shouldn't break the main functionality
+    }
+  }
+  
+  async getArticleViewCount(articleId: string): Promise<number> {
+    try {
+      const result = await db.select({ count: count() })
+        .from(articleViews)
+        .where(eq(articleViews.articleId, articleId));
+      
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("Error getting article view count:", error);
+      return 0;
+    }
+  }
+  
+  // Read later methods
+  async addArticleToReadLater(userId: string, articleId: string): Promise<void> {
+    try {
+      await db.insert(articleReadLater)
+        .values({
+          userId,
+          articleId,
+          createdAt: new Date()
+        })
+        .onConflictDoNothing(); // Prevent duplicates
+    } catch (error) {
+      console.error("Error adding article to read later:", error);
+      throw error;
+    }
+  }
+  
+  async removeArticleFromReadLater(userId: string, articleId: string): Promise<boolean> {
+    try {
+      const result = await db.delete(articleReadLater)
+        .where(and(
+          eq(articleReadLater.userId, userId),
+          eq(articleReadLater.articleId, articleId)
+        ));
+      
+      return true;
+    } catch (error) {
+      console.error("Error removing article from read later:", error);
+      return false;
+    }
+  }
+  
+  async getUserReadLaterArticles(params: {
+    userId: string;
+    page: number;
+    limit: number;
+    sortBy?: "savedAt" | "publishedAt" | "createdAt" | "views";
+    sortOrder?: "asc" | "desc";
+  }): Promise<{
+    articles: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(50, Math.max(1, params.limit ?? 12));
+    const offset = (page - 1) * limit;
+
+    const sortBy = params.sortBy ?? "savedAt";
+    const sortOrder = params.sortOrder ?? "desc";
+
+    // 1) Where: only articles that are in read-later for the user
+    const where = eq(articleReadLater.userId, params.userId);
+
+    // 2) OrderBy
+    // savedAt = time added to read-later
+    let sortColumn: any;
+    switch (sortBy) {
+      case "publishedAt":
+        sortColumn = articles.publishedAt;
+        break;
+      case "createdAt":
+        sortColumn = articles.createdAt;
+        break;
+      case "views":
+        sortColumn = articles.views;
+        break;
+      case "savedAt":
+      default:
+        sortColumn = articleReadLater.createdAt;
+        break;
+    }
+
+    const orderByExpr = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+
+    // 3) Get the base rows: article + author + savedAt
+    const rows = await db
+      .select({
+        // article fields (card)
+        id: articles.id,
+        authorUserId: articles.authorUserId,
+        section: articles.section,
+        format: articles.format,
+        status: articles.status,
+        lang: articles.lang,
+        title: articles.title,
+        slug: articles.slug,
+        excerpt: articles.excerpt,
+        coverImageUrl: articles.coverImageUrl,
+        views: articles.views,
+        commentsCount: articles.commentsCount,
+        publishedAt: articles.publishedAt,
+        createdAt: articles.createdAt,
+        updatedAt: articles.updatedAt,
+
+        // author
+        authorId: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+
+        // read-later metadata
+        savedAt: articleReadLater.createdAt,
+      })
+      .from(articleReadLater)
+      .innerJoin(articles, eq(articles.id, articleReadLater.articleId))
+      .leftJoin(users, eq(users.id, articles.authorUserId))
+      .where(where)
+      .orderBy(orderByExpr)
+      .limit(limit)
+      .offset(offset);
+
+    const articleIds = rows.map(r => r.id);
+
+    // 4) Batch: tags for all articleIds
+    const tagsByArticleId = new Map<string, any[]>();
+
+    if (articleIds.length) {
+      const tagRows = await db
+        .select({
+          articleId: articleTagLinks.articleId,
+          id: articleTags.id,
+          axis: articleTags.axis,
+          name: articleTags.name,
+          slug: articleTags.slug,
+        })
+        .from(articleTagLinks)
+        .innerJoin(articleTags, eq(articleTags.id, articleTagLinks.tagId))
+        .where(inArray(articleTagLinks.articleId, articleIds))
+        .orderBy(asc(articleTags.name));
+
+      for (const tr of tagRows) {
+        const arr = tagsByArticleId.get(tr.articleId) ?? [];
+        arr.push({ id: tr.id, axis: tr.axis, name: tr.name, slug: tr.slug });
+        tagsByArticleId.set(tr.articleId, arr);
+      }
+    }
+
+    // 5) DTO: like in the feed + isReadLater=true
+    const dto = rows.map(r => ({
+      id: r.id,
+      authorUserId: r.authorUserId,
+      section: r.section,
+      format: r.format,
+      status: r.status,
+      lang: r.lang,
+      title: r.title,
+      slug: r.slug,
+      excerpt: r.excerpt,
+      coverImageUrl: r.coverImageUrl,
+      views: r.views,
+      commentsCount: r.commentsCount,
+      publishedAt: r.publishedAt,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+
+      author: r.authorId
+        ? {
+            id: r.authorId,
+            username: r.username,
+            fullName: r.fullName,
+            avatarUrl: r.avatarUrl,
+          }
+        : undefined,
+
+      tags: tagsByArticleId.get(r.id) ?? [],
+      isReadLater: true,
+
+      // can return savedAt, if want to show "added at that time"
+      savedAt: r.savedAt,
+    }));
+
+    // 6) total + totalPages (important: count can be bigint)
+    const countRes = await db
+      .select({ count: count() })
+      .from(articleReadLater)
+      .where(eq(articleReadLater.userId, params.userId));
+
+    const total = Number(countRes[0]?.count ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return { articles: dto, total, page, limit, totalPages };
+  }
+  
+  // Article-book associations
+  async getArticlesByBook(params: {
+    bookId: string;
+    page: number;
+    limit: number;
+    role?: "primary" | "in_list" | "mentioned";
+    sortBy?: "publishedAt" | "createdAt" | "views" | "sortOrder";
+    sortOrder?: "asc" | "desc";
+    userId?: string;
+  }): Promise<{
+    articles: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(50, Math.max(1, params.limit ?? 12));
+    const offset = (page - 1) * limit;
+
+    const sortBy = params.sortBy ?? "publishedAt";
+    const sortOrder = params.sortOrder ?? "desc";
+
+    const conditions: any[] = [
+      eq(articleBooks.bookId, params.bookId),
+      eq(articles.status, "published"),
+    ];
+    if (params.role) conditions.push(eq(articleBooks.role, params.role));
+
+    const where = and(...conditions);
+
+    let sortColumn: any;
+    switch (sortBy) {
+      case "views":
+        sortColumn = articles.views;
+        break;
+      case "createdAt":
+        sortColumn = articles.createdAt;
+        break;
+      case "sortOrder":
+        sortColumn = articleBooks.sortOrder;
+        break;
+      case "publishedAt":
+      default:
+        sortColumn = articles.publishedAt;
+        break;
+    }
+
+    const orderByExpr = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+
+    // 1) Base rows: article_books -> articles -> users
+    const rows = await db
+      .select({
+        id: articles.id,
+        authorUserId: articles.authorUserId,
+        section: articles.section,
+        format: articles.format,
+        status: articles.status,
+        lang: articles.lang,
+        title: articles.title,
+        slug: articles.slug,
+        excerpt: articles.excerpt,
+        coverImageUrl: articles.coverImageUrl,
+        views: articles.views,
+        commentsCount: articles.commentsCount,
+        publishedAt: articles.publishedAt,
+        createdAt: articles.createdAt,
+        updatedAt: articles.updatedAt,
+
+        authorId: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+
+        linkRole: articleBooks.role,
+        linkSortOrder: articleBooks.sortOrder,
+      })
+      .from(articleBooks)
+      .innerJoin(articles, eq(articles.id, articleBooks.articleId))
+      .leftJoin(users, eq(users.id, articles.authorUserId))
+      .where(where)
+      .orderBy(orderByExpr)
+      .limit(limit)
+      .offset(offset);
+
+    const articleIds = rows.map(r => r.id);
+
+    // 2) Tags batch
+    const tagsByArticleId = new Map<string, any[]>();
+    if (articleIds.length) {
+      const tagRows = await db
+        .select({
+          articleId: articleTagLinks.articleId,
+          id: articleTags.id,
+          axis: articleTags.axis,
+          name: articleTags.name,
+          slug: articleTags.slug,
+        })
+        .from(articleTagLinks)
+        .innerJoin(articleTags, eq(articleTags.id, articleTagLinks.tagId))
+        .where(inArray(articleTagLinks.articleId, articleIds))
+        .orderBy(asc(articleTags.name));
+
+      for (const tr of tagRows) {
+        const arr = tagsByArticleId.get(tr.articleId) ?? [];
+        arr.push({ id: tr.id, axis: tr.axis, name: tr.name, slug: tr.slug });
+        tagsByArticleId.set(tr.articleId, arr);
+      }
+    }
+
+    // 3) isReadLater batch
+    let readLaterSet: Set<string> | null = null;
+    if (params.userId && articleIds.length) {
+      const rlRows = await db
+        .select({ articleId: articleReadLater.articleId })
+        .from(articleReadLater)
+        .where(
+          and(
+            eq(articleReadLater.userId, params.userId),
+            inArray(articleReadLater.articleId, articleIds)
+          )
+        );
+
+      readLaterSet = new Set(rlRows.map(r => r.articleId));
+    }
+
+    // 4) DTO
+    const articlesDto = rows.map(r => ({
+      id: r.id,
+      authorUserId: r.authorUserId,
+      section: r.section,
+      format: r.format,
+      status: r.status,
+      lang: r.lang,
+      title: r.title,
+      slug: r.slug,
+      excerpt: r.excerpt,
+      coverImageUrl: r.coverImageUrl,
+      views: r.views,
+      commentsCount: r.commentsCount,
+      publishedAt: r.publishedAt,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+
+      author: r.authorId
+        ? { id: r.authorId, username: r.username, fullName: r.fullName, avatarUrl: r.avatarUrl }
+        : undefined,
+
+      tags: tagsByArticleId.get(r.id) ?? [],
+      isReadLater: readLaterSet ? readLaterSet.has(r.id) : undefined,
+
+      bookLink: { role: r.linkRole, sortOrder: r.linkSortOrder },
+    }));
+
+    // 5) Count (important: Number(...) because of bigint)
+    const countRes = await db
+      .select({ count: count() })
+      .from(articleBooks)
+      .innerJoin(articles, eq(articles.id, articleBooks.articleId))
+      .where(where);
+
+    const total = Number(countRes[0]?.count ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return { articles: articlesDto, total, page, limit, totalPages };
+  }
+  
+  async attachBooksToArticle(articleId: string, bookIds: string[], roles?: string[]): Promise<void> {
+    try {
+      // Remove existing associations
+      await db.delete(articleBooks)
+        .where(eq(articleBooks.articleId, articleId));
+      
+      // Add new associations
+      if (bookIds.length > 0) {
+        const values = bookIds.map((bookId, index) => ({
+          articleId,
+          bookId,
+          role: roles && roles[index] ? roles[index] : 'mentioned', // Default to 'mentioned' if no role provided
+          sortOrder: index
+        }));
+        
+        await db.insert(articleBooks).values(values);
+      }
+    } catch (error) {
+      console.error("Error attaching books to article:", error);
+      throw error;
+    }
+  }
+  
+  async getArticleAttachedBooks(articleId: string): Promise<any[]> {
+    try {
+      return await db.select({
+        id: books.id,
+        title: books.title,
+        author: books.author,
+        coverImageUrl: books.coverImageUrl,
+        role: articleBooks.role,
+        sortOrder: articleBooks.sortOrder
+      })
+      .from(articleBooks)
+      .innerJoin(books, eq(articleBooks.bookId, books.id))
+      .where(eq(articleBooks.articleId, articleId))
+      .orderBy(asc(articleBooks.sortOrder));
+    } catch (error) {
+      console.error("Error getting article attached books:", error);
+      return [];
+    }
+  }
+  
+  // Article-tag associations
+  async attachTagsToArticle(articleId: string, tagNames: string[]): Promise<void> {
+    try {
+      // Remove existing associations
+      await db.delete(articleTagLinks)
+        .where(eq(articleTagLinks.articleId, articleId));
+      
+      // Process each tag
+      for (const tagName of tagNames) {
+        if (tagName.trim()) {
+          const tag = await this.getOrCreateArticleTag(tagName);
+          
+          await db.insert(articleTagLinks)
+            .values({
+              articleId,
+              tagId: tag.id
+            })
+            .onConflictDoNothing(); // Prevent duplicates
+        }
+      }
+    } catch (error) {
+      console.error("Error attaching tags to article:", error);
+      throw error;
+    }
+  }
+  
+  async getArticleTags(articleId: string): Promise<ArticleTag[]> {
+    try {
+      return await db.select({
+        id: articleTags.id,
+        name: articleTags.name,
+        slug: articleTags.slug,
+        createdAt: articleTags.createdAt
+      })
+      .from(articleTagLinks)
+      .innerJoin(articleTags, eq(articleTagLinks.tagId, articleTags.id))
+      .where(eq(articleTagLinks.articleId, articleId))
+      .orderBy(asc(articleTags.name));
+    } catch (error) {
+      console.error("Error getting article tags:", error);
+      return [];
+    }
+  }
+  
+  // Core Article Methods
+  async createArticle(articleData: InsertArticle): Promise<Article> {
+    try {
+      // Extract tags and books from articleData before inserting
+      const { tags, bookIds, bookRoles, ...articleDataWithoutRelations } = articleData as any;
+      
+      // Generate slug if not provided
+      let slug = articleDataWithoutRelations.slug;
+      if (!slug) {
+        slug = articleDataWithoutRelations.title
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+        
+        // Ensure uniqueness
+        let uniqueSlug = slug;
+        let counter = 1;
+        while (true) {
+          const existing = await db.select()
+            .from(articles)
+            .where(eq(articles.slug, uniqueSlug))
+            .limit(1);
+          
+          if (existing.length === 0) break;
+          uniqueSlug = `${slug}-${counter++}`;
+        }
+        slug = uniqueSlug;
+      }
+      
+      const result = await db.insert(articles)
+        .values({
+          ...articleDataWithoutRelations,
+          slug
+        })
+        .returning();
+      
+      const article = result[0];
+      
+      // Attach tags and books if provided
+      if (tags && tags.length > 0) {
+        await this.attachTagsToArticle(article.id, tags);
+      }
+      if (bookIds && bookIds.length > 0) {
+        await this.attachBooksToArticle(article.id, bookIds, bookRoles);
+      }
+      
+      return article;
+    } catch (error) {
+      console.error("Error creating article:", error);
+      throw error;
+    }
+  }
+  
+  async getArticleById(id: string, currentUserId?: string): Promise<Article | undefined> {
+    try {
+      const result = await db.select()
+        .from(articles)
+        .where(eq(articles.id, id))
+        .limit(1);
+      
+      if (result.length === 0) return undefined;
+      return result[0];
+    } catch (error) {
+      console.error("Error getting article by ID:", error);
+      return undefined;
+    }
+  }
+  
+  async getArticleBySlug(slug: string, currentUserId?: string): Promise<Article | undefined> {
+    try {
+      const result = await db.select()
+        .from(articles)
+        .where(eq(articles.slug, slug))
+        .limit(1);
+      
+      if (result.length === 0) return undefined;
+      return result[0];
+    } catch (error) {
+      console.error("Error getting article by slug:", error);
+      return undefined;
+    }
+  }
+  
+  async getArticles(options?: { 
+    page?: number; 
+    limit?: number; 
+    section?: string; 
+    format?: string; 
+    tagId?: string; 
+    authorId?: string; 
+    status?: string; 
+    search?: string; 
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc'
+  }): Promise<{ articles: any[]; total: number }> {
+    try {
+      const opts = {
+        page: options?.page || 1,
+        limit: options?.limit || 20,
+        section: options?.section,
+        format: options?.format,
+        tagId: options?.tagId,
+        authorId: options?.authorId,
+        status: options?.status,
+        search: options?.search,
+        sortBy: options?.sortBy || 'createdAt',
+        sortDirection: options?.sortDirection || 'desc'
+      };
+      
+      const offset = (opts.page - 1) * opts.limit;
+      
+      // Build conditions array to properly combine filters
+      const conditions: any[] = [eq(articles.status, 'published')];
+      
+      if (opts.section) {
+        conditions.push(eq(articles.section, opts.section));
+      }
+      
+      if (opts.format) {
+        conditions.push(eq(articles.format, opts.format));
+      }
+      
+      if (opts.authorId) {
+        conditions.push(eq(articles.authorUserId, opts.authorId));
+      }
+      
+      if (opts.status) {
+        conditions.push(eq(articles.status, opts.status));
+      }
+      
+      if (opts.search) {
+        conditions.push(
+          or(
+            ilike(articles.title, `%${opts.search}%`),
+            ilike(articles.excerpt, `%${opts.search}%`)
+          )
+        );
+      }
+      
+      const whereClause = and(...conditions);
+      
+      // Build query with proper where clause and author information
+      let query = db.select({
+        id: articles.id,
+        authorUserId: articles.authorUserId,
+        section: articles.section,
+        format: articles.format,
+        status: articles.status,
+        lang: articles.lang,
+        title: articles.title,
+        slug: articles.slug,
+        excerpt: articles.excerpt,
+        coverImageUrl: articles.coverImageUrl,
+        views: articles.views,
+        commentsCount: articles.commentsCount,
+        publishedAt: articles.publishedAt,
+        createdAt: articles.createdAt,
+        updatedAt: articles.updatedAt,
+        
+        authorId: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      }).from(articles).leftJoin(users, eq(articles.authorUserId, users.id)).where(whereClause);
+      
+      // Apply sorting
+      const sortColumn = opts.sortBy === 'publishedAt' ? articles.publishedAt : articles.createdAt;
+      query = opts.sortDirection === 'asc' ? query.orderBy(asc(sortColumn)) : query.orderBy(desc(sortColumn));
+      
+      // Get total count
+      let countQuery = db.select({ count: count() }).from(articles);
+      
+      // Apply same filters to count query
+      const countConditions = [eq(articles.status, 'published')];
+      
+      if (opts.section) {
+        countConditions.push(eq(articles.section, opts.section));
+      }
+      
+      if (opts.format) {
+        countConditions.push(eq(articles.format, opts.format));
+      }
+      
+      if (opts.authorId) {
+        countConditions.push(eq(articles.authorUserId, opts.authorId));
+      }
+      
+      if (opts.status) {
+        countConditions.push(eq(articles.status, opts.status));
+      }
+      
+      if (opts.search) {
+        countConditions.push(
+          or(
+            ilike(articles.title, `%${opts.search}%`),
+            ilike(articles.excerpt, `%${opts.search}%`)
+          )
+        );
+      }
+      
+      if (countConditions.length > 0) {
+        countQuery = countQuery.where(and(...countConditions));
+      }
+      
+      const countResult = await countQuery;
+      const total = countResult[0]?.count || 0;
+      
+      // Get articles with pagination
+      const baseArticles = await query.limit(opts.limit).offset(offset);
+      
+      // Get article IDs for batch processing
+      const articleIds = baseArticles.map(r => r.id);
+      
+      // Batch: tags for all articles
+      const tagsByArticleId = new Map<string, any[]>();
+      if (articleIds.length > 0) {
+        const tagRows = await db
+          .select({
+            articleId: articleTagLinks.articleId,
+            id: articleTags.id,
+            axis: articleTags.axis,
+            name: articleTags.name,
+            slug: articleTags.slug,
+          })
+          .from(articleTagLinks)
+          .innerJoin(articleTags, eq(articleTags.id, articleTagLinks.tagId))
+          .where(inArray(articleTagLinks.articleId, articleIds))
+          .orderBy(asc(articleTags.name));
+
+        for (const tr of tagRows) {
+          const arr = tagsByArticleId.get(tr.articleId) ?? [];
+          arr.push({ id: tr.id, axis: tr.axis, name: tr.name, slug: tr.slug });
+          tagsByArticleId.set(tr.articleId, arr);
+        }
+      }
+
+      // Batch: isReadLater
+      let readLaterSet: Set<string> | null = null;
+      if (opts.authorId && articleIds.length > 0) {
+        const rlRows = await db
+          .select({ articleId: articleReadLater.articleId })
+          .from(articleReadLater)
+          .where(and(
+            eq(articleReadLater.userId, opts.authorId),
+            inArray(articleReadLater.articleId, articleIds)
+          ));
+
+        readLaterSet = new Set(rlRows.map(r => r.articleId));
+      }
+
+      // Format DTO "like in detail"
+      const dto = baseArticles.map(r => ({
+        id: r.id,
+        authorUserId: r.authorUserId,
+        section: r.section,
+        format: r.format,
+        status: r.status,
+        lang: r.lang,
+        title: r.title,
+        slug: r.slug,
+        excerpt: r.excerpt,
+        coverImageUrl: r.coverImageUrl,
+        views: r.views,
+        commentsCount: r.commentsCount,
+        publishedAt: r.publishedAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+
+        author: r.authorId ? {
+          id: r.authorId,
+          username: r.username,
+          fullName: r.fullName,
+          avatarUrl: r.avatarUrl,
+        } : undefined,
+
+        tags: tagsByArticleId.get(r.id) ?? [],
+        isReadLater: readLaterSet ? readLaterSet.has(r.id) : undefined,
+      }));
+      
+      return { articles: dto, total };
+    } catch (error) {
+      console.error("Error getting articles:", error);
+      throw error;
+    }
+  }
+  
+  async updateArticle(id: string, articleData: Partial<InsertArticle>): Promise<Article> {
+    try {
+      // Extract tags and books from articleData before updating
+      const { tags, bookIds, bookRoles, ...articleDataWithoutRelations } = articleData as any;
+      
+      const result = await db.update(articles)
+        .set({ ...articleDataWithoutRelations, updatedAt: new Date() })
+        .where(eq(articles.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Article not found');
+      }
+      
+      const article = result[0];
+      
+      // Update tags and books if provided
+      if (tags !== undefined) {
+        // Clear existing tags and add new ones
+        await db.delete(articleTagLinks).where(eq(articleTagLinks.articleId, article.id));
+        if (tags && tags.length > 0) {
+          await this.attachTagsToArticle(article.id, tags);
+        }
+      }
+      if (bookIds !== undefined) {
+        // Clear existing books and add new ones
+        await db.delete(articleBooks).where(eq(articleBooks.articleId, article.id));
+        if (bookIds && bookIds.length > 0) {
+          await this.attachBooksToArticle(article.id, bookIds, bookRoles);
+        }
+      }
+      
+      return article;
+    } catch (error) {
+      console.error("Error updating article:", error);
+      throw error;
+    }
+  }
+  
+  async deleteArticle(id: string, userId: string | null): Promise<boolean> {
+    try {
+      const conditions = [eq(articles.id, id)];
+      if (userId) {
+        conditions.push(eq(articles.authorUserId, userId));
+      }
+      
+      const result = await db.delete(articles)
+        .where(and(...conditions))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting article:", error);
+      return false;
+    }
+  }
+  
+  async publishArticle(id: string): Promise<Article> {
+    try {
+      const result = await db.update(articles)
+        .set({ 
+          status: 'published',
+          publishedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(articles.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Article not found');
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error publishing article:", error);
+      throw error;
+    }
+  }
+  
+  async unpublishArticle(id: string): Promise<Article> {
+    try {
+      const result = await db.update(articles)
+        .set({ 
+          status: 'draft',
+          publishedAt: null,
+          updatedAt: new Date()
+        })
+        .where(eq(articles.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Article not found');
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error unpublishing article:", error);
+      throw error;
+    }
+  }
+  
+  // Additional helper methods for API routes
+  async getArticle(identifier: string, userId?: string): Promise<ArticleWithRelations | undefined> {
+    try {
+      // Try by ID first, then by slug
+      let article = await this.getArticleById(identifier, userId);
+      if (!article) {
+        article = await this.getArticleBySlug(identifier, userId);
+      }
+      
+      if (!article) return undefined;
+      
+      // Get author information
+      let author: User | undefined;
+      if (article.authorUserId) {
+        author = await this.getUser(article.authorUserId);
+      }
+      
+      // Get tags
+      const tags = await this.getArticleTags(article.id);
+      
+      // Get attached books
+      const attachedBooks = await this.getArticleAttachedBooks(article.id);
+      
+      // Check if article is in read later for the user
+      let isReadLater = false;
+      if (userId) {
+        const readLaterResult = await db.select({ count: count() })
+          .from(articleReadLater)
+          .where(and(
+            eq(articleReadLater.userId, userId),
+            eq(articleReadLater.articleId, article.id)
+          ));
+        isReadLater = (readLaterResult[0]?.count || 0) > 0;
+      }
+      
+      // Combine article with relations
+      const articleWithRelations: ArticleWithRelations = {
+        ...article,
+        author,
+        tags,
+        attachedBooks,
+        isReadLater
+      };
+      
+      return articleWithRelations;
+    } catch (error) {
+      console.error("Error getting article with relations:", error);
+      return undefined;
+    }
+  }
+  
+  async listArticles(params: {
+    page: number;
+    limit: number;
+    section?: string; // New enum field
+    format?: string; // New enum field
+    searchQuery?: string;
+    sortBy: 'publishedAt' | 'createdAt' | 'views';
+    sortOrder: 'asc' | 'desc';
+    userId?: string;
+  }): Promise<{ articles: any[]; total: number; page: number; limit: number; totalPages: number }> {
+    try {
+      const page = Math.max(1, params.page ?? 1);
+      const limit = Math.min(50, Math.max(1, params.limit ?? 12));
+      const offset = (page - 1) * limit;
+
+      // 1) Conditions (important: where should not be overridden)
+      const conditions: any[] = [eq(articles.status, 'published')];
+
+      if (params.section) conditions.push(eq(articles.section, params.section));
+      if (params.format) conditions.push(eq(articles.format, params.format));
+
+      if (params.searchQuery?.trim()) {
+        const q = `%${params.searchQuery.trim()}%`;
+        conditions.push(
+          or(
+            ilike(articles.title, q),
+            ilike(articles.excerpt, q),
+            ilike(articles.searchText, q),
+          )
+        );
+      }
+
+      const where = and(...conditions);
+
+      // 2) Sort
+      let sortColumn: any;
+      switch (params.sortBy) {
+        case 'publishedAt':
+          sortColumn = articles.publishedAt;
+          break;
+        case 'views':
+          sortColumn = articles.views;
+          break;
+        default:
+          sortColumn = articles.createdAt;
+      }
+
+      const orderByExpr = params.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
+      // 3) Base list: article + author (without heavy fields)
+      const rows = await db
+        .select({
+          id: articles.id,
+          authorUserId: articles.authorUserId,
+          section: articles.section,
+          format: articles.format,
+          status: articles.status,
+          lang: articles.lang,
+          title: articles.title,
+          slug: articles.slug,
+          excerpt: articles.excerpt,
+          coverImageUrl: articles.coverImageUrl,
+          views: articles.views,
+          commentsCount: articles.commentsCount,
+          publishedAt: articles.publishedAt,
+          createdAt: articles.createdAt,
+          updatedAt: articles.updatedAt,
+
+          // author (IMPORTANT: get id, otherwise author is always undefined)
+          authorId: users.id,
+          username: users.username,
+          fullName: users.fullName,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(articles)
+        .leftJoin(users, eq(users.id, articles.authorUserId))
+        .where(where)
+        .orderBy(orderByExpr)
+        .limit(limit)
+        .offset(offset);
+
+      const articleIds = rows.map(r => r.id);
+
+      // 4) Batch: tags
+      const tagsByArticleId = new Map<string, any[]>();
+      if (articleIds.length) {
+        const tagRows = await db
+          .select({
+            articleId: articleTagLinks.articleId,
+            id: articleTags.id,
+            axis: articleTags.axis,
+            name: articleTags.name,
+            slug: articleTags.slug,
+          })
+          .from(articleTagLinks)
+          .innerJoin(articleTags, eq(articleTags.id, articleTagLinks.tagId))
+          .where(inArray(articleTagLinks.articleId, articleIds))
+          .orderBy(asc(articleTags.name));
+
+        for (const tr of tagRows) {
+          const arr = tagsByArticleId.get(tr.articleId) ?? [];
+          arr.push({ id: tr.id, axis: tr.axis, name: tr.name, slug: tr.slug });
+          tagsByArticleId.set(tr.articleId, arr);
+        }
+      }
+
+      // 5) Batch: isReadLater
+      let readLaterSet: Set<string> | null = null;
+      if (params.userId && articleIds.length) {
+        const rlRows = await db
+          .select({ articleId: articleReadLater.articleId })
+          .from(articleReadLater)
+          .where(
+            and(
+              eq(articleReadLater.userId, params.userId),
+              inArray(articleReadLater.articleId, articleIds)
+            )
+          );
+
+        readLaterSet = new Set(rlRows.map(r => r.articleId));
+      }
+
+      // 6) DTO: exactly what front needs (author + tags + isReadLater)
+      const dto = rows.map(r => ({
+        id: r.id,
+        authorUserId: r.authorUserId,
+        section: r.section,
+        format: r.format,
+        status: r.status,
+        lang: r.lang,
+        title: r.title,
+        slug: r.slug,
+        excerpt: r.excerpt,
+        coverImageUrl: r.coverImageUrl,
+        views: r.views,
+        commentsCount: r.commentsCount,
+        publishedAt: r.publishedAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+
+        author: r.authorId
+          ? {
+              id: r.authorId,
+              username: r.username,
+              fullName: r.fullName,
+              avatarUrl: r.avatarUrl,
+            }
+          : undefined,
+
+        tags: tagsByArticleId.get(r.id) ?? [],
+        isReadLater: readLaterSet ? readLaterSet.has(r.id) : undefined,
+      }));
+
+      // 7) total + totalPages (count can be bigint)
+      const countRes = await db
+        .select({ count: count() })
+        .from(articles)
+        .where(where);
+
+      const total = Number(countRes[0]?.count ?? 0);
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+
+      return { articles: dto, total, page, limit, totalPages };
+    } catch (error) {
+      console.error("Error listing articles:", error);
+      throw error;
+    }
+  }
+  
+  async registerArticleView(id: string, userAgent: string, referrer: string): Promise<void> {
+    try {
+      // Record the view
+      await this.recordArticleView(id, undefined, undefined, userAgent);
+    } catch (error) {
+      console.error("Error registering article view:", error);
+      // Don't throw - view registration shouldn't break the main functionality
+    }
+  }
+  
+  async createArticleReply(replyData: InsertArticle): Promise<Article> {
+    try {
+      // Ensure it's marked as a reply
+      const articleData = {
+        ...replyData,
+        status: 'published',
+        publishedAt: new Date()
+      } as InsertArticle;
+      
+      return await this.createArticle(articleData);
+    } catch (error) {
+      console.error("Error creating article reply:", error);
+      throw error;
+    }
+  }
+  
+  async getArticleReplies(articleId: string, page: number, limit: number, userId?: string): Promise<{ articles: Article[]; total: number }> {
+    try {
+      const offset = (page - 1) * limit;
+      
+      // Get total count - for v1, we're removing reply functionality
+      const countResult = await db.select({ count: count() })
+        .from(articles)
+        .where(and(
+          eq(articles.status, 'published')
+        ));
+      
+      const total = countResult[0]?.count || 0;
+      
+      // Get articles - for v1, we're removing reply functionality
+      const articlesResult = await db.select()
+        .from(articles)
+        .where(and(
+          eq(articles.status, 'published')
+        ))
+        .orderBy(desc(articles.publishedAt))
+        .limit(limit)
+        .offset(offset);
+      
+      return { articles: articlesResult, total };
+    } catch (error) {
+      console.error("Error getting article replies:", error);
+      throw error;
+    }
+  }
+  
+  async moderateArticle(id: string, status: string, moderationNotes?: string): Promise<Article> {
+    try {
+      const result = await db.update(articles)
+        .set({ 
+          status,
+          updatedAt: new Date()
+        })
+        .where(eq(articles.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Article not found');
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error moderating article:", error);
+      throw error;
+    }
+  }
+  
+  async getAllArticlesForAdmin(page: number, limit: number, status?: string): Promise<{ articles: any[]; total: number; page: number; limit: number; totalPages: number }> {
+    try {
+      const offset = (page - 1) * limit;
+      
+      // Build query with user join to get author information
+      let query = db.select({
+        id: articles.id,
+        authorUserId: articles.authorUserId,
+        section: articles.section,
+        format: articles.format,
+        status: articles.status,
+        lang: articles.lang,
+        title: articles.title,
+        slug: articles.slug,
+        excerpt: articles.excerpt,
+        coverImageUrl: articles.coverImageUrl,
+        contentJson: articles.contentJson,
+        searchText: articles.searchText,
+        views: articles.views,
+        commentsCount: articles.commentsCount,
+        publishedAt: articles.publishedAt,
+        createdAt: articles.createdAt,
+        updatedAt: articles.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(articles)
+      .leftJoin(users, eq(articles.authorUserId, users.id));
+      
+      let countQuery = db.select({ count: count() }).from(articles);
+      
+      // Filter by status if provided
+      if (status) {
+        query = query.where(eq(articles.status, status));
+        countQuery = countQuery.where(eq(articles.status, status));
+      }
+      
+      // Order by creation date
+      query = query.orderBy(desc(articles.createdAt));
+      
+      // Execute queries
+      const [articlesResult, countResult] = await Promise.all([
+        query.limit(limit).offset(offset),
+        countQuery
+      ]);
+      
+      // Transform the data to match the expected format
+      const transformedArticles = articlesResult.map(item => ({
+        id: item.id,
+        authorUserId: item.authorUserId,
+        section: item.section,
+        format: item.format,
+        status: item.status,
+        lang: item.lang,
+        title: item.title,
+        slug: item.slug,
+        excerpt: item.excerpt,
+        coverImageUrl: item.coverImageUrl,
+        contentJson: item.contentJson,
+        searchText: item.searchText,
+        views: item.views,
+        commentsCount: item.commentsCount,
+        publishedAt: item.publishedAt?.toISOString() || null,
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+        author: {
+          username: item.username || 'Unknown',
+          fullName: item.fullName || null,
+          avatarUrl: item.avatarUrl || null
+        }
+      }));
+      
+      const total = countResult[0]?.count || 0;
+      const totalPages = Math.ceil(total / limit);
+      
+      return {
+        articles: transformedArticles,
+        total,
+        page,
+        limit,
+        totalPages
+      };
+    } catch (error) {
+      console.error("Error getting all articles for admin:", error);
+      throw error;
+    }
+  }
+  
+  async getAllArticleCategories(): Promise<ArticleCategory[]> {
+    try {
+      return await db.select()
+        .from(articleCategories)
+        .orderBy(asc(articleCategories.sortOrder), asc(articleCategories.title));
+    } catch (error) {
+      console.error("Error getting all article categories:", error);
       throw error;
     }
   }

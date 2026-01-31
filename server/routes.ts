@@ -25,6 +25,34 @@ import { logAggregator, logMiddleware } from './logAggregator';
 // Import db from storage module
 import { db } from './storage';
 
+// Helper function to generate unique slugs
+async function generateUniqueSlug(title: string, storage: any): Promise<string> {
+  // Generate base slug
+  let slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+  
+  // Ensure uniqueness
+  let uniqueSlug = slug;
+  let counter = 1;
+  while (true) {
+    try {
+      // Try to get article by slug to check if it exists
+      const existingArticle = await storage.getArticle(uniqueSlug);
+      if (!existingArticle) break;
+      uniqueSlug = `${slug}-${counter++}`;
+    } catch (error) {
+      // If there's an error (like article not found), the slug is available
+      break;
+    }
+  }
+  
+  return uniqueSlug;
+}
+
 // Initialize Ollama client
 const ollama = new Ollama({ host: process.env.OLLAMA_HOST || 'http://localhost:11434' });
 
@@ -3388,6 +3416,397 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to update review" });
     }
   });
+  
+  // ==================== ARTICLES API ROUTES ====================
+  
+  // Public: List articles
+  app.get("/api/articles", optionalAuthenticateToken, async (req, res) => {
+    console.log("List articles endpoint called");
+    try {
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const section = req.query.section as string || undefined;
+      const format = req.query.format as string || undefined;
+      const search = req.query.search as string || undefined;
+      const sortBy = (req.query.sortBy as string) || 'publishedAt';
+      const sortOrder = (req.query.sortOrder as string) || 'desc';
+      const userId = (req as any).user?.userId;
+      
+      const result = await storage.listArticles({
+        page,
+        limit,
+        section,
+        format,
+        searchQuery: search,
+        sortBy: sortBy as any,
+        sortOrder: sortOrder as any,
+        userId
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("List articles error:", error);
+      res.status(500).json({ error: "Failed to list articles" });
+    }
+  });
+  
+  // Public: Get article categories
+  app.get("/api/article-categories", async (req, res) => {
+    console.log("Get article categories endpoint called");
+    try {
+      const categories = await storage.getArticleCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Get article categories error:", error);
+      res.status(500).json({ error: "Failed to get categories" });
+    }
+  });
+  
+  // Public: Get article by ID or slug
+  app.get("/api/articles/:identifier", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get article endpoint called for identifier:", req.params.identifier);
+    try {
+      const { identifier } = req.params;
+      const userId = (req as any).user?.userId;
+      
+      const article = await storage.getArticle(identifier, userId);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      res.json({ article });
+    } catch (error) {
+      console.error("Get article error:", error);
+      res.status(500).json({ error: "Failed to get article" });
+    }
+  });
+  
+  // Public: Register article view
+  app.post("/api/articles/:id/views", async (req, res) => {
+    console.log("Register article view endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userAgent = req.headers['user-agent'] || '';
+      const referrer = req.headers['referer'] || '';
+      
+      await storage.registerArticleView(id, userAgent, referrer);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Register article view error:", error);
+      res.status(500).json({ error: "Failed to register view" });
+    }
+  });
+  
+  // Authenticated: Create article
+  app.post("/api/articles", authenticateToken, async (req, res) => {
+    console.log("Create article endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { title, excerpt, contentJson, coverImageUrl, section, format, lang, status, tags } = req.body;
+      
+      if (!title || !contentJson) {
+        return res.status(400).json({ error: "Title and content are required" });
+      }
+      
+      const articleData = {
+        authorUserId: userId,
+        title,
+        slug: await generateUniqueSlug(title, storage),
+        excerpt: excerpt || undefined,
+        contentJson,
+        coverImageUrl: coverImageUrl || undefined,
+        section: section || undefined,
+        format: format || undefined,
+        lang: lang || 'ru',
+        status: status || 'draft',
+        tags: tags || []
+      };
+      
+      const article = await storage.createArticle(articleData);
+      res.status(201).json({ article });
+    } catch (error) {
+      console.error("Create article error:", error);
+      res.status(500).json({ error: "Failed to create article" });
+    }
+  });
+  
+  // Authenticated: Update article
+  app.put("/api/articles/:id", authenticateToken, async (req, res) => {
+    console.log("Update article endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      const { title, excerpt, contentJson, coverImageUrl, section, format, lang, status, tags } = req.body;
+      
+      // Check ownership
+      const existingArticle = await storage.getArticle(id);
+      if (!existingArticle) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      if (existingArticle.authorUserId !== userId) {
+        return res.status(403).json({ error: "You can only edit your own articles" });
+      }
+      
+      const updateData: any = {};
+      if (title !== undefined) updateData.title = title;
+      if (excerpt !== undefined) updateData.excerpt = excerpt;
+      if (contentJson !== undefined) updateData.contentJson = contentJson;
+      if (coverImageUrl !== undefined) updateData.coverImageUrl = coverImageUrl;
+      if (section !== undefined) updateData.section = section;
+      if (format !== undefined) updateData.format = format;
+      if (lang !== undefined) updateData.lang = lang;
+      if (status !== undefined) updateData.status = status;
+      if (tags !== undefined) updateData.tags = tags;
+      
+      const updatedArticle = await storage.updateArticle(id, updateData);
+      res.json({ article: updatedArticle });
+    } catch (error) {
+      console.error("Update article error:", error);
+      res.status(500).json({ error: "Failed to update article" });
+    }
+  });
+  
+  // Authenticated: Delete article
+  app.delete("/api/articles/:id", authenticateToken, async (req, res) => {
+    console.log("Delete article endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Check ownership
+      const existingArticle = await storage.getArticle(id);
+      if (!existingArticle) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      if (existingArticle.authorUserId !== userId) {
+        return res.status(403).json({ error: "You can only delete your own articles" });
+      }
+      
+      await storage.deleteArticle(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete article error:", error);
+      res.status(500).json({ error: "Failed to delete article" });
+    }
+  });
+  
+  // Authenticated: Publish article
+  app.post("/api/articles/:id/publish", authenticateToken, async (req, res) => {
+    console.log("Publish article endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      
+      // Check ownership
+      const existingArticle = await storage.getArticle(id);
+      if (!existingArticle) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      if (existingArticle.authorUserId !== userId) {
+        return res.status(403).json({ error: "You can only publish your own articles" });
+      }
+      
+      const updatedArticle = await storage.publishArticle(id);
+      res.json({ article: updatedArticle });
+    } catch (error) {
+      console.error("Publish article error:", error);
+      res.status(500).json({ error: "Failed to publish article" });
+    }
+  });
+  
+  // Authenticated: Add to read later
+  app.post("/api/articles/:id/read-later", authenticateToken, async (req, res) => {
+    console.log("Add to read later endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      
+      await storage.addArticleToReadLater(userId, id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Add to read later error:", error);
+      res.status(500).json({ error: "Failed to add to read later" });
+    }
+  });
+  
+  // Authenticated: Remove from read later
+  app.delete("/api/articles/:id/read-later", authenticateToken, async (req, res) => {
+    console.log("Remove from read later endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      
+      await storage.removeArticleFromReadLater(userId, id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Remove from read later error:", error);
+      res.status(500).json({ error: "Failed to remove from read later" });
+    }
+  });
+  
+  // Books - Articles association
+  app.get("/api/books/:bookId/articles", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get articles by book endpoint called for book ID:", req.params.bookId);
+    try {
+      const userId = (req as any).user?.userId;
+      const { bookId } = req.params;
+
+      const page = req.query.page ? Number(req.query.page) : 1;
+      const limit = req.query.limit ? Number(req.query.limit) : 12;
+
+      const role = req.query.role ? String(req.query.role) : undefined; // primary|in_list|mentioned
+      const sortBy = (req.query.sortBy ? String(req.query.sortBy) : "publishedAt") as
+        | "publishedAt"
+        | "createdAt"
+        | "views"
+        | "sortOrder";
+
+      const sortOrder = (req.query.sortOrder ? String(req.query.sortOrder) : "desc") as "asc" | "desc";
+
+      const result = await storage.getArticlesByBook({
+        bookId,
+        page,
+        limit,
+        role: role as any,
+        sortBy,
+        sortOrder,
+        userId,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Get articles by book error:", error);
+      res.status(500).json({ error: "Failed to get articles by book" });
+    }
+  });
+  
+  // Authenticated: Get user's read later articles
+  app.get("/api/articles/read-later", authenticateToken, async (req, res) => {
+    console.log("Get read later articles endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      
+      const result = await storage.getUserReadLaterArticles({
+        userId,
+        page,
+        limit
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Get read later articles error:", error);
+      res.status(500).json({ error: "Failed to get read later articles" });
+    }
+  });
+  
+
+  
+  // Admin: Moderate article
+  app.put("/api/admin/articles/:id/moderate", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Moderate article endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const { status, moderationNotes } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ error: "Status is required" });
+      }
+      
+      const updatedArticle = await storage.moderateArticle(id, status, moderationNotes);
+      res.json(updatedArticle);
+    } catch (error) {
+      console.error("Moderate article error:", error);
+      res.status(500).json({ error: "Failed to moderate article" });
+    }
+  });
+  
+  // Admin: Get all articles (for admin panel)
+  app.get("/api/admin/articles", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get all articles for admin endpoint called");
+    try {
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const status = req.query.status as string || undefined;
+      
+      const result = await storage.getAllArticlesForAdmin(page, limit, status);
+      res.json(result);
+    } catch (error) {
+      console.error("Get all articles for admin error:", error);
+      res.status(500).json({ error: "Failed to get articles" });
+    }
+  });
+  
+  // Admin: Get all article categories (for admin panel)
+  app.get("/api/admin/article-categories", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Get all article categories for admin endpoint called");
+    try {
+      const categories = await storage.getAllArticleCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Get all article categories error:", error);
+      res.status(500).json({ error: "Failed to get categories" });
+    }
+  });
+  
+  app.post("/api/admin/article-categories", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Create article category endpoint called");
+    try {
+      const { name, nameRu, slug, description, color } = req.body;
+      
+      if (!name || !slug) {
+        return res.status(400).json({ error: "Name and slug are required" });
+      }
+      
+      const category = await storage.createArticleCategory({
+        title: name,
+        slug,
+        sortOrder: 0
+      });
+      
+      res.status(201).json(category);
+    } catch (error) {
+      console.error("Create article category error:", error);
+      res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+  
+  app.put("/api/admin/article-categories/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Update article category endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const { name, slug, sortOrder, description } = req.body;
+      
+      const updateData: any = {};
+      if (name !== undefined) updateData.title = name;
+      if (slug !== undefined) updateData.slug = slug;
+      if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+      if (description !== undefined) updateData.description = description;
+      
+      const updatedCategory = await storage.updateArticleCategory(id, updateData);
+      res.json(updatedCategory);
+    } catch (error) {
+      console.error("Update article category error:", error);
+      res.status(500).json({ error: "Failed to update category" });
+    }
+  });
+  
+  app.delete("/api/admin/article-categories/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Delete article category endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      await storage.deleteArticleCategory(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete article category error:", error);
+      res.status(500).json({ error: "Failed to delete category" });
+    }
+  });
+  
+  // ==================== END ARTICLES API ROUTES ====================
   
   // Admin: Get pending comments
   app.get("/api/admin/comments/pending", authenticateToken, requireAdminOrModerator, async (req, res) => {

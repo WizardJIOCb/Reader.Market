@@ -24,6 +24,7 @@ import UserManagement from '@/pages/UserManagement';
 import BooksManagement from '@/components/BooksManagement';
 import RatingSystemSettings from '@/pages/RatingSystemSettings';
 import UserRatingSystemSettings from '@/pages/UserRatingSystemSettings';
+import { AdminArticlesPage } from '@/pages/admin/AdminArticlesPage';
 import {
   LayoutDashboard, 
   Newspaper, 
@@ -38,7 +39,8 @@ import {
   ChevronRight,
   Settings,
   Activity,
-  Volume2
+  Volume2,
+  FileText
 } from 'lucide-react';
 import { AdminLoggingConfig } from './AdminLoggingConfig';
 import TtsAdminSettings from '@/pages/TtsAdminSettings';
@@ -429,6 +431,7 @@ const AdminDashboard: React.FC = () => {
   const menuItems = [
     { id: 'dashboard', label: t('admin:navigation.dashboard'), icon: LayoutDashboard },
     { id: 'news', label: t('admin:navigation.newsManagement'), icon: Newspaper },
+    { id: 'articles', label: t('articles:admin.title'), icon: FileText },
     { id: 'comments', label: t('admin:navigation.comments'), icon: MessageSquare },
     { id: 'reviews', label: t('admin:navigation.reviews'), icon: Star },
     { id: 'books', label: t('admin:navigation.books'), icon: BookOpen },
@@ -800,6 +803,10 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'news' && (
               <NewsManagement />
+            )}
+
+            {activeTab === 'articles' && (
+              <AdminArticlesPage />
             )}
 
             {activeTab === 'comments' && (

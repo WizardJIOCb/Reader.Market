@@ -13,7 +13,7 @@ import {
   SheetPortal,
   SheetOverlay,
 } from '@/components/ui/sheet';
-import { Menu, Search, User, X, MessageCircle, Globe, Check, Rss, Shield, Home, Info, BookMarked, Users, Bookmark } from 'lucide-react';
+import { Menu, Search, User, X, MessageCircle, Globe, Check, Rss, Shield, Home, Info, BookMarked, Users, Bookmark, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { onSocketEvent } from '@/lib/socket';
 import { useResponsive } from '@/hooks/use-responsive';
@@ -268,19 +268,6 @@ export function MobileMenu() {
               {t('navigation:collections')}
             </Link>
           </SheetClose>
-          <SheetClose asChild>
-            <Link 
-              href="/search" 
-              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
-                isActive('/search') ? 'bg-[#f1680c]/10' : ''
-              }`}
-              style={isActive('/search') ? { color: '#f1680c' } : {}}
-              aria-current={isActive('/search') ? 'page' : undefined}
-            >
-              <Search className="w-4 h-4" />
-              {t('navigation:search')}
-            </Link>
-          </SheetClose>
           {user && (
             <SheetClose asChild>
               <Link 
@@ -296,6 +283,32 @@ export function MobileMenu() {
               </Link>
             </SheetClose>
           )}
+          <SheetClose asChild>
+            <Link 
+              href="/search" 
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/search') ? 'bg-[#f1680c]/10' : ''
+              }`}
+              style={isActive('/search') ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/search') ? 'page' : undefined}
+            >
+              <Search className="w-4 h-4" />
+              {t('navigation:search')}
+            </Link>
+          </SheetClose>
+          <SheetClose asChild>
+            <Link 
+              href="/articles" 
+              className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
+                isActive('/articles', false) ? 'bg-[#f1680c]/10' : ''
+              }`}
+              style={isActive('/articles', false) ? { color: '#f1680c' } : {}}
+              aria-current={isActive('/articles', false) ? 'page' : undefined}
+            >
+              <FileText className="w-4 h-4" />
+              {t('navigation:articles')}
+            </Link>
+          </SheetClose>
           <SheetClose asChild>
             <Link 
               href="/" 

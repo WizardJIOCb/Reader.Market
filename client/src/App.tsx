@@ -36,6 +36,12 @@ import { BookmarkCollectionsPage } from "@/pages/BookmarkCollectionsPage";
 import { CreateCollectionPage } from "@/pages/CreateCollectionPage";
 import { CollectionDetailPage } from "@/pages/CollectionDetailPage";
 import { EditCollectionPage } from "@/pages/EditCollectionPage";
+import { ArticlesPage } from "@/pages/ArticlesPage";
+import { ArticleDetailPage } from "@/pages/ArticleDetailPage";
+import { ArticleEditorPage } from "@/pages/ArticleEditorPage";
+import { ReadLaterPage } from "@/pages/ReadLaterPage";
+import { AdminArticlesPage } from "@/pages/admin/AdminArticlesPage";
+import { AdminCategoriesPage } from "@/pages/admin/AdminCategoriesPage";
 import GitHistoryPage from "@/pages/GitHistoryPage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -67,9 +73,16 @@ function Router() {
       <Route path="/collections/create" component={CreateCollectionPage} />
       <Route path="/collections/:id" component={CollectionDetailPage} />
       <Route path="/collections/:id/edit" component={EditCollectionPage} />
+      <Route path="/articles" component={ArticlesPage} />
+      <Route path="/articles/new" component={ArticleEditorPage} />
+      <Route path="/articles/edit/:slug" component={ArticleEditorPage} />
+      <Route path="/articles/read-later" component={ReadLaterPage} />
+      <Route path="/articles/:slug" component={ArticleDetailPage} />
       <Route path="/profile/:userId?" component={Profile} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/users" component={UserManagement} />
+      <Route path="/admin/articles" component={AdminArticlesPage} />
+      <Route path="/admin/articles/categories" component={AdminCategoriesPage} />
       <Route path="/admin/rating-system" component={RatingSystemSettings} />
       <Route path="/admin/user-rating-system" component={UserRatingSystemSettings} />
       <Route path="/git-to-gpt" component={GitHistoryPage} />

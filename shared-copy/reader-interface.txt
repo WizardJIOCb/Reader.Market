@@ -1,0 +1,518 @@
+/* =========================================================
+   Reader.Market — Reader Contracts (TypeScript)
+   Goal: unify EPUB / HTML (DOCX, FB2, TXT) / optional PDF
+   for AI features: bookmarks, highlights, notes, spoilers,
+   context help, chapter summaries, search, TOC, reading progress.
+
+   Design principles:
+   - Reader UI works with a ReaderAdapter (engine-specific).
+   - All persisted user actions reference a stable Location.
+   - Engines must provide text extraction for AI (selection, around, chapter).
+   - Annotation layer is engine-agnostic: anchored by LocationRange.
+   ========================================================= */
+
+export type BookId = string;
+export type UserId = string;
+export type ISODateTime = string;
+
+export type BookFormat = "epub" | "doc" | "docx" | "fb2" | "txt" | "pdf" | "html";
+
+/** Engine kind is about rendering implementation, not file format. */
+export type EngineKind = "epubjs" | "readium" | "html" | "pdfjs";
+
+/** High-level reading mode (optional, can influence layout). */
+export type ReadingMode = "paginated" | "scrolled";
+
+/** Theme choices for reader surface. */
+export type ReaderTheme = "light" | "dark" | "sepia";
+
+/** Stored on server for a book. You can extend with metadata. */
+export interface BookDescriptor {
+  bookId: BookId;
+  format: BookFormat;
+  title?: string;
+  author?: string;
+  language?: string;
+  /** Canonical url or file blob pointer (S3/key/etc). */
+  source: { kind: "url"; url: string } | { kind: "blob"; blob: Blob } | { kind: "file"; file: File };
+}
+
+/* =========================================================
+   Locations & Anchors
+   ========================================================= */
+
+/**
+ * A stable position within a book content.
+ * - EPUB: type="epub-cfi", value=epubcfi(...)
+ * - HTML-based (converted docx/fb2/txt): type="dom-range", value={...}
+ * - PDF: type="pdf-fragment", value={page, rect, ...}
+ */
+export type Location =
+  | {
+      type: "epub-cfi";
+      /** Example: "epubcfi(/6/2[chapter]!/4/2/14)" */
+      value: string;
+    }
+  | {
+      type: "dom-point";
+      /** DOM anchor inside your normalized HTML (stable ids required) */
+      value: DomPoint;
+    }
+  | {
+      type: "pdf-fragment";
+      value: PdfFragment;
+    };
+
+/** A range for highlights/notes: start..end */
+export interface LocationRange {
+  start: Location;
+  end: Location;
+}
+
+/** For HTML-based engines (docx->html, fb2->html, txt->html, etc.) */
+export interface DomPoint {
+  /** Stable element id in the normalized HTML */
+  elementId: string;
+  /** Optional sub-selector for more granularity (span[data-...], etc.) */
+  selector?: string;
+  /** Character offset in the resolved text node (UTF-16 index). */
+  charOffset?: number;
+}
+
+/** For PDF (optional) — minimal fragment anchor. */
+export interface PdfFragment {
+  page: number; // 1-based or 0-based; choose one and keep consistent
+  /** Rect in PDF page coordinates or viewport coords; define convention */
+  rect?: { x: number; y: number; w: number; h: number };
+  /** Optional: text anchor for robustness (recommended if you do search) */
+  textAnchor?: { prefix?: string; exact: string; suffix?: string };
+}
+
+/**
+ * A "logical reading position" used for progress (e.g. chapter + percent).
+ * Engines can compute this for UI.
+ */
+export interface ReadingPosition {
+  location: Location;
+  /** 0..1 within current spine/chapter, if available */
+  chapterProgress?: number;
+  /** 0..1 within whole book, if available */
+  bookProgress?: number;
+  /** Canonical chapter id (spine item, file, etc.) */
+  chapterId?: string;
+}
+
+/* =========================================================
+   TOC / Navigation
+   ========================================================= */
+
+export interface TocItem {
+  id: string;
+  label: string;
+  location?: Location; // Where to navigate
+  children?: TocItem[];
+  /** Optional ordering info */
+  order?: number;
+}
+
+/** A "chapter" is a navigable content unit for summarization. */
+export interface ChapterRef {
+  chapterId: string;
+  title?: string;
+  /** Jump target to chapter start */
+  startLocation: Location;
+  /** Optional end marker if engine supports it */
+  endLocation?: Location;
+}
+
+/* =========================================================
+   Text extraction for AI
+   ========================================================= */
+
+export interface TextSlice {
+  /** Plain text (no HTML). */
+  text: string;
+  /** Optional: structured segments, helps prompts/UX. */
+  segments?: Array<{
+    /** stable segment id within chapter, if engine can provide */
+    segmentId?: string;
+    text: string;
+  }>;
+  /** Optional: language detected */
+  lang?: string;
+}
+
+export interface SelectionInfo {
+  range: LocationRange;
+  /** Plain selected text. */
+  text: string;
+  /** Optional: surrounding context (engine can provide quickly). */
+  context?: {
+    before?: string;
+    after?: string;
+  };
+}
+
+/** Window around a location for context/spoilers */
+export interface ContextWindow {
+  /** Approx char count around the location (best-effort). */
+  approxChars?: number;
+  /** How many paragraphs/segments around (engine-specific). */
+  approxBlocks?: number;
+  /** Direction for spoiler/context. */
+  direction?: "before" | "after" | "both";
+}
+
+/* =========================================================
+   Reader settings & capabilities
+   ========================================================= */
+
+export interface ReaderSettings {
+  theme?: ReaderTheme;
+  fontFamily?: string;
+  fontSize?: number; // px or scale; your choice
+  lineHeight?: number;
+  margin?: number;
+  readingMode?: ReadingMode;
+  /** For paginated mode: number of columns/pages per view (optional) */
+  spread?: "auto" | "single" | "double";
+}
+
+export interface ReaderCapabilities {
+  canPaginate: boolean;
+  canScroll: boolean;
+  canSelectText: boolean;
+  canHighlight: boolean;
+  canSearch: boolean;
+  canExtractChapterText: boolean;
+  canGetTextAroundLocation: boolean;
+  canGoToLocation: boolean;
+  canGetToc: boolean;
+  /** PDF specific */
+  canRenderPdf?: boolean;
+}
+
+/* =========================================================
+   Events
+   ========================================================= */
+
+export interface ReaderEventMap {
+  /** Fired when reading position changes (scroll/page turn). */
+  positionChanged: { position: ReadingPosition };
+  /** Fired when selection changes (mouse/touch selection). */
+  selectionChanged: { selection: SelectionInfo | null };
+  /** Fired on internal link navigation */
+  navigated: { from?: Location; to: Location };
+  /** Fired on error */
+  error: { code: string; message: string; cause?: unknown };
+}
+
+export type Unsubscribe = () => void;
+
+export interface TypedEventEmitter<EvMap> {
+  on<K extends keyof EvMap>(event: K, handler: (payload: EvMap[K]) => void): Unsubscribe;
+  off<K extends keyof EvMap>(event: K, handler: (payload: EvMap[K]) => void): void;
+}
+
+/* =========================================================
+   ReaderAdapter — engine boundary
+   ========================================================= */
+
+export interface ReaderAdapter extends TypedEventEmitter<ReaderEventMap> {
+  /** Engine kind (epubjs/readium/html/pdfjs) */
+  readonly engine: EngineKind;
+
+  /** Format(s) supported by this adapter */
+  readonly supportedFormats: BookFormat[];
+
+  /** Feature flags */
+  readonly capabilities: ReaderCapabilities;
+
+  /** Mount engine into a DOM container */
+  mount(container: HTMLElement): Promise<void>;
+
+  /** Unmount / cleanup */
+  unmount(): Promise<void>;
+
+  /** Load a book into engine */
+  load(book: BookDescriptor, opts?: { initialLocation?: Location; settings?: ReaderSettings }): Promise<void>;
+
+  /** Update reader settings (theme, font size, mode, etc.) */
+  setSettings(settings: Partial<ReaderSettings>): Promise<void>;
+
+  /** Get current settings from engine */
+  getSettings(): Promise<ReaderSettings>;
+
+  /** Get current reading position */
+  getPosition(): Promise<ReadingPosition>;
+
+  /** Navigate */
+  goTo(location: Location): Promise<void>;
+  goToTocItem(id: string): Promise<void>;
+  nextPage?(): Promise<void>;
+  prevPage?(): Promise<void>;
+
+  /** Table of contents & chapters */
+  getToc(): Promise<TocItem[]>;
+  getChapters(): Promise<ChapterRef[]>;
+
+  /** Current chapter helper */
+  getCurrentChapter(): Promise<ChapterRef | null>;
+
+  /** Selection */
+  getSelection(): Promise<SelectionInfo | null>;
+  clearSelection(): Promise<void>;
+
+  /** Text extraction for AI */
+  getTextAround(location: Location, window?: ContextWindow): Promise<TextSlice>;
+  getChapterText(chapterId: string): Promise<TextSlice>;
+
+  /** Search inside the book (best-effort) */
+  search(query: string, opts?: { limit?: number; inChapterId?: string }): Promise<SearchResult[]>;
+
+  /** Optional: create a stable range from DOM selection (HTML engine) */
+  resolveDomSelectionToLocationRange?(): Promise<LocationRange | null>;
+
+  /** Optional: convert a LocationRange to a visible highlight overlay (engine-native). */
+  renderHighlights?(highlights: HighlightAnnotation[]): Promise<void>;
+
+  /** Optional: clear highlights (engine-native). */
+  clearHighlights?(): Promise<void>;
+}
+
+/* =========================================================
+   Search
+   ========================================================= */
+
+export interface SearchResult {
+  id: string;
+  /** Where match occurs (start is enough for navigation) */
+  location: Location;
+  /** Matched snippet for UI */
+  snippet: string;
+  /** Optional: chapter context */
+  chapterId?: string;
+  /** Optional score */
+  score?: number;
+}
+
+/* =========================================================
+   Annotations (bookmarks, highlights, notes)
+   ========================================================= */
+
+export type AnnotationId = string;
+
+export interface BaseAnnotation {
+  id: AnnotationId;
+  bookId: BookId;
+  userId: UserId;
+  createdAt: ISODateTime;
+  updatedAt?: ISODateTime;
+  /** For sync/conflict resolution (optional) */
+  revision?: number;
+}
+
+export interface BookmarkAnnotation extends BaseAnnotation {
+  type: "bookmark";
+  location: Location;
+  label?: string;
+  color?: string;
+}
+
+export interface HighlightAnnotation extends BaseAnnotation {
+  type: "highlight";
+  range: LocationRange;
+  /** Exact quote at creation time (helps display even if rendering differs). */
+  quote?: string;
+  color?: string;
+  /** Optional tags */
+  tags?: string[];
+}
+
+export interface NoteAnnotation extends BaseAnnotation {
+  type: "note";
+  range: LocationRange;
+  /** The quoted text (optional but recommended) */
+  quote?: string;
+  /** User comment */
+  note: string;
+}
+
+export type Annotation = BookmarkAnnotation | HighlightAnnotation | NoteAnnotation;
+
+/* =========================================================
+   AnnotationService — persistence boundary (DB/API)
+   ========================================================= */
+
+export interface AnnotationService {
+  list(bookId: BookId): Promise<Annotation[]>;
+  create(annotation: Omit<Annotation, "id" | "createdAt" | "updatedAt" | "revision">): Promise<Annotation>;
+  update(annotation: Partial<Annotation> & Pick<Annotation, "id" | "bookId">): Promise<Annotation>;
+  remove(bookId: BookId, annotationId: AnnotationId): Promise<void>;
+
+  /** Convenience */
+  listBookmarks?(bookId: BookId): Promise<BookmarkAnnotation[]>;
+  listHighlights?(bookId: BookId): Promise<HighlightAnnotation[]>;
+  listNotes?(bookId: BookId): Promise<NoteAnnotation[]>;
+}
+
+/* =========================================================
+   AI Assist Contracts
+   ========================================================= */
+
+export type AiFeature =
+  | "explain"
+  | "summarizeChapter"
+  | "summarizeAround"
+  | "spoilerAfter"
+  | "qa"
+  | "definitions"
+  | "characterInfo";
+
+export interface AiRequestBase {
+  bookId: BookId;
+  userId: UserId;
+
+  /** User intent */
+  feature: AiFeature;
+
+  /** Where user is (optional) */
+  position?: ReadingPosition;
+
+  /** Client context, e.g. device, locale */
+  meta?: Record<string, unknown>;
+}
+
+/** Ask AI about selection */
+export interface AiSelectionRequest extends AiRequestBase {
+  feature: "explain" | "qa" | "definitions";
+  selection: SelectionInfo;
+}
+
+/** Summarize a chapter */
+export interface AiChapterSummaryRequest extends AiRequestBase {
+  feature: "summarizeChapter";
+  chapterId: string;
+  /** Use cached if exists (recommended) */
+  allowCache?: boolean;
+}
+
+/** Context help around a location */
+export interface AiContextRequest extends AiRequestBase {
+  feature: "summarizeAround" | "spoilerAfter" | "characterInfo";
+  location: Location;
+  window?: ContextWindow;
+  /**
+   * For spoilers:
+   * - "safe": no future beyond location
+   * - "soft": vague hints
+   * - "full": explicit spoilers
+   */
+  spoilerPolicy?: "safe" | "soft" | "full";
+}
+
+export type AiRequest = AiSelectionRequest | AiChapterSummaryRequest | AiContextRequest;
+
+/** Streaming-friendly response chunks */
+export interface AiStreamChunk {
+  type: "text" | "meta" | "error" | "done";
+  text?: string;
+  meta?: Record<string, unknown>;
+  error?: { code: string; message: string };
+}
+
+export interface AiResponse {
+  /** Final text (if not streaming) */
+  text: string;
+  /** Useful structured extras */
+  meta?: {
+    chapterId?: string;
+    citations?: Array<{
+      /** anchor back into book */
+      range?: LocationRange;
+      /** quote or snippet supporting the answer */
+      quote?: string;
+    }>;
+    tokensUsed?: number;
+    model?: string;
+    cached?: boolean;
+  };
+}
+
+export interface AiAssistService {
+  /** Non-stream response */
+  run(req: AiRequest): Promise<AiResponse>;
+
+  /** Streaming response (for UI typing effect) */
+  stream(req: AiRequest, onChunk: (chunk: AiStreamChunk) => void): Promise<void>;
+}
+
+/* =========================================================
+   ReaderController — glue between UI, adapter, services
+   ========================================================= */
+
+export interface ReaderControllerOptions {
+  adapter: ReaderAdapter;
+  annotations: AnnotationService;
+  ai: AiAssistService;
+
+  /** If true — render highlights into engine on load/updates when supported */
+  autoRenderHighlights?: boolean;
+}
+
+export interface ReaderController {
+  /** Initialize & mount */
+  init(container: HTMLElement, book: BookDescriptor, opts?: { initialLocation?: Location; settings?: ReaderSettings }): Promise<void>;
+
+  /** Cleanup */
+  destroy(): Promise<void>;
+
+  /** Access adapter/services */
+  getAdapter(): ReaderAdapter;
+
+  /** Annotation actions */
+  createBookmark(label?: string): Promise<BookmarkAnnotation>;
+  createHighlight(color?: string, tags?: string[]): Promise<HighlightAnnotation>;
+  createNote(note: string): Promise<NoteAnnotation>;
+
+  listAnnotations(): Promise<Annotation[]>;
+  deleteAnnotation(annotationId: AnnotationId): Promise<void>;
+
+  /** AI actions */
+  aiExplainSelection(): Promise<AiResponse>;
+  aiSummarizeCurrentChapter(allowCache?: boolean): Promise<AiResponse>;
+  aiSpoilerAfterHere(policy?: "safe" | "soft" | "full"): Promise<AiResponse>;
+  aiHelpAroundHere(window?: ContextWindow): Promise<AiResponse>;
+
+  /** Navigation */
+  goTo(location: Location): Promise<void>;
+  next(): Promise<void>;
+  prev(): Promise<void>;
+}
+
+/* =========================================================
+   Suggested normalized HTML schema (for docx/fb2/txt conversion)
+   ========================================================= */
+
+/**
+ * For non-EPUB formats you should normalize content into HTML where:
+ * - each "chapter" has a stable id: <section data-chapter-id="c1" id="ch_c1">
+ * - each paragraph has a stable id: <p id="p_c1_000123" data-p-index="123">
+ * - optionally each sentence/span has stable id for fine anchoring:
+ *   <span id="s_c1_000123_05" data-s-index="5">...</span>
+ *
+ * Then DomPoint.elementId points to p/span ids.
+ */
+export interface NormalizedHtmlConventions {
+  chapterElement: "section[data-chapter-id]";
+  paragraphElement: "p[id][data-p-index]";
+  sentenceOptional: "span[id][data-s-index]";
+}
+
+/* =========================================================
+   Utility type guards (optional for implementation)
+   ========================================================= */
+
+export const isEpubCfi = (loc: Location): loc is Extract<Location, { type: "epub-cfi" }> => loc.type === "epub-cfi";
+export const isDomPoint = (loc: Location): loc is Extract<Location, { type: "dom-point" }> => loc.type === "dom-point";
+export const isPdfFragment = (loc: Location): loc is Extract<Location, { type: "pdf-fragment" }> => loc.type === "pdf-fragment";

@@ -4,6 +4,7 @@
   "stream": "Stream",
   "users": "Users",
   "collections": "Collections",
+  "articles": "Articles",
   "shelves": "My Shelves",
   "about": "About Project",
   "messages": "Messages",
@@ -12,6 +13,7 @@
   "openMenu": "Open menu",
   "closeMenu": "Close menu",
   "menu": "Menu",
+  "readLater": "Read Later",
   "language": "Language",
   "languages": {
     "en": "English",

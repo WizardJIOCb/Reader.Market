@@ -4,6 +4,7 @@
   "stream": "Лента",
   "users": "Пользователи",
   "collections": "Коллекции",
+  "articles": "Статьи",
   "shelves": "Мои полки",
   "about": "О проекте",
   "messages": "Сообщения",
@@ -12,6 +13,7 @@
   "openMenu": "Открыть меню",
   "closeMenu": "Закрыть меню",
   "menu": "Меню",
+  "readLater": "Читать позже",
   "language": "Язык",
   "languages": {
     "en": "English",

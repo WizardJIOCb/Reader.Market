@@ -23,6 +23,7 @@ import enComments from './locales/en/comments.json';
 import enReactions from './locales/en/reactions.json';
 import enTts from './locales/en/tts.json';
 import enCollections from './locales/en/collections.json';
+import enArticles from './locales/en/articles.json';
 
 
 import ruCommon from './locales/ru/common.json';
@@ -45,6 +46,7 @@ import ruComments from './locales/ru/comments.json';
 import ruReactions from './locales/ru/reactions.json';
 import ruTts from './locales/ru/tts.json';
 import ruCollections from './locales/ru/collections.json';
+import ruArticles from './locales/ru/articles.json';
 
 
 // Define resources
@@ -69,7 +71,8 @@ const resources = {
     comments: enComments,
     reactions: enReactions,
     tts: enTts,
-    collections: enCollections
+    collections: enCollections,
+    articles: enArticles
   },
   ru: {
     common: ruCommon,
@@ -91,7 +94,8 @@ const resources = {
     comments: ruComments,
     reactions: ruReactions,
     tts: ruTts,
-    collections: ruCollections
+    collections: ruCollections,
+    articles: ruArticles
   }
 };
 
@@ -102,7 +106,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'navigation', 'profile', 'notifications', 'shelves', 'search', 'messages', 'home', 'about', 'landing', 'books', 'stream', 'auth', 'oauth', 'admin', 'users', 'comments', 'reactions', 'tts', 'collections'],
+    ns: ['common', 'navigation', 'profile', 'notifications', 'shelves', 'search', 'messages', 'home', 'about', 'landing', 'books', 'stream', 'auth', 'oauth', 'admin', 'users', 'comments', 'reactions', 'tts', 'collections', 'articles'],
     
     interpolation: {
       escapeValue: false, // React already escapes values
