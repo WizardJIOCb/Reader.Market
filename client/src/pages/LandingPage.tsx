@@ -123,24 +123,31 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       {/* Hero Section */}
-      <section className="py-20 md:py-32">
+      <section className="py-20 md:py-32 bg-black text-white">
         <div className="container mx-auto px-4 text-center max-w-4xl">
-          <img 
-            src="/reader.market.png" 
-            alt="Reader.Market Logo" 
-            className="w-full max-w-[510px] h-auto mx-auto mb-8"
-          />
-          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif drop-shadow-md">
+          <div className="relative w-full max-w-[510px] h-auto mx-auto mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 rounded-lg opacity-70"></div>
+            <video 
+              src="/reader.market.mp4" 
+              autoPlay 
+              loop 
+              muted 
+              playsInline
+              className="relative w-full h-auto rounded-lg shadow-lg"
+            />
+          </div>
+          
+          <h1 className="text-4xl md:text-[43px] font-bold mb-6 font-serif text-gray-300 drop-shadow-md">
             {isEarlyAdopter ? t('landing:heroTitleEarly') : t('landing:heroTitle')}
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto drop-shadow-sm whitespace-pre-line">
+          <p className="text-xl md:text-2xl text-gray-400 mb-10 max-w-3xl mx-auto drop-shadow-sm whitespace-pre-line">
             {isEarlyAdopter 
               ? t('landing:heroDescriptionEarly')
               : t('landing:heroDescription')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">
-              <Button size="lg" className="px-8 py-6 text-lg bg-[#7a9a4a] hover:bg-[#6b8b3a] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+              <Button size="lg" className="px-8 py-6 text-lg bg-[#5a7a3a] hover:bg-[#4b6b2a] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
                 {isEarlyAdopter ? t('landing:joinEarlyAccess') : t('landing:getStarted')}
               </Button>
             </Link>
@@ -158,7 +165,7 @@ const LandingPage = () => {
                 });
               }
             }}>
-              <Button size="lg" className="px-8 py-6 text-lg bg-[#4e8d3f] hover:bg-[#3d7c2e] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+              <Button size="lg" className="px-8 py-6 text-lg bg-[#3e7d2f] hover:bg-[#2d6c1e] text-gray-200 border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
                 {t('landing:latestUpdates')}
               </Button>
             </a>
@@ -176,7 +183,7 @@ const LandingPage = () => {
                 });
               }
             }}>
-              <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#e67e22] hover:bg-[#d35400] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
+              <Button size="lg" variant="outline" className="px-8 py-6 text-lg bg-[#c66e12] hover:bg-[#b35400] text-gray-200 border-gray-600 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5">
                 {t('landing:seeHowItWorks')}
               </Button>
             </a>
