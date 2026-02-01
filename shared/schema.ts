@@ -647,6 +647,9 @@ export const articleCategories = pgTable("article_categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   parentId: varchar("parent_id"), // Self-reference defined in relations
   title: text("title").notNull(),
+  titleEn: text("title_en"),
+  description: text("description"),
+  descriptionEn: text("description_en"),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Save, Palette, Search, X, BookOpen } from 'lucide-react';
 
 const PRESET_COLORS = [
@@ -25,6 +26,7 @@ const PRESET_COLORS = [
 export function EditCollectionPage() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { t } = useTranslation(['collections', 'common']);
   const [collection, setCollection] = useState<BookmarkCollection | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -212,8 +214,8 @@ export function EditCollectionPage() {
     
     if (!name.trim()) {
       toast({
-        title: "Ошибка",
-        description: "Название коллекции обязательно",
+        title: t('common:error'),
+        description: t('collections:nameRequired'),
         variant: "destructive"
       });
       return;
@@ -246,8 +248,8 @@ export function EditCollectionPage() {
       if (response.ok) {
         const updatedCollection = await response.json();
         toast({
-          title: "Успешно",
-          description: `Коллекция "${updatedCollection.name}" обновлена`
+          title: t('common:success'),
+          description: t('collections:collectionUpdated', { name: updatedCollection.name })
         });
         
         // Redirect to collection detail page
@@ -255,18 +257,18 @@ export function EditCollectionPage() {
       } else {
         const errorData = await response.json();
         toast({
-          title: "Ошибка",
-          description: errorData.error || "Не удалось обновить коллекцию",
+          title: t('common:error'),
+          description: errorData.error || t('collections:failedToUpdate'),
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Error updating collection:', error);
-      toast({
-        title: "Ошибка",
-        description: "Произошла ошибка при обновлении коллекции",
-        variant: "destructive"
-      });
+        toast({
+          title: t('common:error'),
+          description: t('collections:failedToUpdate'),
+          variant: "destructive"
+        });
     } finally {
       setSaving(false);
     }
@@ -276,8 +278,8 @@ export function EditCollectionPage() {
     return (
       <div className="container mx-auto py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Редактировать коллекцию</h1>
-          <p className="text-muted-foreground">Пожалуйста, войдите в систему для редактирования коллекций</p>
+          <h1 className="text-2xl font-bold mb-4">{t('collections:editCollection')}</h1>
+          <p className="text-muted-foreground">{t('collections:editAuthRequired')}</p>
         </div>
       </div>
     );
@@ -288,7 +290,7 @@ export function EditCollectionPage() {
       <div className="container mx-auto py-8">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Загрузка коллекции...</p>
+          <p className="mt-4 text-muted-foreground">{t('collections:loadingCollection')}</p>
         </div>
       </div>
     );
@@ -298,11 +300,11 @@ export function EditCollectionPage() {
     return (
       <div className="container mx-auto py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Коллекция не найдена</h1>
-          <p className="text-muted-foreground">Запрашиваемая коллекция не существует</p>
+          <h1 className="text-2xl font-bold mb-4">{t('collections:collectionNotFound')}</h1>
+          <p className="text-muted-foreground">{t('collections:requestCollectionDoesNotExist')}</p>
           <Button asChild className="mt-4">
             <Link href="/collections">
-              Вернуться к коллекциям
+              {t('collections:backToCollections')}
             </Link>
           </Button>
         </div>
@@ -319,30 +321,30 @@ export function EditCollectionPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">Редактировать коллекцию</h1>
+          <h1 className="text-3xl font-bold">{t('collections:editCollection')}</h1>
           <p className="text-muted-foreground">
-            Измените информацию о вашей коллекции
+            {t('collections:editCollectionDescription')}
           </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Редактирование коллекции</CardTitle>
+          <CardTitle>{t('collections:editingCollection')}</CardTitle>
           <CardDescription>
-            Обновите информацию о коллекции "{collection.name}"
+            {t('collections:updateCollectionInfo', { name: collection.name })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6" key={collection.id}>
             {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Название *</Label>
+              <Label htmlFor="name">{t('collections:nameLabel')} *</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Название коллекции"
+                placeholder={t('collections:collectionNamePlaceholder')}
                 maxLength={100}
                 required
               />
@@ -353,12 +355,12 @@ export function EditCollectionPage() {
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">Описание</Label>
+              <Label htmlFor="description">{t('collections:descriptionLabel')}</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Описание коллекции..."
+                placeholder={t('collections:collectionDescriptionPlaceholder')}
                 maxLength={500}
                 rows={3}
               />
@@ -369,7 +371,7 @@ export function EditCollectionPage() {
 
             {/* Books Selection */}
             <div className="space-y-2">
-              <Label>Книги (опционально)</Label>
+              <Label>{t('collections:booksLabel')}</Label>
               
               {/* Selected Books Display */}
               {selectedBooks.length > 0 && (
@@ -388,7 +390,7 @@ export function EditCollectionPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemoveBook(book.id)}
-                        title="Удалить книгу"
+                        title={t('collections:removeBook')}
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -405,13 +407,13 @@ export function EditCollectionPage() {
                 onClick={() => setShowBookSearch(!showBookSearch)}
               >
                 <Search className="w-4 h-4 mr-2" />
-                {showBookSearch ? 'Отменить выбор книг' : 'Добавить книгу'}
+                {showBookSearch ? t('collections:cancelBookSelection') : t('collections:addBook')}
               </Button>
               
               {showBookSearch && (
                 <div className="space-y-2">
                   <Input
-                    placeholder="Поиск книг..."
+                    placeholder={t('collections:searchBooksPlaceholder')}
                     value={bookSearchQuery}
                     onChange={(e) => setBookSearchQuery(e.target.value)}
                     className="w-full"
@@ -434,19 +436,19 @@ export function EditCollectionPage() {
                   
                   {bookSearchQuery.trim().length >= 2 && bookSearchResults.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                      Книги не найдены
+                      {t('collections:noBooksFound')}
                     </p>
                   )}
                 </div>
               )}
               <p className="text-sm text-muted-foreground">
-                Выберите книги, к которым будет принадлежать эта коллекция (опционально)
+                {t('collections:selectBooksDescription')}
               </p>
             </div>
 
             {/* Color Picker */}
             <div className="space-y-2">
-              <Label>Цвет коллекции</Label>
+              <Label>{t('collections:collectionColorLabel')}</Label>
               <div className="flex flex-wrap gap-2">
                 {PRESET_COLORS.map((presetColor) => (
                   <button
@@ -459,7 +461,7 @@ export function EditCollectionPage() {
                     }`}
                     style={{ backgroundColor: presetColor }}
                     onClick={() => setColor(presetColor)}
-                    aria-label={`Выбрать цвет ${presetColor}`}
+                    aria-label={t('collections:ariaSelectColor', { color: presetColor })}
                   />
                 ))}
               </div>
@@ -480,9 +482,9 @@ export function EditCollectionPage() {
             {/* Visibility */}
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label htmlFor="public">Публичная коллекция</Label>
+                <Label htmlFor="public">{t('collections:publicCollectionLabel')}</Label>
                 <p className="text-sm text-muted-foreground">
-                  Сделать коллекцию видимой для других пользователей
+                  {t('collections:publicCollectionDescription')}
                 </p>
               </div>
               <Button
@@ -499,19 +501,19 @@ export function EditCollectionPage() {
             <div className="flex gap-3 pt-4">
               <Button variant="outline" asChild>
                 <Link href={`/collections/${id}`}>
-                  Отмена
+                  {t('common:cancel')}
                 </Link>
               </Button>
               <Button type="submit" disabled={saving} className="flex-1">
                 {saving ? (
                   <>
                     <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Сохранение...
+                    {t('collections:saving')}...
                   </>
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Сохранить изменения
+                    {t('collections:saveChanges')}
                   </>
                 )}
               </Button>

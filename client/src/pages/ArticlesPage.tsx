@@ -19,6 +19,19 @@ import {
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 
+interface ArticleCategory {
+  id: string;
+  parentId: string | null;
+  title: string;
+  titleEn: string | null;
+  description: string | null;
+  descriptionEn: string | null;
+  slug: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Article {
   id: string;
   title: string;
@@ -48,11 +61,17 @@ export function ArticlesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categories, setCategories] = useState<ArticleCategory[]>([]);
+  const [showTreeView, setShowTreeView] = useState(true);
+  const [showOnlyWithNew, setShowOnlyWithNew] = useState(false);
 
   // Track pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalArticles, setTotalArticles] = useState(0);
+
+  // State for category article counts
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, { count: number, newCount: number }>>({});
 
   const toggleReadLater = async (articleId: string, currentStatus: boolean | undefined) => {
     try {
@@ -72,6 +91,21 @@ export function ArticlesPage() {
       console.error('Error toggling read later status:', error);
     }
   };
+
+  // Load categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('/api/article-categories');
+        const data = await response.json();
+        setCategories(data);
+      } catch (e) {
+        console.error('Error loading categories:', e);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   // Reset page when filters change
   useEffect(() => {
@@ -109,13 +143,72 @@ export function ArticlesPage() {
     loadArticles();
   }, [currentPage, searchQuery, selectedCategory, user]);
 
+  // Function to fetch article counts for all categories
+  useEffect(() => {
+    const fetchCategoryCounts = async () => {
+      try {
+        const response = await fetch('/api/articles/stats-by-category');
+        const data = await response.json();
+        
+        // Transform the data to match our expected format
+        const countsMap: Record<string, { count: number, newCount: number }> = {};
+        data.forEach((item: any) => {
+          countsMap[item.section] = {
+            count: item.count,
+            newCount: item.newCount || 0
+          };
+        });
+        
+        setCategoryCounts(countsMap);
+      } catch (error) {
+        console.error('Error fetching category counts:', error);
+        
+        // Fallback: create a map with zeros for all categories
+        const fallbackCounts: Record<string, { count: number, newCount: number }> = {};
+        categories.forEach(cat => {
+          fallbackCounts[cat.slug] = { count: 0, newCount: 0 };
+        });
+        setCategoryCounts(fallbackCounts);
+      }
+    };
+
+    if (categories.length > 0) {
+      fetchCategoryCounts();
+    }
+  }, [categories]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const locale = i18n.language === 'ru' ? ru : enUS;
     return format(date, 'MMM d, yyyy', { locale });
   };
 
+  // Function to build category tree
+  const buildCategoryTree = () => {
+    const rootCategories = categories.filter(cat => !cat.parentId);
+    const childCategories = categories.filter(cat => cat.parentId);
+    
+    return rootCategories.map(rootCat => ({
+      ...rootCat,
+      children: childCategories.filter(child => child.parentId === rootCat.id)
+    }));
+  };
 
+  // Function to get article count for a category
+  const getCategoryArticleCount = (slug: string) => {
+    return categoryCounts[slug]?.count || 0;
+  };
+
+  // Function to check if a category has new articles
+  const hasNewArticles = (slug: string) => {
+    return (categoryCounts[slug]?.newCount || 0) > 0;
+  };
+
+  // Filter categories based on showOnlyWithNew flag
+  const filteredCategories = showOnlyWithNew 
+    ? buildCategoryTree().filter(cat => hasNewArticles(cat.slug) || 
+        cat.children.some(child => hasNewArticles(child.slug)))
+    : buildCategoryTree();
 
   if (loading) {
     return (
@@ -162,7 +255,7 @@ export function ArticlesPage() {
         
         <div className="flex gap-2">
           {user && (
-            <Button variant="outline" asChild>
+            <Button variant="outline" size="sm" className="h-9" asChild>
               <Link href="/articles/read-later">
                 <Bookmark className="mr-2 h-4 w-4" />
                 {t('articles:readLater')}
@@ -170,7 +263,7 @@ export function ArticlesPage() {
             </Button>
           )}
           {user && (
-            <Button asChild>
+            <Button size="sm" className="h-9" asChild>
               <Link href="/articles/new">
                 <Plus className="mr-2 h-4 w-4" />
                 {t('articles:createArticle')}
@@ -180,73 +273,123 @@ export function ArticlesPage() {
         </div>
       </div>
 
-      {/* Categories filter */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">
-            {t('articles:categories')}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant={!selectedCategory ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory(null)}
-          >
-            {t('articles:allCategories')}
-          </Button>
-          <Button
-            variant={selectedCategory === 'news' ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory('news')}
-          >
-            {t('articles:editor.sections.news')}
-          </Button>
-          <Button
-            variant={selectedCategory === 'reviews' ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory('reviews')}
-          >
-            {t('articles:editor.sections.reviews')}
-          </Button>
-          <Button
-            variant={selectedCategory === 'collections' ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory('collections')}
-          >
-            {t('articles:editor.sections.collections')}
-          </Button>
-          <Button
-            variant={selectedCategory === 'guides' ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory('guides')}
-          >
-            {t('articles:editor.sections.guides')}
-          </Button>
-          <Button
-            variant={selectedCategory === 'world' ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory('world')}
-          >
-            {t('articles:editor.sections.world')}
-          </Button>
-          <Button
-            variant={selectedCategory === 'community' ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory('community')}
-          >
-            {t('articles:editor.sections.community')}
-          </Button>
-          <Button
-            variant={selectedCategory === 'product' ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory('product')}
-          >
-            {t('articles:editor.sections.product')}
-          </Button>
-        </div>
+      {/* Toggle for Tree View */}
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowTreeView(!showTreeView)}
+          className="h-8 text-xs"
+        >
+          {showTreeView ? t('articles:treeView.listView') : t('articles:treeView.treeView')}
+        </Button>
       </div>
+
+      {/* Tree View or Categories Filter */}
+      {showTreeView ? (
+        <div className="mb-8 bg-[#fffaf7] p-4 rounded-lg border border-amber-100">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium text-amber-800">{t('articles:categories')}</h3>
+            <div className="flex gap-2">
+              <Button
+                variant={showOnlyWithNew ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowOnlyWithNew(!showOnlyWithNew)}
+                className="h-8 text-xs"
+              >
+                {t('articles:newOnly')}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            {filteredCategories.map((category) => (
+              <div key={category.id} className="space-y-1">
+                {/* Main Category (H2 equivalent) */}
+                <div 
+                  className={`flex items-center justify-between p-2 rounded cursor-pointer hover:bg-amber-100 ${selectedCategory === category.slug ? 'bg-amber-200 font-medium' : ''}`}
+                  onClick={() => {
+                    setSelectedCategory(selectedCategory === category.slug ? null : category.slug);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <div className="flex items-center min-w-0 flex-1">
+                    <span className="font-medium truncate">{category.title}</span>
+                    {hasNewArticles(category.slug) && (
+                      <span className="ml-2 text-xs text-red-500">●</span>
+                    )}
+                  </div>
+                  <div className="flex items-center ml-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {getCategoryArticleCount(category.slug)}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {/* Child Categories */}
+                {category.children.length > 0 && (
+                  <div className="ml-4 pl-4 border-l border-amber-300 space-y-1">
+                    {category.children.map((subCategory) => (
+                      <div 
+                        key={subCategory.id}
+                        className={`flex items-center justify-between p-2 rounded cursor-pointer hover:bg-amber-100 ${selectedCategory === subCategory.slug ? 'bg-amber-200 font-medium' : ''}`}
+                        onClick={() => {
+                          setSelectedCategory(selectedCategory === subCategory.slug ? null : subCategory.slug);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        <div className="flex items-center min-w-0 flex-1">
+                          <span className="text-muted-foreground text-sm mr-2">•</span>
+                          <span className="truncate text-sm">{subCategory.title}</span>
+                          {hasNewArticles(subCategory.slug) && (
+                            <span className="ml-2 text-xs text-red-500">●</span>
+                          )}
+                        </div>
+                        <div className="flex items-center ml-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {getCategoryArticleCount(subCategory.slug)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">
+              {t('articles:categories')}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={!selectedCategory ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory(null)}
+            >
+              {t('articles:allCategories')}
+            </Button>
+            {filteredCategories.map((category) => (
+              <Button
+                key={category.id}
+                variant={selectedCategory === category.slug ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setSelectedCategory(selectedCategory === category.slug ? null : category.slug);
+                  setCurrentPage(1);
+                }}
+              >
+                {category.title}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Articles grid */}
       {articles.length === 0 ? (
@@ -258,7 +401,7 @@ export function ArticlesPage() {
             }
           </div>
           {!searchQuery && !selectedCategory && (
-            <Button asChild>
+            <Button size="sm" className="h-9" asChild>
               <Link href="/articles/new">
                 <Plus className="mr-2 h-4 w-4" />
                 {t('articles:createFirstArticle')}
@@ -308,7 +451,7 @@ export function ArticlesPage() {
                     )}
                   </CardDescription>
                 </CardHeader>
-                      
+                
                 <CardContent>
                   {article.excerpt && (
                     <p className="text-muted-foreground mb-4 line-clamp-3">
@@ -344,13 +487,13 @@ export function ArticlesPage() {
                         {article.section ? t('articles:editor.sections.' + article.section) : article.section}
                       </Badge>
                     )}
-                                      
+                                          
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1">
                         <Eye className="h-3 w-3" />
                         <span>{article.views}</span>
                       </div>
-                                        
+                      
                       {user && (
                         <button 
                           onClick={(e) => {
@@ -378,25 +521,27 @@ export function ArticlesPage() {
       {totalPages > 1 && (
         <div className="flex justify-center mt-8">
           <div className="flex space-x-2">
-            <button
+            <Button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="px-4 py-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+              size="sm"
+              className="h-9"
             >
               Previous
-            </button>
+            </Button>
             
             <span className="px-4 py-2">
               Page {currentPage} of {totalPages}
             </span>
             
-            <button
+            <Button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
-              className="px-4 py-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+              size="sm"
+              className="h-9"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}

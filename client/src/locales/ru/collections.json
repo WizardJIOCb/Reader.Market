@@ -15,5 +15,109 @@
   "searchCollectionsPlaceholder": "Поиск коллекций...",
   "createCollectionButton": "Создать коллекцию",
   "notFound": "Коллекции не найдены",
-  "noBookmarksInBook": "Нет коллекций с закладками в этой книге"
+  "noBookmarksInBook": "Нет коллекций с закладками в этой книге",
+  
+  "pageTitle": "Коллекции закладок",
+  "searchPlaceholder": "Поиск коллекций...",
+  
+  "filters": {
+    "all": "Все",
+    "own": "Мои коллекции",
+    "others": "Другие",
+    "clones": "Клоны",
+    "recent": "Недавние",
+    "popular": "Популярные"
+  },
+  
+  "createCollection": "Создать коллекцию",
+  
+  "emptyState": {
+    "title": "Пока нет коллекций",
+    "noResults": "Нет коллекций по вашему запросу",
+    "noCollections": "Вы еще не создали ни одной коллекции"
+  },
+  
+  "collectionCard": {
+    "bookmarks": "закладок",
+    "public": "Публичная",
+    "private": "Приватная",
+    "view": "Просмотр",
+    "created": "Создана",
+    "clone": "Клон",
+    "clicks": "переходов"
+  },
+  
+  "toasts": {
+    "error": "Произошла ошибка",
+    "deleted": "Коллекция удалена",
+    "comingSoon": "Функция скоро появится"
+  },
+  
+  "modals": {
+    "deleteConfirm": {
+      "message": "Удалить коллекцию",
+      "warning": "Это действие нельзя отменить"
+    }
+  },
+  
+  "detailPage": {
+    "authRequired": "Пожалуйста, войдите в систему для просмотра коллекций",
+    "backToList": "Вернуться к коллекциям",
+    "edit": "Редактировать коллекцию",
+    "clone": "Клонировать коллекцию",
+    "metadata": {
+      "created": "Создана",
+      "bookmarksCount": "закладок",
+      "views": "просмотров",
+      "collectionColor": "Цвет коллекции"
+    },
+    "bookmarksTitle": "Закладки в коллекции",
+    "emptyBookmarks": {
+      "title": "Пока нет закладок",
+      "description": "В этой коллекции еще нет закладок",
+      "goToBooks": "Перейти к книгам"
+    }
+  },
+  "descriptionLabel": "Описание",
+  "descriptionPlaceholder": "Описание коллекции (необязательно)",
+  "collectionColorLabel": "Цвет коллекции",
+  "ariaSelectColor": "Выбрать цвет {{color}}",
+  "publicCollectionLabel": "Публичная коллекция",
+  "create": "Создать",
+  "creating": "Создание...",
+  "noBooksFound": "Книги не найдены",
+  "alreadySelected": "Уже выбрана",
+  "authRequired": "Пожалуйста, войдите в систему для создания коллекций",
+  "createCollectionDescription": "Создайте новую тематическую коллекцию для организации ваших закладок",
+  "newCollection": "Новая коллекция",
+  "newCollectionDescription": "Заполните информацию о вашей новой коллекции закладок",
+  "namePlaceholderExtended": "Например: Любимые цитаты, Персонажи, Сцены...",
+  "descriptionPlaceholderExtended": "Опишите тематику этой коллекции...",
+  "publicCollectionDescription": "Сделать коллекцию видимой для других пользователей",
+  "collectionUpdated": "Коллекция \"{{name}}\" обновлена",
+  "failedToUpdate": "Не удалось обновить коллекцию",
+  "editCollection": "Редактировать коллекцию",
+  "editAuthRequired": "Пожалуйста, войдите в систему для редактирования коллекций",
+  "loadingCollection": "Загрузка коллекции...",
+  "collectionNotFound": "Коллекция не найдена",
+  "requestCollectionDoesNotExist": "Запрашиваемая коллекция не существует",
+  "backToCollections": "Вернуться к коллекциям",
+  "editCollectionDescription": "Измените информацию о вашей коллекции",
+  "editingCollection": "Редактирование коллекции",
+  "updateCollectionInfo": "Обновите информацию о коллекции \"{{name}}\"",
+  "collectionNamePlaceholder": "Название коллекции",
+  "collectionDescriptionPlaceholder": "Описание коллекции...",
+  "cancelBookSelection": "Отменить выбор книг",
+  "addBook": "Добавить книгу",
+  "selectBooksDescription": "Выберите книги, к которым будет принадлежать эта коллекция (опционально)",
+  "saveChanges": "Сохранить изменения",
+  "saving": "Сохранение",
+  "removeBook": "Удалить книгу",
+  "booksInCollection": "Книги в коллекции ({{count}})",
+  "allBooksContainingBookmarks": "Все книги, содержащие закладки в этой коллекции",
+  "bookmarksCount_one": "{{count}} закладка",
+  "bookmarksCount_few": "{{count}} закладки",
+  "bookmarksCount_many": "{{count}} закладок",
+  "bookmarksCount_other": "{{count}} закладки",
+  "noBookmarksInCollectionYet": "В этой коллекции пока нет книг с закладками"
 }

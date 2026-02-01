@@ -348,6 +348,7 @@ export interface IStorage {
   // Article-tag associations
   attachTagsToArticle(articleId: string, tagNames: string[]): Promise<void>;
   getArticleTags(articleId: string): Promise<ArticleTag[]>;
+  getArticleStatsByCategory(): Promise<any[]>;
 }
 
 // Article-specific types
@@ -9829,6 +9830,44 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting all article categories:", error);
       throw error;
+    }
+  }
+  
+  async getArticleStatsByCategory(): Promise<any[]> {
+    try {
+      // Get article counts by section/category
+      const result = await db.execute(
+        sql`SELECT 
+          section, 
+          COUNT(*) as count,
+          SUM(CASE WHEN "publishedAt" >= NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END) as newCount
+        FROM articles 
+        WHERE status = 'published'
+        GROUP BY section`
+      );
+      
+      // Return the result rows, handling different possible return types
+      if (Array.isArray(result)) {
+        return result.map(row => ({
+          section: row.section,
+          count: parseInt(row.count),
+          newCount: parseInt(row.newCount)
+        }));
+      } else if (result && typeof result === 'object' && 'rows' in result) {
+        // Handle QueryResult type
+        const rows = (result as any).rows || [];
+        return rows.map(row => ({
+          section: row.section,
+          count: parseInt(row.count),
+          newCount: parseInt(row.newCount)
+        }));
+      } else {
+        return [];
+      }
+    } catch (error) {
+      console.error("Error getting article stats by category:", error);
+      // Return empty array in case of error
+      return [];
     }
   }
 }

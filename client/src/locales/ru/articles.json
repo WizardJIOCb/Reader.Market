@@ -14,9 +14,14 @@
   "noArticles": "Статей не найдено",
   "searchPlaceholder": "Поиск статей...",
   "allCategories": "Все категории",
+  "newOnly": "Только новые",
   "readTime": "мин чтения",
   "createFirstArticle": "Создайте свою первую статью",
   "categories": "Категории",
+  "treeView": {
+    "treeView": "Дерево",
+    "listView": "Список"
+  },
   "editor": {
     "createArticle": "Создать статью",
     "basicInfo": "Основная информация",

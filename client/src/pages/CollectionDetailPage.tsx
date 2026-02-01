@@ -256,7 +256,7 @@ export function CollectionDetailPage() {
           </p>
           <Button asChild>
             <Link href="/collections">
-              Вернуться к коллекциям
+              {t('collections:backToCollections')}
             </Link>
           </Button>
         </div>
@@ -400,10 +400,10 @@ export function CollectionDetailPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BookOpen className="w-5 h-5" />
-            Книги в коллекции ({associatedBooks.length})
+            {t('collections:booksInCollection', { count: associatedBooks.length })}
           </CardTitle>
           <CardDescription>
-            Все книги, содержащие закладки в этой коллекции
+            {t('collections:allBooksContainingBookmarks')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -456,7 +456,7 @@ export function CollectionDetailPage() {
                         </p>
                         <div className="flex items-center gap-2 mt-2">
                           <Badge variant="secondary" className="text-xs">
-                            {bookBookmarkCount} {bookBookmarkCount === 1 ? 'закладка' : 'закладок'}
+                            {bookBookmarkCount} {t('collections:bookmarksCount', { count: bookBookmarkCount })}
                           </Badge>
                         </div>
                       </div>
@@ -474,7 +474,7 @@ export function CollectionDetailPage() {
                       }}
                     >
                       <BookOpen className="w-3 h-3 mr-1" />
-                      Читать
+                      {t('common:reader.read')}
                     </Button>
                   </div>
                 </div>
@@ -485,7 +485,7 @@ export function CollectionDetailPage() {
           {associatedBooks.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>В этой коллекции пока нет книг с закладками</p>
+              <p>{t('collections:noBookmarksInCollectionYet')}</p>
             </div>
           )}
         </CardContent>

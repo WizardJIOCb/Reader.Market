@@ -3462,6 +3462,18 @@ export async function registerRoutes(
     }
   });
   
+  // Public: Get article statistics by category
+  app.get("/api/articles/stats-by-category", async (req, res) => {
+    console.log("Get article stats by category endpoint called");
+    try {
+      const stats = await storage.getArticleStatsByCategory();
+      res.json(stats);
+    } catch (error) {
+      console.error("Get article stats by category error:", error);
+      res.status(500).json({ error: "Failed to get article stats by category" });
+    }
+  });
+  
   // Public: Get article by ID or slug
   app.get("/api/articles/:identifier", optionalAuthenticateToken, async (req, res) => {
     console.log("Get article endpoint called for identifier:", req.params.identifier);
@@ -3647,6 +3659,18 @@ export async function registerRoutes(
     }
   });
   
+  // Public: Get article statistics by category
+  app.get("/api/articles/stats-by-category", async (req, res) => {
+    console.log("Get article stats by category endpoint called");
+    try {
+      const stats = await storage.getArticleStatsByCategory();
+      res.json(stats);
+    } catch (error) {
+      console.error("Get article stats by category error:", error);
+      res.status(500).json({ error: "Failed to get article stats by category" });
+    }
+  });
+  
   // Books - Articles association
   app.get("/api/books/:bookId/articles", optionalAuthenticateToken, async (req, res) => {
     console.log("Get articles by book endpoint called for book ID:", req.params.bookId);
@@ -3755,14 +3779,17 @@ export async function registerRoutes(
   app.post("/api/admin/article-categories", authenticateToken, requireAdminOrModerator, async (req, res) => {
     console.log("Create article category endpoint called");
     try {
-      const { name, nameRu, slug, description, color } = req.body;
+      const { name, nameRu, nameEn, slug, description, descriptionRu, descriptionEn, color } = req.body;
       
-      if (!name || !slug) {
-        return res.status(400).json({ error: "Name and slug are required" });
+      if ((!name && !nameRu) || !slug) {
+        return res.status(400).json({ error: "Name (Russian or English) and slug are required" });
       }
       
       const category = await storage.createArticleCategory({
-        title: name,
+        title: name || nameRu,
+        titleEn: nameEn,
+        description: description || descriptionRu,
+        descriptionEn: descriptionEn,
         slug,
         sortOrder: 0
       });
@@ -3778,13 +3805,15 @@ export async function registerRoutes(
     console.log("Update article category endpoint called for ID:", req.params.id);
     try {
       const { id } = req.params;
-      const { name, slug, sortOrder, description } = req.body;
+      const { name, nameEn, slug, sortOrder, description, descriptionEn } = req.body;
       
       const updateData: any = {};
       if (name !== undefined) updateData.title = name;
+      if (nameEn !== undefined) updateData.titleEn = nameEn;
+      if (description !== undefined) updateData.description = description;
+      if (descriptionEn !== undefined) updateData.descriptionEn = descriptionEn;
       if (slug !== undefined) updateData.slug = slug;
       if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
-      if (description !== undefined) updateData.description = description;
       
       const updatedCategory = await storage.updateArticleCategory(id, updateData);
       res.json(updatedCategory);

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, Palette } from 'lucide-react';
 
 const PRESET_COLORS = [
@@ -23,6 +24,7 @@ const PRESET_COLORS = [
 
 export function CreateCollectionPage() {
   const { user } = useAuth();
+  const { t } = useTranslation(['collections', 'common']);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#3b82f6');
@@ -34,8 +36,8 @@ export function CreateCollectionPage() {
     
     if (!name.trim()) {
       toast({
-        title: "Ошибка",
-        description: "Название коллекции обязательно",
+        title: t('common:error'),
+        description: t('collections:nameRequired'),
         variant: "destructive"
       });
       return;
@@ -54,8 +56,8 @@ export function CreateCollectionPage() {
       if (response.ok) {
         const collection = await response.json();
         toast({
-          title: "Успешно",
-          description: `Коллекция "${collection.name}" создана`
+          title: t('common:success'),
+          description: t('collections:collectionCreated', { name: collection.name })
         });
         
         // Redirect to collections page
@@ -63,18 +65,18 @@ export function CreateCollectionPage() {
       } else {
         const errorData = await response.json();
         toast({
-          title: "Ошибка",
-          description: errorData.error || "Не удалось создать коллекцию",
+          title: t('common:error'),
+          description: errorData.error || t('collections:failedToCreate'),
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Error creating collection:', error);
-      toast({
-        title: "Ошибка",
-        description: "Произошла ошибка при создании коллекции",
-        variant: "destructive"
-      });
+        toast({
+          title: t('common:error'),
+          description: t('collections:failedToCreate'),
+          variant: "destructive"
+        });
     } finally {
       setLoading(false);
     }
@@ -84,8 +86,8 @@ export function CreateCollectionPage() {
     return (
       <div className="container mx-auto py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Создать коллекцию</h1>
-          <p className="text-muted-foreground">Пожалуйста, войдите в систему для создания коллекций</p>
+          <h1 className="text-2xl font-bold mb-4">{t('collections:createCollection')}</h1>
+          <p className="text-muted-foreground">{t('collections:authRequired')}</p>
         </div>
       </div>
     );
@@ -100,30 +102,30 @@ export function CreateCollectionPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">Создать коллекцию</h1>
+          <h1 className="text-3xl font-bold">{t('collections:createCollection')}</h1>
           <p className="text-muted-foreground">
-            Создайте новую тематическую коллекцию для организации ваших закладок
+            {t('collections:createCollectionDescription')}
           </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Новая коллекция</CardTitle>
+          <CardTitle>{t('collections:newCollection')}</CardTitle>
           <CardDescription>
-            Заполните информацию о вашей новой коллекции закладок
+            {t('collections:newCollectionDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Название *</Label>
+              <Label htmlFor="name">{t('collections:nameLabel')} *</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Например: Любимые цитаты, Персонажи, Сцены..."
+                placeholder={t('collections:namePlaceholderExtended')}
                 maxLength={100}
                 required
               />
@@ -134,12 +136,12 @@ export function CreateCollectionPage() {
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">Описание</Label>
+              <Label htmlFor="description">{t('collections:descriptionLabel')}</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Опишите тематику этой коллекции..."
+                placeholder={t('collections:descriptionPlaceholderExtended')}
                 maxLength={500}
                 rows={3}
               />
@@ -150,7 +152,7 @@ export function CreateCollectionPage() {
 
             {/* Color Picker */}
             <div className="space-y-2">
-              <Label>Цвет коллекции</Label>
+              <Label>{t('collections:collectionColorLabel')}</Label>
               <div className="flex flex-wrap gap-2">
                 {PRESET_COLORS.map((presetColor) => (
                   <button
@@ -163,7 +165,7 @@ export function CreateCollectionPage() {
                     }`}
                     style={{ backgroundColor: presetColor }}
                     onClick={() => setColor(presetColor)}
-                    aria-label={`Выбрать цвет ${presetColor}`}
+                    aria-label={t('collections:ariaSelectColor', { color: presetColor })}
                   />
                 ))}
               </div>
@@ -184,9 +186,9 @@ export function CreateCollectionPage() {
             {/* Visibility */}
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label htmlFor="public">Публичная коллекция</Label>
+                <Label htmlFor="public">{t('collections:publicCollectionLabel')}</Label>
                 <p className="text-sm text-muted-foreground">
-                  Сделать коллекцию видимой для других пользователей
+                  {t('collections:publicCollectionDescription')}
                 </p>
               </div>
               <Button
@@ -203,19 +205,19 @@ export function CreateCollectionPage() {
             <div className="flex gap-3 pt-4">
               <Button variant="outline" asChild>
                 <Link href="/collections">
-                  Отмена
+                  {t('common:cancel')}
                 </Link>
               </Button>
               <Button type="submit" disabled={loading} className="flex-1">
                 {loading ? (
                   <>
                     <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Создание...
+                    {t('collections:creating')}
                   </>
                 ) : (
                   <>
                     <Plus className="w-4 h-4 mr-2" />
-                    Создать коллекцию
+                    {t('collections:createCollection')}
                   </>
                 )}
               </Button>

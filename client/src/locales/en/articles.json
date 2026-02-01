@@ -14,9 +14,14 @@
   "noArticles": "No articles found",
   "searchPlaceholder": "Search articles...",
   "allCategories": "All Categories",
+  "newOnly": "New Only",
   "readTime": "min read",
   "createFirstArticle": "Create your first article",
   "categories": "Categories",
+  "treeView": {
+    "treeView": "Tree View",
+    "listView": "List View"
+  },
   "editor": {
     "createArticle": "Create Article",
     "basicInfo": "Basic Information",

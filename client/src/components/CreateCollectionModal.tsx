@@ -277,7 +277,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                         <div className="font-medium text-sm truncate" title={book.title}>{book.title}</div>
                         <div className="text-xs text-muted-foreground truncate" title={book.author}>{book.author}</div>
                         {selectedBooks.some(b => b.id === book.id) && (
-                          <div className="text-xs text-muted-foreground mt-1">Уже выбрана</div>
+                          <div className="text-xs text-muted-foreground mt-1">{t('collections:alreadySelected')}</div>
                         )}
                       </div>
                     ))}
@@ -286,7 +286,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 
                 {bookSearchQuery.length >= 2 && bookSearchResults.length === 0 && (
                   <div className="p-4 text-center text-muted-foreground text-sm">
-                    Книги не найдены
+                    {t('collections:noBooksFound')}
                   </div>
                 )}
               </div>
@@ -294,18 +294,18 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="description">Описание</Label>
+            <Label htmlFor="description">{t('collections:descriptionLabel')}</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Описание коллекции (необязательно)"
+              placeholder={t('collections:descriptionPlaceholder')}
               rows={3}
             />
           </div>
           
           <div className="space-y-2">
-            <Label>Цвет коллекции</Label>
+            <Label>{t('collections:collectionColorLabel')}</Label>
             <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
               {PRESET_COLORS.map((presetColor) => (
                 <button
@@ -318,7 +318,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                   }`}
                   style={{ backgroundColor: presetColor }}
                   onClick={() => setColor(presetColor)}
-                  aria-label={`Выбрать цвет ${presetColor}`}
+                  aria-label={t('collections:ariaSelectColor', { color: presetColor })}
                 />
               ))}
             </div>
@@ -333,7 +333,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
               className="rounded border-gray-300 text-primary focus:ring-primary"
             />
             <Label htmlFor="isPublic" className="cursor-pointer">
-              Публичная коллекция
+              {t('collections:publicCollectionLabel')}
             </Label>
           </div>
           
@@ -345,7 +345,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
               disabled={loading}
             >
               <X className="w-4 h-4 mr-2" />
-              Отмена
+              {t('common:cancel')}
             </Button>
             <Button
               type="submit"
@@ -354,12 +354,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                  Создание...
+                  {t('collections:creating')}
                 </>
               ) : (
                 <>
                   <Plus className="w-4 h-4 mr-2" />
-                  Создать
+                  {t('collections:create')}
                 </>
               )}
             </Button>

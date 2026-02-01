@@ -15,5 +15,107 @@
   "searchCollectionsPlaceholder": "Search collections...",
   "createCollectionButton": "Create Collection",
   "notFound": "Collections not found",
-  "noBookmarksInBook": "No collections with bookmarks in this book"
+  "noBookmarksInBook": "No collections with bookmarks in this book",
+  
+  "pageTitle": "Bookmark Collections",
+  "searchPlaceholder": "Search collections...",
+  
+  "filters": {
+    "all": "All",
+    "own": "My Collections",
+    "others": "Others",
+    "clones": "Cloned",
+    "recent": "Recent",
+    "popular": "Popular"
+  },
+  
+  "createCollection": "Create Collection",
+  
+  "emptyState": {
+    "title": "No Collections Yet",
+    "noResults": "No collections match your search",
+    "noCollections": "You haven't created any collections yet"
+  },
+  
+  "collectionCard": {
+    "bookmarks": "bookmarks",
+    "public": "Public",
+    "private": "Private",
+    "view": "View",
+    "created": "Created",
+    "clone": "Clone",
+    "clicks": "clicks"
+  },
+  
+  "toasts": {
+    "error": "An error occurred",
+    "deleted": "Collection deleted",
+    "comingSoon": "Feature coming soon"
+  },
+  
+  "modals": {
+    "deleteConfirm": {
+      "message": "Delete collection",
+      "warning": "This action cannot be undone"
+    }
+  },
+  
+  "detailPage": {
+    "authRequired": "Please log in to view collections",
+    "backToList": "Back to Collections",
+    "edit": "Edit Collection",
+    "clone": "Clone Collection",
+    "metadata": {
+      "created": "Created",
+      "bookmarksCount": "bookmarks",
+      "views": "views",
+      "collectionColor": "Collection color"
+    },
+    "bookmarksTitle": "Bookmarks in Collection",
+    "emptyBookmarks": {
+      "title": "No Bookmarks Yet",
+      "description": "This collection doesn't have any bookmarks yet",
+      "goToBooks": "Go to Books"
+    }
+  },
+  "descriptionLabel": "Description",
+  "descriptionPlaceholder": "Collection description (optional)",
+  "collectionColorLabel": "Collection color",
+  "ariaSelectColor": "Select color {{color}}",
+  "publicCollectionLabel": "Public collection",
+  "create": "Create",
+  "creating": "Creating...",
+  "noBooksFound": "No books found",
+  "alreadySelected": "Already selected",
+  "authRequired": "Please log in to create collections",
+  "createCollectionDescription": "Create a new thematic collection to organize your bookmarks",
+  "newCollection": "New Collection",
+  "newCollectionDescription": "Fill in information about your new bookmark collection",
+  "namePlaceholderExtended": "For example: Favorite Quotes, Characters, Scenes...",
+  "descriptionPlaceholderExtended": "Describe the theme of this collection...",
+  "publicCollectionDescription": "Make the collection visible to other users",
+  "collectionUpdated": "Collection \"{{name}}\" updated",
+  "failedToUpdate": "Failed to update collection",
+  "editCollection": "Edit Collection",
+  "editAuthRequired": "Please log in to edit collections",
+  "loadingCollection": "Loading collection...",
+  "collectionNotFound": "Collection not found",
+  "requestCollectionDoesNotExist": "The requested collection does not exist",
+  "backToCollections": "Back to Collections",
+  "editCollectionDescription": "Edit information about your collection",
+  "editingCollection": "Editing Collection",
+  "updateCollectionInfo": "Update information about collection \"{{name}}\"",
+  "collectionNamePlaceholder": "Collection name",
+  "collectionDescriptionPlaceholder": "Collection description...",
+  "cancelBookSelection": "Cancel book selection",
+  "addBook": "Add book",
+  "selectBooksDescription": "Select books that this collection belongs to (optional)",
+  "saveChanges": "Save Changes",
+  "saving": "Saving",
+  "removeBook": "Remove book",
+  "booksInCollection": "Books in collection ({{count}})",
+  "allBooksContainingBookmarks": "All books containing bookmarks in this collection",
+  "bookmarksCount_one": "{{count}} bookmark",
+  "bookmarksCount_other": "{{count}} bookmarks",
+  "noBookmarksInCollectionYet": "There are no books with bookmarks in this collection yet"
 }
