@@ -88,7 +88,7 @@ export default function Reader() {
   const [match, params] = useRoute('/read/:bookId/:position');
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['translation', 'collections']);
   const { user } = useAuth();
   
   // Wrapped toast function that respects suppression flag
@@ -2327,7 +2327,7 @@ export default function Reader() {
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        placeholder={t('search.placeholder')}
+                        placeholder={t('search:searchPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => handleSearchInput(e.target.value)}
                         className="pl-9"
@@ -2410,15 +2410,15 @@ export default function Reader() {
                       onClick={() => setShowCreateCollectionModal(true)}
                     >
                       <Plus className="w-4 h-4 mr-2" />
-                      Создать коллекцию
+                      {t('collections:createCollectionButton')}
                     </Button>
                                     
                     {/* Collection search - same as /collections page */}
                     <div className="mb-4">
-                      <Label className="text-sm mb-2 block">Поиск по коллекциям</Label>
+                      <Label className="text-sm mb-2 block">{t('collections:searchCollections')}</Label>
                       <div className="flex gap-2">
                         <Input
-                          placeholder="Поиск коллекций..."
+                          placeholder={t('collections:searchCollectionsPlaceholder')}
                           value={collectionSearchQuery}
                           onChange={(e) => performCollectionSearch(e.target.value)}
                           onKeyDown={(e) => {
@@ -2511,8 +2511,8 @@ export default function Reader() {
                     ) : (
                       <div className="mb-4 p-4 text-center text-muted-foreground text-sm">
                         {collectionSearchQuery 
-                          ? 'Коллекции не найдены' 
-                          : 'Нет коллекций с закладками в этой книге'}
+                          ? t('collections:notFound') 
+                          : t('collections:noBookmarksInBook')}
                       </div>
                     )}
                     

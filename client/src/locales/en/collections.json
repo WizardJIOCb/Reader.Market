@@ -1,101 +1,19 @@
 {
-  "pageTitle": "Bookmark Collections",
-  "pageDescription": "Organize your bookmarks into thematic collections",
-  "createCollection": "Create Collection",
-  "searchPlaceholder": "Search by title or description...",
-  "filters": {
-    "all": "All",
-    "own": "My",
-    "others": "Others",
-    "clones": "Clones",
-    "recent": "Recent",
-    "popular": "Hot"
-  },
-  "emptyState": {
-    "title": "Collections not found",
-    "noResults": "Try changing your search query",
-    "noCollections": "Create your first collection to start organizing your bookmarks"
-  },
-  "collectionCard": {
-    "bookmarks": "bookmarks",
-    "clicks": "clicks",
-    "created": "Created:",
-    "public": "Public",
-    "private": "Private",
-    "clone": "Clone",
-    "view": "View",
-    "cloneAction": "Clone",
-    "edit": "Edit",
-    "delete": "Delete"
-  },
-  "detailPage": {
-    "backToList": "Back to collections",
-    "authRequired": "Please log in to view the collection",
-    "edit": "Edit",
-    "clone": "Clone",
-    "delete": "Delete",
-    "metadata": {
-      "created": "Created",
-      "bookmarksCount": "bookmarks",
-      "views": "views",
-      "collectionColor": "Collection color"
-    },
-    "associatedBook": "Associated Book",
-    "readBook": "Read Book",
-    "emptyBookmarks": {
-      "title": "No bookmarks in collection yet",
-      "description": "Add bookmarks to this collection from the reading interface",
-      "goToBooks": "Go to books"
-    },
-    "bookmarksTitle": "Bookmarks in collection"
-  },
-  "createPage": {
-    "title": "Create Collection",
-    "description": "Create a new bookmark collection",
-    "form": {
-      "name": "Name *",
-      "namePlaceholder": "Collection name",
-      "description": "Description",
-      "descriptionPlaceholder": "Collection description...",
-      "color": "Collection color",
-      "public": "Public collection",
-      "publicDescription": "Make collection visible to other users",
-      "cancel": "Cancel",
-      "create": "Create Collection"
-    }
-  },
-  "editPage": {
-    "title": "Edit Collection",
-    "description": "Change information about your collection",
-    "form": {
-      "title": "Editing collection",
-      "descriptionLabel": "Update information about collection",
-      "cancel": "Cancel",
-      "save": "Save Changes"
-    }
-  },
-  "modals": {
-    "deleteConfirm": {
-      "title": "Delete Collection",
-      "message": "Are you sure you want to delete the collection",
-      "warning": "All bookmarks in this collection will remain in your library",
-      "cancel": "Cancel",
-      "confirm": "Delete"
-    },
-    "clone": {
-      "title": "Clone Collection",
-      "nameLabel": "New collection name",
-      "namePlaceholder": "Enter name for cloned collection",
-      "cancel": "Cancel",
-      "clone": "Clone"
-    }
-  },
-  "toasts": {
-    "created": "Collection created successfully",
-    "updated": "Collection updated successfully",
-    "deleted": "Collection deleted successfully",
-    "cloned": "Collection cloned successfully",
-    "error": "An error occurred",
-    "comingSoon": "Collection cloning will be available soon"
-  }
+  "createBookmarkCollection": "Create Bookmark Collection",
+  "nameLabel": "Name",
+  "namePlaceholder": "Enter collection name",
+  "nameRequired": "Collection name is required",
+  "booksLabel": "Books (optional)",
+  "addAnotherBook": "Add another book",
+  "selectBooks": "Select books",
+  "error": "Error",
+  "success": "Success",
+  "collectionCreated": "Collection \"{{name}}\" created",
+  "failedToCreate": "Failed to create collection",
+  "searchBooksPlaceholder": "Search books...",
+  "searchCollections": "Search Collections",
+  "searchCollectionsPlaceholder": "Search collections...",
+  "createCollectionButton": "Create Collection",
+  "notFound": "Collections not found",
+  "noBookmarksInBook": "No collections with bookmarks in this book"
 }

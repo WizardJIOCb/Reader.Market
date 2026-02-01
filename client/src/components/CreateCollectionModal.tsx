@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { bookmarkCollectionsApi, booksApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 import { Plus, X, Search, Book } from 'lucide-react';
 
 interface CreateCollectionModalProps {
@@ -29,6 +30,7 @@ const PRESET_COLORS = [
 
 export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated, currentBookId, currentBookTitle }: CreateCollectionModalProps) {
   const { toast } = useToast();
+  const { t } = useTranslation(['collections', 'shelves']);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#3b82f6');
@@ -96,8 +98,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
     
     if (!name.trim()) {
       toast({
-        title: 'Ошибка',
-        description: 'Название коллекции обязательно',
+        title: t('collections:error'),
+        description: t('collections:nameRequired'),
         variant: 'destructive'
       });
       return;
@@ -117,8 +119,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       if (response.ok) {
         const collection = await response.json();
         toast({
-          title: 'Успех',
-          description: `Коллекция "${collection.name}" создана`
+          title: t('collections:success'),
+          description: t('collections:collectionCreated', { name: collection.name })
         });
         
         // Reset form
@@ -137,17 +139,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       } else {
         const error = await response.json();
         toast({
-          title: 'Ошибка',
-          description: error.error || 'Не удалось создать коллекцию',
-          variant: 'destructive'
+          title: t('collections:error'),
+          description: error.error || t('collections:failedToCreate')
         });
       }
     } catch (error) {
       console.error('Error creating collection:', error);
       toast({
-        title: 'Ошибка',
-        description: 'Не удалось создать коллекцию',
-        variant: 'destructive'
+        title: t('collections:error'),
+        description: t('collections:failedToCreate')
       });
     } finally {
       setLoading(false);
@@ -169,18 +169,18 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="w-5 h-5" />
-            Создать коллекцию закладок
+            {t('collections:createBookmarkCollection')}
           </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 flex-1 overflow-y-auto pr-2">
           <div className="space-y-2">
-            <Label htmlFor="name">Название *</Label>
+            <Label htmlFor="name">{t('collections:nameLabel')} *</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Введите название коллекции"
+              placeholder={t('collections:namePlaceholder')}
               required
               autoFocus
             />
@@ -188,7 +188,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           
           {/* Book selection */}
           <div className="space-y-2">
-            <Label>Книги (опционально)</Label>
+            <Label>{t('collections:booksLabel')}</Label>
             
             {/* Selected books display */}
             {selectedBooks.length > 0 && (
@@ -224,13 +224,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
               onClick={() => setShowBookSearch(!showBookSearch)}
             >
               <Plus className="w-4 h-4 mr-2" />
-              {selectedBooks.length > 0 ? 'Добавить еще книгу' : 'Выбрать книги'}
+              {selectedBooks.length > 0 ? t('collections:addAnotherBook') : t('collections:selectBooks')}
             </Button>
             
             {showBookSearch && (
               <div className="space-y-2">
                 <Input
-                  placeholder="Поиск книг..."
+                  placeholder={t('collections:searchBooksPlaceholder')}
                   value={bookSearchQuery}
                   onChange={(e) => setBookSearchQuery(e.target.value)}
                   className="w-full"
