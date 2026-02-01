@@ -6,7 +6,7 @@ import { getPersonalActivitiesDirect, getProfileActivitiesDirect, getProfileComm
 import { sql } from "drizzle-orm/sql";
 import { eq, and, inArray, or, ilike, desc, asc, exists, ne } from "drizzle-orm";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken';
 import { Ollama } from "ollama";
 import multer from "multer";
 import fs from "fs";
