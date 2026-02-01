@@ -273,17 +273,7 @@ export function ArticlesPage() {
         </div>
       </div>
 
-      {/* Toggle for Tree View */}
-      <div className="flex justify-end mb-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowTreeView(!showTreeView)}
-          className="h-8 text-xs"
-        >
-          {showTreeView ? t('articles:treeView.listView') : t('articles:treeView.treeView')}
-        </Button>
-      </div>
+
 
       {/* Tree View or Categories Filter */}
       {showTreeView ? (
