@@ -14,9 +14,9 @@ git pull origin main
 echo "Installing dependencies..."
 npm install
 
-# Push database schema changes
-echo "Pushing database schema changes..."
-npx drizzle-kit push
+# Apply database migrations
+echo "Applying database migrations..."
+npx drizzle-kit migrate
 
 # Build the project
 echo "Building project..."
