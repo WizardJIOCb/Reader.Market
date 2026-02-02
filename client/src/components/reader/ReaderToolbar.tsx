@@ -70,6 +70,7 @@ interface ReaderToolbarProps {
   isAIOpen?: boolean;
   isChatOpen?: boolean;
   isTtsOpen?: boolean;
+  isCharacterTtsOpen?: boolean;
   unreadChatCount?: number;
   // Language selector
   availableLanguages?: Array<{ language: string; status: string }>;
@@ -106,6 +107,7 @@ export function ReaderToolbar({
   isAIOpen = false,
   isChatOpen = false,
   isTtsOpen = false,
+  isCharacterTtsOpen = false,
   unreadChatCount = 0,
   availableLanguages = [],
   currentLanguage = 'original',
@@ -175,7 +177,7 @@ export function ReaderToolbar({
                 <Brain className="w-4 h-4" />
               </Button>
               <Button
-                variant="ghost"
+                variant={isCharacterTtsOpen ? 'default' : 'ghost'}
                 size="icon"
                 className="h-8 w-8"
                 onClick={onOpenCharacterTts}
@@ -388,11 +390,10 @@ export function ReaderToolbar({
             
             {/* Character TTS */}
             <Button
-              variant="ghost"
+              variant={isCharacterTtsOpen ? 'default' : 'ghost'}
               size="icon"
               onClick={onOpenCharacterTts}
-              title={t('tts.characterTts')}
-            >
+              title={t('tts.characterTts')}>
               <Mic className="w-5 h-5" />
             </Button>
 

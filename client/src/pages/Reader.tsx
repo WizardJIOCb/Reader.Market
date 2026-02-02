@@ -2171,6 +2171,7 @@ export default function Reader() {
         isAIOpen={activePanel === 'ai'}
         isChatOpen={activePanel === 'chat'}
         isTtsOpen={activePanel === 'tts'}
+        isCharacterTtsOpen={activePanel === 'character-tts'}
         unreadChatCount={unreadChatCount}
         availableLanguages={availableLanguages}
         currentLanguage={selectedLanguage}
