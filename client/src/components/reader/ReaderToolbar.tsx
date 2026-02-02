@@ -111,7 +111,7 @@ export function ReaderToolbar({
   currentLanguage = 'original',
   onLanguageChange,
 }: ReaderToolbarProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('common');
   const chapterNumber = currentChapter ? currentChapter.index + 1 : 1;
   const totalChapters = content?.chapters.length || 1;
 
@@ -143,7 +143,7 @@ export function ReaderToolbar({
                 size="icon"
                 className="h-8 w-8"
                 onClick={onOpenToc}
-                title="Содержание"
+                title={t('reader.panelToc')}
               >
                 <List className="w-4 h-4" />
               </Button>
@@ -152,7 +152,7 @@ export function ReaderToolbar({
                 size="icon"
                 className="h-8 w-8"
                 onClick={onOpenBookmarks}
-                title="Закладки"
+                title={t('reader.panelBookmarks')}
               >
                 <Bookmark className="w-4 h-4" />
               </Button>
@@ -161,7 +161,7 @@ export function ReaderToolbar({
                 size="icon"
                 className="h-8 w-8"
                 onClick={onOpenSearch}
-                title="Поиск"
+                title={t('reader.panelSearch')}
               >
                 <Search className="w-4 h-4" />
               </Button>
@@ -170,7 +170,7 @@ export function ReaderToolbar({
                 size="icon"
                 className="h-8 w-8"
                 onClick={onOpenAI}
-                title="AI Анализ"
+                title={t('reader.panelAI')}
               >
                 <Brain className="w-4 h-4" />
               </Button>
@@ -179,7 +179,7 @@ export function ReaderToolbar({
                 size="icon"
                 className="h-8 w-8"
                 onClick={onOpenCharacterTts}
-                title="Озвучить персонажем"
+                title={t('tts.characterTts')}
               >
                 <Mic className="w-4 h-4" />
               </Button>
@@ -190,7 +190,7 @@ export function ReaderToolbar({
                     variant="ghost"
                     size="icon"
                     onClick={onOpenTts}
-                    title="Озвучить текст"
+                    title={t('tts.readAloud')}
                   >
                     <Volume2 className="w-4 h-4" />
                   </Button>
@@ -201,7 +201,7 @@ export function ReaderToolbar({
                 size="icon"
                 className="h-8 w-8 relative"
                 onClick={onOpenChat}
-                title="Чат книги"
+                title={t('reader.panelChat')}
               >
                 <MessageCircle className="w-4 h-4" />
                 {unreadChatCount > 0 && (
@@ -215,7 +215,7 @@ export function ReaderToolbar({
                 size="icon"
                 className="h-8 w-8"
                 onClick={onOpenSettings}
-                title="Настройки"
+                title={t('reader.panelSettings')}
               >
                 <Settings className="w-4 h-4" />
               </Button>
@@ -226,7 +226,7 @@ export function ReaderToolbar({
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      title="Language / Язык"
+                      title={t('common:languageSelectorTitle', 'Language / Язык')}
                     >
                       <Globe className="w-4 h-4" />
                     </Button>
@@ -254,7 +254,7 @@ export function ReaderToolbar({
               size="icon"
               className="h-8 w-8"
               onClick={onPrevPage}
-              title="Предыдущая страница"
+              title={t('reader.previousPage')}
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -273,7 +273,7 @@ export function ReaderToolbar({
               size="icon"
               className="h-8 w-8"
               onClick={onNextPage}
-              title="Следующая страница"
+              title={t('reader.nextPage')}
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -302,7 +302,7 @@ export function ReaderToolbar({
               variant="ghost"
               size="icon"
               onClick={onPrevPage}
-              title="Предыдущая страница"
+              title={t('reader.previousPage')}
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
@@ -322,7 +322,7 @@ export function ReaderToolbar({
               variant="ghost"
               size="icon"
               onClick={onNextPage}
-              title="Следующая страница"
+              title={t('reader.nextPage')}
             >
               <ChevronRight className="w-5 h-5" />
             </Button>
@@ -335,7 +335,7 @@ export function ReaderToolbar({
               variant={isTocOpen ? 'default' : 'ghost'}
               size="icon"
               onClick={onOpenToc}
-              title="Содержание"
+              title={t('reader.panelToc')}
             >
               <List className="w-5 h-5" />
             </Button>
@@ -345,7 +345,7 @@ export function ReaderToolbar({
               variant={isBookmarksOpen ? 'default' : 'ghost'}
               size="icon"
               onClick={onOpenBookmarks}
-              title="Закладки"
+              title={t('reader.panelBookmarks')}
             >
               <Bookmark className="w-5 h-5" />
             </Button>
@@ -355,7 +355,7 @@ export function ReaderToolbar({
               variant={isSearchOpen ? 'default' : 'ghost'}
               size="icon"
               onClick={onOpenSearch}
-              title="Поиск"
+              title={t('reader.panelSearch')}
             >
               <Search className="w-5 h-5" />
             </Button>
@@ -365,7 +365,7 @@ export function ReaderToolbar({
               variant={isAIOpen ? 'default' : 'ghost'}
               size="icon"
               onClick={onOpenAI}
-              title="AI Анализ"
+              title={t('reader.panelAI')}
             >
               <Brain className="w-5 h-5" />
             </Button>
@@ -375,7 +375,7 @@ export function ReaderToolbar({
               variant={isChatOpen ? 'default' : 'ghost'}
               size="icon"
               onClick={onOpenChat}
-              title="Чат книги"
+              title={t('reader.panelChat')}
               className="relative"
             >
               <MessageCircle className="w-5 h-5" />
@@ -391,7 +391,7 @@ export function ReaderToolbar({
               variant="ghost"
               size="icon"
               onClick={onOpenCharacterTts}
-              title="Озвучить персонажем"
+              title={t('tts.characterTts')}
             >
               <Mic className="w-5 h-5" />
             </Button>
@@ -401,7 +401,7 @@ export function ReaderToolbar({
               variant={isTtsOpen ? 'default' : 'ghost'}
               size="icon"
               onClick={onOpenTts}
-              title="Озвучить текст"
+              title={t('tts.readAloud')}
             >
               <Volume2 className="w-5 h-5" />
             </Button>
@@ -411,7 +411,7 @@ export function ReaderToolbar({
               variant={isSettingsOpen ? 'default' : 'ghost'}
               size="icon"
               onClick={onOpenSettings}
-              title="Настройки"
+              title={t('reader.panelSettings')}
             >
               <Settings className="w-5 h-5" />
             </Button>
@@ -423,7 +423,7 @@ export function ReaderToolbar({
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Language / Язык"
+                    title={t('common:languageSelectorTitle', 'Language / Язык')}
                   >
                     <Globe className="w-5 h-5" />
                   </Button>

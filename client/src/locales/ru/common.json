@@ -1,4 +1,5 @@
 {
+  "loading": "Загрузка...",
   "login": "Вход",
   "register": "Регистрация",
   "logout": "Выход",
@@ -69,19 +70,22 @@
     "autoCloseBookmarksPanel": "Скрывать панель при переходе к закладке",
     "navigationZones": "Зоны перелистывания",
     "navigationInside": "Внутри книги",
-    "navigationOutside": "За пределами книги"
+    "navigationOutside": "За пределами книги",
+    "returnToLastPosition": "Вернуться к последней позиции"
   },
   "ai": {
     "comingSoon": "Функция в разработке",
     "comingSoonDescription": "Функция AI Анализа находится в разработке. Скоро появится!"
   },
   "bookmarks": {
-    "addBookmark": "Добавить закладку"
+    "addBookmark": "Добавить закладку",
+    "added": "Закладка добавлена"
   },
   "bookChat": {
     "tabMessages": "Сообщения",
     "tabOnline": "Онлайн",
     "replyTo": "Ответ на",
+    "replyToMessage": "Ответить на сообщение",
     "writeMessage": "Написать сообщение...",
     "noMessages": "Пока нет сообщений",
     "beFirstToStart": "Будьте первым, кто начнёт обсуждение!",
@@ -90,7 +94,8 @@
     "online": "Онлайн",
     "typing": "печатает...",
     "addressedToYou": "Адресовано Вам",
-    "authRequired": "Необходимо авторизоваться для отправки сообщений"
+    "authRequired": "Необходимо авторизоваться для отправки сообщений",
+    "deleteMessage": "Удалить сообщение"
   },
   "sort": {
     "label": "Сортировка",
@@ -111,5 +116,59 @@
   "actions": {
     "openChat": "Открыть чат",
     "openGroupChat": "Открыть групповой чат"
-  }
+  },
+  "search": {
+    "foundResults_one": "Найдено: {{count}} результат",
+    "foundResults_few": "Найдено: {{count}} результата",
+    "foundResults_many": "Найдено: {{count}} результатов",
+    "noResults": "Ничего не найдено"
+  },
+  "collections": {
+    "collectionsWithBookmarksInBook": "Коллекции с закладками в этой книге",
+    "bookmarkCountInBook": "{{count}} закладок в этой книге",
+    "deleteCollection": "Удалить коллекцию",
+    "userCollection": "Коллекция пользователя",
+    "backToSearch": "Назад к поиску",
+    "noBookmarks": "Нет закладок",
+    "noBookmarksInCollection": "Нет закладок в этой коллекции для этой книги",
+    "noBookmarksInForeignCollection": "Нет закладок в этой чужой коллекции для этой книги",
+    "addBookmarkToReturnLater": "Добавьте закладку, чтобы вернуться сюда позже",
+    "notFound": "Не найдено"
+  },
+  "profile": {
+    "openProfile": "Открыть профиль"
+  },
+  "tts": {
+    "characterTts": "Озвучка персонажем",
+    "readAloud": "Озвучить текст",
+    "selectTextInstruction": "Выберите текст в книге и нажмите правую кнопку мыши → \"Озвучить текст\"",
+    "supportedCharacters": "Поддерживаемые персонажи: Манус, Робаут, Корнелиус",
+    "selectCharacterInstruction": "Выберите персонажа и эмоцию для создания выразительного озвучивания",
+    "selectTextForTts": "Пожалуйста, выберите текст для озвучивания",
+    "audioGeneratedSuccessfully": "Аудио успешно сгенерировано",
+    "generationFailed": "Генерация не удалась",
+    "generationError": "Ошибка генерации",
+    "playbackError": "Ошибка воспроизведения",
+    "failedToPlayAudio": "Не удалось воспроизвести аудио",
+    "character": "Персонаж",
+    "selectCharacterPlaceholder": "Выберите персонажа",
+    "loadedCharacters_one": "Загружен {{count}} персонаж",
+    "loadedCharacters_few": "Загружено {{count}} персонажа",
+    "loadedCharacters_many": "Загружено {{count}} персонажей",
+    "emotion": "Эмоция",
+    "selectEmotionPlaceholder": "Выберите эмоцию",
+    "loadedEmotions_one": "Загружена {{count}} эмоция",
+    "loadedEmotions_few": "Загружено {{count}} эмоции",
+    "loadedEmotions_many": "Загружено {{count}} эмоций",
+    "generating": "Генерация",
+    "audioReadyForPlayback": "Аудио готово к воспроизведению",
+    "play": "Воспроизвести",
+    "clear": "Очистить",
+    "noTextSelected": "Текст не выбран",
+    "selectedText": "Выбранный текст",
+    "playback": "Воспроизведение"
+  },
+  "copied": "Скопировано",
+  "image": "Изображение",
+  "file": "Файл"
 }

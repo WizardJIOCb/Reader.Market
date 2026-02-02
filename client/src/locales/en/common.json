@@ -1,4 +1,5 @@
 {
+  "loading": "Loading...",
   "login": "Login",
   "register": "Register",
   "logout": "Logout",
@@ -69,19 +70,22 @@
     "autoCloseBookmarksPanel": "Auto-close panel when navigating to bookmark",
     "navigationZones": "Navigation zones",
     "navigationInside": "Inside book",
-    "navigationOutside": "Outside book"
+    "navigationOutside": "Outside book",
+    "returnToLastPosition": "Return to last position"
   },
   "ai": {
     "comingSoon": "Feature in Development",
     "comingSoonDescription": "AI Analysis feature is currently under development. Coming soon!"
   },
   "bookmarks": {
-    "addBookmark": "Add Bookmark"
+    "addBookmark": "Add Bookmark",
+    "added": "Bookmark added"
   },
   "bookChat": {
     "tabMessages": "Messages",
     "tabOnline": "Online",
     "replyTo": "Reply to",
+    "replyToMessage": "Reply to message",
     "writeMessage": "Write a message...",
     "noMessages": "No messages yet",
     "beFirstToStart": "Be the first to start the discussion!",
@@ -90,7 +94,8 @@
     "online": "Online",
     "typing": "is typing...",
     "addressedToYou": "Addressed to you",
-    "authRequired": "You need to log in to send messages"
+    "authRequired": "You need to log in to send messages",
+    "deleteMessage": "Delete message"
   },
   "sort": {
     "label": "Sort by",
@@ -111,5 +116,56 @@
   "actions": {
     "openChat": "Open chat",
     "openGroupChat": "Open group chat"
-  }
+  },
+  "search": {
+    "foundResults_one": "Found: {{count}} result",
+    "foundResults_other": "Found: {{count}} results",
+    "noResults": "Nothing found"
+  },
+  "collections": {
+    "collectionsWithBookmarksInBook": "Collections with bookmarks in this book",
+    "bookmarkCountInBook": "{{count}} bookmarks in this book",
+    "deleteCollection": "Delete collection",
+    "userCollection": "User collection",
+    "backToSearch": "Back to search",
+    "noBookmarks": "No bookmarks",
+    "noBookmarksInCollection": "No bookmarks in this collection for this book",
+    "noBookmarksInForeignCollection": "No bookmarks in this foreign collection for this book",
+    "addBookmarkToReturnLater": "Add a bookmark to return here later",
+    "notFound": "Not found"
+  },
+  "profile": {
+    "openProfile": "Open profile"
+  },
+  "tts": {
+    "characterTts": "Character TTS",
+    "readAloud": "Read Aloud",
+    "selectTextInstruction": "Select text in the book and right-click → \"Read Aloud\"",
+    "supportedCharacters": "Supported characters: Manus, Robaut, Cornelius",
+    "selectCharacterInstruction": "Select a character and emotion for expressive reading",
+    "selectTextForTts": "Please select text to convert to speech",
+    "audioGeneratedSuccessfully": "Audio generated successfully",
+    "generationFailed": "Generation failed",
+    "generationError": "Generation error",
+    "playbackError": "Playback error",
+    "failedToPlayAudio": "Failed to play audio",
+    "character": "Character",
+    "selectCharacterPlaceholder": "Select a character",
+    "loadedCharacters": "Loaded {{count}} characters",
+    "loadedCharacters_plural": "Loaded {{count}} characters",
+    "emotion": "Emotion",
+    "selectEmotionPlaceholder": "Select an emotion",
+    "loadedEmotions": "Loaded {{count}} emotions",
+    "loadedEmotions_plural": "Loaded {{count}} emotions",
+    "generating": "Generating",
+    "audioReadyForPlayback": "Audio ready for playback",
+    "play": "Play",
+    "clear": "Clear",
+    "noTextSelected": "No text selected",
+    "selectedText": "Selected text",
+    "playback": "Playback"
+  },
+  "copied": "Copied",
+  "image": "Image",
+  "file": "File"
 }

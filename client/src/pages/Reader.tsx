@@ -88,7 +88,7 @@ export default function Reader() {
   const [match, params] = useRoute('/read/:bookId/:position');
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
-  const { t } = useTranslation(['translation', 'collections']);
+  const { t } = useTranslation(['common', 'collections']);
   const { user } = useAuth();
   
   // Wrapped toast function that respects suppression flag
@@ -1512,7 +1512,7 @@ export default function Reader() {
           }
           
           toastRef.current({
-            title: "Закладка добавлена",
+            title: t('bookmarks.added'),
             description: title,
           });
           return;
@@ -1552,7 +1552,7 @@ export default function Reader() {
     }
     
     toastRef.current({
-      title: "Закладка добавлена",
+      title: t('bookmarks.added'),
       description: title,
     });
   }, [currentChapter, selectedText, bookId, bookmarks, selectedCollectionId]);
@@ -2293,8 +2293,8 @@ export default function Reader() {
                     {activePanel === 'settings' && t('reader.panelSettings')}
                     {activePanel === 'ai' && t('reader.panelAI')}
                     {activePanel === 'chat' && t('reader.panelChat')}
-                    {activePanel === 'tts' && t('tts:playback')}
-                    {activePanel === 'character-tts' && 'Озвучить персонажем'}
+                    {activePanel === 'tts' && t('tts.playback')}
+                    {activePanel === 'character-tts' && t('tts.characterTts')}
                   </h3>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setActivePanel(null)}>
@@ -2350,7 +2350,7 @@ export default function Reader() {
                     {searchResults.length > 0 && (
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground mb-2">
-                          Найдено: {searchResults.length} {searchResults.length === 1 ? 'результат' : searchResults.length < 5 ? 'результата' : 'результатов'}
+                          {t('search.foundResults', { count: searchResults.length })}
                         </p>
                         {searchResults.map((result, index) => {
                           // Highlight search query in context
@@ -2374,7 +2374,7 @@ export default function Reader() {
                               onClick={() => handleSearchResultClick(result)}
                             >
                               <p className="text-xs text-muted-foreground mb-1">
-                                Глава {result.chapterIndex + 1}
+                                {t('reader.progressChapter')} {result.chapterIndex + 1}
                               </p>
                               <p className="line-clamp-2">{highlightText(result.context, searchQuery)}</p>
                             </button>
@@ -2385,7 +2385,7 @@ export default function Reader() {
                     
                     {searchQuery.length >= 2 && searchResults.length === 0 && (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                        Ничего не найдено
+                        {t('search.noResults')}
                       </p>
                     )}
                   </div>
@@ -2451,7 +2451,7 @@ export default function Reader() {
                     {/* Collections list - all collections with bookmarks in this book (including others' public collections) */}
                     {(collectionSearchQuery ? filteredCollections.length : collections.length) > 0 ? (
                       <div className="mb-4">
-                        <Label className="text-sm mb-2 block">Коллекции с закладками в этой книге</Label>
+                        <Label className="text-sm mb-2 block">{t('collections.collectionsWithBookmarksInBook')}</Label>
                         <div className="space-y-2 max-h-40 overflow-y-auto">
                           {(collectionSearchQuery ? filteredCollections : collections).map(collection => (
                             <div 
@@ -2472,7 +2472,7 @@ export default function Reader() {
                                       <span className="break-words">{collection.name}</span>
                                     </div>
                                     <div className="text-xs text-muted-foreground mt-1">
-                                      {collection.bookmarkCount} закладок в этой книге
+                                      {t('collections.bookmarkCountInBook', { count: collection.bookmarkCount })}
                                     </div>
                                     {collection.description && (
                                       <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -2499,7 +2499,7 @@ export default function Reader() {
                                     e.stopPropagation(); // Prevent collection selection
                                     handleDeleteCollection(collection.id, collection.name);
                                   }}
-                                  title="Удалить коллекцию"
+                                  title={t('collections.deleteCollection')}
                                 >
                                   <Trash2 className="w-4 h-4 text-destructive" />
                                 </Button>
@@ -2527,11 +2527,11 @@ export default function Reader() {
                               </h3>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {collections.find(c => c.id === selectedCollectionId)?.bookmarkCount || 0} закладок в этой книге
+                              {t('collections.bookmarkCountInBook', { count: collections.find(c => c.id === selectedCollectionId)?.bookmarkCount || 0 })}
                             </p>
                             {!collections.find(c => c.id === selectedCollectionId)?.isOwn && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Коллекция пользователя: {collections.find(c => c.id === selectedCollectionId)?.ownerFullName || collections.find(c => c.id === selectedCollectionId)?.ownerUsername}
+                                {t('collections.userCollection')}: {collections.find(c => c.id === selectedCollectionId)?.ownerFullName || collections.find(c => c.id === selectedCollectionId)?.ownerUsername}
                               </p>
                             )}
                           </div>
@@ -2542,7 +2542,7 @@ export default function Reader() {
                             className="ml-2 flex-shrink-0"
                           >
                             <ArrowLeft className="w-4 h-4 mr-1" />
-                            Назад к поиску
+                            {t('collections.backToSearch')}
                           </Button>
                         </div>
                       </div>
@@ -2652,13 +2652,13 @@ export default function Reader() {
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
                         <Bookmark className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>Нет закладок</p>
+                        <p>{t('collections.noBookmarks')}</p>
                         <p className="text-sm">
                           {selectedCollectionId 
                             ? collections.find(c => c.id === selectedCollectionId)?.isOwn
-                              ? 'В этой коллекции нет закладок в этой книге' 
-                              : 'В этой чужой коллекции нет ваших закладок в этой книге'
-                            : 'Добавьте закладку, чтобы вернуться к этому месту позже'}
+                              ? t('collections.noBookmarksInCollection')
+                              : t('collections.noBookmarksInForeignCollection')
+                            : t('collections.addBookmarkToReturnLater')}
                         </p>
                       </div>
                     )}
@@ -2683,7 +2683,7 @@ export default function Reader() {
                       className="w-full"
                       onClick={handleRestorePosition}
                     >
-                      Вернуться к последней позиции
+                      {t('settings.returnToLastPosition')}
                     </Button>
                     
                     <div className="border-t pt-4" />
@@ -3004,7 +3004,7 @@ export default function Reader() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
-                                        title="Открыть профиль"
+                                        title={t('profile.openProfile')}
                                       >
                                         <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-primary" />
                                       </a>
@@ -3019,7 +3019,7 @@ export default function Reader() {
                                         variant="ghost"
                                         className="h-6 w-6 ml-1"
                                         onClick={() => setReplyingTo(msg)}
-                                        title="Ответить"
+                                        title={t('bookChat.replyToMessage')}
                                       >
                                         <Reply className="w-3 h-3" />
                                       </Button>
@@ -3034,7 +3034,7 @@ export default function Reader() {
                                             
                                             deleteBookChatMessage(bookId, msg.id);
                                           }}
-                                          title="Удалить"
+                                          title={t('bookChat.deleteMessage')}
                                         >
                                           <Trash2 className="w-3 h-3" />
                                         </Button>
@@ -3044,7 +3044,7 @@ export default function Reader() {
                                     {msg.quotedMessage && (
                                       <div className="mb-2 ml-8 p-2 bg-background/50 rounded border-l-2 border-primary/30">
                                         <p className="text-xs text-muted-foreground mb-1">
-                                          Ответ на {msg.quotedMessage.user?.username}:
+                                          {t('bookChat.replyTo')} {msg.quotedMessage.user?.username}:
                                         </p>
                                         <p className="text-xs line-clamp-2">
                                           {msg.quotedMessage.content}
@@ -3067,7 +3067,7 @@ export default function Reader() {
                                               {isImage ? (
                                                 <img
                                                   src={url}
-                                                  alt={metadata?.filename || 'Изображение'}
+                                                  alt={metadata?.filename || t('common:image')}
                                                   className="max-w-full max-h-48 rounded cursor-pointer hover:opacity-80 transition-opacity"
                                                   onClick={() => {
                                                     // Get all image URLs from this message
@@ -3088,7 +3088,7 @@ export default function Reader() {
                                                   className="flex items-center gap-2 text-xs text-primary hover:underline"
                                                 >
                                                   <Paperclip className="w-3 h-3" />
-                                                  {metadata?.filename || 'Файл'}
+                                                  {metadata?.filename || t('common.file')}
                                                 </a>
                                               )}
                                             </div>
@@ -3116,7 +3116,7 @@ export default function Reader() {
                             <div className="flex flex-col items-center justify-center h-full text-center py-8">
                               <Users className="w-12 h-12 text-muted-foreground/50 mb-4" />
                               <p className="text-sm text-muted-foreground">
-                                Нет пользователей онлайн
+                                {t('bookChat.noOnlineUsers')}
                               </p>
                             </div>
                           ) : (
@@ -3153,8 +3153,8 @@ export default function Reader() {
                                       {t('bookChat.readingBook')}
                                       {onlineUser.readingPosition && (
                                         <span className="ml-1">
-                                          • Глава {onlineUser.readingPosition.chapterIndex + 1}, 
-                                          стр. {onlineUser.readingPosition.pageInChapter + 1}/{onlineUser.readingPosition.totalPagesInChapter}
+                                          • {t('reader.progressChapter')} {onlineUser.readingPosition.chapterIndex + 1}, 
+                                          {t('reader.progressPage')} {onlineUser.readingPosition.pageInChapter + 1}/{onlineUser.readingPosition.totalPagesInChapter}
                                         </span>
                                       )}
                                     </p>
@@ -3164,11 +3164,11 @@ export default function Reader() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    title="Открыть профиль"
+                                    title={t('profile.openProfile')}
                                   >
                                     <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary" />
                                   </a>
-                                  <div className="w-2 h-2 rounded-full bg-green-500" title="Онлайн" />
+                                  <div className="w-2 h-2 rounded-full bg-green-500" title={t('bookChat.online')} />
                                 </div>
                               ))}
                             </div>
@@ -3287,7 +3287,7 @@ export default function Reader() {
               }}
             >
               <Bookmark className="w-4 h-4 mr-1" />
-              Закладка
+              {t('bookmarks.addBookmark')}
             </Button>
             <Button
               size="sm"
@@ -3295,13 +3295,13 @@ export default function Reader() {
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 navigator.clipboard.writeText(selectedText.text);
-                toastRef.current({ title: "Скопировано" });
+                toastRef.current({ title: t('common.copied') });
                 window.getSelection()?.removeAllRanges();
                 setShowSelectionPopover(false);
                 setSelectedText(null);
               }}
             >
-              Копировать
+              {t('common.copy')}
             </Button>
             <Button
               size="sm"
@@ -3317,7 +3317,7 @@ export default function Reader() {
               }}
             >
               <Volume2 className="w-4 h-4 mr-1" />
-              Озвучить
+              {t('tts.readAloud')}
             </Button>
             <Button
               size="sm"
@@ -3333,7 +3333,7 @@ export default function Reader() {
               }}
             >
               <Mic className="w-4 h-4 mr-1" />
-              Озвучить персонажем
+              {t('tts.characterTts')}
             </Button>
           </div>
         </div>

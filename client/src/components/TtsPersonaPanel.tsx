@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Volume2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 interface TtsPersonaPanelProps {
   selectedText: string;
@@ -38,6 +39,7 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
   const [config, setConfig] = useState<TTSConfig | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('common');
 
   // Загружаем конфигурацию при монтировании
   useEffect(() => {
@@ -89,8 +91,8 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
   const handleGenerate = async () => {
     if (!selectedText.trim()) {
       toast({
-        title: 'Ошибка',
-        description: 'Выберите текст для озвучивания',
+        title: t('error'),
+        description: t('tts.selectTextForTts'),
         variant: 'destructive'
       });
       return;
@@ -105,7 +107,7 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
       // Получаем токен авторизации
       const authToken = localStorage.getItem('authToken');
       if (!authToken) {
-        throw new Error('Требуется авторизация');
+        throw new Error(t('auth.required'));
       }
       
       const response = await fetch('/api/tts/persona', {
@@ -129,18 +131,18 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
       if (result.success) {
         setAudioUrl(result.audioUrl);
         toast({ 
-          title: 'Успех!', 
-          description: 'Аудио успешно сгенерировано' 
+          title: t('success'), 
+          description: t('tts.audioGeneratedSuccessfully') 
         });
       } else {
-        throw new Error(result.error || 'Генерация не удалась');
+        throw new Error(result.error || t('tts.generationFailed'));
       }
       
     } catch (error) {
       console.error('[TTS PANEL] Generation error:', error);
       toast({
-        title: 'Ошибка генерации',
-        description: error instanceof Error ? error.message : 'Неизвестная ошибка',
+        title: t('tts.generationError'),
+        description: error instanceof Error ? error.message : t('common.unknownError'),
         variant: 'destructive'
       });
     } finally {
@@ -154,8 +156,8 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
       audio.play().catch(error => {
         console.error('Failed to play audio:', error);
         toast({
-          title: 'Ошибка воспроизведения',
-          description: 'Не удалось воспроизвести аудио',
+          title: t('tts.playbackError'),
+          description: t('tts.failedToPlayAudio'),
           variant: 'destructive'
         });
       });
@@ -167,7 +169,7 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-          <p className="text-sm text-gray-500">Загрузка конфигурации...</p>
+          <p className="text-sm text-gray-500">{t('common.loading')}...</p>
         </div>
       </div>
     );
@@ -179,18 +181,18 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
         <div className="p-4 space-y-6">
         {/* Предпросмотр выбранного текста */}
         <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded text-sm max-w-full">
-          <p className="text-gray-600 dark:text-gray-400 mb-1">Выбранный текст:</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-1">{t('tts.selectedText')}:</p>
           <div className="max-h-32 overflow-y-auto">
-            <p className="whitespace-normal break-words overflow-wrap-anywhere text-sm">{selectedText || 'Текст не выбран'}</p>
+            <p className="whitespace-normal break-words overflow-wrap-anywhere text-sm">{selectedText || t('tts.noTextSelected')}</p>
           </div>
         </div>
         
         {/* Выбор персонажа */}
         <div>
-          <label className="block text-sm font-medium mb-1">Персонаж:</label>
+          <label className="block text-sm font-medium mb-1">{t('tts.character')}:</label>
           <Select value={character} onValueChange={setCharacter}>
             <SelectTrigger>
-              <SelectValue placeholder="Выберите персонажа" />
+              <SelectValue placeholder={t('tts.selectCharacterPlaceholder')} />
             </SelectTrigger>
             <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[200px]">
               {config?.characters && config.characters.length > 0 ? (
@@ -205,24 +207,24 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
                 ))
               ) : (
                 <SelectItem value="loading" disabled className="py-3 pl-3 text-left">
-                  <span className="text-gray-500 text-left">Загрузка...</span>
+                  <span className="text-gray-500 text-left">{t('common.loading')}...</span>
                 </SelectItem>
               )}
             </SelectContent>
           </Select>
           {config && config.characters && (
             <div className="text-xs text-gray-400 mt-1">
-              Загружено {config.characters.length} персонажей
+              {t('tts.loadedCharacters', { count: config.characters.length })}
             </div>
           )}
         </div>
         
         {/* Выбор эмоции */}
         <div>
-          <label className="block text-sm font-medium mb-1">Эмоция:</label>
+          <label className="block text-sm font-medium mb-1">{t('tts.emotion')}:</label>
           <Select value={emotion} onValueChange={setEmotion}>
             <SelectTrigger>
-              <SelectValue placeholder="Выберите эмоцию" />
+              <SelectValue placeholder={t('tts.selectEmotionPlaceholder')} />
             </SelectTrigger>
             <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[200px]">
               {config?.emotions && config.emotions.length > 0 ? (
@@ -237,14 +239,14 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
                 ))
               ) : (
                 <SelectItem value="loading" disabled className="py-3 pl-3 text-left">
-                  <span className="text-gray-500 text-left">Загрузка...</span>
+                  <span className="text-gray-500 text-left">{t('common.loading')}...</span>
                 </SelectItem>
               )}
             </SelectContent>
           </Select>
           {config && config.emotions && (
             <div className="text-xs text-gray-400 mt-1">
-              Загружено {config.emotions.length} эмоций
+              {t('tts.loadedEmotions', { count: config.emotions.length })}
             </div>
           )}
         </div>
@@ -258,10 +260,10 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
           {isGenerating ? (
             <span className="flex items-center">
               <span className="animate-spin mr-2">⏱</span>
-              Генерация...
+              {t('tts.generating')}...
             </span>
           ) : (
-            'Озвучить'
+            t('tts.readAloud')
           )}
         </Button>
         
@@ -270,18 +272,18 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
           <div className="space-y-2">
             <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded">
               <p className="text-green-800 dark:text-green-200 text-sm">
-                Аудио готово к воспроизведению
+                {t('tts.audioReadyForPlayback')}
               </p>
             </div>
             <div className="flex gap-2">
               <Button onClick={handlePlayAudio} className="flex-1">
-                ▶ Воспроизвести
+                ▶ {t('tts.play')}
               </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setAudioUrl(null)}
               >
-                Очистить
+                {t('tts.clear')}
               </Button>
             </div>
           </div>
@@ -289,9 +291,9 @@ export const TtsPersonaPanel: React.FC<TtsPersonaPanelProps> = ({
         
         {/* Информация */}
         <div className="text-xs text-gray-500 dark:text-gray-400 pt-4 border-t">
-          <p>Выберите текст в книге и нажмите правую кнопку мыши → "Озвучить текст"</p>
-          <p className="mt-1">Поддерживаемые персонажи: Манус, Робаут, Корнелиус</p>
-          <p className="mt-1">Выберите персонажа и эмоцию для создания выразительного озвучивания</p>
+          <p>{t('tts.selectTextInstruction')}</p>
+          <p className="mt-1">{t('tts.supportedCharacters')}</p>
+          <p className="mt-1">{t('tts.selectCharacterInstruction')}</p>
         </div>
       </div>
     </ScrollArea>
