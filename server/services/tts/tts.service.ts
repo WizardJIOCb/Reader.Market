@@ -3,8 +3,13 @@ import { ttsConfig, ttsCache, ttsJobs } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { createHash } from 'crypto';
 import { spawn } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, unlinkSync, statSync, access, constants, stat } from 'fs';
+import { promisify } from 'util';
+
+const accessAsync = promisify(access);
+const statAsync = promisify(stat);
 import { join } from 'path';
+import { tmpdir } from 'os';
 
 // Types
 export type TtsProviderId = 'rhvoice' | 'piper';
@@ -63,20 +68,15 @@ function generateTextHash(provider: TtsProviderId, voice: string, lang: TtsLangu
 function getStoragePaths(textHash: string, bookId: string, provider: TtsProviderId, voice: string, format: TtsFormat) {
   const baseDir = process.env.TTS_STORAGE_PATH || join(process.cwd(), 'storage', 'tts');
   const audioPath = join(baseDir, bookId, provider, voice, `${textHash}.${format}`);
-  const wavPath = join('/tmp', `tts-${textHash}.wav`);
+  const wavPath = join(tmpdir(), `tts-${textHash}.wav`);
   return { audioPath, wavPath, baseDir };
 }
 
 // Ensure directory exists
 function ensureDir(path: string) {
-  const parts = path.replace(/^\//, '').split('/');
-  let current = '/';
-  
-  for (const part of parts) {
-    current = join(current, part);
-    if (!existsSync(current)) {
-      mkdirSync(current, { recursive: true });
-    }
+  const dirPath = join(path, '..'); // Get parent directory
+  if (!existsSync(dirPath)) {
+    mkdirSync(dirPath, { recursive: true });
   }
 }
 
@@ -131,7 +131,22 @@ class RhvoiceProvider implements TtsProvider {
   
   async synthesizeToWav(text: string, options: SynthesizeOptions, wavOutPath: string): Promise<void> {
     const config = await db.select().from(ttsConfig).limit(1);
-    const binPath = config[0]?.rhvoiceBinPath || '/usr/bin/RHVoice-test';
+    let binPath = config[0]?.rhvoiceBinPath || '/usr/bin/RHVoice-test';
+    
+    // Normalize path for Windows
+    if (process.platform === 'win32') {
+      binPath = binPath.replace(/\\/g, '/');
+    }
+    
+    // Check if the binary exists before attempting to spawn
+    if (!existsSync(binPath)) {
+      console.error('RHVoice: Binary not found at path:', binPath);
+      throw new Error(`RHVoice binary not found at path: ${binPath}. Please install RHVoice from https://github.com/RHVoice/RHVoice/releases and ensure it's installed at the configured path.`);
+    }
+    
+    // Log for debugging purposes
+    console.log('RHVoice: Attempting to execute:', binPath);
+    console.log('RHVoice: Arguments:', ['--voice', options.voice, '--rate', Math.round(options.rate * 100).toString(), '--output', wavOutPath]);
     
     return new Promise((resolve, reject) => {
       const args = [
@@ -140,20 +155,34 @@ class RhvoiceProvider implements TtsProvider {
         '--output', wavOutPath
       ];
       
-      const proc = spawn(binPath, args);
+      const proc = spawn(binPath, args, {
+        shell: process.platform === 'win32'  // Use shell on Windows for better compatibility
+      });
+      
+      // Capture stderr for better error reporting
+      let stderrOutput = '';
+      proc.stderr?.on('data', (data) => {
+        stderrOutput += data.toString();
+      });
       
       proc.stdin.write(text);
       proc.stdin.end();
       
       proc.on('close', (code) => {
         if (code === 0) {
+          console.log('RHVoice: Successfully generated audio to', wavOutPath);
           resolve();
         } else {
-          reject(new Error(`RHVoice exited with code ${code}`));
+          const errorMsg = stderrOutput ? `${stderrOutput} (exit code: ${code})` : `RHVoice exited with code ${code}`;
+          console.error('RHVoice: Failed to generate audio:', errorMsg);
+          reject(new Error(errorMsg));
         }
       });
       
-      proc.on('error', reject);
+      proc.on('error', (error) => {
+        console.error('RHVoice: Spawn error:', error.message);
+        reject(new Error(`RHVoice failed to execute: ${binPath}. Error: ${error.message}`));
+      });
     });
   }
 }
@@ -183,8 +212,8 @@ class PiperProvider implements TtsProvider {
   
   async synthesizeToWav(text: string, options: SynthesizeOptions, wavOutPath: string): Promise<void> {
     const config = await db.select().from(ttsConfig).limit(1);
-    const binPath = config[0]?.piperBinPath || '/usr/local/bin/piper';
-    const modelsDir = config[0]?.piperModelsDir || '/opt/piper/models';
+    let binPath = join(process.cwd(), 'scripts', 'tts_wrapper.py'); // Use our Python wrapper for better Windows compatibility
+    let modelsDir = config[0]?.piperModelsDir || '/opt/piper/models';
     
     // Map voice ID to model file
     const modelMap: Record<string, string> = {
@@ -201,31 +230,110 @@ class PiperProvider implements TtsProvider {
     
     const modelPath = join(modelsDir, modelFile);
     
-    return new Promise((resolve, reject) => {
-      const args = [
-        '--model', modelPath,
-        '--output_file', wavOutPath
-      ];
-      
-      // Add rate adjustment (Piper uses different scale)
-      if (options.rate !== 1.0) {
-        args.push('--length-scale', (1 / options.rate).toFixed(2));
-      }
-      
-      const proc = spawn(binPath, args);
-      
-      proc.stdin.write(text);
-      proc.stdin.end();
-      
+    // Log for debugging purposes
+    console.log('Piper: Attempting to execute:', binPath);
+    console.log('Piper: Model path:', modelPath);
+    console.log('Piper: Output path:', wavOutPath);
+    
+    // Check if model file exists
+    if (!existsSync(modelPath)) {
+      console.error('Piper: Model file not found:', modelPath);
+      throw new Error(`Piper model file not found: ${modelPath}`);
+    }
+    
+    // Prepare parameters as JSON to send to Python wrapper script
+    const params = {
+      model: modelPath,
+      output_file: wavOutPath,
+      length_scale: 1 / options.rate,
+      text: text
+    };
+          
+    // Use Python to execute our wrapper script, reading parameters from stdin
+    const execPath = 'python';
+    const args = [binPath]; // Just the wrapper script path
+          
+    console.log('Piper: Executing command:', execPath, args.join(' '));
+    console.log('Piper: Parameters:', JSON.stringify(params));
+          
+    // For Windows, we need to ensure proper path handling
+    const spawnOptions: any = {
+      stdio: ['pipe', 'pipe', 'pipe'], // stdin, stdout, stderr
+    };
+          
+    if (process.platform === 'win32') {
+      // On Windows, use shell to handle path escaping
+      spawnOptions.shell = true;
+    }
+          
+    const proc = spawn(execPath, args, spawnOptions);
+        
+    // Send parameters as JSON to stdin and close
+    proc.stdin.write(JSON.stringify(params));
+    proc.stdin.end();
+        
+    // Capture stderr for better error reporting
+    let stderrOutput = '';
+    proc.stderr?.on('data', (data) => {
+      stderrOutput += data.toString();
+    });
+        
+    // Return a promise that resolves when the process completes
+    return new Promise<void>((resolve, reject) => {
+      // Set a timeout to prevent indefinite hanging
+      const timeoutMs = 30000; // 30 seconds timeout
+      const timeout = setTimeout(() => {
+        console.error('Piper: Process timed out after', timeoutMs, 'ms');
+        if (!proc.killed) {
+          proc.kill();
+        }
+        reject(new Error('Piper process timed out. This may indicate a Piper engine issue on Windows. The process might be hanging due to missing dependencies.'));
+      }, timeoutMs);
+          
       proc.on('close', (code) => {
+        // Clear the timeout if process closes before timeout
+        clearTimeout(timeout);
+            
         if (code === 0) {
-          resolve();
+          // Check if the output file was actually created and has content
+          accessAsync(wavOutPath, constants.F_OK)
+            .then(() => {
+              // Check file size to ensure it's not empty
+              return statAsync(wavOutPath);
+            })
+            .then(stats => {
+              if (stats.size === 0) {
+                console.error('Piper: Generated audio file is empty:', wavOutPath);
+                reject(new Error(`Piper generated an empty audio file: ${wavOutPath}. This may indicate a Piper engine issue on Windows. Check that all dependencies are installed: pip install espeak-phonemizer`));
+              } else {
+                console.log('Piper: Successfully generated audio to', wavOutPath, `(size: ${stats.size} bytes)`);
+                resolve();
+              }
+            })
+            .catch(err => {
+              console.error('Piper: Output file was not created or has issues:', wavOutPath, err.message);
+              reject(new Error(`Piper generated audio file was not created or has issues: ${wavOutPath}. Error: ${err.message}`));
+            });
         } else {
-          reject(new Error(`Piper exited with code ${code}`));
+          const errorMsg = stderrOutput ? `${stderrOutput} (exit code: ${code})` : `Piper exited with code ${code}`;
+          console.error('Piper: Failed to generate audio:', errorMsg);
+              
+          // Provide specific guidance for Windows users
+          if (process.platform === 'win32' && stderrOutput.includes('espeakbridge')) {
+            console.error('Piper: Windows-specific error detected. Please install espeak-phonemizer:');
+            console.error('pip install espeak-phonemizer');
+          }
+              
+          reject(new Error(errorMsg));
         }
       });
-      
-      proc.on('error', reject);
+          
+      proc.on('error', (error) => {
+        // Clear the timeout if there's an error
+        clearTimeout(timeout);
+        console.error('Piper: Spawn error:', error.message);
+        reject(new Error(`Piper process failed: ${error.message}`));
+      });
     });
   }
 }

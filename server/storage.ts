@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, bookmarkCollections, bookmarkCollectionItems, collectionBooks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs, articleCategories, articleTags, articles, articleTagLinks, articleBooks, articleViews, articleReadLater, type Article, type InsertArticle, type ArticleCategory, type InsertArticleCategory, type ArticleTag, type InsertArticleTag } from "@shared/schema";
-import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne, count } from "drizzle-orm";
+import { eq, and, inArray, desc, asc, sql, or, ilike, like, isNull, ne, count } from "drizzle-orm";
 import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
 import { 
   calculateUserRatingWeight, 
@@ -349,6 +349,7 @@ export interface IStorage {
   attachTagsToArticle(articleId: string, tagNames: string[]): Promise<void>;
   getArticleTags(articleId: string): Promise<ArticleTag[]>;
   getArticleStatsByCategory(): Promise<any[]>;
+  updateArticleCommentsCount(articleId: string, count: number): Promise<void>;
 }
 
 // Article-specific types
@@ -2610,6 +2611,7 @@ export class DBStorage implements IStorage {
         userId: comments.userId,
         bookId: comments.bookId,
         newsId: comments.newsId,
+        articleId: comments.articleId,
         content: comments.content,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
@@ -2632,6 +2634,7 @@ export class DBStorage implements IStorage {
         userId: comment.userId,
         bookId: comment.bookId,
         newsId: comment.newsId,
+        articleId: comment.articleId || null,
         content: comment.content,
         createdAt: comment.createdAt.toISOString(),
         updatedAt: comment.updatedAt.toISOString(),
@@ -3389,7 +3392,7 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async getReactions(entityId: string, entityType: 'comment' | 'review' | 'news' | 'book'): Promise<any[]> {
+  async getReactions(entityId: string, entityType: 'comment' | 'review' | 'news' | 'book' | 'article'): Promise<any[]> {
     try {
       let condition;
       if (entityType === 'comment') {
@@ -3400,6 +3403,8 @@ export class DBStorage implements IStorage {
         condition = eq(reactions.newsId, entityId);
       } else if (entityType === 'book') {
         condition = eq(reactions.bookId, entityId);
+      } else if (entityType === 'article') {
+        condition = eq(reactions.articleId, entityId);
       }
       
       const result = await db.select({
@@ -3409,6 +3414,7 @@ export class DBStorage implements IStorage {
         reviewId: reactions.reviewId,
         newsId: reactions.newsId,
         bookId: reactions.bookId,
+        articleId: reactions.articleId,
         emoji: reactions.emoji,
         createdAt: reactions.createdAt,
         username: users.username,
@@ -8465,9 +8471,88 @@ export class DBStorage implements IStorage {
   
   async getArticleCategories(): Promise<ArticleCategory[]> {
     try {
-      return await db.select()
+      // First get all categories
+      const allCategories = await db.select()
         .from(articleCategories)
         .orderBy(asc(articleCategories.sortOrder), asc(articleCategories.title));
+      
+      // Create a map to store the total counts for each category
+      const categoryTotals: Record<string, { count: number; newCount: number }> = {};
+      
+      // Initialize all categories with zero counts
+      allCategories.forEach(category => {
+        categoryTotals[category.slug] = { count: 0, newCount: 0 };
+      });
+      
+      // Get all published articles with their sections
+      const allPublishedArticles = await db
+        .select({
+          section: articles.section,
+          publishedAt: articles.publishedAt
+        })
+        .from(articles)
+        .where(eq(articles.status, 'published'));
+      
+      // For each article, find its category and propagate counts up the hierarchy
+      allPublishedArticles.forEach(article => {
+        if (article.section) {
+          const category = allCategories.find(cat => cat.slug === article.section);
+          if (category) {
+            // Increment count for the direct category
+            if (categoryTotals[article.section]) {
+              categoryTotals[article.section].count += 1;
+              
+              // Check if the article is recent (within 7 days)
+              if (article.publishedAt) {
+                const publishedDate = new Date(article.publishedAt);
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                
+                if (publishedDate >= sevenDaysAgo) {
+                  categoryTotals[article.section].newCount += 1;
+                }
+              }
+            }
+            
+            // Propagate count up the hierarchy to parent categories
+            let parentId = category.parentId;
+            while (parentId) {
+              const parentCategory = allCategories.find(cat => cat.id === parentId);
+              if (parentCategory) {
+                if (categoryTotals[parentCategory.slug]) {
+                  categoryTotals[parentCategory.slug].count += 1;
+                  
+                  // Also increment new count for parent if the article is recent
+                  if (article.publishedAt) {
+                    const publishedDate = new Date(article.publishedAt);
+                    const sevenDaysAgo = new Date();
+                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                    
+                    if (publishedDate >= sevenDaysAgo) {
+                      categoryTotals[parentCategory.slug].newCount += 1;
+                    }
+                  }
+                }
+                parentId = parentCategory.parentId;
+              } else {
+                break;
+              }
+            }
+          }
+        }
+      });
+      
+      // Extend categories with their counts
+      const categoriesWithCounts = allCategories.map(category => {
+        const counts = categoryTotals[category.slug] || { count: 0, newCount: 0 };
+        return {
+          ...category,
+          articleCount: counts.count,
+          newArticleCount: counts.newCount
+        };
+      });
+      
+      return categoriesWithCounts;
     } catch (error) {
       console.error("Error getting article categories:", error);
       throw error;
@@ -8587,7 +8672,7 @@ export class DBStorage implements IStorage {
       // Increment view count
       await db.update(articles)
         .set({
-          viewCount: sql`COALESCE(${articles.viewCount}, 0) + 1`
+          views: sql`COALESCE(${articles.views}, 0) + 1`
         })
         .where(eq(articles.id, articleId));
     } catch (error) {
@@ -9164,7 +9249,13 @@ export class DBStorage implements IStorage {
       const conditions: any[] = [eq(articles.status, 'published')];
       
       if (opts.section) {
-        conditions.push(eq(articles.section, opts.section));
+        // Match exact section OR sections that start with the section + dot (subcategories)
+        conditions.push(
+          or(
+            eq(articles.section, opts.section),
+            like(articles.section, `${opts.section}.%`)
+          )
+        );
       }
       
       if (opts.format) {
@@ -9225,7 +9316,13 @@ export class DBStorage implements IStorage {
       const countConditions = [eq(articles.status, 'published')];
       
       if (opts.section) {
-        countConditions.push(eq(articles.section, opts.section));
+        // Match exact section OR sections that start with the section + dot (subcategories)
+        countConditions.push(
+          or(
+            eq(articles.section, opts.section),
+            like(articles.section, `${opts.section}.%`)
+          )
+        );
       }
       
       if (opts.format) {
@@ -9392,6 +9489,20 @@ export class DBStorage implements IStorage {
     }
   }
   
+  async deleteArticleByAdmin(id: string): Promise<boolean> {
+    try {
+      // Admin can delete any article without ownership check
+      const result = await db.delete(articles)
+        .where(eq(articles.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting article by admin:", error);
+      return false;
+    }
+  }
+  
   async publishArticle(id: string): Promise<Article> {
     try {
       const result = await db.update(articles)
@@ -9480,6 +9591,17 @@ export class DBStorage implements IStorage {
         isReadLater
       };
       
+      // Increment view count when article is retrieved
+      try {
+        // Use the article's ID to increment the view count
+        this.registerArticleView(article.id, undefined, undefined, undefined).catch(err => {
+          console.error('Error incrementing view count:', err);
+          // Don't throw - view counting shouldn't break the main functionality
+        });
+      } catch (viewError) {
+        console.error('Error preparing view count increment:', viewError);
+      }
+      
       return articleWithRelations;
     } catch (error) {
       console.error("Error getting article with relations:", error);
@@ -9487,10 +9609,10 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async listArticles(params: {
+  async listArticlesByMultipleSections(params: {
     page: number;
     limit: number;
-    section?: string; // New enum field
+    sections: string[];
     format?: string; // New enum field
     searchQuery?: string;
     sortBy: 'publishedAt' | 'createdAt' | 'views';
@@ -9505,7 +9627,19 @@ export class DBStorage implements IStorage {
       // 1) Conditions (important: where should not be overridden)
       const conditions: any[] = [eq(articles.status, 'published')];
 
-      if (params.section) conditions.push(eq(articles.section, params.section));
+      if (params.sections && params.sections.length > 0) {
+        // For each section, match exact section OR sections that start with the section + dot (subcategories)
+        const sectionConditions = [];
+        for (const section of params.sections) {
+          sectionConditions.push(
+            or(
+              eq(articles.section, section),
+              like(articles.section, `${section}.%`)
+            )
+          );
+        }
+        conditions.push(or(...sectionConditions));
+      }
       if (params.format) conditions.push(eq(articles.format, params.format));
 
       if (params.searchQuery?.trim()) {
@@ -9608,8 +9742,25 @@ export class DBStorage implements IStorage {
 
         readLaterSet = new Set(rlRows.map(r => r.articleId));
       }
-
-      // 6) DTO: exactly what front needs (author + tags + isReadLater)
+      
+      // 6) Batch: bookmark counts for each article
+      let bookmarkCounts: Record<string, number> = {};
+      if (articleIds.length) {
+        const bookmarkCountRows = await db
+          .select({
+            articleId: articleReadLater.articleId,
+            count: count()
+          })
+          .from(articleReadLater)
+          .where(inArray(articleReadLater.articleId, articleIds))
+          .groupBy(articleReadLater.articleId);
+          
+        for (const row of bookmarkCountRows) {
+          bookmarkCounts[row.articleId] = Number(row.count);
+        }
+      }
+      
+      // 7) DTO
       const dto = rows.map(r => ({
         id: r.id,
         authorUserId: r.authorUserId,
@@ -9638,6 +9789,204 @@ export class DBStorage implements IStorage {
 
         tags: tagsByArticleId.get(r.id) ?? [],
         isReadLater: readLaterSet ? readLaterSet.has(r.id) : undefined,
+        bookmarkCount: bookmarkCounts[r.id] || 0,
+      }));
+
+      // 6) total + totalPages (important: count can be bigint)
+      const countQuery = db.select({ count: count() }).from(articles).where(eq(articles.status, 'published'));
+      
+      if (params.sections && params.sections.length > 0) {
+        countQuery.where(and(eq(articles.status, 'published'), inArray(articles.section, params.sections)));
+      }
+      
+      const countResult = await countQuery;
+      const total = Number(countResult[0]?.count ?? 0);
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+
+      return { articles: dto, total, page, limit, totalPages };
+    } catch (error) {
+      console.error("Error listing articles by multiple sections:", error);
+      throw error;
+    }
+  }
+  
+  async listArticles(params: {
+    page: number;
+    limit: number;
+    section?: string; // New enum field
+    format?: string; // New enum field
+    searchQuery?: string;
+    sortBy: 'publishedAt' | 'createdAt' | 'views';
+    sortOrder: 'asc' | 'desc';
+    userId?: string;
+  }): Promise<{ articles: any[]; total: number; page: number; limit: number; totalPages: number }> {
+    try {
+      const page = Math.max(1, params.page ?? 1);
+      const limit = Math.min(50, Math.max(1, params.limit ?? 12));
+      const offset = (page - 1) * limit;
+
+      // 1) Conditions (important: where should not be overridden)
+      const conditions: any[] = [eq(articles.status, 'published')];
+
+      if (params.section) {
+        // Match exact section OR sections that start with the section + dot (subcategories)
+        conditions.push(
+          or(
+            eq(articles.section, params.section),
+            like(articles.section, `${params.section}.%`)
+          )
+        );
+      }
+      if (params.format) conditions.push(eq(articles.format, params.format));
+
+      if (params.searchQuery?.trim()) {
+        const q = `%${params.searchQuery.trim()}%`;
+        conditions.push(
+          or(
+            ilike(articles.title, q),
+            ilike(articles.excerpt, q),
+            ilike(articles.searchText, q),
+          )
+        );
+      }
+
+      const where = and(...conditions);
+
+      // 2) Sort
+      let sortColumn: any;
+      switch (params.sortBy) {
+        case 'publishedAt':
+          sortColumn = articles.publishedAt;
+          break;
+        case 'views':
+          sortColumn = articles.views;
+          break;
+        default:
+          sortColumn = articles.createdAt;
+      }
+
+      const orderByExpr = params.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
+      // 3) Base list: article + author (without heavy fields)
+      const rows = await db
+        .select({
+          id: articles.id,
+          authorUserId: articles.authorUserId,
+          section: articles.section,
+          format: articles.format,
+          status: articles.status,
+          lang: articles.lang,
+          title: articles.title,
+          slug: articles.slug,
+          excerpt: articles.excerpt,
+          coverImageUrl: articles.coverImageUrl,
+          views: articles.views,
+          commentsCount: articles.commentsCount,
+          publishedAt: articles.publishedAt,
+          createdAt: articles.createdAt,
+          updatedAt: articles.updatedAt,
+
+          // author (IMPORTANT: get id, otherwise author is always undefined)
+          authorId: users.id,
+          username: users.username,
+          fullName: users.fullName,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(articles)
+        .leftJoin(users, eq(users.id, articles.authorUserId))
+        .where(where)
+        .orderBy(orderByExpr)
+        .limit(limit)
+        .offset(offset);
+
+      const articleIds = rows.map(r => r.id);
+
+      // 4) Batch: tags
+      const tagsByArticleId = new Map<string, any[]>();
+      if (articleIds.length) {
+        const tagRows = await db
+          .select({
+            articleId: articleTagLinks.articleId,
+            id: articleTags.id,
+            axis: articleTags.axis,
+            name: articleTags.name,
+            slug: articleTags.slug,
+          })
+          .from(articleTagLinks)
+          .innerJoin(articleTags, eq(articleTags.id, articleTagLinks.tagId))
+          .where(inArray(articleTagLinks.articleId, articleIds))
+          .orderBy(asc(articleTags.name));
+
+        for (const tr of tagRows) {
+          const arr = tagsByArticleId.get(tr.articleId) ?? [];
+          arr.push({ id: tr.id, axis: tr.axis, name: tr.name, slug: tr.slug });
+          tagsByArticleId.set(tr.articleId, arr);
+        }
+      }
+
+      // 5) Batch: isReadLater
+      let readLaterSet: Set<string> | null = null;
+      if (params.userId && articleIds.length) {
+        const rlRows = await db
+          .select({ articleId: articleReadLater.articleId })
+          .from(articleReadLater)
+          .where(
+            and(
+              eq(articleReadLater.userId, params.userId),
+              inArray(articleReadLater.articleId, articleIds)
+            )
+          );
+
+        readLaterSet = new Set(rlRows.map(r => r.articleId));
+      }
+      
+      // 6) Batch: bookmark counts for each article
+      let bookmarkCounts: Record<string, number> = {};
+      if (articleIds.length) {
+        const bookmarkCountRows = await db
+          .select({
+            articleId: articleReadLater.articleId,
+            count: count()
+          })
+          .from(articleReadLater)
+          .where(inArray(articleReadLater.articleId, articleIds))
+          .groupBy(articleReadLater.articleId);
+          
+        for (const row of bookmarkCountRows) {
+          bookmarkCounts[row.articleId] = Number(row.count);
+        }
+      }
+
+      // 7) DTO: exactly what front needs (author + tags + isReadLater + bookmarkCount)
+      const dto = rows.map(r => ({
+        id: r.id,
+        authorUserId: r.authorUserId,
+        section: r.section,
+        format: r.format,
+        status: r.status,
+        lang: r.lang,
+        title: r.title,
+        slug: r.slug,
+        excerpt: r.excerpt,
+        coverImageUrl: r.coverImageUrl,
+        views: r.views,
+        commentsCount: r.commentsCount,
+        publishedAt: r.publishedAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+
+        author: r.authorId
+          ? {
+              id: r.authorId,
+              username: r.username,
+              fullName: r.fullName,
+              avatarUrl: r.avatarUrl,
+            }
+          : undefined,
+
+        tags: tagsByArticleId.get(r.id) ?? [],
+        isReadLater: readLaterSet ? readLaterSet.has(r.id) : undefined,
+        bookmarkCount: bookmarkCounts[r.id] || 0,
       }));
 
       // 7) total + totalPages (count can be bigint)
@@ -9652,6 +10001,180 @@ export class DBStorage implements IStorage {
       return { articles: dto, total, page, limit, totalPages };
     } catch (error) {
       console.error("Error listing articles:", error);
+      throw error;
+    }
+  }
+  
+  async listFavoriteArticles(params: {
+    page: number;
+    limit: number;
+    userId: string;
+    searchQuery?: string;
+    sortBy: 'publishedAt' | 'createdAt' | 'views';
+    sortOrder: 'asc' | 'desc';
+  }): Promise<{ articles: any[]; total: number; page: number; limit: number; totalPages: number }> {
+    try {
+      const page = Math.max(1, params.page ?? 1);
+      const limit = Math.min(50, Math.max(1, params.limit ?? 12));
+      const offset = (page - 1) * limit;
+
+      // Join articles with read later table to get only favorited articles
+      const conditions: any[] = [
+        eq(articles.status, 'published'),
+        eq(articleReadLater.userId, params.userId)
+      ];
+
+      if (params.searchQuery?.trim()) {
+        const q = `%${params.searchQuery.trim()}%`;
+        conditions.push(
+          or(
+            ilike(articles.title, q),
+            ilike(articles.excerpt, q),
+            ilike(articles.searchText, q),
+          )
+        );
+      }
+
+      const where = and(...conditions);
+
+      // Sort
+      let sortColumn: any;
+      switch (params.sortBy) {
+        case 'publishedAt':
+          sortColumn = articles.publishedAt;
+          break;
+        case 'views':
+          sortColumn = articles.views;
+          break;
+        default:
+          sortColumn = articles.createdAt;
+      }
+
+      const orderByExpr = params.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
+      // Query articles joined with read later table
+      const rows = await db
+        .select({
+          id: articles.id,
+          authorUserId: articles.authorUserId,
+          section: articles.section,
+          format: articles.format,
+          status: articles.status,
+          lang: articles.lang,
+          title: articles.title,
+          slug: articles.slug,
+          excerpt: articles.excerpt,
+          coverImageUrl: articles.coverImageUrl,
+          views: articles.views,
+          commentsCount: articles.commentsCount,
+          publishedAt: articles.publishedAt,
+          createdAt: articles.createdAt,
+          updatedAt: articles.updatedAt,
+
+          // author
+          authorId: users.id,
+          username: users.username,
+          fullName: users.fullName,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(articles)
+        .innerJoin(articleReadLater, eq(articleReadLater.articleId, articles.id))
+        .leftJoin(users, eq(users.id, articles.authorUserId))
+        .where(where)
+        .orderBy(orderByExpr)
+        .limit(limit)
+        .offset(offset);
+
+      const articleIds = rows.map(r => r.id);
+
+      // Batch: tags
+      const tagsByArticleId = new Map<string, any[]>();
+      if (articleIds.length) {
+        const tagRows = await db
+          .select({
+            articleId: articleTagLinks.articleId,
+            id: articleTags.id,
+            axis: articleTags.axis,
+            name: articleTags.name,
+            slug: articleTags.slug,
+          })
+          .from(articleTagLinks)
+          .innerJoin(articleTags, eq(articleTags.id, articleTagLinks.tagId))
+          .where(inArray(articleTagLinks.articleId, articleIds))
+          .orderBy(asc(articleTags.name));
+
+        for (const tr of tagRows) {
+          const arr = tagsByArticleId.get(tr.articleId) ?? [];
+          arr.push({ id: tr.id, axis: tr.axis, name: tr.name, slug: tr.slug });
+          tagsByArticleId.set(tr.articleId, arr);
+        }
+      }
+
+      // For favorites, all articles are marked as read later by the current user
+      const readLaterSet = new Set(articleIds);
+      
+      // Batch: bookmark counts for each article
+      let bookmarkCounts: Record<string, number> = {};
+      if (articleIds.length) {
+        const bookmarkCountRows = await db
+          .select({
+            articleId: articleReadLater.articleId,
+            count: count()
+          })
+          .from(articleReadLater)
+          .where(inArray(articleReadLater.articleId, articleIds))
+          .groupBy(articleReadLater.articleId);
+          
+        for (const row of bookmarkCountRows) {
+          bookmarkCounts[row.articleId] = Number(row.count);
+        }
+      }
+
+      // DTO
+      const dto = rows.map(r => ({
+        id: r.id,
+        authorUserId: r.authorUserId,
+        section: r.section,
+        format: r.format,
+        status: r.status,
+        lang: r.lang,
+        title: r.title,
+        slug: r.slug,
+        excerpt: r.excerpt,
+        coverImageUrl: r.coverImageUrl,
+        views: r.views,
+        commentsCount: r.commentsCount,
+        publishedAt: r.publishedAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+
+        author: r.authorId
+          ? {
+              id: r.authorId,
+              username: r.username,
+              fullName: r.fullName,
+              avatarUrl: r.avatarUrl,
+            }
+          : undefined,
+
+        tags: tagsByArticleId.get(r.id) ?? [],
+        isReadLater: true, // All returned articles are in read later for this user
+        bookmarkCount: bookmarkCounts[r.id] || 0,
+      }));
+
+      // Total count
+      const countRes = await db
+        .select({ count: count() })
+        .from(articles)
+        .innerJoin(articleReadLater, eq(articleReadLater.articleId, articles.id))
+        .where(where);
+
+      const total = Number(countRes[0]?.count ?? 0);
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+
+      return { articles: dto, total, page, limit, totalPages };
+    } catch (error) {
+      console.error("Error listing favorite articles:", error);
       throw error;
     }
   }
@@ -9835,39 +10358,489 @@ export class DBStorage implements IStorage {
   
   async getArticleStatsByCategory(): Promise<any[]> {
     try {
-      // Get article counts by section/category
-      const result = await db.execute(
-        sql`SELECT 
-          section, 
-          COUNT(*) as count,
-          SUM(CASE WHEN "publishedAt" >= NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END) as newCount
-        FROM articles 
-        WHERE status = 'published'
-        GROUP BY section`
-      );
+      // First, get all categories to understand the hierarchy
+      const allCategories = await db
+        .select()
+        .from(articleCategories)
+        .orderBy(asc(articleCategories.sortOrder), asc(articleCategories.title));
       
-      // Return the result rows, handling different possible return types
-      if (Array.isArray(result)) {
-        return result.map(row => ({
+      // Get article counts by section
+      let rawStats: { section: string; count: number; newCount: number }[] = [];
+      
+      try {
+        const rawResult = await db.execute(
+          sql`SELECT 
+            section, 
+            COUNT(*) as count,
+            SUM(CASE WHEN "publishedAt" >= NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END) as newCount
+          FROM articles 
+          WHERE status = 'published' AND section IS NOT NULL
+          GROUP BY section`
+        );
+        
+        // Handle the result based on its type
+        let rows = [];
+        if (Array.isArray(rawResult)) {
+          rows = rawResult;
+        } else if (rawResult && typeof rawResult === 'object' && 'rows' in rawResult) {
+          rows = (rawResult as any).rows || [];
+        }
+        
+        // Process the results
+        rawStats = rows.map((row: any) => ({
           section: row.section,
-          count: parseInt(row.count),
-          newCount: parseInt(row.newCount)
+          count: parseInt(row.count) || 0,
+          newCount: parseInt(row.newCount) || 0
         }));
-      } else if (result && typeof result === 'object' && 'rows' in result) {
-        // Handle QueryResult type
-        const rows = (result as any).rows || [];
-        return rows.map(row => ({
-          section: row.section,
-          count: parseInt(row.count),
-          newCount: parseInt(row.newCount)
-        }));
-      } else {
-        return [];
+      } catch (queryError) {
+        console.error('Error executing article count query:', queryError);
+        rawStats = []; // Default to empty array if query fails
       }
+      
+      // Create a map to store the total counts for each category
+      const categoryTotals: Record<string, { count: number; newCount: number }> = {};
+      
+      // Initialize all categories with zero counts
+      allCategories.forEach(category => {
+        categoryTotals[category.slug] = { count: 0, newCount: 0 };
+      });
+      
+      // Add article counts to matching categories
+      rawStats.forEach(stat => {
+        if (stat.section) {
+          // Find the category that corresponds to this section
+          const category = allCategories.find(cat => cat.slug === stat.section);
+          if (category) {
+            // Add to this category
+            if (categoryTotals[stat.section]) {
+              categoryTotals[stat.section].count += stat.count;
+              categoryTotals[stat.section].newCount += stat.newCount;
+            }
+            
+            // Then, traverse up the hierarchy to add to parent categories
+            let parentId = category.parentId;
+            while (parentId) {
+              const parentCategory = allCategories.find(cat => cat.id === parentId);
+              if (parentCategory) {
+                if (categoryTotals[parentCategory.slug]) {
+                  categoryTotals[parentCategory.slug].count += stat.count;
+                  categoryTotals[parentCategory.slug].newCount += stat.newCount;
+                }
+                parentId = parentCategory.parentId;
+              } else {
+                break;
+              }
+            }
+          }
+        }
+      });
+      
+      // Convert to the expected format (include all categories, even those with 0 counts)
+      const finalStats = Object.entries(categoryTotals)
+        .map(([section, counts]) => ({
+          section,
+          count: counts.count,
+          newCount: counts.newCount
+        }));
+      
+      return finalStats;
     } catch (error) {
       console.error("Error getting article stats by category:", error);
       // Return empty array in case of error
       return [];
+    }
+  }
+  
+  // Get article comments
+  async getArticleComments(articleId: string, currentUserId?: string): Promise<any[]> {
+    try {
+      // Direct query approach to avoid Drizzle syntax issues
+      const result = await db.execute(sql`
+        SELECT 
+          c.id,
+          c.user_id as "userId",
+          c.article_id as "articleId",
+          c.content,
+          c.parent_comment_id as "parentCommentId",
+          c.quoted_text as "quotedText",
+          c.created_at as "createdAt",
+          u.username,
+          u.full_name as "fullName",
+          u.avatar_url as "avatarUrl"
+        FROM comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.article_id = ${articleId} AND c.parent_comment_id IS NULL
+        ORDER BY c.created_at DESC
+      `);
+      
+      const commentsWithData = [];
+      
+      for (const row of result.rows) {
+        // Get reactions for this comment
+        const reactions = await this.getCommentReactions(row.id, currentUserId);
+        // Safely calculate reaction sum
+        const reactionSum = reactions && Array.isArray(reactions) 
+          ? reactions.reduce((sum, r) => sum + (r.count || 0), 0) 
+          : 0;
+        
+        // Get replies for this comment
+        const replies = await this.getArticleCommentReplies(row.id, currentUserId);
+        const replyCount = await this.countArticleCommentReplies(row.id);
+        
+        commentsWithData.push({
+          id: row.id,
+          userId: row.userId,
+          articleId: row.articleId,
+          content: row.content,
+          author: row.fullName || row.username || 'Anonymous',
+          username: row.username || null,
+          createdAt: new Date(row.createdAt).toISOString(),
+          reactions: reactions || [],
+          userLiked: reactions && Array.isArray(reactions) ? reactions.some(r => r.userReacted) : false,
+          likes: reactionSum,
+          userAvatar: row.avatarUrl || null,
+          attachments: [],
+          isOwnComment: currentUserId === row.userId,
+          parentCommentId: row.parentCommentId,
+          quotedText: row.quotedText,
+          parentCommentAuthor: row.parentCommentAuthor || null,
+          replyCount: replyCount || 0,
+          replies: replies || [],
+          metadata: null
+        });
+      }
+      
+      return commentsWithData;
+    } catch (error) {
+      console.error("Error getting article comments:", error);
+      throw error;
+    }
+  }
+  
+  // Add article comment
+  async addArticleComment(params: {
+    articleId: string;
+    userId: string;
+    content: string;
+    parentCommentId?: string | null;
+    quotedText?: string | null;
+  }): Promise<any> {
+    try {
+      const result = await db.insert(comments)
+        .values({
+          userId: params.userId,
+          articleId: params.articleId,
+          content: params.content,
+          parentCommentId: params.parentCommentId || null,
+          quotedText: params.quotedText || null
+        })
+        .returning();
+      
+      const comment = result[0];
+      
+      // Get user info for the comment
+      const userResult = await db.select({
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(users)
+      .where(eq(users.id, params.userId));
+      
+      const userInfo = userResult[0];
+      
+      return {
+        id: comment.id,
+        userId: comment.userId,
+        articleId: comment.articleId,
+        content: comment.content,
+        parentCommentId: comment.parentCommentId,
+        quotedText: comment.quotedText,
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
+        userName: userInfo.fullName || userInfo.username || 'Anonymous',
+        userAvatar: userInfo.avatarUrl || null,
+        likes: 0,
+        userLiked: false,
+        replies: [],
+        replyCount: 0
+      };
+    } catch (error) {
+      console.error("Error adding article comment:", error);
+      throw error;
+    }
+  }
+  
+  // Toggle article like/reaction
+  async toggleArticleLike(params: {
+    articleId: string;
+    userId: string;
+    emoji: string;
+  }): Promise<any> {
+    try {
+      // Check if user already reacted
+      const existingReaction = await db.select()
+        .from(reactions)
+        .where(and(
+          eq(reactions.userId, params.userId),
+          eq(reactions.articleId, params.articleId),
+          eq(reactions.emoji, params.emoji)
+        ));
+      
+      // Perform the add/remove operation
+      if (existingReaction.length > 0) {
+        // Remove reaction if it exists
+        await db.delete(reactions)
+          .where(eq(reactions.id, existingReaction[0].id));
+      } else {
+        // Add reaction if it doesn't exist
+        await db.insert(reactions)
+          .values({
+            userId: params.userId,
+            articleId: params.articleId,
+            emoji: params.emoji
+          });
+      }
+      
+      // Get all reactions for this article grouped by emoji (after the add/remove operation)
+      const allArticleReactions = await db.select({
+        emoji: reactions.emoji,
+        userId: reactions.userId,
+      })
+      .from(reactions)
+      .where(eq(reactions.articleId, params.articleId));
+      
+      // Group reactions by emoji and calculate counts
+      const reactionMap = new Map<string, { count: number, userReacted: boolean }>();
+      
+      allArticleReactions.forEach(reaction => {
+        if (!reactionMap.has(reaction.emoji)) {
+          reactionMap.set(reaction.emoji, { count: 0, userReacted: false });
+        }
+        
+        const reactionData = reactionMap.get(reaction.emoji)!;
+        reactionData.count += 1;
+        
+        // Mark if this user has reacted with this specific emoji
+        if (reaction.userId === params.userId) {
+          reactionData.userReacted = true;
+        }
+      });
+      
+      // Handle the case where user removed their reaction
+      if (existingReaction.length > 0) {
+        // User just removed a reaction, need to update userReacted for that specific emoji
+        const removedEmoji = existingReaction[0].emoji;
+        if (reactionMap.has(removedEmoji)) {
+          const emojiData = reactionMap.get(removedEmoji)!;
+          // Need to check if any other reactions by this user remain for this emoji
+          const userReactionsForEmoji = allArticleReactions.filter(r => 
+            r.userId === params.userId && r.emoji === removedEmoji
+          );
+          emojiData.userReacted = userReactionsForEmoji.length > 0;
+        }
+      }
+      
+      // Convert to the expected format
+      const reactionsArray = Array.from(reactionMap.entries()).map(([emoji, data]) => ({
+        emoji,
+        count: data.count,
+        userReacted: data.userReacted
+      }));
+      
+      return {
+        articleId: params.articleId,
+        reactions: reactionsArray,
+        userLiked: existingReaction.length === 0  // If we just added it, userLiked is true
+      };
+    } catch (error) {
+      console.error("Error toggling article like:", error);
+      throw error;
+    }
+  }
+  
+  // Get article reactions with all emoji types
+  async getArticleReactions(articleId: string, currentUserId?: string): Promise<any> {
+    try {
+      // Get all reactions for this article grouped by emoji
+      const allReactions = await db.select({
+        emoji: reactions.emoji,
+        userId: reactions.userId,
+      })
+      .from(reactions)
+      .where(eq(reactions.articleId, articleId));
+      
+      // Group by emoji and count
+      const emojiCounts: Record<string, {count: number, userReacted: boolean}> = {};
+      
+      for (const reaction of allReactions) {
+        if (!emojiCounts[reaction.emoji]) {
+          emojiCounts[reaction.emoji] = { count: 0, userReacted: false };
+        }
+        emojiCounts[reaction.emoji].count++;
+        if (currentUserId && reaction.userId === currentUserId) {
+          emojiCounts[reaction.emoji].userReacted = true;
+        }
+      }
+      
+      // Calculate total likes (for 👍 only, to maintain backward compatibility)
+      const totalLikes = emojiCounts['👍']?.count || 0;
+      const userLiked = emojiCounts['👍']?.userReacted || false;
+      
+      // Convert to array format for all emojis
+      const reactionsArray = Object.entries(emojiCounts).map(([emoji, data]) => ({
+        emoji,
+        count: data.count,
+        userReacted: data.userReacted,
+      }));
+      
+      return {
+        articleId,
+        likes: totalLikes,  // Keep for backward compatibility
+        userLiked,         // Keep for backward compatibility
+        reactions: reactionsArray  // New format with all reactions
+      };
+    } catch (error) {
+      console.error("Error getting article reactions:", error);
+      throw error;
+    }
+  }
+  
+  // Toggle comment like
+  async toggleCommentLike(params: {
+    commentId: string;
+    userId: string;
+    emoji: string;
+  }): Promise<any> {
+    try {
+      // Check if user already reacted
+      const existingReaction = await db.select()
+        .from(reactions)
+        .where(and(
+          eq(reactions.userId, params.userId),
+          eq(reactions.commentId, params.commentId),
+          eq(reactions.emoji, params.emoji)
+        ));
+      
+      if (existingReaction.length > 0) {
+        // Remove reaction if it exists
+        await db.delete(reactions)
+          .where(eq(reactions.id, existingReaction[0].id));
+      } else {
+        // Add reaction if it doesn't exist
+        await db.insert(reactions)
+          .values({
+            userId: params.userId,
+            commentId: params.commentId,
+            emoji: params.emoji
+          });
+      }
+      
+      // Return updated reaction count
+      const reactionCount = await db.select({ count: count() })
+        .from(reactions)
+        .where(and(
+          eq(reactions.commentId, params.commentId),
+          eq(reactions.emoji, params.emoji)
+        ));
+      
+      const count = Number(reactionCount[0]?.count ?? 0);
+      
+      return {
+        commentId: params.commentId,
+        likes: count,
+        userLiked: existingReaction.length === 0  // If we just added it, userLiked is true
+      };
+    } catch (error) {
+      console.error("Error toggling comment like:", error);
+      throw error;
+    }
+  }
+  
+  async updateArticleCommentsCount(articleId: string, count: number): Promise<void> {
+    try {
+      await db.update(articles)
+        .set({ commentsCount: count })
+        .where(eq(articles.id, articleId));
+    } catch (error) {
+      console.error("Error updating article comments count:", error);
+      throw error;
+    }
+  }
+  
+  async getArticleCommentReplies(commentId: string, currentUserId?: string): Promise<any[]> {
+    try {
+      // Get replies for a specific comment with user information
+      const result = await db.select({
+        id: comments.id,
+        userId: comments.userId,
+        articleId: comments.articleId,
+        content: comments.content,
+        parentCommentId: comments.parentCommentId,
+        quotedText: comments.quotedText,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.parentCommentId, commentId))
+      .orderBy(desc(comments.createdAt));
+      
+      // Get reactions and nested replies for each reply
+      const repliesWithData = await Promise.all(result.map(async (reply) => {
+        const reactions = await this.getCommentReactions(reply.id, currentUserId);
+        // Safely calculate reaction sum
+        const reactionSum = reactions && Array.isArray(reactions) 
+          ? reactions.reduce((sum, r) => sum + (r.count || 0), 0) 
+          : 0;
+        
+        // Get nested replies
+        const nestedReplies = await this.getArticleCommentReplies(reply.id, currentUserId);
+        const replyCount = await this.countArticleCommentReplies(reply.id);
+        
+        return {
+          id: reply.id,
+          userId: reply.userId,
+          articleId: reply.articleId,
+          content: reply.content,
+          author: reply.fullName || reply.username || 'Anonymous',
+          username: reply.username || null,
+          createdAt: reply.createdAt.toISOString(),
+          reactions: reactions || [],
+          userLiked: reactions && Array.isArray(reactions) ? reactions.some(r => r.userReacted) : false,
+          likes: reactionSum,
+          userAvatar: reply.avatarUrl || null,
+          attachments: [],
+          isOwnComment: currentUserId === reply.userId,
+          parentCommentId: reply.parentCommentId,
+          quotedText: reply.quotedText,
+          parentCommentAuthor: reply.parentCommentAuthor || null,
+          replyCount: replyCount || 0,
+          replies: nestedReplies || [],
+          metadata: null
+        };
+      }));
+      
+      return repliesWithData;
+    } catch (error) {
+      console.error("Error getting article comment replies:", error);
+      throw error;
+    }
+  }
+  
+  async countArticleCommentReplies(commentId: string): Promise<number> {
+    try {
+      const result = await db.select({ count: count() })
+        .from(comments)
+        .where(eq(comments.parentCommentId, commentId));
+      
+      return Number(result[0]?.count ?? 0);
+    } catch (error) {
+      console.error("Error counting article comment replies:", error);
+      throw error;
     }
   }
 }

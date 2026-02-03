@@ -163,8 +163,18 @@
     "clear": "Clear",
     "noTextSelected": "No text selected",
     "selectedText": "Selected text",
-    "playback": "Playback"
+    "playback": "Playback",
+    "listen": "Listen",
+    "provider": "Provider",
+    "voice": "Voice",
+    "language": "Language",
+    "speed": "Speed",
+    "readyToPlay": "Ready to play",
+    "clickToGenerate": "Click to generate audio",
+    "queued": "Queued",
+    "processing": "Processing"
   },
+  "copy": "Copy",
   "copied": "Copied",
   "image": "Image",
   "file": "File"

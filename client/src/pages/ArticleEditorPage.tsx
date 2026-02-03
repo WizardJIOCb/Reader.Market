@@ -11,6 +11,19 @@ import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 
+interface ArticleCategory {
+  id: string;
+  parentId: string | null;
+  title: string;
+  titleEn: string | null;
+  description: string | null;
+  descriptionEn: string | null;
+  slug: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ArticleFormData {
   title: string;
   contentJson: any;
@@ -29,7 +42,7 @@ export function ArticleEditorPage() {
   
   // Determine if we're in edit mode
   const isEditMode = location.startsWith('/articles/edit/');
-  const articleSlug = isEditMode ? location.split('/').pop() : null;
+  const articleSlug = isEditMode ? location.substring('/articles/edit/'.length) : null;
   
   // Store the article ID separately for updates
   const [articleId, setArticleId] = useState<string | null>(null);
@@ -43,11 +56,57 @@ export function ArticleEditorPage() {
     tags: [],
     lang: 'ru'
   });
-  const [categories, setCategories] = useState<Array<{ id: string; title: string }>>([]);
+  const [categories, setCategories] = useState<ArticleCategory[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<Array<{ id: string; title: string; slug: string; parentId: string | null }>>([]);
   const [tagInput, setTagInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditMode); // Loading when editing
   const [error, setError] = useState<string | null>(null);
+  
+  // Load categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('/api/article-categories');
+        const data = await response.json();
+        setCategories(data);
+        
+        // Build hierarchical category options
+        const rootCategories: ArticleCategory[] = data.filter((cat: ArticleCategory) => !cat.parentId);
+        const childCategories: ArticleCategory[] = data.filter((cat: ArticleCategory) => cat.parentId);
+        
+        // Build hierarchical category options
+        const options: Array<{ id: string; title: string; slug: string; parentId: string | null }> = [];
+        
+        // Add root categories
+        rootCategories.forEach((cat: ArticleCategory) => {
+          options.push({
+            id: cat.id,
+            title: cat.title,
+            slug: cat.slug,
+            parentId: cat.parentId
+          });
+          
+          // Add child categories with indentation
+          const children = childCategories.filter((child: ArticleCategory) => child.parentId === cat.id);
+          children.forEach((child: ArticleCategory) => {
+            options.push({
+              id: child.id,
+              title: `└─ ${child.title}`, // Indented child category
+              slug: child.slug,
+              parentId: child.parentId
+            });
+          });
+        });
+        
+        setCategoryOptions(options);
+      } catch (e) {
+        console.error('Error loading categories:', e);
+      }
+    };
+
+    loadCategories();
+  }, []);
   
   // Load existing article data when in edit mode
   useEffect(() => {
@@ -151,8 +210,8 @@ export function ArticleEditorPage() {
       }
       
       const result = await response.json();
-      // Redirect to the article
-      window.location.href = `/articles/${result.article.slug}`;
+      // Redirect to the article using article ID in query parameter
+      window.location.href = `/articles?article=${result.article.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -242,14 +301,15 @@ export function ArticleEditorPage() {
                     <SelectTrigger>
                       <SelectValue placeholder={t('articles:editor.selectSection')} />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="news">{t('articles:editor.sections.news')}</SelectItem>
-                      <SelectItem value="reviews">{t('articles:editor.sections.reviews')}</SelectItem>
-                      <SelectItem value="collections">{t('articles:editor.sections.collections')}</SelectItem>
-                      <SelectItem value="guides">{t('articles:editor.sections.guides')}</SelectItem>
-                      <SelectItem value="world">{t('articles:editor.sections.world')}</SelectItem>
-                      <SelectItem value="community">{t('articles:editor.sections.community')}</SelectItem>
-                      <SelectItem value="product">{t('articles:editor.sections.product')}</SelectItem>
+                    <SelectContent className="max-h-60 overflow-auto">
+                      {categoryOptions.map(option => (
+                        <SelectItem 
+                          key={option.id} 
+                          value={option.slug}
+                        >
+                          {option.title}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

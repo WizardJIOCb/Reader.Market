@@ -43,6 +43,9 @@ import {
 } from '@/components/reader';
 import type { ReaderSettings } from '@/components/reader/types';
 
+// TTS Component
+import EnhancedTtsPlayer from '@/components/EnhancedTtsPlayer';
+
 // Legacy components
 import { AISidebar } from '@/components/AISidebar';
 
@@ -3196,13 +3199,36 @@ export default function Reader() {
                 {/* TTS Panel */}
                 {activePanel === 'tts' && (
                   <div className="p-4 space-y-4" key="tts-panel">
-                    <TtsComponent 
+                    <EnhancedTtsPlayer 
                       bookId={bookId}
                       text={currentChapter?.content || ''}
                       chapterIndex={currentChapter?.index}
                       chunkIndex={currentPage}
                       hideText={true} // Hide original text to prevent duplication
-                      onSettingsChange={(settings) => {
+                      onHighlightChange={(element) => {
+                        if (element) {
+                          // Scroll the highlighted element into view
+                          element.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center',
+                            inline: 'nearest'
+                          });
+                          
+                          // Add temporary highlight effect
+                          const originalBg = element.style.backgroundColor;
+                          const originalTransition = element.style.transition;
+                          
+                          element.style.backgroundColor = '#fef08a'; // Yellow-200
+                          element.style.transition = 'background-color 0.3s ease';
+                          
+                          // Remove highlight after delay
+                          setTimeout(() => {
+                            element.style.backgroundColor = originalBg;
+                            element.style.transition = originalTransition;
+                          }, 1000);
+                        }
+                      }}
+                      onSettingsChange={(settings: any) => {
                         // Handle TTS settings changes if needed
                         console.log('TTS settings changed:', settings);
                       }}

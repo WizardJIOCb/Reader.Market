@@ -190,6 +190,7 @@ export const comments = pgTable("comments", {
   userId: varchar("user_id").notNull().references(() => users.id),
   bookId: varchar("book_id").references(() => books.id),  // Optional - for book comments
   newsId: varchar("news_id").references(() => news.id),  // Optional - for news comments
+  articleId: varchar("article_id").references(() => articles.id),  // Optional - for article comments
   content: text("content").notNull(),
   attachmentUrls: jsonb("attachment_urls").default(sql`'[]'::jsonb`),
   attachmentMetadata: jsonb("attachment_metadata"),
@@ -248,6 +249,7 @@ export const reactions = pgTable("reactions", {
   reviewId: varchar("review_id").references(() => reviews.id),
   newsId: varchar("news_id").references(() => news.id),
   bookId: varchar("book_id").references(() => books.id),
+  articleId: varchar("article_id").references(() => articles.id),
   profileCommentId: varchar("profile_comment_id").references(() => profileComments.id, { onDelete: 'cascade' }),
   emoji: text("emoji").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -38,11 +38,12 @@ interface ReactionBarProps {
   reviewId?: string;
   newsId?: string;
   bookId?: string;
+  articleId?: string;
 }
 
 const AVAILABLE_EMOJIS = ['👍', '👎', '❤️', '🔥', '👏', '🤯', '🤔', '😢', '😂', '😊', '😐'];
 
-export function ReactionBar({ reactions = [], onReact, commentId, reviewId, newsId, bookId }: ReactionBarProps) {
+export function ReactionBar({ reactions = [], onReact, commentId, reviewId, newsId, bookId, articleId }: ReactionBarProps) {
   const [reactionDetails, setReactionDetails] = useState<Record<string, ReactionDetail[]>>({});
   const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({});
   const [dialogReaction, setDialogReaction] = useState<{emoji: string, users: ReactionDetail[]} | null>(null);
@@ -58,6 +59,7 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
     if (reviewId) return { type: 'review', id: reviewId };
     if (newsId) return { type: 'news', id: newsId };
     if (bookId) return { type: 'book', id: bookId };
+    if (articleId) return { type: 'article', id: articleId };
     return null;
   };
   
@@ -103,6 +105,8 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
         endpoint = `/api/reviews/${entityInfo.id}/reactions`;
       } else if (entityInfo.type === 'book') {
         endpoint = `/api/books/${entityInfo.id}/reactions/detail`;
+      } else if (entityInfo.type === 'article') {
+        endpoint = `/api/articles/${entityInfo.id}/reactions/detail`;
       }
       
       const token = localStorage.getItem('authToken');

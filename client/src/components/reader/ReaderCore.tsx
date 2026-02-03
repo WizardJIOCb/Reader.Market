@@ -76,6 +76,8 @@ export interface ReaderCoreHandle {
   getPosition: () => Position | null;
   /** Get book content */
   getContent: () => BookContent | null;
+  /** Get content element reference */
+  getContentRef: () => React.RefObject<HTMLDivElement | null> | null;
   /** Search in book */
   search: (query: string) => void;
   /** Get current page number (1-based) */
@@ -1023,6 +1025,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         goToCharOffset,
         getPosition: () => engineRef.current?.getPosition() || null,
         getContent: () => content,
+        getContentRef: () => contentRef,
         search,
         getCurrentPage: () => currentPage + 1, // 1-based for display
         getTotalPages: () => totalPages,

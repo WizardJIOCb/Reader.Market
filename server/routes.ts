@@ -3425,23 +3425,57 @@ export async function registerRoutes(
     try {
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
-      const section = req.query.section as string || undefined;
+      const sectionParam = req.query.section as string || undefined;
+      let section: string | string[] | undefined;
+      if (sectionParam && sectionParam.includes(',')) {
+        // Multiple sections passed as comma-separated list
+        section = sectionParam.split(',');
+      } else {
+        section = sectionParam || undefined;
+      }
       const format = req.query.format as string || undefined;
       const search = req.query.search as string || undefined;
+      const isReadLater = req.query.isReadLater === 'true'; // Add isReadLater parameter
       const sortBy = (req.query.sortBy as string) || 'publishedAt';
       const sortOrder = (req.query.sortOrder as string) || 'desc';
       const userId = (req as any).user?.userId;
       
-      const result = await storage.listArticles({
-        page,
-        limit,
-        section,
-        format,
-        searchQuery: search,
-        sortBy: sortBy as any,
-        sortOrder: sortOrder as any,
-        userId
-      });
+      // If section is an array, we need to handle it specially
+      let result;
+      if (isReadLater && userId) {
+        // Special handling for favorites - list articles marked as read later
+        result = await storage.listFavoriteArticles({
+          page,
+          limit,
+          userId,
+          searchQuery: search,
+          sortBy: sortBy as any,
+          sortOrder: sortOrder as any
+        });
+      } else if (Array.isArray(section)) {
+        // Filter by multiple sections
+        result = await storage.listArticlesByMultipleSections({
+          page,
+          limit,
+          sections: section,
+          format,
+          searchQuery: search,
+          sortBy: sortBy as any,
+          sortOrder: sortOrder as any,
+          userId
+        });
+      } else {
+        result = await storage.listArticles({
+          page,
+          limit,
+          section,
+          format,
+          searchQuery: search,
+          sortBy: sortBy as any,
+          sortOrder: sortOrder as any,
+          userId
+        });
+      }
       
       res.json(result);
     } catch (error) {
@@ -3530,7 +3564,7 @@ export async function registerRoutes(
         section: section || undefined,
         format: format || undefined,
         lang: lang || 'ru',
-        status: status || 'draft',
+        status: status || 'published',
         tags: tags || []
       };
       
@@ -3707,6 +3741,175 @@ export async function registerRoutes(
     }
   });
   
+  // Get article comments
+  app.get("/api/articles/:id/comments", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get article comments endpoint called for article ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user?.userId; // Optional userId
+      
+      const comments = await storage.getArticleComments(id, userId);
+      console.log("Returning", comments.length, "comments for article ID:", id);
+      
+      res.json({ comments });
+    } catch (error) {
+      console.error("Get article comments error:", error);
+      res.status(500).json({ error: "Failed to get article comments" });
+    }
+  });
+  
+  // Post article comment
+  app.post("/api/articles/:id/comments", authenticateToken, async (req, res) => {
+    console.log("Post article comment endpoint called for article ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const { content, parentCommentId, quotedText } = req.body;
+      const userId = (req as any).user.userId;
+      
+      console.log("Received comment data - userId:", userId, "articleId:", id, "content:", content, "parentCommentId:", parentCommentId, "quotedText:", quotedText);
+      
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+      
+      // Verify that the article exists
+      const article = await storage.getArticleById(id);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      // If this is a reply, verify that the parent comment exists
+      if (parentCommentId) {
+        const parentComment = await storage.getCommentById(parentCommentId);
+        if (!parentComment || parentComment.articleId !== id) {
+          return res.status(404).json({ error: "Parent comment not found" });
+        }
+      }
+      
+      // Add comment to article
+      const comment = await storage.addArticleComment({
+        articleId: id,
+        userId,
+        content,
+        parentCommentId: parentCommentId || null,
+        quotedText: quotedText || null
+      });
+      
+      console.log("Successfully added comment with ID:", comment.id);
+      
+      // Update comments count for the article
+      await storage.updateArticleCommentsCount(id, article.commentsCount + 1);
+      
+      res.json(comment);
+    } catch (error) {
+      console.error("Post article comment error:", error);
+      res.status(500).json({ error: "Failed to post article comment" });
+    }
+  });
+  
+  // Like/unlike article
+  app.post("/api/articles/:id/like", authenticateToken, async (req, res) => {
+    console.log("Toggle article like endpoint called for article ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      const emoji = req.body.Emoji || req.body.emoji || '👍';
+      
+      console.log("Received like data - userId:", userId, "articleId:", id, "emoji:", emoji);
+      
+      // Verify that the article exists
+      const article = await storage.getArticleById(id);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      // Toggle like on article
+      const reaction = await storage.toggleArticleLike({
+        articleId: id,
+        userId,
+        emoji
+      });
+      
+      console.log("Successfully toggled like for article ID:", id);
+      
+      res.json(reaction);
+    } catch (error) {
+      console.error("Toggle article like error:", error);
+      res.status(500).json({ error: "Failed to toggle article like" });
+    }
+  });
+  
+  // Get article reactions
+  app.get("/api/articles/:id/reactions", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get article reactions endpoint called for article ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user?.userId; // Optional userId
+      
+      const reactions = await storage.getArticleReactions(id, userId);
+      
+      console.log("Returning reactions for article ID:", id);
+      
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get article reactions error:", error);
+      res.status(500).json({ error: "Failed to get article reactions" });
+    }
+  });
+  
+  // Get article reactions detail
+  app.get("/api/articles/:id/reactions/detail", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if article exists
+      const article = await storage.getArticleById(id);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      // Get detailed reactions with user information
+      const reactions = await storage.getReactions(id, 'article');
+      
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get article reactions detail error:", error);
+      res.status(500).json({ error: "Failed to get reaction details" });
+    }
+  });
+  
+  // Like/unlike comment
+  app.post("/api/comments/:id/like", authenticateToken, async (req, res) => {
+    console.log("Toggle comment like endpoint called for comment ID:", req.params.id);
+    try {
+      const { id: commentId } = req.params;
+      const userId = (req as any).user.userId;
+      const emoji = req.body.emoji || '👍';
+      
+      console.log("Received comment like data - userId:", userId, "commentId:", commentId, "emoji:", emoji);
+      
+      // Verify that the comment exists
+      const comment = await storage.getCommentById(commentId);
+      if (!comment) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      
+      // Toggle like on comment
+      const reaction = await storage.toggleCommentLike({
+        commentId,
+        userId,
+        emoji
+      });
+      
+      console.log("Successfully toggled like for comment ID:", commentId);
+      
+      res.json(reaction);
+    } catch (error) {
+      console.error("Toggle comment like error:", error);
+      res.status(500).json({ error: "Failed to toggle comment like" });
+    }
+  });
+  
   // Authenticated: Get user's read later articles
   app.get("/api/articles/read-later", authenticateToken, async (req, res) => {
     console.log("Get read later articles endpoint called");
@@ -3745,6 +3948,40 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Moderate article error:", error);
       res.status(500).json({ error: "Failed to moderate article" });
+    }
+  });
+  
+  // Admin: Delete any article
+  app.delete("/api/admin/articles/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Admin delete article endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      
+      await storage.deleteArticleByAdmin(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Admin delete article error:", error);
+      res.status(500).json({ error: "Failed to delete article" });
+    }
+  });
+  
+  // Admin: Publish any article
+  app.patch("/api/admin/articles/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Admin publish article endpoint called for ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ error: "Status is required" });
+      }
+      
+      // Use moderateArticle for admin publishing since it allows setting any status
+      const updatedArticle = await storage.moderateArticle(id, status, `Status updated by admin`);
+      res.json({ article: updatedArticle });
+    } catch (error) {
+      console.error("Admin publish article error:", error);
+      res.status(500).json({ error: "Failed to update article status" });
     }
   });
   
