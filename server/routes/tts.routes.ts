@@ -3,7 +3,7 @@ import { ttsService } from '../services/tts/tts.service';
 import { db } from '../storage';
 import { users, ttsConfig } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import jwt from 'jsonwebtoken';
+import { verifyToken as verifySecureToken } from '../utils/jwt-utils';
 
 // Authentication middleware (copied from main routes.ts)
 const authenticateToken = async (req: Request, res: Response, next: Function) => {
@@ -14,21 +14,11 @@ const authenticateToken = async (req: Request, res: Response, next: Function) =>
     return res.status(401).json({ error: "Access token required" });
   }
 
-  // Promisify jwt.verify
-  const verifyToken = (token: string, secret: string) => {
-    return new Promise((resolve, reject) => {
-      jwt.verify(token, secret, (err, decoded) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(decoded);
-        }
-      });
-    });
-  };
-
   try {
-    const decoded = await verifyToken(token, process.env.JWT_SECRET || "default_secret") as any;
+    const decoded = await verifySecureToken(token);
+    if (!decoded) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
     
     // Verify that the user actually exists in the database
     const userData = await db.select().from(users).where(eq(users.id, decoded.userId)).limit(1);

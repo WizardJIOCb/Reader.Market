@@ -1,6 +1,6 @@
 // Server-side logging configuration management
 import { Router, type Request, type Response } from 'express';
-import jwt from 'jsonwebtoken';
+import { verifyToken as verifySecureToken } from '../utils/jwt-utils';
 import { storage } from '../storage';
 
 const router = Router();
@@ -14,21 +14,11 @@ const authenticateToken = async (req: Request, res: Response, next: Function) =>
     return res.status(401).json({ error: "Access token required" });
   }
 
-  // Promisify jwt.verify
-  const verifyToken = (token: string, secret: string) => {
-    return new Promise((resolve, reject) => {
-      jwt.verify(token, secret, (err, decoded) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(decoded);
-        }
-      });
-    });
-  };
-
   try {
-    const decoded = await verifyToken(token, process.env.JWT_SECRET || "default_secret") as any;
+    const decoded = await verifySecureToken(token);
+    if (!decoded) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
     
     // Verify that the user actually exists in the database
     const userData = await storage.getUser(decoded.userId);

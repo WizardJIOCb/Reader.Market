@@ -6,7 +6,7 @@ import { getPersonalActivitiesDirect, getProfileActivitiesDirect, getProfileComm
 import { sql } from "drizzle-orm/sql";
 import { eq, and, inArray, or, ilike, desc, asc, exists, ne } from "drizzle-orm";
 import bcrypt from "bcrypt";
-import jwt from 'jsonwebtoken';
+import { generateToken as createSecureToken, verifyToken as verifySecureToken } from './utils/jwt-utils';
 import { Ollama } from "ollama";
 import multer from "multer";
 import fs from "fs";
@@ -241,9 +241,7 @@ const avatarUpload = multer({
 
 // Helper function to generate JWT token
 const generateToken = (userId: string, accessLevel?: string) => {
-  return jwt.sign({ userId, accessLevel }, process.env.JWT_SECRET || "default_secret", {
-    expiresIn: "7d",
-  });
+  return createSecureToken({ userId, accessLevel });
 };
 
 // Middleware to authenticate requests
@@ -255,21 +253,11 @@ const authenticateToken = async (req: Request, res: Response, next: Function) =>
     return res.status(401).json({ error: "Access token required" });
   }
 
-  // Promisify jwt.verify
-  const verifyToken = (token: string, secret: string) => {
-    return new Promise((resolve, reject) => {
-      jwt.verify(token, secret, (err, decoded) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(decoded);
-        }
-      });
-    });
-  };
-
   try {
-    const decoded = await verifyToken(token, process.env.JWT_SECRET || "default_secret") as any;
+    const decoded = await verifySecureToken(token);
+    if (!decoded) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
     
     // Verify that the user actually exists in the database
     const userData = await storage.getUser(decoded.userId);
@@ -309,7 +297,13 @@ const optionalAuthenticateToken = async (req: Request, res: Response, next: Func
   };
 
   try {
-    const decoded = await verifyToken(token, process.env.JWT_SECRET || "default_secret") as any;
+    const decoded = await verifySecureToken(token);
+    
+    // If token is invalid, continue without user data
+    if (!decoded) {
+      (req as any).user = null;
+      return next();
+    }
     
     // Verify that the user actually exists in the database
     const userData = await storage.getUser(decoded.userId);
@@ -374,9 +368,11 @@ export async function registerRoutes(
       socket.data.userId = null;
       return next();
     }
-    
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "default_secret") as any;
+      const decoded = await verifySecureToken(token);
+      if (!decoded) {
+        return res.status(403).json({ error: "Invalid token" });
+      }
       
       // Verify user exists
       const userData = await storage.getUser(decoded.userId);
@@ -7293,12 +7289,9 @@ export async function registerRoutes(
       }
       
       // Generate a temporary token for the target user
-      const impersonationToken = jwt.sign({ 
+      const impersonationToken = createSecureToken({ 
         userId: targetUser.id,
-        impersonatedBy: (req as any).user.userId,
-        impersonatedAt: new Date().toISOString()
-      }, process.env.JWT_SECRET || "default_secret", {
-        expiresIn: "1h" // Token expires in 1 hour
+        accessLevel: 'impersonated'
       });
       
       res.json({

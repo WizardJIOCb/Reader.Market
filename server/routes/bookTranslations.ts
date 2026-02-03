@@ -5,7 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import jwt from 'jsonwebtoken';
+import { verifyToken as verifySecureToken } from '../utils/jwt-utils';
 import { spawn, ChildProcess, exec } from 'child_process';
 import { promisify } from 'util';
 import { translationService } from '../services/translationService';
@@ -213,21 +213,11 @@ const requireAdmin = async (req: Request, res: Response, next: Function) => {
     return res.status(401).json({ error: "Authentication required" });
   }
 
-  // Promisify jwt.verify
-  const verifyToken = (token: string, secret: string) => {
-    return new Promise((resolve, reject) => {
-      jwt.verify(token, secret, (err, decoded) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(decoded);
-        }
-      });
-    });
-  };
-
   try {
-    const decoded = await verifyToken(token, process.env.JWT_SECRET || "default_secret") as any;
+    const decoded = await verifySecureToken(token);
+    if (!decoded) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
     
     console.log('Decoded token:', decoded);
     
