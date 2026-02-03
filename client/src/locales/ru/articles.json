@@ -189,15 +189,14 @@
     "noCategoriesFound": "Категории не найдены",
     "createFirstCategory": "Создайте первую категорию для организации статей.",
     "manageCategoriesTitle": "Управление категориями статей",
-    "backToArticles": "Вернуться к управлению статьями",
-    "addCommentPlaceholder": "Написать комментарий...",
-    "postComment": "Опубликовать",
-    "noComments": "Пока нет комментариев",
-    "comments": "Комментарии",
-    "reply": "Ответить",
-    "writeReply": "Написать ответ...",
-    "reply": "Ответить",
-    "replies": "ответов",
-    "hideReplies": "Скрыть ответы"
-  }
+    "backToArticles": "Вернуться к управлению статьями"
+  },
+  "addCommentPlaceholder": "Написать комментарий...",
+  "postComment": "Опубликовать",
+  "noComments": "Пока нет комментариев",
+  "comments": "Комментарии",
+  "reply": "Ответить",
+  "writeReply": "Написать ответ...",
+  "replies": "ответов",
+  "hideReplies": "Скрыть ответы"
 }

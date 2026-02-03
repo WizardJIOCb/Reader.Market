@@ -189,15 +189,14 @@
     "noCategoriesFound": "No categories found",
     "createFirstCategory": "Create your first category to organize articles.",
     "manageCategoriesTitle": "Manage article categories",
-    "backToArticles": "Back to Articles Management",
-    "addCommentPlaceholder": "Write a comment...",
-    "postComment": "Post",
-    "noComments": "No comments yet",
-    "comments": "Comments",
-    "reply": "Reply",
-    "writeReply": "Write a reply...",
-    "reply": "Reply",
-    "replies": "replies",
-    "hideReplies": "Hide replies"
-  }
+    "backToArticles": "Back to Articles Management"
+  },
+  "addCommentPlaceholder": "Write a comment...",
+  "postComment": "Post",
+  "noComments": "No comments yet",
+  "comments": "Comments",
+  "reply": "Reply",
+  "writeReply": "Write a reply...",
+  "replies": "replies",
+  "hideReplies": "Hide replies"
 }
