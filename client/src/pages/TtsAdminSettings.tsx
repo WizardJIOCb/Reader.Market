@@ -121,7 +121,7 @@ const TtsAdminSettings: React.FC = () => {
           // Ensure array field has default
           enabledProviders: Array.isArray(data.enabledProviders) ? data.enabledProviders : ['rhvoice', 'piper'],
           // Ensure string field has default
-          defaultProvider: typeof data.defaultProvider === 'string' && data.defaultProvider !== '' ? data.defaultProvider : 'piper',
+          defaultProvider: typeof data.defaultProvider === 'string' && data.defaultProvider !== '' ? data.defaultProvider : 'windows',
           // Ensure boolean field
           ttsEnabled: typeof data.ttsEnabled === 'boolean' ? data.ttsEnabled : false
         };
@@ -209,7 +209,7 @@ const TtsAdminSettings: React.FC = () => {
       // Array field with default
       enabledProviders: Array.isArray(config.enabledProviders) ? config.enabledProviders : ['rhvoice', 'piper'],
       // String field with default
-      defaultProvider: typeof config.defaultProvider === 'string' && config.defaultProvider !== '' ? config.defaultProvider : 'piper',
+      defaultProvider: typeof config.defaultProvider === 'string' && config.defaultProvider !== '' ? config.defaultProvider : 'windows',
       // Boolean field
       ttsEnabled: Boolean(config.ttsEnabled)
     };
@@ -349,7 +349,7 @@ const TtsAdminSettings: React.FC = () => {
         // Array field with default
         enabledProviders: Array.isArray(updatedConfig.enabledProviders) ? updatedConfig.enabledProviders : ['rhvoice', 'piper'],
         // String field with default
-        defaultProvider: typeof updatedConfig.defaultProvider === 'string' && updatedConfig.defaultProvider !== '' ? updatedConfig.defaultProvider : 'piper',
+        defaultProvider: typeof updatedConfig.defaultProvider === 'string' && updatedConfig.defaultProvider !== '' ? updatedConfig.defaultProvider : 'windows',
         // Boolean field
         ttsEnabled: Boolean(updatedConfig.ttsEnabled)
       };
@@ -451,7 +451,7 @@ const TtsAdminSettings: React.FC = () => {
         // Array field with default
         enabledProviders: Array.isArray(updatedConfig.enabledProviders) ? updatedConfig.enabledProviders : ['rhvoice', 'piper'],
         // String field with default
-        defaultProvider: typeof updatedConfig.defaultProvider === 'string' && updatedConfig.defaultProvider !== '' ? updatedConfig.defaultProvider : 'piper',
+        defaultProvider: typeof updatedConfig.defaultProvider === 'string' && updatedConfig.defaultProvider !== '' ? updatedConfig.defaultProvider : 'windows',
         // Boolean field
         ttsEnabled: Boolean(updatedConfig.ttsEnabled)
       };

@@ -77,6 +77,16 @@ export default defineConfig({
         secure: false,
         ws: true,
 
+      },
+      '/media/tts': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api/tts/files': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        secure: false,
       }
     }
   },

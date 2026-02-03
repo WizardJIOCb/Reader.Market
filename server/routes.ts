@@ -707,6 +707,44 @@ export async function registerRoutes(
   // Register log analytics routes
   app.use('/api/admin', logAnalyticsRoutes);
   
+  // Register TTS file route (no auth required)
+  const ttsPath = path.resolve(process.cwd(), 'storage', 'tts');
+  app.get('/api/tts/files/:filename', (req, res) => {
+    console.log('TTS File Route hit:', req.params.filename);
+    const filename = req.params.filename;
+    
+    // Search for file recursively in tts directory
+    const findFile = (dir: string): string | null => {
+      const items = fs.readdirSync(dir);
+      for (const item of items) {
+        const fullPath = path.join(dir, item);
+        const stat = fs.statSync(fullPath);
+        
+        if (stat.isDirectory()) {
+          const result = findFile(fullPath);
+          if (result) return result;
+        } else if (item === filename) {
+          return fullPath;
+        }
+      }
+      return null;
+    };
+    
+    const filePath = findFile(ttsPath);
+    
+    console.log('Looking for file:', filename);
+    console.log('Found file at:', filePath);
+    
+    // Check if file exists
+    if (filePath && fs.existsSync(filePath)) {
+      console.log('Sending file:', filePath);
+      res.sendFile(filePath);
+    } else {
+      console.log('File not found:', filename);
+      res.status(404).send('File not found');
+    }
+  });
+  
   // Register TTS routes
   app.use('/api/tts', ttsRoutes);
   app.use('/api/tts', ttsPersonaRoutes);

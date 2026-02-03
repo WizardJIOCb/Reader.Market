@@ -1,0 +1,1 @@
+Get-Content logs\out-0.log -Tail 50

@@ -8,11 +8,11 @@ import { promisify } from 'util';
 
 const accessAsync = promisify(access);
 const statAsync = promisify(stat);
-import { join } from 'path';
+import { join, basename } from 'path';
 import { tmpdir } from 'os';
 
 // Types
-export type TtsProviderId = 'rhvoice' | 'piper';
+export type TtsProviderId = 'rhvoice' | 'piper' | 'windows';
 export type TtsLanguage = 'ru' | 'en';
 export type TtsFormat = 'mp3' | 'ogg';
 
@@ -67,9 +67,10 @@ function generateTextHash(provider: TtsProviderId, voice: string, lang: TtsLangu
 // Get storage paths
 function getStoragePaths(textHash: string, bookId: string, provider: TtsProviderId, voice: string, format: TtsFormat) {
   const baseDir = process.env.TTS_STORAGE_PATH || join(process.cwd(), 'storage', 'tts');
-  const audioPath = join(baseDir, bookId, provider, voice, `${textHash}.${format}`);
+  const audioPath = join('tts', bookId, provider, voice, `${textHash}.${format}`);
+  const fullAudioPath = join(baseDir, bookId, provider, voice, `${textHash}.${format}`);
   const wavPath = join(tmpdir(), `tts-${textHash}.wav`);
-  return { audioPath, wavPath, baseDir };
+  return { audioPath, fullAudioPath, wavPath, baseDir };
 }
 
 // Ensure directory exists
@@ -82,6 +83,9 @@ function ensureDir(path: string) {
 
 // Convert WAV to target format using ffmpeg
 async function convertWavToFormat(wavPath: string, outputPath: string, format: TtsFormat, bitrate: number = 64): Promise<void> {
+  console.log('FFmpeg: Converting', wavPath, 'to', outputPath);
+  console.log('FFmpeg: Format:', format, 'Bitrate:', bitrate);
+  
   return new Promise((resolve, reject) => {
     const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
     const args = [
@@ -94,6 +98,14 @@ async function convertWavToFormat(wavPath: string, outputPath: string, format: T
     ];
 
     const proc = spawn(ffmpegPath, args);
+    
+    proc.stdout.on('data', (data) => {
+      console.log('FFmpeg stdout:', data.toString());
+    });
+    
+    proc.stderr.on('data', (data) => {
+      console.log('FFmpeg stderr:', data.toString());
+    });
     
     proc.on('close', (code) => {
       if (code === 0) {
@@ -338,11 +350,16 @@ class PiperProvider implements TtsProvider {
   }
 }
 
+// Import Windows TTS provider
+// @ts-ignore
+import WindowsTtsProvider from './windows-tts-provider.cjs';
+
 // Main TTS Service
 export class TtsService {
   private providers: Record<TtsProviderId, TtsProvider> = {
     rhvoice: new RhvoiceProvider(),
-    piper: new PiperProvider()
+    piper: new PiperProvider(),
+    windows: new WindowsTtsProvider()
   };
   
   async getConfig() {
@@ -474,10 +491,14 @@ export class TtsService {
         .set({ lastAccessedAt: new Date() })
         .where(eq(ttsCache.textHash, textHash));
       
+      console.log('TTS Cache hit - audioPath:', cached[0].audioPath);
+      const pathParts = cached[0].audioPath.split('tts/');
+      console.log('TTS Path parts:', pathParts);
+      
       return {
         status: 'ready',
         textHash,
-        audioUrl: `/media/tts/${cached[0].audioPath.split('tts/')[1]}`,
+        audioUrl: `/api/tts/files/${pathParts[1] || basename(cached[0].audioPath)}`,
         durationMs: cached[0].durationMs || 0
       };
     }
@@ -526,7 +547,7 @@ export class TtsService {
       if (!provider) throw new Error(`Unknown provider: ${request.provider}`);
       
       // Get storage paths
-      const { audioPath, wavPath, baseDir } = getStoragePaths(
+      const { audioPath, fullAudioPath, wavPath, baseDir } = getStoragePaths(
         textHash,
         request.bookId,
         request.provider,
@@ -535,7 +556,7 @@ export class TtsService {
       );
       
       // Ensure directories exist
-      ensureDir(audioPath);
+      ensureDir(fullAudioPath);
       
       // Synthesize to WAV
       await provider.synthesizeToWav(normalizedText, {
@@ -546,12 +567,16 @@ export class TtsService {
       }, wavPath);
       
       // Convert to target format
-      await convertWavToFormat(wavPath, audioPath, config.audioFormat as TtsFormat, config.mp3Bitrate);
+      await convertWavToFormat(wavPath, fullAudioPath, config.audioFormat as TtsFormat, config.mp3Bitrate);
       
       // Get file stats
       // const stats = statSync(audioPath);
       
       // Save to cache
+      console.log('TTS: Saving to cache - audioPath:', audioPath);
+      console.log('TTS: Full audio path:', fullAudioPath);
+      console.log('TTS: File exists:', existsSync(fullAudioPath));
+      
       await db.insert(ttsCache).values({
         bookId: request.bookId,
         chapterIndex: request.chapterIndex ?? undefined,
@@ -600,7 +625,7 @@ export class TtsService {
         return {
           status: 'ready',
           textHash,
-          audioUrl: `/media/tts/${cached[0].audioPath.split('tts/')[1]}`,
+          audioUrl: `/api/tts/files/${basename(cached[0].audioPath)}`,
           durationMs: cached[0].durationMs || 0
         };
       }

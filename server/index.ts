@@ -96,6 +96,12 @@ app.use(express.urlencoded({ extended: false }));
 const uploadsPath = path.resolve(process.cwd(), 'uploads');
 app.use('/uploads', express.static(uploadsPath));
 
+// Serve TTS audio files
+const ttsPath = path.resolve(process.cwd(), 'storage', 'tts');
+// app.use('/media/tts', express.static(ttsPath));
+
+
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",

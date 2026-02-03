@@ -7,7 +7,7 @@ import { Play, Pause, RotateCcw, Volume2, Square } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TtsSettings {
-  provider: 'rhvoice' | 'piper';
+  provider: 'rhvoice' | 'piper' | 'windows';
   voice: string;
   rate: number;
   lang: 'ru' | 'en';
@@ -41,7 +41,7 @@ const EnhancedTtsPlayer: React.FC<EnhancedTtsPlayerProps> = ({
 }) => {
   const { t } = useTranslation('tts');
   const [settings, setSettings] = useState<TtsSettings>({
-    provider: 'piper',
+    provider: 'windows',
     voice: 'en_US-lessac',
     rate: 1.0,
     lang: 'en'
@@ -509,6 +509,7 @@ const EnhancedTtsPlayer: React.FC<EnhancedTtsPlayerProps> = ({
             <SelectContent>
               <SelectItem value="piper">Piper</SelectItem>
               <SelectItem value="rhvoice">RHVoice</SelectItem>
+              <SelectItem value="windows">Windows</SelectItem>
             </SelectContent>
           </Select>
         </div>

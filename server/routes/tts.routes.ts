@@ -70,7 +70,7 @@ router.get('/voices', async (req, res) => {
     }
     
     // Validate provider
-    if (provider !== 'rhvoice' && provider !== 'piper') {
+    if (provider !== 'rhvoice' && provider !== 'piper' && provider !== 'windows') {
       return res.status(400).json({ error: 'Invalid provider' });
     }
     
@@ -96,6 +96,10 @@ router.post('/chunk', async (req, res) => {
   try {
     const { bookId, chapterIndex, chunkIndex, text, lang, provider, voice, rate } = req.body;
     
+    // Debug logging
+    console.log('TTS Chunk Request - Provider:', provider);
+    console.log('TTS Chunk Request - Body:', { bookId, chapterIndex, chunkIndex, text: text?.substring(0, 50) + '...', lang, provider, voice, rate });
+    
     // Validation
     if (!bookId || typeof bookId !== 'string') {
       return res.status(400).json({ error: 'bookId is required' });
@@ -113,7 +117,7 @@ router.post('/chunk', async (req, res) => {
       return res.status(400).json({ error: 'Invalid language' });
     }
     
-    if (!provider || (provider !== 'rhvoice' && provider !== 'piper')) {
+    if (!provider || (provider !== 'rhvoice' && provider !== 'piper' && provider !== 'windows')) {
       return res.status(400).json({ error: 'Invalid provider' });
     }
     
