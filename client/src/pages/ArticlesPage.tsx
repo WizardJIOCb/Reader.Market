@@ -185,7 +185,7 @@ const RecursiveReplyItem: React.FC<{
               ) : (
                 <>
                   <ChevronDown className="w-2.5 h-2.5 mr-1" />
-                  {totalReplyCount} {totalReplyCount === 1 ? t('articles:reply') : t('articles:replies')}
+                  {t('profile:ratings.repliesCount', { count: totalReplyCount })}
                 </>
               )}
             </Button>
@@ -733,7 +733,7 @@ interface Article {
 }
 
 export function ArticlesPage() {
-  const { t, i18n } = useTranslation(['articles', 'common']);
+  const { t, i18n } = useTranslation(['articles', 'common', 'profile']);
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [articles, setArticles] = useState<Article[]>([]);
@@ -1741,6 +1741,12 @@ export function ArticlesPage() {
                       <span>{singleArticle.views}</span>
                     </div>
                     
+                    {/* Bookmark count */}
+                    <div className="flex items-center gap-1">
+                      <Bookmark className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">{singleArticle.bookmarkCount || 0}</span>
+                    </div>
+                    
                     {singleArticle.section && (
                       <Badge variant="outline">
                         {singleArticle.section ? t('articles:editor.sections.' + singleArticle.section) : singleArticle.section}
@@ -1943,7 +1949,7 @@ export function ArticlesPage() {
                                 ) : (
                                   <>
                                     <ChevronDown className="w-3 h-3 mr-1" />
-                                    {getTotalCommentReplyCount(comment)} {getTotalCommentReplyCount(comment) === 1 ? t('articles:reply') : t('articles:replies')}
+                                    {t('profile:ratings.repliesCount', { count: getTotalCommentReplyCount(comment) })}
                                   </>
                                 )}
                               </Button>
@@ -2104,7 +2110,7 @@ export function ArticlesPage() {
                     return (
                       <div 
                         key={article.id} 
-                        className="p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
+                        className="min-w-[666px] p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
                         onClick={() => handleArticleSelect(article.id)}
                       >
                         <div className="flex-1">
