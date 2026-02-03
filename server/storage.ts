@@ -890,8 +890,8 @@ export class DBStorage implements IStorage {
         return {
           ...formattedBook,
           commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate
@@ -978,8 +978,8 @@ export class DBStorage implements IStorage {
         return {
           ...formattedBook,
           commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1066,8 +1066,8 @@ export class DBStorage implements IStorage {
         return {
           ...formattedBook,
           commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1176,8 +1176,8 @@ export class DBStorage implements IStorage {
         return {
           ...formattedBook,
           commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1297,8 +1297,8 @@ export class DBStorage implements IStorage {
         return {
           ...formattedBook,
           commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1388,8 +1388,8 @@ export class DBStorage implements IStorage {
         return {
           ...formattedBook,
           commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1421,18 +1421,21 @@ export class DBStorage implements IStorage {
 
   async getShelvesWithBooks(userId: string): Promise<any[]> {
     try {
-      console.log('Fetching shelves with books for user ID:', userId);
+      console.log('=== DEBUG: Fetching shelves with books for user ID:', userId, '===');
       
       // First get all shelves for the user
       const userShelves = await db.select().from(shelves).where(eq(shelves.userId, userId));
+      console.log('Found user shelves:', userShelves.length);
       
       if (userShelves.length === 0) {
+        console.log('No shelves found, returning empty array');
         return [];
       }
       
       // Get all shelf-book associations
       const shelfIds = userShelves.map(shelf => shelf.id);
       const shelfBookRecords = await db.select().from(shelfBooks).where(inArray(shelfBooks.shelfId, shelfIds));
+      console.log('Found shelf-book associations:', shelfBookRecords.length);
       
       // Get all unique book IDs
       const bookIds: string[] = [];
@@ -1443,8 +1446,10 @@ export class DBStorage implements IStorage {
           bookIds.push(record.bookId);
         }
       });
+      console.log('Unique book IDs found:', bookIds.length, bookIds);
       
       if (bookIds.length === 0) {
+        console.log('No book IDs found, returning shelves with empty books arrays');
         // Return shelves with empty book arrays
         return userShelves.map(shelf => ({
           ...shelf,
@@ -1453,10 +1458,13 @@ export class DBStorage implements IStorage {
       }
       
       // Get all books with reading progress for this user
+      console.log('Calling getBooksByIdsWithProgress with', bookIds.length, 'book IDs');
       let books = await this.getBooksByIdsWithProgress(bookIds, userId);
+      console.log('getBooksByIdsWithProgress returned', books.length, 'books');
       
       // Create a map for quick book lookup
       const bookMap = new Map(books.map(book => [book.id, book]));
+      console.log('Created bookMap with', bookMap.size, 'entries');
       
       // Create a map of shelfId to bookIds
       const shelfBookMap = new Map<string, string[]>();
@@ -1466,21 +1474,33 @@ export class DBStorage implements IStorage {
         }
         shelfBookMap.get(record.shelfId)!.push(record.bookId);
       });
+      console.log('Created shelfBookMap with', shelfBookMap.size, 'entries');
       
       // Build shelves with books
       const shelvesWithBooks = userShelves.map(shelf => {
         const shelfBookIds = shelfBookMap.get(shelf.id) || [];
+        console.log(`Shelf ${shelf.name} has book IDs:`, shelfBookIds);
+        
         const shelfBooks = shelfBookIds
-          .map(bookId => bookMap.get(bookId))
+          .map(bookId => {
+            const book = bookMap.get(bookId);
+            console.log(`  Looking for book ${bookId}:`, book ? 'FOUND' : 'NOT FOUND');
+            return book;
+          })
           .filter(Boolean) as any[];
           
+        console.log(`Final result for shelf ${shelf.name}:`, shelfBooks.length, 'books');
+        
         return {
           ...shelf,
           books: shelfBooks
         };
       });
       
-      console.log(`Fetched ${shelvesWithBooks.length} shelves with ${books.length} total books`);
+      console.log(`=== FINAL RESULT: ${shelvesWithBooks.length} shelves with books ===`);
+      shelvesWithBooks.forEach(shelf => {
+        console.log(`  ${shelf.name}: ${shelf.books.length} books`);
+      });
       
       return shelvesWithBooks;
     } catch (error) {
@@ -1595,8 +1615,8 @@ export class DBStorage implements IStorage {
         const viewStats = await this.getBookViewStats(book.id);
         
         // Determine the last activity date
-        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
-          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+        const lastActivityDate = latestActivityResult[0]?.latest_date 
+          ? new Date(latestActivityResult[0].latest_date).toISOString()
           : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
         // Add reading progress if available
@@ -1605,8 +1625,8 @@ export class DBStorage implements IStorage {
         return {
           ...formattedBook,
           commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
