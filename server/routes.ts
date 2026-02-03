@@ -11,9 +11,92 @@ import { Ollama } from "ollama";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import https from "https";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
 import { createOAuthRoutes } from "./oauth/routes";
+
+// Utility function to download files from external URLs with redirect support
+function downloadFileFromUrl(url: string, destPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    
+    function downloadWithRedirect(currentUrl: string) {
+      https.get(currentUrl, (response) => {
+        if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 307) {
+          const redirectUrl = response.headers.location;
+          if (redirectUrl) {
+            console.log(`Following redirect to: ${redirectUrl}`);
+            downloadWithRedirect(redirectUrl);
+          } else {
+            reject(new Error(`Redirect without location header: ${response.statusCode}`));
+          }
+          return;
+        }
+        
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download ${url}: ${response.statusCode} ${response.statusMessage}`));
+          return;
+        }
+        
+        response.pipe(file);
+        
+        file.on('finish', () => {
+          file.close();
+          console.log(`Downloaded file to: ${destPath}`);
+          resolve();
+        });
+        
+        file.on('error', (err) => {
+          fs.unlink(destPath, () => {}); // Delete the file async
+          reject(err);
+        });
+      }).on('error', (err) => {
+        reject(err);
+      });
+    }
+    
+    downloadWithRedirect(url);
+  });
+}
+
+// Utility function to get file extension from URL
+function getFileExtensionFromUrl(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    const pathname = parsedUrl.pathname;
+    const ext = path.extname(pathname);
+    if (ext) return ext.toLowerCase();
+    
+    // Some URLs don't have extensions in the path but we can infer from content
+    if (url.includes('gutenberg')) return '.txt';
+    if (url.includes('openlibrary')) return '.pdf';
+    if (url.includes('googleapis')) return '.pdf';
+    if (url.includes('archive.org')) return '.epub';
+    
+    return '.bin'; // default binary extension
+  } catch {
+    return '.bin';
+  }
+}
+
+// Utility function to get image extension from URL
+function getImageExtensionFromUrl(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    const pathname = parsedUrl.pathname;
+    const ext = path.extname(pathname);
+    if (ext && ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext.toLowerCase())) {
+      return ext.toLowerCase();
+    }
+  } catch {}
+  
+  // Try to infer from URL patterns
+  if (url.includes('covers.openlibrary.org')) return '.jpg';
+  if (url.includes('gutendex.com') || url.includes('archive.org')) return '.jpg';
+  
+  return '.jpg'; // default image extension
+}
 import { profileComments, readingProgress, bookmarkCollections, bookmarkCollectionItems, collectionBooks, users, bookmarks, books } from "@shared/schema";
 import bookTranslationRoutes from "./routes/bookTranslations";
 import loggingConfigRoutes from "./routes/loggingConfig";
@@ -7233,6 +7316,146 @@ export async function registerRoutes(
     }
   });
   
+  // Admin: Add book from external source
+  app.post("/api/admin/books", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Add book from external source (admin) endpoint called");
+    try {
+      const { title, authors, description, language, source, externalId, externalSource, coverUrl, downloadUrl, genre, publishedYear } = req.body;
+      
+      if (!title || !authors) {
+        return res.status(400).json({ error: "Title and authors are required" });
+      }
+
+      // Check if book already exists (prevent duplicates)
+      const existingBooks = await storage.searchBooks(title);
+      const duplicate = existingBooks.find((book: any) => {
+        const bookAuthors = book.author ? book.author.split(", ") : [];
+        return book.title.toLowerCase().includes(title.toLowerCase()) && 
+               bookAuthors.some((author: string) => 
+                 authors.some((inputAuthor: string) => 
+                   author.trim().toLowerCase().includes(inputAuthor.toLowerCase()) ||
+                   inputAuthor.toLowerCase().includes(author.trim().toLowerCase())
+                 )
+               );
+      });
+      
+      if (duplicate) {
+        return res.status(409).json({ error: "Book already exists in the system" });
+      }
+
+      // Create unique filenames for local storage
+      const uniqueId = crypto.randomUUID();
+      
+      // Prepare paths for local file storage
+      let localCoverPath: string | null = null;
+      let localFilePath: string | null = null;
+      
+      // Download and save cover image if provided
+      if (coverUrl) {
+        try {
+          const coverExt = getImageExtensionFromUrl(coverUrl);
+          const coverFilename = `cover_${uniqueId}${coverExt}`;
+          const coverDestPath = path.join(process.cwd(), 'uploads', coverFilename);
+          
+          await downloadFileFromUrl(coverUrl, coverDestPath);
+          localCoverPath = path.join('uploads', coverFilename).replace(/\\/g, '/');
+          console.log(`Saved cover image locally: ${localCoverPath}`);
+        } catch (error) {
+          console.error('Failed to download cover image:', error);
+          // Continue without cover image
+          localCoverPath = null;
+        }
+      }
+      
+      // Download and save book file if provided
+      if (downloadUrl) {
+        try {
+          const fileExt = getFileExtensionFromUrl(downloadUrl);
+          const fileFilename = `book_${uniqueId}${fileExt}`;
+          const fileDestPath = path.join(process.cwd(), 'uploads', fileFilename);
+          
+          await downloadFileFromUrl(downloadUrl, fileDestPath);
+          localFilePath = path.join('uploads', fileFilename).replace(/\\/g, '/');
+          
+          // Get file stats for size and type
+          const stats = fs.statSync(fileDestPath);
+          console.log(`Saved book file locally: ${localFilePath}, size: ${stats.size} bytes`);
+        } catch (error) {
+          console.error('Failed to download book file:', error);
+          // Continue without book file
+          localFilePath = null;
+        }
+      }
+      
+      // Create book record
+      const bookData: any = {
+        title,
+        author: Array.isArray(authors) ? authors.join(", ") : authors,
+        description: description || '',
+        coverImageUrl: localCoverPath, // Use local path instead of external URL
+        filePath: localFilePath, // Use local path instead of external URL
+        fileSize: localFilePath ? fs.existsSync(path.join(process.cwd(), localFilePath)) ? fs.statSync(path.join(process.cwd(), localFilePath)).size : null : null, // Set file size if file exists
+        fileType: localFilePath ? path.extname(localFilePath).substring(1).toUpperCase() : null, // Set file type
+        language: language || 'en', // Default to English
+        genre: genre || '', // Use genre if provided
+        publishedYear: publishedYear || null, // Use published year if provided
+        externalId: externalId || null, // Store the external ID
+        externalSource: externalSource || null, // Store the source
+        isActive: true, // New books are active by default
+        isPublic: true, // New books are public by default
+        userId: (req as any).user.userId, // Who added the book to our system
+        uploadedAt: new Date(), // When it was added to our system
+        publishedAt: new Date() // Set to current date when added to our system
+      };
+
+      const book = await storage.createBook(bookData);
+
+      // Add book to the "External Sources" shelf if it exists, or create it
+      let externalShelf = (await storage.getShelves((req as any).user.userId)).find(shelf => shelf.name === "Внешние источники");
+      
+      if (!externalShelf) {
+        // Create the "Внешние источники" shelf
+        externalShelf = await storage.createShelf((req as any).user.userId, {
+          name: "Внешние источники",
+          description: "Книги, добавленные из внешних источников",
+          color: "bg-green-100 dark:bg-green-900/20"
+        });
+      }
+      
+      // Add book to the shelf
+      await storage.addBookToShelf(externalShelf.id, book.id);
+
+      // Create activity feed entry and broadcast via WebSocket
+      try {
+        const user = await storage.getUser((req as any).user.userId);
+        
+        if (user) {
+          await createBookActivity(
+            book.id,
+            book.title,
+            book.author,
+            (req as any).user.userId,
+            user.username || user.fullName || 'Anonymous',
+            book.coverImageUrl || '',
+            (app as any).io // Socket.IO instance
+          );
+          console.log(`[STREAM] Book activity created for book ${book.id}`);
+        }
+      } catch (streamError) {
+        console.error('[STREAM] Failed to create book activity:', streamError);
+        // Don't fail the request if stream activity creation fails
+      }
+
+      res.status(201).json({ 
+        message: "Book added successfully", 
+        book
+      });
+    } catch (error: any) {
+      console.error("Add book from external source error:", error);
+      res.status(500).json({ error: error.message || "Failed to add book" });
+    }
+  });
+
   // Admin: Get all books with pagination and search
   app.get("/api/admin/books", authenticateToken, requireAdminOrModerator, async (req, res) => {
     console.log("Get all books (admin) endpoint called");

@@ -454,24 +454,44 @@ export class DBStorage implements IStorage {
       const result = await db.select().from(books).where(eq(books.id, id));
       console.log(`Database result for book ${id}:`, result[0]);
       if (result[0]) {
-        // Get comment count using raw SQL
-        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${result[0].id}`);
+        // Get comment count using Drizzle ORM
+        const commentCountResult = await db.select({ count: count() })
+          .from(comments)
+          .where(eq(comments.bookId, result[0].id));
         
-        // Get review count using raw SQL
-        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${result[0].id}`);
+        // Get review count using Drizzle ORM
+        const reviewCountResult = await db.select({ count: count() })
+          .from(reviews)
+          .where(eq(reviews.bookId, result[0].id));
         
         // Get the latest comment or review date
-        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
-          SELECT created_at FROM comments WHERE book_id = ${result[0].id}
-          UNION ALL
-          SELECT created_at FROM reviews WHERE book_id = ${result[0].id}
-        ) AS activity`);
+        const latestComments = await db.select({ createdAt: comments.createdAt })
+          .from(comments)
+          .where(eq(comments.bookId, result[0].id))
+          .limit(1)
+          .orderBy(desc(comments.createdAt));
+          
+        const latestReviews = await db.select({ createdAt: reviews.createdAt })
+          .from(reviews)
+          .where(eq(reviews.bookId, result[0].id))
+          .limit(1)
+          .orderBy(desc(reviews.createdAt));
+          
+        const latestDate = [
+          latestComments[0]?.createdAt,
+          latestReviews[0]?.createdAt
+        ].filter(Boolean)
+         .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+        
+        const latestActivityResult = [{ latest_date: latestDate }];
         
         // Get book view statistics
         const viewStats = await this.getBookViewStats(id);
         
-        // Get shelf count using raw SQL
-        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${result[0].id}`);
+        // Get shelf count using Drizzle ORM
+        const shelfCountResult = await db.select({ count: count() })
+          .from(shelfBooks)
+          .where(eq(shelfBooks.bookId, result[0].id));
         
         // Get aggregated reactions for this book
         const reactions = await this.getAggregatedBookReactions(id, userId);
@@ -501,12 +521,12 @@ export class DBStorage implements IStorage {
           publishedAt: result[0].publishedAt ? result[0].publishedAt.toISOString() : null,
           createdAt: result[0].createdAt.toISOString(),
           updatedAt: result[0].updatedAt.toISOString(),
-          commentCount: parseInt(commentCountResult.rows[0].count as string),
-          reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
+          commentCount: commentCountResult[0]?.count || 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null,
+          lastActivityDate: latestActivityResult[0]?.latest_date ? new Date(latestActivityResult[0].latest_date).toISOString() : null,
           reactions: reactions,
           readingProgress: readingProgress
         };

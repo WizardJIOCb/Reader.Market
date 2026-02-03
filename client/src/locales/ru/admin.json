@@ -19,7 +19,8 @@
     "bookRatingSystem": "Рейтинг книг",
     "userRatingSystem": "Рейтинг пользователей",
     "loggingConfiguration": "Логирование",
-    "logAnalytics": "Анализ логов"
+    "logAnalytics": "Анализ логов",
+    "magicLoader": "Волшебный загрузчик"
   },
   "stats": {
     "totalNews": "Всего новостей",

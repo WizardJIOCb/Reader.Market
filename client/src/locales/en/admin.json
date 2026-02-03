@@ -19,7 +19,8 @@
     "bookRatingSystem": "Book Ratings",
     "userRatingSystem": "User Ratings",
     "loggingConfiguration": "Logging",
-    "logAnalytics": "Log Analytics"
+    "logAnalytics": "Log Analytics",
+    "magicLoader": "Magic Loader"
   },
   "stats": {
     "totalNews": "Total News",

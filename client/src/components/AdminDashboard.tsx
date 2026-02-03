@@ -45,6 +45,7 @@ import {
 import { AdminLoggingConfig } from './AdminLoggingConfig';
 import TtsAdminSettings from '@/pages/TtsAdminSettings';
 import { LogAnalytics } from './LogAnalytics';
+import MagicLoader from '@/components/MagicLoader';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatAbsoluteDateTime } from '@/lib/dateUtils';
@@ -441,6 +442,7 @@ const AdminDashboard: React.FC = () => {
     ...(isAdmin ? [{ id: 'logging', label: t('admin:navigation.loggingConfiguration'), icon: Settings }] : []),
     ...(isAdmin ? [{ id: 'log-analytics', label: t('admin:navigation.logAnalytics'), icon: Activity }] : []),
     ...(isAdmin ? [{ id: 'tts', label: 'Настройки TTS', icon: Volume2 }] : []),
+    { id: 'magic-loader', label: t('admin:navigation.magicLoader'), icon: BookOpen },
   ];
 
   return (
@@ -843,6 +845,10 @@ const AdminDashboard: React.FC = () => {
             
             {activeTab === 'tts' && isAdmin && (
               <TtsAdminSettings />
+            )}
+
+            {activeTab === 'magic-loader' && (
+              <MagicLoader />
             )}
           </div>
         </main>
