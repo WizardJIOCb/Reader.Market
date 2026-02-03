@@ -111,7 +111,12 @@ const RecursiveReplyItem: React.FC<{
             </Avatar>
             <div>
               <div className={`text-xs font-medium ${user && reply.userId === user.id ? 'text-[#2a2520] dark:text-[#fbf6f0]' : ''}`}>
-                {reply.author || reply.username}
+                <Link 
+                  href={`/profile/${reply.userId}`}
+                  className="hover:underline"
+                >
+                  {reply.author || reply.username}
+                </Link>
                 {user && reply.userId === user.id && (
                   <span className="ml-1 text-xs text-[#5a5550] dark:text-[#cbc6c0]">(me)</span>
                 )}
@@ -421,6 +426,7 @@ const SidebarComponent = React.memo(({
                 {category.slug === 'favorites' && (
                   <Heart 
                     className="h-4 w-4 text-red-500 fill-current" 
+                    style={{marginRight: '8px'}}
                     strokeWidth={1}
                   />
                 )}
@@ -802,12 +808,23 @@ export function ArticlesPage() {
       });
       
       if (response.ok) {
-        // Update the local state optimistically
+        // Update the local state optimistically for both isReadLater status and bookmark count
+        const updatedBookmarkCount = currentStatus ? -1 : 1;
         if (singleArticle && singleArticle.id === articleId) {
-          setSingleArticle({...singleArticle, isReadLater: !currentStatus});
+          // Optimistically update both isReadLater and bookmark count
+          const newBookmarkCount = Math.max(0, (singleArticle.bookmarkCount || 0) + updatedBookmarkCount);
+          setSingleArticle({
+            ...singleArticle,
+            isReadLater: !currentStatus,
+            bookmarkCount: newBookmarkCount
+          });
         } else {
           setArticles(prev => prev.map(article => 
-            article.id === articleId ? { ...article, isReadLater: !currentStatus } : article
+            article.id === articleId ? { 
+              ...article, 
+              isReadLater: !currentStatus,
+              bookmarkCount: Math.max(0, (article.bookmarkCount || 0) + updatedBookmarkCount)
+            } : article
           ));
         }
         
@@ -1394,7 +1411,13 @@ export function ArticlesPage() {
         });
 
         const data = await response.json();
-        setArticles(data.articles || []);
+        // Ensure likes and bookmarkCount properties are set for all articles, default to 0 if not present
+        const articlesWithDefaults = (data.articles || []).map((article: Article) => ({
+          ...article,
+          likes: article.likes || 0,
+          bookmarkCount: article.bookmarkCount || 0
+        }));
+        setArticles(articlesWithDefaults);
         setTotalPages(data.totalPages || 1);
         setTotalArticles(data.total || 0);
       } catch (e) {
@@ -1424,12 +1447,149 @@ export function ArticlesPage() {
         
         if (response.ok) {
           const data = await response.json();
-          // Ensure likes property is set, default to 0 if not present
-          const articleWithLikes = {
+          // Ensure likes and bookmarkCount properties are set, default to 0 if not present
+          const articleWithDefaults = {
             ...data.article,
-            likes: data.article.likes || 0
+            likes: data.article.likes || 0,
+            bookmarkCount: data.article.bookmarkCount || 0
           };
-          setSingleArticle(articleWithLikes);
+          setSingleArticle(articleWithDefaults);
+          
+          // If this article has a section/category, automatically select and expand it
+          if (articleWithDefaults.section && categories.length > 0) {
+            // Handle hierarchical sections like 'news.new-books' and non-hierarchical
+            let articleCategory = null;
+            
+            // First, try to find exact match
+            articleCategory = categories.find(cat => cat.slug === articleWithDefaults.section);
+            
+            if (!articleCategory) {
+              // If section has dot notation (parent.child), try to find the child category
+              if (articleWithDefaults.section.includes('.')) {
+                const parts = articleWithDefaults.section.split('.');
+                const parentPart = parts[0];
+                const childPart = parts[1];
+                
+                // First try to find the child category that has a parentId matching the parent category
+                const parentCategory = categories.find(cat => cat.slug === parentPart);
+                if (parentCategory) {
+                  // Find child category that belongs to this parent
+                  articleCategory = categories.find(cat => cat.parentId === parentCategory.id && cat.slug === childPart);
+                  
+                  // If still not found, try to find child by title or other matching
+                  if (!articleCategory) {
+                    articleCategory = categories.find(cat => 
+                      cat.parentId === parentCategory.id && 
+                      (cat.slug.includes(childPart) || cat.title.toLowerCase().includes('новые') || cat.title.toLowerCase().includes('new'))
+                    );
+                  }
+                  
+                  // If still not found, try more specific Russian language matching
+                  if (!articleCategory) {
+                    articleCategory = categories.find(cat => 
+                      cat.parentId === parentCategory.id && 
+                      (cat.title.toLowerCase().includes('переводы') || cat.title.toLowerCase().includes('translations') || cat.title.toLowerCase().includes('новый переводы'))
+                    );
+                  }
+                }
+                
+                // If still not found, try general matching
+                if (!articleCategory) {
+                  // Look for any category with the child part in its slug
+                  articleCategory = categories.find(cat => cat.slug === childPart);
+                  
+                  if (!articleCategory && parentCategory) {
+                    // Try to find by looking for categories with matching title in the same parent
+                    articleCategory = categories.find(cat => 
+                      cat.parentId === parentCategory.id &&
+                      (cat.title.toLowerCase().includes(childPart) || 
+                       cat.titleEn?.toLowerCase().includes(childPart) ||
+                       cat.slug.includes(childPart))
+                    );
+                  }
+                  
+                  // Try to find by looking for Russian-specific terms in the child part
+                  if (!articleCategory && parentCategory) {
+                    articleCategory = categories.find(cat => 
+                      cat.parentId === parentCategory.id && 
+                      (cat.title.toLowerCase().includes('новый переводы') ||
+                       cat.title.toLowerCase().includes('новости и переводы') ||
+                       cat.title.toLowerCase().includes('переводы') ||
+                       cat.title.toLowerCase().includes('translations'))
+                    );
+                  }
+                  
+                  // Final fallback: try to find any category with matching title
+                  if (!articleCategory) {
+                    articleCategory = categories.find(cat => 
+                      cat.title.toLowerCase().includes(childPart) || 
+                      cat.titleEn?.toLowerCase().includes(childPart)
+                    );
+                  }
+                }
+                
+                if (!articleCategory) {
+                  // Finally try to match parent category
+                  articleCategory = categories.find(cat => cat.slug === parentPart);
+                }
+              } else {
+                // If no dot notation, try to match the section directly to any category slug
+                articleCategory = categories.find(cat => cat.slug === articleWithDefaults.section);
+              }
+            }
+            
+            if (articleCategory) {
+              // Only update if it's different from current selection
+              if (selectedCategory !== articleCategory.slug) {
+                setSelectedCategory(articleCategory.slug);
+              }
+              
+              // Expand parent category if it exists
+              if (articleCategory.parentId) {
+                const parentCategory = categories.find(cat => cat.id === articleCategory.parentId);
+                if (parentCategory) {
+                  setExpandedCategories(prev => {
+                    const newSet = new Set(prev);
+                    newSet.add(parentCategory.slug);
+                    return newSet;
+                  });
+                }
+              } else {
+                // If it's a top-level category, just make sure it's expanded
+                setExpandedCategories(prev => {
+                  const newSet = new Set(prev);
+                  newSet.add(articleCategory.slug);
+                  return newSet;
+                });
+              }
+            } else {
+              // Even if we couldn't find the exact category, try to expand based on section
+              if (articleWithDefaults.section) {
+                if (articleWithDefaults.section.includes('.')) {
+                  const parts = articleWithDefaults.section.split('.');
+                  const parentPart = parts[0];
+                  const parentCategory = categories.find(cat => cat.slug === parentPart);
+                  if (parentCategory) {
+                    setExpandedCategories(prev => {
+                      const newSet = new Set(prev);
+                      newSet.add(parentCategory.slug);
+                      return newSet;
+                    });
+                  }
+                } else {
+                  // If no dot notation, try to find by section name directly
+                  const category = categories.find(cat => cat.slug === articleWithDefaults.section);
+                  if (category) {
+                    setExpandedCategories(prev => {
+                      const newSet = new Set(prev);
+                      newSet.add(category.slug);
+                      return newSet;
+                    });
+                  }
+                }
+              }
+            }
+          }
           
           // Load comments and reactions for the article
           await loadComments(selectedArticle);
@@ -1443,7 +1603,474 @@ export function ArticlesPage() {
     };
     
     loadSingleArticle();
-  }, [selectedArticle]);
+  }, [selectedArticle, categories]);
+
+  // Effect to handle category selection when categories are loaded after article
+  useEffect(() => {
+    // Only run if we have a single article loaded and categories are available
+    if (singleArticle && categories.length > 0 && selectedArticle) {
+      // Check if the currently selected category is still valid
+      // If not, try to match the article to its category again
+      const currentCategoryExists = categories.some(cat => cat.slug === selectedCategory);
+      
+      if (!currentCategoryExists) {
+        // Try to find the category for the current article again
+        let articleCategory: ArticleCategory | null = null;
+        
+        if (singleArticle.section) {
+          // First, try to find exact match
+          articleCategory = categories.find(cat => cat.slug === singleArticle.section) ?? null;
+          
+          if (!articleCategory) {
+            // If section has dot notation (parent.child), try to find the child category
+            if (singleArticle.section.includes('.')) {
+              const parts = singleArticle.section.split('.');
+              const parentPart = parts[0];
+              const childPart = parts[1];
+              
+              // First try to find the child category that has a parentId matching the parent category
+              const parentCategory = categories.find(cat => cat.slug === parentPart) ?? null;
+              if (parentCategory) {
+                // Find child category that belongs to this parent
+                articleCategory = categories.find(cat => cat.parentId === parentCategory.id && cat.slug === childPart) ?? null;
+                
+                // If still not found, try to find child by title or other matching
+                if (!articleCategory) {
+                  articleCategory = categories.find(cat => 
+                    cat.parentId === parentCategory.id && 
+                    (cat.slug.includes(childPart) || cat.title.toLowerCase().includes('новые') || cat.title.toLowerCase().includes('new'))
+                  ) ?? null;
+                }
+                
+                // If still not found, try more specific Russian language matching
+                if (!articleCategory) {
+                  articleCategory = categories.find(cat => 
+                    cat.parentId === parentCategory.id && 
+                    (cat.title.toLowerCase().includes('переводы') || cat.title.toLowerCase().includes('translations') || cat.title.toLowerCase().includes('новый переводы'))
+                  ) ?? null;
+                }
+              }
+              
+              // If still not found, try general matching
+              if (!articleCategory) {
+                // Look for any category with the child part in its slug
+                articleCategory = categories.find(cat => cat.slug === childPart) ?? null;
+                
+                if (!articleCategory && parentCategory) {
+                  // Try to find by looking for categories with matching title in the same parent
+                  articleCategory = categories.find(cat => 
+                    cat.parentId === parentCategory.id &&
+                    (cat.title.toLowerCase().includes(childPart) || 
+                     cat.titleEn?.toLowerCase().includes(childPart) ||
+                     cat.slug.includes(childPart))
+                  ) ?? null;
+                }
+                
+                // Try to find by looking for Russian-specific terms in the child part
+                if (!articleCategory && parentCategory) {
+                  articleCategory = categories.find(cat => 
+                    cat.parentId === parentCategory.id && 
+                    (cat.title.toLowerCase().includes('новый переводы') ||
+                     cat.title.toLowerCase().includes('новости и переводы') ||
+                     cat.title.toLowerCase().includes('переводы') ||
+                     cat.title.toLowerCase().includes('translations'))
+                  ) ?? null;
+                }
+                
+                // Final fallback: try to find any category with matching title
+                if (!articleCategory) {
+                  articleCategory = categories.find(cat => 
+                    cat.title.toLowerCase().includes(childPart) || 
+                    cat.titleEn?.toLowerCase().includes(childPart)
+                  ) ?? null;
+                }
+              }
+              
+              if (!articleCategory) {
+                // Finally try to match parent category
+                articleCategory = categories.find(cat => cat.slug === parentPart) ?? null;
+              }
+            } else {
+              // If no dot notation, try to match the section directly to any category slug
+              articleCategory = categories.find(cat => cat.slug === singleArticle.section) ?? null;
+            }
+          }
+          
+          if (articleCategory) {
+            // Only update if it's different from current selection
+            if (selectedCategory !== articleCategory.slug) {
+              setSelectedCategory(articleCategory.slug);
+            }
+                        
+            // Expand all ancestors of this category up to the root
+            const expandAllAncestors = (categoryId: string) => {
+              const category = categories.find(cat => cat.id === categoryId);
+              if (category) {
+                // Expand this category
+                setExpandedCategories(prev => {
+                  const newSet = new Set(prev);
+                  newSet.add(category.slug);
+                  return newSet;
+                });
+                            
+                // Continue expanding up the chain if it has a parent
+                if (category.parentId) {
+                  expandAllAncestors(category.parentId); // Recursively expand up the chain
+                }
+              }
+            };
+                        
+            // Expand the current category and all its ancestors
+            expandAllAncestors(articleCategory.id);
+            
+            // Additionally, if the selected category has a parent, make sure it's expanded
+            if (articleCategory!.parentId) {
+              const parentCategory = categories.find(cat => cat.id === articleCategory!.parentId);
+              if (parentCategory) {
+                setExpandedCategories(prev => {
+                  const newSet = new Set(prev);
+                  newSet.add(parentCategory.slug);
+                  return newSet;
+                });
+              }
+            }
+            
+            // Find and expand the root category by traversing up the hierarchy
+            let currentCat = articleCategory;
+            while (currentCat.parentId) {
+              const parentCat = categories.find(cat => cat.id === currentCat.parentId);
+              if (parentCat) {
+                currentCat = parentCat;
+              } else {
+                break; // No more parents found
+              }
+            }
+            
+            // currentCat is now the root category, make sure it's expanded
+            setExpandedCategories(prev => {
+              const newSet = new Set(prev);
+              newSet.add(currentCat.slug);
+              return newSet;
+            });
+            
+            // Additionally, ensure root categories are expanded
+            // Find root categories and make sure they're expanded
+            const rootCategories = categories.filter(cat => !cat.parentId);
+            rootCategories.forEach(rootCat => {
+              setExpandedCategories(prev => {
+                const newSet = new Set(prev);
+                newSet.add(rootCat.slug);
+                return newSet;
+              });
+            });
+          } else if (articleCategory) {
+            // If we have a category but it's a top-level one (no parentId), just make sure it's expanded
+            setExpandedCategories(prev => {
+              const newSet = new Set(prev);
+              newSet.add(articleCategory!.slug);
+              return newSet;
+            });
+          } else {
+            // Even if we couldn't find the exact category, try to expand based on section
+            if (singleArticle.section) {
+              if (singleArticle.section.includes('.')) {
+                const parts = singleArticle.section.split('.');
+                const parentPart = parts[0];
+                const parentCategory = categories.find(cat => cat.slug === parentPart) ?? null;
+                if (parentCategory) {
+                  // Find all ancestors of this category and expand them
+                  const expandAllAncestors = (categoryId: string) => {
+                    const category = categories.find(cat => cat.id === categoryId);
+                    if (category) {
+                      // Expand this category
+                      setExpandedCategories(prev => {
+                        const newSet = new Set(prev);
+                        newSet.add(category.slug);
+                        return newSet;
+                      });
+                      
+                      // Continue expanding up the chain if it has a parent
+                      if (category.parentId) {
+                        expandAllAncestors(category.parentId); // Recursively expand up the chain
+                      }
+                    }
+                  };
+                  
+                  // Expand the parent category and all its ancestors
+                  expandAllAncestors(parentCategory.id);
+                  
+                  // Additionally, if the selected category has a parent, make sure it's expanded
+                  if (parentCategory!.parentId) {
+                    const parentParentCategory = categories.find(cat => cat.id === parentCategory!.parentId);
+                    if (parentParentCategory) {
+                      setExpandedCategories(prev => {
+                        const newSet = new Set(prev);
+                        newSet.add(parentParentCategory.slug);
+                        return newSet;
+                      });
+                    }
+                  }
+                  
+                  // Additionally, ensure root categories are expanded
+                  // Find root categories and make sure they're expanded
+                  const rootCategories = categories.filter(cat => !cat.parentId);
+                  rootCategories.forEach(rootCat => {
+                    setExpandedCategories(prev => {
+                      const newSet = new Set(prev);
+                      newSet.add(rootCat.slug);
+                      return newSet;
+                    });
+                  });
+                }
+              } else {
+                // If no dot notation, try to find by section name directly
+                const category = categories.find(cat => cat.slug === singleArticle.section) ?? null;
+                if (category) {
+                  // Find all ancestors of this category and expand them
+                  const expandAllAncestors = (categoryId: string) => {
+                    const category = categories.find(cat => cat.id === categoryId);
+                    if (category) {
+                      // Expand this category
+                      setExpandedCategories(prev => {
+                        const newSet = new Set(prev);
+                        newSet.add(category.slug);
+                        return newSet;
+                      });
+                      
+                      // Continue expanding up the chain if it has a parent
+                      if (category.parentId) {
+                        expandAllAncestors(category.parentId); // Recursively expand up the chain
+                      }
+                    }
+                  };
+                  
+                  // Expand the category and all its ancestors
+                  expandAllAncestors(category.id);
+                  
+                  // Additionally, if the selected category has a parent, make sure it's expanded
+                  if (category!.parentId) {
+                    const parentCategory = categories.find(cat => cat.id === category!.parentId);
+                    if (parentCategory) {
+                      setExpandedCategories(prev => {
+                        const newSet = new Set(prev);
+                        newSet.add(parentCategory.slug);
+                        return newSet;
+                      });
+                    }
+                  }
+                  
+                  // Additionally, ensure root categories are expanded
+                  // Find root categories and make sure they're expanded
+                  const rootCategories = categories.filter(cat => !cat.parentId);
+                  rootCategories.forEach(rootCat => {
+                    setExpandedCategories(prev => {
+                      const newSet = new Set(prev);
+                      newSet.add(rootCat.slug);
+                      return newSet;
+                    });
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }, [categories, singleArticle, selectedArticle, selectedCategory]);
+
+  // Effect to ensure parent categories are expanded when a child category is selected
+  useEffect(() => {
+    if (selectedCategory && categories.length > 0) {
+      // Find the selected category
+      const selectedCat = categories.find(cat => cat.slug === selectedCategory);
+      
+      if (selectedCat) {
+        // Find all ancestors of this category and expand them
+        const expandAllAncestors = (categoryId: string) => {
+          const category = categories.find(cat => cat.id === categoryId);
+          if (category) {
+            // Expand this category
+            setExpandedCategories(prev => {
+              const newSet = new Set(prev);
+              newSet.add(category.slug);
+              return newSet;
+            });
+            
+            // Continue expanding up the chain if it has a parent
+            if (category.parentId) {
+              expandAllAncestors(category.parentId); // Recursively expand up the chain
+            }
+          }
+        };
+        
+        // Expand the selected category and all its ancestors
+        expandAllAncestors(selectedCat.id);
+        
+        // Additionally, if the selected category has a parent, make sure it's expanded
+        if (selectedCat.parentId) {
+          const parentCategory = categories.find(cat => cat.id === selectedCat.parentId);
+          if (parentCategory) {
+            setExpandedCategories(prev => {
+              const newSet = new Set(prev);
+              newSet.add(parentCategory.slug);
+              return newSet;
+            });
+          }
+        }
+        
+        // Additionally, ensure root categories are expanded
+        // Find root categories and make sure they're expanded
+        const rootCategories = categories.filter(cat => !cat.parentId);
+        rootCategories.forEach(rootCat => {
+          setExpandedCategories(prev => {
+            const newSet = new Set(prev);
+            newSet.add(rootCat.slug);
+            return newSet;
+          });
+        });
+      }
+    }
+  }, [selectedCategory, categories]);
+
+  // Effect to handle parent category expansion immediately when selectedCategory changes
+  useEffect(() => {
+    if (selectedCategory && categories.length > 0) {
+      // Find all ancestors of the selected category and expand them
+      const expandAllAncestors = (categoryId: string) => {
+        const category = categories.find(cat => cat.id === categoryId);
+        if (category) {
+          // Expand this category
+          setExpandedCategories(prev => {
+            const newSet = new Set(prev);
+            newSet.add(category.slug);
+            return newSet;
+          });
+          
+          // Continue expanding up the chain if it has a parent
+          if (category.parentId) {
+            expandAllAncestors(category.parentId); // Recursively expand up the chain
+          }
+        }
+      };
+      
+      const selectedCat = categories.find(cat => cat.slug === selectedCategory);
+      
+      if (selectedCat) {
+        // Expand the selected category and all its ancestors
+        expandAllAncestors(selectedCat.id);
+        
+        // Additionally, if the selected category has a parent, make sure it's expanded
+        if (selectedCat.parentId) {
+          const parentCategory = categories.find(cat => cat.id === selectedCat.parentId);
+          if (parentCategory) {
+            setExpandedCategories(prev => {
+              const newSet = new Set(prev);
+              newSet.add(parentCategory.slug);
+              return newSet;
+            });
+          }
+        }
+        
+        // Additionally, ensure root categories are expanded
+        // Find root categories and make sure they're expanded
+        const rootCategories = categories.filter(cat => !cat.parentId);
+        rootCategories.forEach(rootCat => {
+          setExpandedCategories(prev => {
+            const newSet = new Set(prev);
+            newSet.add(rootCat.slug);
+            return newSet;
+          });
+        });
+        
+        // As a final guarantee, also expand the parent of the selected category
+        // Find the selected category and ensure its parent is expanded
+        const currentSelectedCat = categories.find(cat => cat.slug === selectedCategory);
+        if (currentSelectedCat && currentSelectedCat.parentId) {
+          const parentCategory = categories.find(cat => cat.id === currentSelectedCat.parentId);
+          if (parentCategory) {
+            setExpandedCategories(prev => {
+              const newSet = new Set(prev);
+              newSet.add(parentCategory.slug);
+              return newSet;
+            });
+          }
+        }
+      }
+    }
+  }, [selectedCategory, categories]); // Include categories to ensure it runs when categories change
+
+  // Additional effect to ensure parent category is expanded when single article is loaded
+  useEffect(() => {
+    if (singleArticle && categories.length > 0 && selectedCategory) {
+      // Find the selected category
+      const selectedCat = categories.find(cat => cat.slug === selectedCategory);
+      
+      if (selectedCat && selectedCat.parentId) {
+        // Find the parent category
+        const parentCategory = categories.find(cat => cat.id === selectedCat.parentId);
+        
+        if (parentCategory) {
+          // Make sure the parent category is expanded
+          setExpandedCategories(prev => {
+            const newSet = new Set(prev);
+            newSet.add(parentCategory.slug);
+            return newSet;
+          });
+        }
+      }
+    }
+  }, [singleArticle, categories, selectedCategory]);
+
+  // Effect to ensure parent category of selected subcategory is expanded when both article and categories are loaded
+  useEffect(() => {
+    if (selectedCategory && categories.length > 0) {
+      // Find the selected category
+      const selectedCat = categories.find(cat => cat.slug === selectedCategory);
+      
+      if (selectedCat && selectedCat.parentId) {
+        // Find the parent category
+        const parentCategory = categories.find(cat => cat.id === selectedCat.parentId);
+        
+        if (parentCategory) {
+          // Make sure the parent category is expanded
+          setExpandedCategories(prev => {
+            const newSet = new Set(prev);
+            newSet.add(parentCategory.slug);
+            return newSet;
+          });
+        }
+      }
+      
+      // Additionally, find all ancestors and make sure they're expanded
+      if (selectedCat) {
+        let currentCat = selectedCat;
+        while (currentCat.parentId) {
+          const parentCat = categories.find(cat => cat.id === currentCat.parentId);
+          if (parentCat) {
+            // Make sure this parent is expanded
+            setExpandedCategories(prev => {
+              const newSet = new Set(prev);
+              newSet.add(parentCat.slug);
+              return newSet;
+            });
+            currentCat = parentCat;
+          } else {
+            break; // No more parents found
+          }
+        }
+      }
+      
+      // Final guarantee: ensure root categories are expanded
+      const rootCategories = categories.filter(cat => !cat.parentId);
+      rootCategories.forEach(rootCat => {
+        setExpandedCategories(prev => {
+          const newSet = new Set(prev);
+          newSet.add(rootCat.slug);
+          return newSet;
+        });
+      });
+    }
+  }, [selectedCategory, categories]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -1688,28 +2315,55 @@ export function ArticlesPage() {
               <div className="w-full">
                 <div className="mb-6">
                   <div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => {
-                        setSelectedArticle(null);
-                        // Remove article ID from URL when going back to list
-                        const url = new URL(window.location.href);
-                        url.searchParams.delete('article');
-                        window.history.replaceState({}, '', url.toString());
-                      }}
-                      className="mb-2"
-                    >
-                      <ChevronLeft className="mr-2 h-4 w-4" /> {t('articles:backToList')}
-                    </Button>
-                    {selectedCategory && (
-                      <p className="text-sm text-muted-foreground">
-                        {categories.find(c => c.slug === selectedCategory)?.title}
-                      </p>
-                    )}
                   </div>
                   
-                  <h1 className="text-3xl font-bold mb-2">{singleArticle.title}</h1>
+                  <h1 className="text-3xl font-bold mb-1">{singleArticle.title}</h1>
+                  
+                  {singleArticle.section && (
+                    <p className="text-sm text-muted-foreground mb-3">
+                      <button 
+                        onClick={() => {
+                          // Find the category by slug
+                          const category = categories.find(cat => cat.slug === singleArticle.section);
+                          if (category) {
+                            // Expand the category and its ancestors
+                            const expandAncestors = (categoryId: string) => {
+                              const cat = categories.find(c => c.id === categoryId);
+                              if (cat) {
+                                setExpandedCategories(prev => {
+                                  const newSet = new Set(prev);
+                                  newSet.add(cat.slug);
+                                  return newSet;
+                                });
+                                if (cat.parentId) {
+                                  expandAncestors(cat.parentId);
+                                }
+                              }
+                            };
+                            
+                            // Expand the category and its ancestors
+                            if (category.parentId) {
+                              expandAncestors(category.parentId);
+                            }
+                            
+                            // Set the selected category
+                            setSelectedCategory(category.slug);
+                            
+                            // Deselect the article to go back to the category view
+                            setSelectedArticle(null);
+                            
+                            // Update URL to remove article parameter
+                            const url = new URL(window.location.href);
+                            url.searchParams.delete('article');
+                            window.history.replaceState({}, '', url.toString());
+                          }
+                        }}
+                        className="hover:text-foreground hover:underline cursor-pointer"
+                      >
+                        {t('articles:editor.sections.' + singleArticle.section)}
+                      </button>
+                    </p>
+                  )}
                   
                   <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
                     <div className="flex items-center gap-2">
@@ -1726,7 +2380,7 @@ export function ArticlesPage() {
                           </span>
                         </div>
                       )}
-                      <span>by {singleArticle.author?.fullName || singleArticle.author?.username || "Reader"}</span>
+                      {singleArticle.author?.id ? <span>{t('articles:byAuthor')} <Link href={`/profile/${singleArticle.author.id}`} className="hover:underline">{singleArticle.author.fullName || singleArticle.author.username || "Reader"}</Link></span> : <span>{t('articles:byAuthor')} {singleArticle.author?.fullName || singleArticle.author?.username || "Reader"}</span>}
                     </div>
                     
                     {singleArticle.publishedAt && (
@@ -1742,18 +2396,7 @@ export function ArticlesPage() {
                     </div>
                     
                     {/* Bookmark count */}
-                    <div className="flex items-center gap-1">
-                      <Bookmark className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{singleArticle.bookmarkCount || 0}</span>
-                    </div>
-                    
-                    {singleArticle.section && (
-                      <Badge variant="outline">
-                        {singleArticle.section ? t('articles:editor.sections.' + singleArticle.section) : singleArticle.section}
-                      </Badge>
-                    )}
-                    
-                    {user && (
+                    {user ? (
                       <button 
                         onClick={() => toggleReadLater(singleArticle.id, singleArticle.isReadLater)}
                         className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
@@ -1762,8 +2405,16 @@ export function ArticlesPage() {
                         <Bookmark 
                           className={`h-4 w-4 ${singleArticle.isReadLater ? 'fill-current text-primary' : ''}`} 
                         />
+                        <span className="text-sm text-muted-foreground">{singleArticle.bookmarkCount || 0}</span>
                       </button>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <Bookmark className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">{singleArticle.bookmarkCount || 0}</span>
+                      </div>
                     )}
+                    
+
                   </div>
                   
                   <div className="flex flex-wrap gap-2 mb-6">
@@ -1869,7 +2520,12 @@ export function ArticlesPage() {
                               </Avatar>
                               <div>
                                 <div className={`font-medium ${user && comment.userId === user.id ? 'text-[#2a2520] dark:text-[#fbf6f0]' : ''}`}>
-                                  {comment.author || comment.username}
+                                  <Link 
+                                    href={`/profile/${comment.userId}`}
+                                    className="hover:underline"
+                                  >
+                                    {comment.author || comment.username}
+                                  </Link>
                                   {user && comment.userId === user.id && (
                                     <span className="ml-2 text-sm text-[#5a5550] dark:text-[#cbc6c0]">(me)</span>
                                   )}

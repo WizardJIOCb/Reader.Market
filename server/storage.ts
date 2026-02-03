@@ -334,6 +334,7 @@ export interface IStorage {
   // Article view operations
   recordArticleView(articleId: string, userId?: string, ip?: string, userAgent?: string): Promise<void>;
   getArticleViewCount(articleId: string): Promise<number>;
+  getArticleBookmarkCount(articleId: string): Promise<number>;
   
   // Article read later operations
   addArticleToReadLater(userId: string, articleId: string): Promise<void>;
@@ -360,6 +361,7 @@ export interface ArticleWithRelations extends Article {
   attachedBooks?: any[];
   replyTo?: Article;
   repliesCount?: number;
+  bookmarkCount?: number;
 }
 
 export class DBStorage implements IStorage {
@@ -7138,6 +7140,19 @@ export class DBStorage implements IStorage {
     }
   }
   
+  async getArticleBookmarkCount(articleId: string): Promise<number> {
+    try {
+      const result = await db.select({ count: count() })
+        .from(articleReadLater)
+        .where(eq(articleReadLater.articleId, articleId));
+        
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("Error getting article bookmark count:", error);
+      return 0;
+    }
+  }
+  
   // Book chat operations
   async createBookChatMessage(messageData: { bookId: string; userId: string; content: string; mentionedUserId?: string; quotedMessageId?: string; attachmentUrls?: string[]; attachmentMetadata?: any }): Promise<any> {
     try {
@@ -9582,13 +9597,17 @@ export class DBStorage implements IStorage {
         isReadLater = (readLaterResult[0]?.count || 0) > 0;
       }
       
+      // Get bookmark count
+      const bookmarkCount = await this.getArticleBookmarkCount(article.id);
+      
       // Combine article with relations
       const articleWithRelations: ArticleWithRelations = {
         ...article,
         author,
         tags,
         attachedBooks,
-        isReadLater
+        isReadLater,
+        bookmarkCount
       };
       
       // Increment view count when article is retrieved
