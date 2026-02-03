@@ -2075,6 +2075,12 @@ export function ArticlesPage() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const locale = i18n.language === 'ru' ? ru : enUS;
+    return format(date, 'MMM d, yyyy HH:mm', { locale });
+  };
+  
+  const formatDateWithoutTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const locale = i18n.language === 'ru' ? ru : enUS;
     return format(date, 'MMM d, yyyy', { locale });
   };
 
@@ -2308,11 +2314,11 @@ export function ArticlesPage() {
           </div>
         )}
         
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 max-w-full">
           {selectedArticle ? (
             // Single Article View
             singleArticle ? (
-              <div className="w-full">
+              <div className="w-full max-w-full">
                 <div className="mb-6">
                   <div>
                   </div>
@@ -2365,6 +2371,15 @@ export function ArticlesPage() {
                     </p>
                   )}
                   
+                  {singleArticle.createdAt && (
+                    <p className="text-sm text-muted-foreground mb-3">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{formatDate(singleArticle.createdAt)}</span>
+                      </span>
+                    </p>
+                  )}
+                  
                   <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
                     <div className="flex items-center gap-2">
                       {singleArticle.author?.avatarUrl ? (
@@ -2386,7 +2401,7 @@ export function ArticlesPage() {
                     {singleArticle.publishedAt && (
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        <span>{formatDate(singleArticle.publishedAt)}</span>
+                        <span>{formatDateWithoutTime(singleArticle.publishedAt)}</span>
                       </div>
                     )}
                     
@@ -2426,7 +2441,7 @@ export function ArticlesPage() {
                   </div>
                 </div>
                 
-                <div className="prose max-w-none">
+                <div className="prose max-w-none overflow-x-auto">
                   {renderArticleContent(singleArticle.contentJson)}
                 </div>
                 
@@ -2771,7 +2786,7 @@ export function ArticlesPage() {
                     return (
                       <div 
                         key={article.id} 
-                        className="min-w-[666px] p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
+                        className="w-full p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
                         onClick={() => handleArticleSelect(article.id)}
                       >
                         <div className="flex-1 min-w-0">
@@ -2801,7 +2816,7 @@ export function ArticlesPage() {
                             {article.publishedAt && (
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
-                                <span>{formatDate(article.publishedAt)}</span>
+                                <span>{formatDateWithoutTime(article.publishedAt)}</span>
                               </div>
                             )}
                           </div>
@@ -2812,47 +2827,52 @@ export function ArticlesPage() {
                           )}
                         </div>
                         
-                        <div className="flex flex-wrap items-center gap-2 min-w-fit">
+                        <div className="flex flex-col gap-2 min-w-fit">
                           {(article.tags || []).slice(0, 2).map((tag) => (
-                            <span key={tag.slug} className="text-xs bg-muted px-2 py-1 rounded">
+                            <span key={tag.slug} className="text-xs bg-muted px-2 py-1 rounded self-start">
                               {tag.name}
                             </span>
                           ))}
                           {article.section && (
-                            <span className="text-xs bg-[#fee685] px-2 py-1 rounded">
+                            <span className="text-xs bg-[#fee685] px-2 py-1 rounded self-start">
                               {article.section ? t('articles:editor.sections.' + article.section) : article.section}
                             </span>
                           )}
                           {article.createdAt && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground self-start">
                               <Calendar className="h-3 w-3" />
                               <span>{formatDate(article.createdAt)}</span>
                             </div>
                           )}
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Eye className="h-3 w-3" />
-                            <span>{article.views}</span>
-                          </div>
-                          
-                          {user && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleReadLater(article.id, article.isReadLater);
-                                }}
-                                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                                aria-label={article.isReadLater ? t('articles:removeFromReadLater') : t('articles:addToReadLater')}
-                              >
-                                <Bookmark 
-                                  className={`h-3 w-3 ${article.isReadLater ? 'fill-current text-primary' : ''}`} 
-                                  />
-                              </button>
-                              <span className="text-xs text-muted-foreground">
-                                {article.bookmarkCount || 0}
-                              </span>
+                              <Eye className="h-3 w-3" />
+                              <span>{article.views}</span>
                             </div>
-                          )}
+                            <div className="flex items-center gap-1">
+                              <MessageCircle className="h-3 w-3" />
+                              <span>{article.commentsCount || 0}</span>
+                            </div>
+                            {user && (
+                              <div className="flex items-center gap-1">
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleReadLater(article.id, article.isReadLater);
+                                  }}
+                                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                                  aria-label={article.isReadLater ? t('articles:removeFromReadLater') : t('articles:addToReadLater')}
+                                >
+                                  <Bookmark 
+                                    className={`h-3 w-3 ${article.isReadLater ? 'fill-current text-primary' : ''}`} 
+                                    />
+                                </button>
+                                <span className="text-xs text-muted-foreground">
+                                  {article.bookmarkCount || 0}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -2923,7 +2943,7 @@ export function ArticlesPage() {
                         className="p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
                         onClick={() => handleArticleSelect(article.id)}
                       >
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-foreground truncate">
                             {article.title}
                           </h3>
@@ -2950,7 +2970,7 @@ export function ArticlesPage() {
                             {article.publishedAt && (
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
-                                <span>{formatDate(article.publishedAt)}</span>
+                                <span>{formatDateWithoutTime(article.publishedAt)}</span>
                               </div>
                             )}
                           </div>
@@ -2961,47 +2981,52 @@ export function ArticlesPage() {
                           )}
                         </div>
                         
-                        <div className="flex flex-wrap items-center gap-2 min-w-fit">
+                        <div className="flex flex-col gap-2 min-w-fit">
                           {(article.tags || []).slice(0, 2).map((tag) => (
-                            <span key={tag.slug} className="text-xs bg-muted px-2 py-1 rounded">
+                            <span key={tag.slug} className="text-xs bg-muted px-2 py-1 rounded self-start">
                               {tag.name}
                             </span>
                           ))}
                           {article.section && (
-                            <span className="text-xs bg-secondary px-2 py-1 rounded">
+                            <span className="text-xs bg-secondary px-2 py-1 rounded self-start">
                               {article.section ? t('articles:editor.sections.' + article.section) : article.section}
                             </span>
                           )}
                           {article.createdAt && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground self-start">
                               <Calendar className="h-3 w-3" />
                               <span>{formatDate(article.createdAt)}</span>
                             </div>
                           )}
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Eye className="h-3 w-3" />
-                            <span>{article.views}</span>
-                          </div>
-                          
-                          {user && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleReadLater(article.id, article.isReadLater);
-                                }}
-                                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                                aria-label={article.isReadLater ? t('articles:removeFromReadLater') : t('articles:addToReadLater')}
-                              >
-                                <Bookmark 
-                                  className={`h-3 w-3 ${article.isReadLater ? 'fill-current text-primary' : ''}`} 
-                                  />
-                              </button>
-                              <span className="text-xs text-muted-foreground">
-                                {article.bookmarkCount || 0}
-                              </span>
+                              <Eye className="h-3 w-3" />
+                              <span>{article.views}</span>
                             </div>
-                          )}
+                            <div className="flex items-center gap-1">
+                              <MessageCircle className="h-3 w-3" />
+                              <span>{article.commentsCount || 0}</span>
+                            </div>
+                            {user && (
+                              <div className="flex items-center gap-1">
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleReadLater(article.id, article.isReadLater);
+                                  }}
+                                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                                  aria-label={article.isReadLater ? t('articles:removeFromReadLater') : t('articles:addToReadLater')}
+                                >
+                                  <Bookmark 
+                                    className={`h-3 w-3 ${article.isReadLater ? 'fill-current text-primary' : ''}`} 
+                                    />
+                                </button>
+                                <span className="text-xs text-muted-foreground">
+                                  {article.bookmarkCount || 0}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))
