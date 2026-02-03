@@ -2774,7 +2774,7 @@ export function ArticlesPage() {
                         className="min-w-[666px] p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
                         onClick={() => handleArticleSelect(article.id)}
                       >
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-foreground truncate">
                             {article.title}
                           </h3>
@@ -2812,7 +2812,7 @@ export function ArticlesPage() {
                           )}
                         </div>
                         
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 min-w-fit">
                           {(article.tags || []).slice(0, 2).map((tag) => (
                             <span key={tag.slug} className="text-xs bg-muted px-2 py-1 rounded">
                               {tag.name}
@@ -2961,7 +2961,7 @@ export function ArticlesPage() {
                           )}
                         </div>
                         
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 min-w-fit">
                           {(article.tags || []).slice(0, 2).map((tag) => (
                             <span key={tag.slug} className="text-xs bg-muted px-2 py-1 rounded">
                               {tag.name}
