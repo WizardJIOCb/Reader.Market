@@ -35,28 +35,8 @@ const authenticateToken = async (req: Request, res: Response, next: Function) =>
 
 const router = Router();
 
-// Apply authentication middleware to all routes
-router.use(authenticateToken);
-
-// GET /api/tts/config - Get TTS configuration
-router.get('/config', async (req, res) => {
-  try {
-    const config = await ttsService.getConfig();
-    if (!config) {
-      return res.status(404).json({ error: 'TTS configuration not found' });
-    }
-    
-    // Remove sensitive paths from response
-    const { rhvoiceBinPath, piperBinPath, piperModelsDir, ...safeConfig } = config;
-    
-    res.json(safeConfig);
-  } catch (error: any) {
-    console.error('Error fetching TTS config:', error);
-    res.status(500).json({ error: 'Failed to fetch TTS configuration' });
-  }
-});
-
 // GET /api/tts/voices - List available voices for a provider and language
+// Public endpoint for testing
 router.get('/voices', async (req, res) => {
   try {
     const { provider, lang } = req.query;
@@ -88,6 +68,27 @@ router.get('/voices', async (req, res) => {
   } catch (error: any) {
     console.error('Error listing voices:', error);
     res.status(500).json({ error: 'Failed to list voices' });
+  }
+});
+
+// Apply authentication middleware to all routes except /voices
+router.use(authenticateToken);
+
+// GET /api/tts/config - Get TTS configuration
+router.get('/config', async (req, res) => {
+  try {
+    const config = await ttsService.getConfig();
+    if (!config) {
+      return res.status(404).json({ error: 'TTS configuration not found' });
+    }
+    
+    // Remove sensitive paths from response
+    const { rhvoiceBinPath, piperBinPath, piperModelsDir, ...safeConfig } = config;
+    
+    res.json(safeConfig);
+  } catch (error: any) {
+    console.error('Error fetching TTS config:', error);
+    res.status(500).json({ error: 'Failed to fetch TTS configuration' });
   }
 });
 

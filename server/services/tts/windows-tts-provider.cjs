@@ -47,8 +47,9 @@ class WindowsTtsProvider {
       // Create temporary SSML file
       // Simplified SSML for Windows Speech API compatibility
       const cleanText = text
-        .replace(/<[^>]+>/g, ' ')  // Remove HTML tags
-        .replace(/\s+/g, ' ')      // Normalize whitespace
+        .replace(/<[^<>]*>/g, ' ')  // Remove HTML tags (non-greedy)
+        .replace(/\s+/g, ' ')       // Normalize whitespace
+        .replace(/["']/g, '')       // Remove quotes that might interfere with SSML
         .trim();
       
       const ssmlContent = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${options.lang}">
@@ -56,6 +57,9 @@ class WindowsTtsProvider {
           <prosody rate="${options.rate}">${cleanText}</prosody>
         </voice>
       </speak>`;
+      
+      console.log('Windows TTS: Cleaned text length:', cleanText.length);
+      console.log('Windows TTS: Cleaned text preview:', cleanText.substring(0, 100));
 
       const tempSsmlPath = path.join(require('os').tmpdir(), `tts-${Date.now()}.xml`);
       fs.writeFileSync(tempSsmlPath, ssmlContent, 'utf8');
