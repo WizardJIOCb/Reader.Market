@@ -2452,9 +2452,14 @@ export function ArticlesPage() {
                   {/* Main Comment Form */}
                   {user ? (
                     <div className="flex gap-4 mb-6">
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium flex-shrink-0">
-                        {(user.fullName || user.username)?.charAt(0).toUpperCase()}
-                      </div>
+                      <Avatar className="flex-shrink-0 w-10 h-10">
+                        {user?.avatarUrl ? (
+                          <AvatarImage src={user.avatarUrl} alt={user.fullName || user.username} />
+                        ) : null}
+                        <AvatarFallback>
+                          {(user.fullName || user.username)?.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="flex-1 space-y-2">
                         <textarea
                           placeholder={t('articles:addCommentPlaceholder')}
