@@ -399,7 +399,7 @@ export default function Shelves() {
                         key={book.id} 
                         book={bookData} 
                         variant="compact"
-                                                columns={3}
+                                                columns={2}
                         readingProgress={readingProgress}
                         addToShelfButton={
                           <AddToShelfDialog 
@@ -489,7 +489,7 @@ export default function Shelves() {
                         key={book.id} 
                         book={bookData} 
                         variant="compact"
-                                                columns={3}
+                                                columns={2}
                         readingProgress={readingProgress}
                         addToShelfButton={
                           <AddToShelfDialog 
@@ -570,7 +570,7 @@ export default function Shelves() {
                   <p>{t('shelves:shelfEmpty')}</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
                   {sortBooks(shelf.books || shelfBooks[shelf.id] || [], shelfSortBy, shelfSortDir).map((book: any) => {
                     // Convert book data to match BookCard expectations
                     const bookData = {
@@ -601,7 +601,7 @@ export default function Shelves() {
                         key={book.id} 
                         book={bookData} 
                         variant="compact"
-                                                columns={3}
+                                                columns={2}
                         readingProgress={readingProgress}
                         addToShelfButton={
                           <AddToShelfDialog 

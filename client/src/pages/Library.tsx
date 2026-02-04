@@ -181,7 +181,7 @@ export default function Library() {
           </div>
           
           {filteredPopularBooks.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6" style={{ direction: 'ltr' }}>
               {filteredPopularBooks.map((book) => {
                 // Find reading progress for this book
                 const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
@@ -199,7 +199,7 @@ export default function Library() {
                     key={book.id} 
                     book={bookData} 
                     variant="compact"
-                                        columns={3}
+                                        columns={2}
                     readingProgress={readingProgress}
                   />
                 );
@@ -232,7 +232,7 @@ export default function Library() {
               {data.booksByGenre.map((genreGroup, index) => (
                 <div key={index}>
                   <h3 className="text-xl font-serif font-bold mb-4">{genreGroup.genre}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6" style={{ direction: 'ltr' }}>
                     {sortBooks(genreGroup.books, genreSort).map((book) => {
                       // Find reading progress for this book
                       const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
@@ -250,7 +250,7 @@ export default function Library() {
                           key={book.id} 
                           book={bookData} 
                           variant="compact"
-                                              columns={3}
+                                              columns={2}
                           readingProgress={readingProgress}
                         />
                       );
@@ -283,7 +283,7 @@ export default function Library() {
           </div>
           
           {filteredRecentlyReviewedBooks.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ direction: 'ltr' }}>
               {filteredRecentlyReviewedBooks.map((book) => {
                 // Find reading progress for this book
                 const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
@@ -301,7 +301,7 @@ export default function Library() {
                     key={book.id} 
                     book={bookData} 
                     variant="compact"
-                                        columns={3}
+                                        columns={2}
                     readingProgress={readingProgress}
                   />
                 );
@@ -335,7 +335,7 @@ export default function Library() {
           </div>
           
           {filteredNewReleases.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6" style={{ direction: 'ltr' }}>
               {filteredNewReleases.map((book) => {
                 // Find reading progress for this book
                 const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
@@ -353,7 +353,7 @@ export default function Library() {
                     key={book.id} 
                     book={bookData} 
                     variant="compact"
-                                        columns={3}
+                                        columns={2}
                     readingProgress={readingProgress}
                   />
                 );
@@ -383,7 +383,7 @@ export default function Library() {
             </div>
             
             {filteredCurrentUserBooks && filteredCurrentUserBooks.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6" style={{ direction: 'ltr' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ direction: 'ltr' }}>
                 {filteredCurrentUserBooks.map((book) => {
                   // Find reading progress for this book
                   const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
@@ -401,7 +401,7 @@ export default function Library() {
                       key={book.id} 
                       book={bookData} 
                       variant="compact"
-                                          columns={3}
+                                          columns={2}
                       readingProgress={readingProgress}
                     />
                   );
