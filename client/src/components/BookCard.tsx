@@ -459,6 +459,21 @@ export const BookCard: React.FC<BookCardProps> = ({
                     </TooltipContent>
                   </Tooltip>
                 )}
+                
+                {/* Rating display */}
+                {(book.rating !== undefined && book.rating !== null) && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-0.5">
+                        <Star className="w-3 h-3 fill-current text-yellow-500" /> {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
+                        {book.ratingCount !== undefined && ` (${book.ratingCount})`}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t('books:rating')}: {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)} {book.ratingCount !== undefined ? `(${book.ratingCount} ${t('books:ratings')})` : ''}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </TooltipProvider>
             
