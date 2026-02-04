@@ -78,7 +78,7 @@ const LandingPage = () => {
         const response = await fetch('/api/popular-books');
         if (response.ok) {
           const books = await response.json();
-          setPopularBooks(books.slice(0, 3)); // Take first 3 books
+          setPopularBooks(books.slice(0, 4)); // Take first 4 books
         }
       } catch (error) {
         console.error('Failed to fetch popular books:', error);

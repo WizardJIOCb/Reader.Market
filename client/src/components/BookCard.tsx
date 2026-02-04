@@ -363,7 +363,7 @@ export const BookCard: React.FC<BookCardProps> = ({
                 {book.author}
               </p>
               
-              <p className="text-[13px] text-muted-foreground mb-0 line-clamp-6">
+              <p style={{ paddingTop: '7px' }} className="text-[13px] text-muted-foreground mb-0 line-clamp-6">
                 {book.description}
               </p>
             </div>
