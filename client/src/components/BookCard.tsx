@@ -376,19 +376,19 @@ export const BookCard: React.FC<BookCardProps> = ({
                 <>
                   {Array.isArray(book.genre) 
                     ? book.genre.slice(0, visibleGenreCount).map((genre: string, index: number) => (
-                        <Badge key={index} variant="secondary" className="text-xs flex-shrink-0">
+                        <Badge key={index} variant="secondary" className="text-xs flex-shrink-0" style={{ backgroundColor: '#ffe69e' }}>
                           {genre}
                         </Badge>
                       ))
                     : book.genre && typeof book.genre === 'string' && book.genre.split(',').slice(0, visibleGenreCount).map((genre: string, index: number) => (
-                        <Badge key={index} variant="secondary" className="text-xs flex-shrink-0">
+                        <Badge key={index} variant="secondary" className="text-xs flex-shrink-0" style={{ backgroundColor: '#ffe69e' }}>
                           {genre.trim()}
                         </Badge>
                       ))
                   }
                   {((Array.isArray(book.genre) && book.genre.length > visibleGenreCount) || 
                     (typeof book.genre === 'string' && book.genre.split(',').length > visibleGenreCount)) && (
-                    <Badge variant="secondary" className="text-xs flex-shrink-0">
+                    <Badge variant="secondary" className="text-xs flex-shrink-0" style={{ backgroundColor: '#ffe69e' }}>
                       +{Array.isArray(book.genre) 
                         ? book.genre.length - visibleGenreCount 
                         : book.genre.split(',').length - visibleGenreCount}
@@ -396,7 +396,7 @@ export const BookCard: React.FC<BookCardProps> = ({
                   )}
                 </>
               ) : (
-                <Badge variant="secondary" className="text-xs flex-shrink-0">
+                <Badge variant="secondary" className="text-xs flex-shrink-0" style={{ backgroundColor: '#ffe69e' }}>
                   {t('books:noGenres')}
                 </Badge>
               )}
@@ -482,10 +482,16 @@ export const BookCard: React.FC<BookCardProps> = ({
                 size="sm" 
                 className="text-xs flex-1"
                 onClick={handleReadClick}
+                style={{ backgroundColor: '#ffe3af', border: '1px solid #979797' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#ffd995'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffe3af'}
               >
                 {t('books:read')}
               </Button>
-              <Button variant="outline" size="sm" className="text-xs flex-1" asChild>
+              <Button variant="outline" size="sm" className="text-xs flex-1" asChild
+                style={{ backgroundColor: '#ffedb2', border: '1px solid #979797' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#ffe499'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffedb2'}>
                 <Link href={`/book/${book.id}`}>
                   {t('books:moreDetails')}
                 </Link>
