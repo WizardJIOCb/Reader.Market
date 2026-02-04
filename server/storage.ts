@@ -543,14 +543,14 @@ export class DBStorage implements IStorage {
   async searchBooks(query: string, sortBy?: string, sortDirection: 'asc' | 'desc' = 'desc'): Promise<any[]> {
     try {
       let result;
-      if (query) {
+      if (query && query.trim() !== '') {
         // First, perform a search based on the query across multiple fields, sorted by rating (descending, nulls last)
         // Use explicit collation to ensure Cyrillic characters are handled properly
         // Properly escape special characters for Cyrillic text
-        const escapedQuery = query.replace(/[%_]/g, '\$&');
+        const escapedQuery = query.replace(/[%_]/g, '\\$&');
         const searchPattern = '%' + escapedQuery + '%';
         result = await db.select().from(books).where(
-          sql`is_active = true AND (LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
+          sql`is_active = true AND (title ILIKE ${searchPattern} OR author ILIKE ${searchPattern} OR description ILIKE ${searchPattern} OR genre ILIKE ${searchPattern})`
         ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
         
         // Additionally, for books with TXT files, search within the content
@@ -619,63 +619,93 @@ export class DBStorage implements IStorage {
       }
       
       // Fetch the books again with updated ratings
-      if (query) {
+      if (query && query.trim() !== '') {
         // Use explicit collation to ensure Cyrillic characters are handled properly
         // Properly escape special characters for Cyrillic text
-        const escapedQuery = query.replace(/[%_]/g, '\$&');
+        const escapedQuery = query.replace(/[%_]/g, '\\$&');
         const searchPattern = '%' + escapedQuery + '%';
         result = await db.select().from(books).where(
-          sql`is_active = true AND (LOWER(title) ILIKE LOWER(${searchPattern}) OR LOWER(author) ILIKE LOWER(${searchPattern}) OR LOWER(description) ILIKE LOWER(${searchPattern}) OR LOWER(genre) ILIKE LOWER(${searchPattern}))`
+          sql`is_active = true AND (title ILIKE ${searchPattern} OR author ILIKE ${searchPattern} OR description ILIKE ${searchPattern} OR genre ILIKE ${searchPattern})`
         ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       } else {
         // Return all active books if no query, sorted by rating (descending, nulls last)
         result = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       }
       
-      // For each book, get the comment and review counts
+      // Efficiently get all counts and stats for all books in bulk
+      const bookIds = result.map(book => book.id);
+      
+      // Get all comment counts in bulk
+      const commentCounts = await db.select({ bookId: comments.bookId, count: count() })
+        .from(comments)
+        .where(inArray(comments.bookId, bookIds))
+        .groupBy(comments.bookId);
+      
+      // Get all review counts in bulk
+      const reviewCounts = await db.select({ bookId: reviews.bookId, count: count() })
+        .from(reviews)
+        .where(inArray(reviews.bookId, bookIds))
+        .groupBy(reviews.bookId);
+      
+      // Get latest comment dates in bulk
+      const latestComments = await db.select({ bookId: comments.bookId, createdAt: comments.createdAt })
+        .from(comments)
+        .where(inArray(comments.bookId, bookIds))
+        .orderBy(desc(comments.createdAt));
+      
+      // Get latest review dates in bulk
+      const latestReviews = await db.select({ bookId: reviews.bookId, createdAt: reviews.createdAt })
+        .from(reviews)
+        .where(inArray(reviews.bookId, bookIds))
+        .orderBy(desc(reviews.createdAt));
+      
+      // Get all shelf counts in bulk
+      const shelfCounts = await db.select({ bookId: shelfBooks.bookId, count: count() })
+        .from(shelfBooks)
+        .where(inArray(shelfBooks.bookId, bookIds))
+        .groupBy(shelfBooks.bookId);
+      
+      // Convert arrays to maps for fast lookup
+      const commentCountMap = new Map(commentCounts.map(row => [row.bookId, Number(row.count)]));
+      const reviewCountMap = new Map(reviewCounts.map(row => [row.bookId, Number(row.count)]));
+      const shelfCountMap = new Map(shelfCounts.map(row => [row.bookId, Number(row.count)]));
+      
+      // Group latest activity by bookId
+      const latestCommentMap = new Map();
+      const latestReviewMap = new Map();
+      
+      // Process latest comments
+      for (const comment of latestComments) {
+        if (!latestCommentMap.has(comment.bookId) || comment.createdAt > latestCommentMap.get(comment.bookId)) {
+          latestCommentMap.set(comment.bookId, comment.createdAt);
+        }
+      }
+      
+      // Process latest reviews
+      for (const review of latestReviews) {
+        if (!latestReviewMap.has(review.bookId) || review.createdAt > latestReviewMap.get(review.bookId)) {
+          latestReviewMap.set(review.bookId, review.createdAt);
+        }
+      }
+      
+      // Process all books with enriched data
       const resultWithCounts = await Promise.all(result.map(async (book) => {
-        // Get comment count using Drizzle ORM
-        const commentCountResult = await db.select({ count: count() })
-          .from(comments)
-          .where(eq(comments.bookId, book.id));
+        // Get latest activity date for this book
+        const latestCommentDate = latestCommentMap.get(book.id);
+        const latestReviewDate = latestReviewMap.get(book.id);
         
-        // Get review count using Drizzle ORM
-        const reviewCountResult = await db.select({ count: count() })
-          .from(reviews)
-          .where(eq(reviews.bookId, book.id));
-        
-        // Get the latest comment or review date
-        const latestComments = await db.select({ createdAt: comments.createdAt })
-          .from(comments)
-          .where(eq(comments.bookId, book.id))
-          .limit(1)
-          .orderBy(desc(comments.createdAt));
-          
-        const latestReviews = await db.select({ createdAt: reviews.createdAt })
-          .from(reviews)
-          .where(eq(reviews.bookId, book.id))
-          .limit(1)
-          .orderBy(desc(reviews.createdAt));
-          
         const latestDate = [
-          latestComments[0]?.createdAt,
-          latestReviews[0]?.createdAt
+          latestCommentDate,
+          latestReviewDate
         ].filter(Boolean)
          .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
-        
-        const latestActivityResult = [{ latest_date: latestDate }];
-        
-        // Get shelf count using Drizzle ORM
-        const shelfCountResult = await db.select({ count: count() })
-          .from(shelfBooks)
-          .where(eq(shelfBooks.bookId, book.id));
         
         // Get book view statistics
         const viewStats = await this.getBookViewStats(book.id);
         
         // Determine the last activity date: use the latest comment/review date, or fall back to uploaded date if no activity
-        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
-          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+        const lastActivityDate = latestDate
+          ? new Date(latestDate).toISOString()
           : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
         // Format dates for the frontend
@@ -688,9 +718,9 @@ export class DBStorage implements IStorage {
           publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
           createdAt: book.createdAt.toISOString(),
           updatedAt: book.updatedAt.toISOString(),
-          commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: reviewCountResult[0]?.count || 0,
-          shelfCount: shelfCountResult[0]?.count || 0,
+          commentCount: commentCountMap.get(book.id) || 0,
+          reviewCount: reviewCountMap.get(book.id) || 0,
+          shelfCount: shelfCountMap.get(book.id) || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate
