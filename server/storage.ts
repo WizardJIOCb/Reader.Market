@@ -708,6 +708,9 @@ export class DBStorage implements IStorage {
           ? new Date(latestDate).toISOString()
           : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
+        // Get aggregated reactions for this book
+        const reactions = await this.getAggregatedBookReactions(book.id);
+        
         // Format dates for the frontend
         return {
           ...book,
@@ -723,7 +726,8 @@ export class DBStorage implements IStorage {
           shelfCount: shelfCountMap.get(book.id) || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: lastActivityDate
+          lastActivityDate: lastActivityDate,
+          reactions: reactions
         };
       }));
       
@@ -887,6 +891,9 @@ export class DBStorage implements IStorage {
         
         console.log('Review count result for book', book.id, ':', reviewCountResult);
         
+        // Get rating count (number of reviews that have a rating)
+        const ratingCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id} AND rating IS NOT NULL`);
+        
         // Get the latest comment or review date
         const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
           SELECT created_at FROM comments WHERE book_id = ${book.id}
@@ -921,6 +928,7 @@ export class DBStorage implements IStorage {
           ...formattedBook,
           commentCount: commentCountResult.rows[0]?.count || 0,
           reviewCount: reviewCountResult.rows[0]?.count || 0,
+          ratingCount: ratingCountResult.rows[0]?.count || 0,
           shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
@@ -972,6 +980,9 @@ export class DBStorage implements IStorage {
         
         console.log('Review count result for book', book.id, ':', reviewCountResult);
         
+        // Get rating count (number of reviews that have a rating)
+        const ratingCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id} AND rating IS NOT NULL`);
+        
         // Get the latest comment or review date
         const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
           SELECT created_at FROM comments WHERE book_id = ${book.id}
@@ -1009,6 +1020,7 @@ export class DBStorage implements IStorage {
           ...formattedBook,
           commentCount: commentCountResult.rows[0]?.count || 0,
           reviewCount: reviewCountResult.rows[0]?.count || 0,
+          ratingCount: ratingCountResult.rows[0]?.count || 0,
           shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
@@ -1063,6 +1075,9 @@ export class DBStorage implements IStorage {
         
         console.log('Review count result for book', book.id, ':', reviewCountResult);
         
+        // Get rating count (number of reviews that have a rating)
+        const ratingCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id} AND rating IS NOT NULL`);
+        
         // Get the latest comment or review date
         const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
           SELECT created_at FROM comments WHERE book_id = ${book.id}
@@ -1100,6 +1115,7 @@ export class DBStorage implements IStorage {
           ...formattedBook,
           commentCount: commentCountResult.rows[0]?.count || 0,
           reviewCount: reviewCountResult.rows[0]?.count || 0,
+          ratingCount: ratingCountResult.rows[0]?.count || 0,
           shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
@@ -1173,6 +1189,9 @@ export class DBStorage implements IStorage {
         
         console.log('Review count result for book', book.id, ':', reviewCountResult);
         
+        // Get rating count (number of reviews that have a rating)
+        const ratingCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id} AND rating IS NOT NULL`);
+        
         // Get the latest comment or review date
         const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
           SELECT created_at FROM comments WHERE book_id = ${book.id}
@@ -1210,6 +1229,7 @@ export class DBStorage implements IStorage {
           ...formattedBook,
           commentCount: commentCountResult.rows[0]?.count || 0,
           reviewCount: reviewCountResult.rows[0]?.count || 0,
+          ratingCount: ratingCountResult.rows[0]?.count || 0,
           shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
@@ -1291,6 +1311,9 @@ export class DBStorage implements IStorage {
         
         console.log('Review count result for book', book.id, ':', reviewCountResult);
         
+        // Get rating count (number of reviews that have a rating)
+        const ratingCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id} AND rating IS NOT NULL`);
+        
         // Get the latest comment or review date
         const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
           SELECT created_at FROM comments WHERE book_id = ${book.id}
@@ -1331,6 +1354,7 @@ export class DBStorage implements IStorage {
           ...formattedBook,
           commentCount: commentCountResult.rows[0]?.count || 0,
           reviewCount: reviewCountResult.rows[0]?.count || 0,
+          ratingCount: ratingCountResult.rows[0]?.count || 0,
           shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
@@ -1385,6 +1409,9 @@ export class DBStorage implements IStorage {
         
         console.log('Review count result for book', book.id, ':', reviewCountResult);
         
+        // Get rating count (number of reviews that have a rating)
+        const ratingCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id} AND rating IS NOT NULL`);
+        
         // Get the latest comment or review date
         const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
           SELECT created_at FROM comments WHERE book_id = ${book.id}
@@ -1422,6 +1449,7 @@ export class DBStorage implements IStorage {
           ...formattedBook,
           commentCount: commentCountResult.rows[0]?.count || 0,
           reviewCount: reviewCountResult.rows[0]?.count || 0,
+          ratingCount: ratingCountResult.rows[0]?.count || 0,
           shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,

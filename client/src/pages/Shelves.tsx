@@ -48,7 +48,7 @@ export default function Shelves() {
   const [shelfSortBy, setShelfSortBy] = useState<SortOption>('rating');
   const [shelfSortDir, setShelfSortDir] = useState<SortDirection>('desc');
 
-  // Fetch books for all shelves
+  // Fetch books for all shelves with reactions using search API
   useEffect(() => {
     const fetchAllShelfBooks = async () => {
       if (shelves.length > 0) {
@@ -60,8 +60,33 @@ export default function Shelves() {
             try {
               // Convert book IDs to strings if they're not already
               const bookIds = shelf.bookIds.map(id => String(id));
-              const books = await fetchBooksByIds(bookIds);
-              newShelfBooks[shelf.id] = books;
+              
+              // Fetch books with reactions using search API to ensure reactions are included
+              const token = localStorage.getItem('authToken');
+              if (token) {
+                // Create a query to search for specific book IDs
+                const bookIdsQuery = bookIds.join(' OR ');
+                const response = await fetch(`/api/books/search?query=${encodeURIComponent(bookIdsQuery)}`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                });
+                
+                if (response.ok) {
+                  const books = await response.json();
+                  // Filter to only include books that are actually in this shelf
+                  const shelfBooks = books.filter((book: any) => bookIds.includes(String(book.id)));
+                  newShelfBooks[shelf.id] = shelfBooks;
+                } else {
+                  // Fallback to original method if search fails
+                  const books = await fetchBooksByIds(bookIds);
+                  newShelfBooks[shelf.id] = books;
+                }
+              } else {
+                // Fallback to original method if no token
+                const books = await fetchBooksByIds(bookIds);
+                newShelfBooks[shelf.id] = books;
+              }
             } catch (err) {
               console.error(`Error fetching books for shelf ${shelf.id}:`, err);
               newShelfBooks[shelf.id] = [];
@@ -392,6 +417,7 @@ export default function Shelves() {
                       year: book.publishedYear,
                       uploadedAt: book.uploadedAt,
                       publishedAt: book.publishedAt,
+                      reactions: book.reactions || [], // Add reactions data
                     };
                     
                     return (
@@ -401,6 +427,32 @@ export default function Shelves() {
                         variant="compact"
                                                 columns={2}
                         readingProgress={readingProgress}
+                        onUpdateBook={(updatedBook) => {
+                          // Update the global search results to reflect the updated book
+                          setGlobalSearchResults(prev => 
+                            prev.map(b => b.id === updatedBook.id ? {
+                              ...b,
+                              ...updatedBook,
+                              reactions: [...(updatedBook.reactions || [])]
+                            } : { ...b })
+                          );
+                          
+                          // Update the shelfBooks state to reflect the updated book
+                          setShelfBooks(prev => {
+                            const newShelfBooks: {[key: string]: any[]} = {};
+                            // Create entirely new objects to ensure React detects changes
+                            Object.keys(prev).forEach(shelfId => {
+                              newShelfBooks[shelfId] = prev[shelfId].map(b => 
+                                b.id === updatedBook.id ? {
+                                  ...b,
+                                  ...updatedBook,
+                                  reactions: [...(updatedBook.reactions || [])]
+                                } : { ...b }
+                              );
+                            });
+                            return newShelfBooks;
+                          });
+                        }}
                         addToShelfButton={
                           <AddToShelfDialog 
                             bookId={book.id}
@@ -475,22 +527,49 @@ export default function Shelves() {
                     
                     // Convert book data to match BookCard expectations
                     const bookData = {
-                      ...book,
-                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
-                      genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
-                      shelfCount: book.shelfCount,
-                      cardViewCount: book.cardViewCount,
-                      readerOpenCount: book.readerOpenCount,
-                      lastActivityDate: book.lastActivityDate,
+                      ...JSON.parse(JSON.stringify({
+                        ...book,
+                        coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                        genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                        shelfCount: book.shelfCount,
+                        cardViewCount: book.cardViewCount,
+                        readerOpenCount: book.readerOpenCount,
+                        lastActivityDate: book.lastActivityDate,
+                      }))
                     };
                     
                     return (
                       <BookCard 
-                        key={book.id} 
+                        key={`book-${book.id}`}
                         book={bookData} 
                         variant="compact"
                                                 columns={2}
                         readingProgress={readingProgress}
+                        onUpdateBook={(updatedBook) => {
+                          // Update the shelfBooks state to reflect the updated book
+                          setShelfBooks(prev => {
+                            const newShelfBooks: {[key: string]: any[]} = {};
+                            // Create entirely new objects to ensure React detects changes
+                            Object.keys(prev).forEach(shelfId => {
+                              newShelfBooks[shelfId] = prev[shelfId].map(b => 
+                                b.id === updatedBook.id ? {
+                                  ...b,
+                                  ...updatedBook,
+                                  reactions: [...(updatedBook.reactions || [])]
+                                } : { ...b }
+                              );
+                            });
+                            return newShelfBooks;
+                          });
+                          // Also update the global search results if this book is there
+                          setGlobalSearchResults(prev => 
+                            prev.map(b => b.id === updatedBook.id ? {
+                              ...b,
+                              ...updatedBook,
+                              reactions: [...(updatedBook.reactions || [])]
+                            } : { ...b })
+                          );
+                        }}
                         addToShelfButton={
                           <AddToShelfDialog 
                             bookId={book.id}
@@ -571,26 +650,28 @@ export default function Shelves() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-                  {sortBooks(shelf.books || shelfBooks[shelf.id] || [], shelfSortBy, shelfSortDir).map((book: any) => {
+                  {sortBooks((shelfBooks[shelf.id]?.length ?? 0) > 0 ? shelfBooks[shelf.id] : shelf.books || [], shelfSortBy, shelfSortDir).map((book: any) => {
                     // Convert book data to match BookCard expectations
                     const bookData = {
-                      id: book.id, // Keep the original ID as string (UUID)
-                      title: book.title,
-                      author: book.author,
-                      description: book.description,
-                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl, // Pass the cover image URL
-                      rating: book.rating,
-                      commentCount: book.commentCount,
-                      reviewCount: book.reviewCount,
-                      shelfCount: book.shelfCount,
-                      cardViewCount: book.cardViewCount,
-                      readerOpenCount: book.readerOpenCount,
-                      lastActivityDate: book.lastActivityDate,
-                      genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [], // Split genre string into array
-                      year: book.publishedYear,
-                      uploadedAt: book.uploadedAt, // Add upload date
-                      publishedAt: book.publishedAt, // Add publication date
-                      reactions: book.reactions || [] // Add reactions data
+                      ...JSON.parse(JSON.stringify({
+                        id: book.id, // Keep the original ID as string (UUID)
+                        title: book.title,
+                        author: book.author,
+                        description: book.description,
+                        coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl, // Pass the cover image URL
+                        rating: book.rating,
+                        commentCount: book.commentCount,
+                        reviewCount: book.reviewCount,
+                        shelfCount: book.shelfCount,
+                        cardViewCount: book.cardViewCount,
+                        readerOpenCount: book.readerOpenCount,
+                        lastActivityDate: book.lastActivityDate,
+                        genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [], // Split genre string into array
+                        year: book.publishedYear,
+                        uploadedAt: book.uploadedAt, // Add upload date
+                        publishedAt: book.publishedAt, // Add publication date
+                        reactions: book.reactions || [] // Add reactions data
+                      }))
                     };
                     
                     // Find reading progress for this book
@@ -598,11 +679,32 @@ export default function Shelves() {
                     
                     return (
                       <BookCard 
-                        key={book.id} 
+                        key={`book-${book.id}`}
                         book={bookData} 
                         variant="compact"
                                                 columns={2}
                         readingProgress={readingProgress}
+                        onUpdateBook={(updatedBook) => {
+                          // Update the shelfBooks state to reflect the updated book
+                          setShelfBooks(prev => {
+                            const newShelfBooks: {[key: string]: any[]} = {};
+                            // Copy all existing shelves with fresh references
+                            Object.keys(prev).forEach(shelfId => {
+                              newShelfBooks[shelfId] = [...prev[shelfId]].map(book => ({ ...book }));
+                            });
+                            // Update in the specific shelf
+                            if (newShelfBooks[shelf.id]) {
+                              newShelfBooks[shelf.id] = newShelfBooks[shelf.id].map(b => 
+                                b.id === updatedBook.id ? {
+                                  ...b,
+                                  ...updatedBook,
+                                  reactions: [...(updatedBook.reactions || [])]
+                                } : { ...b }
+                              );
+                            }
+                            return newShelfBooks;
+                          });
+                        }}
                         addToShelfButton={
                           <AddToShelfDialog 
                             bookId={book.id} // Pass the original ID

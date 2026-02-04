@@ -36,6 +36,7 @@ interface BookCardProps {
   };
   addToShelfButton?: React.ReactNode;
   columns?: number; // Number of columns in the grid (1, 2, or 3)
+  onUpdateBook?: (updatedBook: Book & { readingProgress?: any }) => void;
 }
 
 export const BookCard: React.FC<BookCardProps> = ({ 
@@ -43,8 +44,11 @@ export const BookCard: React.FC<BookCardProps> = ({
   variant = 'standard',
   readingProgress,
   addToShelfButton,
-  columns
+  columns,
+  onUpdateBook
 }) => {
+
+  
   const [visibleGenreCount, setVisibleGenreCount] = useState(3);
   
   // Set visibleGenreCount based on screen size and columns
@@ -278,6 +282,90 @@ export const BookCard: React.FC<BookCardProps> = ({
           
           return prev;
         });
+        
+        // Update the book's reactions in the parent component by refetching book data
+        // This ensures the UI updates properly across all components showing the same book
+        if (onUpdateBook) {
+          try {
+            const bookResponse = await fetch(`/api/books/${book.id}`);
+            if (bookResponse.ok) {
+              const updatedBookData = await bookResponse.json();
+              
+              // Also fetch detailed reactions to get the full reaction data
+              try {
+                const token = localStorage.getItem('authToken');
+                const reactionsResponse = await fetch(`/api/books/${book.id}/reactions/detail`, {
+                  headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+                
+                if (reactionsResponse.ok) {
+                  const reactionsData = await reactionsResponse.json();
+                  
+                  // Process the detailed reactions data to match what ReactionBar expects
+                  let rawReactions = [];
+                  if (reactionsData.reactions) {
+                    // If the response has a reactions array
+                    rawReactions = reactionsData.reactions;
+                  } else if (Array.isArray(reactionsData)) {
+                    // If the response is directly an array
+                    rawReactions = reactionsData;
+                  } else {
+                    // Handle object response by extracting reactions if present
+                    rawReactions = Object.values(reactionsData).flat().filter((item: any) => item && typeof item === 'object' && item.emoji);
+                  }
+                  
+                  // Aggregate reactions by emoji to get counts
+                  const aggregatedReactionsMap: { [key: string]: { emoji: string, count: number, userReacted: boolean } } = {};
+                  
+                  rawReactions.forEach((reaction: any) => {
+                    if (!aggregatedReactionsMap[reaction.emoji]) {
+                      aggregatedReactionsMap[reaction.emoji] = {
+                        emoji: reaction.emoji,
+                        count: 0,
+                        userReacted: false
+                      };
+                    }
+                    aggregatedReactionsMap[reaction.emoji].count++;
+                    
+                    // Check if current user reacted with this emoji
+                    const token = localStorage.getItem('authToken');
+                    if (token) {
+                      try {
+                        const decodedToken = JSON.parse(atob(token.split('.')[1]));
+                        if (reaction.userId === decodedToken.userId) {
+                          aggregatedReactionsMap[reaction.emoji].userReacted = true;
+                        }
+                      } catch (e) {
+                        // If token parsing fails, continue without userReacted info
+                      }
+                    }
+                  });
+                  
+                  const processedReactions = Object.values(aggregatedReactionsMap);
+                  
+
+                  
+                  // Update the parent with the new book data including aggregated reactions
+                  onUpdateBook({ 
+                    ...book, 
+                    ...updatedBookData,
+                    reactions: processedReactions
+                  });
+                } else {
+                  // If detailed reactions fetch fails, use the basic book data
+                  onUpdateBook({ ...book, ...updatedBookData });
+                }
+              } catch (detailedReactionsErr) {
+                console.error('Error fetching detailed reactions:', detailedReactionsErr);
+                // If detailed reactions fetch fails, use the basic book data
+                onUpdateBook({ ...book, ...updatedBookData });
+              }
+            }
+          } catch (refetchErr) {
+            console.error('Error refetching book after reaction:', refetchErr);
+            // If refetch fails, the optimistic update will remain
+          }
+        }
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add reaction');
@@ -346,10 +434,17 @@ export const BookCard: React.FC<BookCardProps> = ({
                 )}
                 
                 {(book.rating !== undefined && book.rating !== null) && (
-                  <div className="absolute -top-1 -right-1 bg-yellow-500 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5 text-xs font-bold">
-                    <Star className="w-2 h-2 fill-current" />
-                    {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="absolute -top-1 -right-1 bg-yellow-500 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5 text-xs font-bold cursor-pointer">
+                        <Star className="w-2 h-2 fill-current" />
+                        {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t('books:rating')}: {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)} {book.ratingCount !== undefined ? `(${book.ratingCount} ${t('books:ratings')})` : ''}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </Link>
@@ -370,8 +465,8 @@ export const BookCard: React.FC<BookCardProps> = ({
           </div>
           
           {/* Genres after the cover and description block */}
-          <div className="flex flex-nowrap gap-1 mb-2" style={{ minHeight: '24px' }}>
-            <div className="flex flex-nowrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-2" style={{ minHeight: '24px' }}>
+            <div className="flex flex-wrap gap-1">
               {book.genre && book.genre.length > 0 ? (
                 <>
                   {Array.isArray(book.genre) 
@@ -407,7 +502,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           <div className="flex flex-col gap-2">
             {/* Metrics row */}
             <TooltipProvider>
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground ml-1.5">
                 {book.commentCount !== undefined && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -476,6 +571,16 @@ export const BookCard: React.FC<BookCardProps> = ({
                 )}
               </div>
             </TooltipProvider>
+            
+            {/* Reactions display - compact version, below metrics */}
+            <div className="scale-85 origin-left ml-0">
+              <ReactionBar 
+                key={`reaction-bar-${book.id}-${(book.reactions || []).length}-${(book.reactions || []).reduce((sum, r) => sum + r.count, 0)}`}
+                reactions={[...(book.reactions || [])]} 
+                onReact={handleBookReact}
+                bookId={book.id.toString()}
+              />
+            </div>
             
             {/* Progress bar - show regardless of progress */}
             <div>

@@ -39,6 +39,7 @@ interface Book {
   lastActivityDate?: string; // ISO date string
   createdAt: string;
   updatedAt: string;
+  reactions?: { emoji: string; count: number; userReacted: boolean }[];
 }
 
 export default function SearchPage() {
@@ -283,6 +284,20 @@ export default function SearchPage() {
                       book={bookData} 
                       variant="compact"
                       columns={2}
+                      onUpdateBook={(updatedBook) => {
+                        // Update the main books state, which will automatically update filteredBooks
+                        setBooks(prevBooks => 
+                          prevBooks.map(b => {
+                            if (b.id === updatedBook.id.toString()) {
+                              return {
+                                ...b,
+                                reactions: updatedBook.reactions
+                              };
+                            }
+                            return b;
+                          })
+                        );
+                      }}
                     />
                   );
                 })
