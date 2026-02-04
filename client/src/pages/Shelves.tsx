@@ -398,7 +398,8 @@ export default function Shelves() {
                       <BookCard 
                         key={book.id} 
                         book={bookData} 
-                        variant="detailed"
+                        variant="compact"
+                                                columns={3}
                         readingProgress={readingProgress}
                         addToShelfButton={
                           <AddToShelfDialog 
@@ -487,7 +488,8 @@ export default function Shelves() {
                       <BookCard 
                         key={book.id} 
                         book={bookData} 
-                        variant="detailed"
+                        variant="compact"
+                                                columns={3}
                         readingProgress={readingProgress}
                         addToShelfButton={
                           <AddToShelfDialog 
@@ -598,7 +600,8 @@ export default function Shelves() {
                       <BookCard 
                         key={book.id} 
                         book={bookData} 
-                        variant="detailed"
+                        variant="compact"
+                                                columns={3}
                         readingProgress={readingProgress}
                         addToShelfButton={
                           <AddToShelfDialog 

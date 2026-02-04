@@ -198,7 +198,8 @@ export default function Library() {
                   <BookCard 
                     key={book.id} 
                     book={bookData} 
-                    variant="detailed"
+                    variant="compact"
+                                        columns={3}
                     readingProgress={readingProgress}
                   />
                 );
@@ -248,7 +249,8 @@ export default function Library() {
                         <BookCard 
                           key={book.id} 
                           book={bookData} 
-                          variant="detailed"
+                          variant="compact"
+                                              columns={3}
                           readingProgress={readingProgress}
                         />
                       );
@@ -298,7 +300,8 @@ export default function Library() {
                   <BookCard 
                     key={book.id} 
                     book={bookData} 
-                    variant="detailed"
+                    variant="compact"
+                                        columns={3}
                     readingProgress={readingProgress}
                   />
                 );
@@ -349,7 +352,8 @@ export default function Library() {
                   <BookCard 
                     key={book.id} 
                     book={bookData} 
-                    variant="detailed"
+                    variant="compact"
+                                        columns={3}
                     readingProgress={readingProgress}
                   />
                 );
@@ -396,7 +400,8 @@ export default function Library() {
                     <BookCard 
                       key={book.id} 
                       book={bookData} 
-                      variant="detailed"
+                      variant="compact"
+                                          columns={3}
                       readingProgress={readingProgress}
                     />
                   );

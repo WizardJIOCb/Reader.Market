@@ -1,4 +1,5 @@
 {
+  "noGenres": "Без жанров",
   "noRating": "Нет рейтинга",
   "rating": "Рейтинг",
   "published": "Опубликовано",
@@ -15,6 +16,7 @@
   "of": "из",
   "pages": "стр.",
   "lastRead": "Читалось",
+  "notStartedReading": "вы ещё не начали читать эту книгу",
   "read": "Читать",
   "moreDetails": "Подробнее",
   "addBookTitle": "Добавить новую книгу",

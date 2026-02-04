@@ -262,7 +262,7 @@ export default function SearchPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               {filteredBooks.length > 0 ? (
                 filteredBooks.map(book => {
                   // Convert book data to match BookCard expectations
@@ -277,7 +277,8 @@ export default function SearchPage() {
                     <BookCard 
                       key={book.id} 
                       book={bookData} 
-                      variant="detailed"
+                      variant="compact"
+                      columns={2}
                     />
                   );
                 })

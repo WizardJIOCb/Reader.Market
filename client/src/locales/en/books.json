@@ -1,4 +1,5 @@
 {
+  "noGenres": "No genres",
   "noRating": "No rating",
   "rating": "Rating",
   "published": "Published",
@@ -15,6 +16,7 @@
   "of": "of",
   "pages": "pages",
   "lastRead": "Last read",
+  "notStartedReading": "you haven't started reading this book yet",
   "read": "Read",
   "moreDetails": "More Details",
   "addBookTitle": "Add New Book",
