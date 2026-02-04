@@ -301,7 +301,7 @@ const LandingPage = () => {
       </section>
 
       {/* Popular Books Section */}
-      <section className="py-20 bg-[#f7f4f0]">
+      <section className="py-10">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold font-serif mb-4">{t('landing:popularBooksTitle')}</h2>
@@ -315,7 +315,7 @@ const LandingPage = () => {
               <p className="text-muted-foreground">{t('common:loading')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               {popularBooks.map((book) => (
                 <BookCard key={book.id} book={book} variant="compact" columns={2} />
               ))}

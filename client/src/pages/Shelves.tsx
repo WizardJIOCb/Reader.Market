@@ -570,7 +570,7 @@ export default function Shelves() {
                   <p>{t('shelves:shelfEmpty')}</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
                   {sortBooks(shelf.books || shelfBooks[shelf.id] || [], shelfSortBy, shelfSortDir).map((book: any) => {
                     // Convert book data to match BookCard expectations
                     const bookData = {
