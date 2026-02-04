@@ -81,7 +81,11 @@ export default function SearchPage() {
   // Skip if we already have a search query from URL to avoid race condition
   useEffect(() => {
     // Don't fetch all books if we have a search query from URL
-    if (searchQuery) {
+    // Check URL directly to ensure we don't fetch all books when arriving from search
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParam = urlParams.get('q');
+    
+    if (searchQuery || queryParam) {
       return;
     }
     
