@@ -16,7 +16,7 @@ import { AttachmentButton } from '@/components/AttachmentButton';
 import { AttachmentPreview } from '@/components/AttachmentPreview';
 import { AttachmentDisplay } from '@/components/AttachmentDisplay';
 import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
-import { User, Eye, MessageCircle, Heart, X, Send } from 'lucide-react';
+import { User, Eye, MessageCircle, Heart, X, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatAbsoluteDateTime } from '@/lib/dateUtils';
 import { linkifyText } from '@/lib/linkify';
@@ -36,6 +36,7 @@ interface NewsItem {
   viewCount: number;
   commentCount: number;
   reactionCount: number;
+  imageUrls?: string[];
 }
 
 interface Comment {
@@ -82,6 +83,10 @@ const NewsDetailPage: React.FC = () => {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [reactionsLoading, setReactionsLoading] = useState(false);
+  
+  // Lightbox state for news images
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isReacting, setIsReacting] = useState(false);
 
   useEffect(() => {
@@ -419,6 +424,156 @@ const NewsDetailPage: React.FC = () => {
               </span>
             </div>
           </CardHeader>
+          {/* Display news images after the header */}
+          {newsItem.imageUrls && newsItem.imageUrls.length > 0 && (
+            <div className="pb-4">
+              <div className="relative">
+                {/* Carousel container with fixed height */}
+                <div className="overflow-hidden rounded-lg h-96 relative">
+                  {/* Image container with smooth transition */}
+                  <div 
+                    className="flex transition-transform duration-300 ease-in-out h-full"
+                    style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+                  >
+                    {/* Render multiple images per slide */}
+                    {newsItem.imageUrls && Array.from({ length: Math.ceil(newsItem.imageUrls!.length / 3) }).map((_, slideIndex) => {
+                      const startIndex = slideIndex * 3;
+                      const endIndex = Math.min(startIndex + 3, newsItem.imageUrls!.length);
+                      const slideImages = newsItem.imageUrls!.slice(startIndex, endIndex);
+                                
+                      return (
+                        <div key={slideIndex} className="flex-shrink-0 w-full h-full flex gap-4 p-2">
+                          {slideImages.map((imageUrl, imgIndex) => {
+                            const globalIndex = startIndex + imgIndex;
+                            return (
+                              <div 
+                                key={globalIndex}
+                                className="flex-1 h-full overflow-hidden rounded-lg cursor-pointer relative"
+                              >
+                                <img 
+                                  src={imageUrl} 
+                                  alt={`News image ${globalIndex + 1}`}
+                                  className="w-full h-full object-contain"
+                                  onClick={() => {
+                                    setCurrentImageIndex(globalIndex); // Set the index to the clicked image
+                                    setLightboxOpen(true);
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                          
+                {/* Navigation arrows */}
+                {newsItem.imageUrls && Math.ceil(newsItem.imageUrls.length / 3) > 1 && (
+                  <>
+                    <button
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex(prev => 
+                          prev === 0 ? Math.ceil(newsItem.imageUrls!.length / 3) - 1 : prev - 1
+                        );
+                      }}
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                              
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex(prev => 
+                          prev === Math.ceil(newsItem.imageUrls!.length / 3) - 1 ? 0 : prev + 1
+                        );
+                      }}
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </>
+                )}
+                          
+                {/* Dots indicator */}
+                {newsItem.imageUrls && (
+                  <div className="flex justify-center mt-3 space-x-2">
+                    {Array.from({ length: Math.ceil(newsItem.imageUrls!.length / 3) }).map((_, index) => (
+                      <button
+                        key={index}
+                        className={`w-3 h-3 rounded-full ${index === currentImageIndex ? '' : 'bg-gray-300'}`}
+                        style={{ backgroundColor: index === currentImageIndex ? '#ff8516' : '' }}
+                        onClick={() => setCurrentImageIndex(index)}
+                        aria-label={`Go to image set ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Lightbox Modal */}
+          {lightboxOpen && newsItem.imageUrls && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+              onClick={() => setLightboxOpen(false)}
+            >
+              <div className="relative max-w-6xl max-h-full">
+                <button
+                  className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 z-10 hover:bg-opacity-75"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxOpen(false);
+                  }}
+                  aria-label="Close lightbox"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                
+                <button
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white bg-black bg-opacity-50 rounded-full p-2 z-10 hover:bg-opacity-75"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(prev => 
+                      prev === 0 ? newsItem.imageUrls!.length - 1 : prev - 1
+                    );
+                  }}
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                
+                <button
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white bg-black bg-opacity-50 rounded-full p-2 z-10 hover:bg-opacity-75"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(prev => 
+                      prev === newsItem.imageUrls!.length - 1 ? 0 : prev + 1
+                    );
+                  }}
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+                
+                <img
+                  src={newsItem.imageUrls[currentImageIndex]}
+                  alt={`News image ${currentImageIndex + 1}`}
+                  className="max-w-full max-h-[90vh] object-contain"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-black bg-opacity-50 rounded-full px-3 py-1">
+                  {currentImageIndex + 1} / {newsItem.imageUrls.length}
+                </div>
+              </div>
+            </div>
+          )}
           <CardContent>
             <div className="prose max-w-none dark:prose-invert">
               <p className="whitespace-pre-line text-base">

@@ -919,9 +919,9 @@ export class DBStorage implements IStorage {
         
         return {
           ...formattedBook,
-          commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: reviewCountResult[0]?.count || 0,
-          shelfCount: shelfCountResult[0]?.count || 0,
+          commentCount: commentCountResult.rows[0]?.count || 0,
+          reviewCount: reviewCountResult.rows[0]?.count || 0,
+          shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate
@@ -940,13 +940,13 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async getPopularBooks(sortBy?: string): Promise<any[]> {
+  async getPopularBooks(sortBy?: string, limit: number = 6): Promise<any[]> {
     try {
       console.log('Fetching popular books');
       
       // Get active books sorted by rating (descending, nulls last), limit to 20
       // Use SQL to ensure null ratings appear last
-      const booksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      const booksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(limit * 2);
       
       // For books without ratings, calculate them
       for (const book of booksResult) {
@@ -956,7 +956,7 @@ export class DBStorage implements IStorage {
       }
       
       // Fetch the books again with updated ratings
-      const updatedBooksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      const updatedBooksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(limit * 2);
       
       // For each book, get the comment and review counts
       const resultWithCounts = await Promise.all(updatedBooksResult.map(async (book) => {
@@ -1007,9 +1007,9 @@ export class DBStorage implements IStorage {
         
         return {
           ...formattedBook,
-          commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: reviewCountResult[0]?.count || 0,
-          shelfCount: shelfCountResult[0]?.count || 0,
+          commentCount: commentCountResult.rows[0]?.count || 0,
+          reviewCount: reviewCountResult.rows[0]?.count || 0,
+          shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1020,9 +1020,12 @@ export class DBStorage implements IStorage {
       // Sort the books using the helper function
       const sortedBooks = sortBooksByOption(resultWithCounts, sortBy);
       
-      console.log('Popular books fetched with counts:', sortedBooks);
+      // Limit to the requested number of books
+      const limitedBooks = sortedBooks.slice(0, limit);
       
-      return sortedBooks;
+      console.log('Popular books fetched with counts:', limitedBooks);
+      
+      return limitedBooks;
     } catch (error) {
       console.error("Error getting popular books:", error);
       return [];
@@ -1095,9 +1098,9 @@ export class DBStorage implements IStorage {
         
         return {
           ...formattedBook,
-          commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: reviewCountResult[0]?.count || 0,
-          shelfCount: shelfCountResult[0]?.count || 0,
+          commentCount: commentCountResult.rows[0]?.count || 0,
+          reviewCount: reviewCountResult.rows[0]?.count || 0,
+          shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1205,9 +1208,9 @@ export class DBStorage implements IStorage {
         
         return {
           ...formattedBook,
-          commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: reviewCountResult[0]?.count || 0,
-          shelfCount: shelfCountResult[0]?.count || 0,
+          commentCount: commentCountResult.rows[0]?.count || 0,
+          reviewCount: reviewCountResult.rows[0]?.count || 0,
+          shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1326,9 +1329,9 @@ export class DBStorage implements IStorage {
         
         return {
           ...formattedBook,
-          commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: reviewCountResult[0]?.count || 0,
-          shelfCount: shelfCountResult[0]?.count || 0,
+          commentCount: commentCountResult.rows[0]?.count || 0,
+          reviewCount: reviewCountResult.rows[0]?.count || 0,
+          shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -1417,9 +1420,9 @@ export class DBStorage implements IStorage {
         
         return {
           ...formattedBook,
-          commentCount: commentCountResult[0]?.count || 0,
-          reviewCount: reviewCountResult[0]?.count || 0,
-          shelfCount: shelfCountResult[0]?.count || 0,
+          commentCount: commentCountResult.rows[0]?.count || 0,
+          reviewCount: reviewCountResult.rows[0]?.count || 0,
+          shelfCount: shelfCountResult.rows[0]?.count || 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: lastActivityDate,
@@ -2492,6 +2495,18 @@ export class DBStorage implements IStorage {
     }
     
     return total;
+  }
+
+  async getBookTotalCommentCount(bookId: string): Promise<number> {
+    try {
+      const result = await db.select({ count: count() })
+        .from(comments)
+        .where(eq(comments.bookId, bookId));
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("Error getting book total comment count:", error);
+      return 0;
+    }
   }
 
   async getBookCommentReplies(commentId: string, currentUserId?: string): Promise<any[]> {
@@ -4083,6 +4098,7 @@ export class DBStorage implements IStorage {
         authorId: news.authorId,
         published: news.published,
         publishedAt: news.publishedAt,
+        imageUrls: news.imageUrls,
         createdAt: news.createdAt,
         updatedAt: news.updatedAt,
         username: users.username,
@@ -4100,6 +4116,7 @@ export class DBStorage implements IStorage {
         authorId: newsItem.authorId,
         published: newsItem.published,
         publishedAt: newsItem.publishedAt?.toISOString() || null,
+        imageUrls: newsItem.imageUrls,
         createdAt: newsItem.createdAt.toISOString(),
         updatedAt: newsItem.updatedAt.toISOString(),
         author: newsItem.fullName || newsItem.username || 'Anonymous'
@@ -4127,6 +4144,7 @@ export class DBStorage implements IStorage {
         viewCount: news.viewCount,
         commentCount: news.commentCount,
         reactionCount: news.reactionCount,
+        imageUrls: news.imageUrls,
         createdAt: news.createdAt,
         updatedAt: news.updatedAt,
         username: users.username,
@@ -4155,6 +4173,7 @@ export class DBStorage implements IStorage {
         viewCount: newsItem.viewCount,
         commentCount: newsItem.commentCount,
         reactionCount: newsItem.reactionCount,
+        imageUrls: newsItem.imageUrls,
         createdAt: newsItem.createdAt.toISOString(),
         updatedAt: newsItem.updatedAt.toISOString(),
         author: newsItem.fullName || newsItem.username || 'Anonymous',
@@ -4440,6 +4459,7 @@ export class DBStorage implements IStorage {
         viewCount: news.viewCount,
         commentCount: news.commentCount,
         reactionCount: news.reactionCount,
+        imageUrls: news.imageUrls,
         createdAt: news.createdAt,
         updatedAt: news.updatedAt,
         username: users.username,
@@ -4465,6 +4485,7 @@ export class DBStorage implements IStorage {
         viewCount: item.viewCount,
         commentCount: item.commentCount,
         reactionCount: item.reactionCount,
+        imageUrls: item.imageUrls,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
         author: item.fullName || item.username || 'Anonymous',
@@ -4492,6 +4513,7 @@ export class DBStorage implements IStorage {
         viewCount: news.viewCount,
         commentCount: news.commentCount,
         reactionCount: news.reactionCount,
+        imageUrls: news.imageUrls,
         createdAt: news.createdAt,
         updatedAt: news.updatedAt,
         username: users.username,
@@ -4516,6 +4538,7 @@ export class DBStorage implements IStorage {
         viewCount: item.viewCount,
         commentCount: item.commentCount,
         reactionCount: item.reactionCount,
+        imageUrls: item.imageUrls,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
         author: item.fullName || item.username || 'Anonymous',

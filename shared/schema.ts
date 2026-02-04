@@ -393,6 +393,7 @@ export const news = pgTable("news", {
   viewCount: integer("view_count").default(0).notNull(),
   commentCount: integer("comment_count").default(0).notNull(),
   reactionCount: integer("reaction_count").default(0).notNull(),
+  imageUrls: jsonb("image_urls").default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

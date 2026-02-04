@@ -2214,7 +2214,7 @@ export async function registerRoutes(
   // Get popular books for landing page
   app.get("/api/popular-books", async (req, res) => {
     try {
-      const popularBooks = await storage.getPopularBooks(6);
+      const popularBooks = await storage.getPopularBooks(undefined, 6);
       res.json(popularBooks);
     } catch (error) {
       console.error('[API] Error fetching popular books:', error);
@@ -3218,7 +3218,7 @@ export async function registerRoutes(
     console.log("Create news endpoint called");
     try {
       const userId = (req as any).user.userId;
-      const { title, titleEn, slug, content, contentEn, published } = req.body;
+      const { title, titleEn, slug, content, contentEn, published, imageUrls } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ error: "Title and content are required" });
@@ -3230,6 +3230,7 @@ export async function registerRoutes(
         slug: slug || undefined,
         content,
         contentEn: contentEn || undefined,
+        imageUrls: imageUrls || undefined,
         authorId: userId,
         published: published || false,
         publishedAt: published ? new Date() : null
@@ -3307,7 +3308,7 @@ export async function registerRoutes(
     console.log("Update news endpoint called");
     try {
       const { id } = req.params;
-      const { title, titleEn, slug, content, contentEn, published } = req.body;
+      const { title, titleEn, slug, content, contentEn, published, imageUrls } = req.body;
       
       const existingNews = await storage.getNews(id);
       if (!existingNews) {
@@ -3320,6 +3321,7 @@ export async function registerRoutes(
         slug: slug !== undefined ? (slug || undefined) : existingNews.slug,
         content: content !== undefined ? content : existingNews.content,
         contentEn: contentEn !== undefined ? (contentEn || undefined) : existingNews.contentEn,
+        imageUrls: imageUrls !== undefined ? (imageUrls || undefined) : existingNews.imageUrls,
         published: published !== undefined ? published : existingNews.published,
         publishedAt: (() => {
           const isPublishing = published !== undefined ? published : existingNews.published;
@@ -6137,6 +6139,18 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get comments error:", error);
       res.status(500).json({ error: "Failed to get comments" });
+    }
+  });
+
+  // Get total comment count for a book (including replies)
+  app.get("/api/books/:bookId/comments/count", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const commentCount = await storage.getBookTotalCommentCount(bookId);
+      res.json({ count: commentCount });
+    } catch (error) {
+      console.error("Get comment count error:", error);
+      res.status(500).json({ error: "Failed to get comment count" });
     }
   });
 

@@ -24,6 +24,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AttachmentButton } from '@/components/AttachmentButton';
+import { AttachmentPreview } from '@/components/AttachmentPreview';
+import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
 
 interface NewsItem {
   id: string;
@@ -39,6 +42,7 @@ interface NewsItem {
   createdAt: string;
   publishedAt: string | null;
   reactionCount?: number;
+  imageUrls?: string[];
 }
 
 interface Reaction {
@@ -82,6 +86,9 @@ const NewsManagement: React.FC = () => {
   const [content, setContent] = useState('');
   const [contentEn, setContentEn] = useState('');
   const [published, setPublished] = useState(false);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
   const isInitialMount = useRef(true);
 
   // Save pagination settings to localStorage
@@ -124,12 +131,36 @@ const NewsManagement: React.FC = () => {
     e.preventDefault();
     
     try {
+      // Upload image files first if any
+      let uploadedImageUrls: string[] = [];
+      
+      if (imageFiles.length > 0) {
+        for (const file of imageFiles) {
+          try {
+            const uploaded = await fileUploadManager.uploadFile(file, () => {});
+            uploadedImageUrls.push(uploaded.url);
+          } catch (error) {
+            console.error('Failed to upload image:', error);
+            throw error;
+          }
+        }
+      }
+      
+      // Combine existing image URLs (from editing) with newly uploaded ones
+      let allImageUrls: string[] = [];
+      if (editingNews && imageUrls) {
+        allImageUrls = [...imageUrls]; // Use current imageUrls which may have deletions
+      }
+      allImageUrls = [...allImageUrls, ...uploadedImageUrls]; // Add newly uploaded images
+      
+      // Prepare news data with all image URLs
       const newsData = {
         title,
         titleEn: titleEn || undefined,
         slug: slug || undefined,
         content,
         contentEn: contentEn || undefined,
+        imageUrls: allImageUrls,
         published
       };
       
@@ -156,12 +187,20 @@ const NewsManagement: React.FC = () => {
   };
 
   const handleEdit = (newsItem: NewsItem) => {
+    // Clean up existing local preview images to prevent memory leaks
+    // Only revoke blob URLs (local previews), not actual image URLs from the database
+    const localPreviewUrls = previewImages.filter(url => url.startsWith('blob:'));
+    localPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    
     setEditingNews(newsItem);
     setTitle(newsItem.title);
     setTitleEn(newsItem.titleEn || '');
     setSlug(newsItem.slug || '');
     setContent(newsItem.content);
     setContentEn(newsItem.contentEn || '');
+    setImageUrls(newsItem.imageUrls || []);
+    setPreviewImages(newsItem.imageUrls || []);
+    setImageFiles([]); // Clear any new file selections when editing
     setPublished(newsItem.published);
     setShowForm(true);
   };
@@ -217,11 +256,19 @@ const NewsManagement: React.FC = () => {
   };
 
   const resetForm = () => {
+    // Clean up local preview object URLs to prevent memory leaks
+    // Only revoke blob URLs (local previews), not actual image URLs
+    const localPreviewUrls = previewImages.filter(url => url.startsWith('blob:'));
+    localPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    
     setTitle('');
     setTitleEn('');
     setSlug('');
     setContent('');
     setContentEn('');
+    setImageFiles([]);
+    setImageUrls([]);
+    setPreviewImages([]);
     setPublished(false);
     setEditingNews(null);
     setShowForm(false);
@@ -347,6 +394,92 @@ const NewsManagement: React.FC = () => {
                 />
                 <Label htmlFor="published">{t('admin:news.published')}</Label>
               </div>
+              
+              {/* Image upload section */}
+              <div className="space-y-2">
+                <Label>{t('admin:news.images')}</Label>
+                <div className="flex flex-col gap-4">
+                  <div className="flex gap-2">
+                    <AttachmentButton
+                      onFilesSelected={(files) => {
+                        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+                        if (imageFiles.length === 0) {
+                          // Show a toast if no image files were selected
+                          // In a real implementation, you might want to import useToast hook
+                        } else {
+                          // Store the files and create local previews
+                          setImageFiles(prev => [...prev, ...imageFiles]);
+                          
+                          // Create local preview URLs
+                          const newPreviews = imageFiles.map(file => URL.createObjectURL(file));
+                          setPreviewImages(prev => [...prev, ...newPreviews]);
+                        }
+                      }}
+                      disabled={false}
+                    />
+                  </div>
+                  
+                  {/* Preview for existing images from the database */}
+                  {imageUrls && imageUrls.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {imageUrls.map((url, index) => (
+                        <div key={`existing-${index}`} className="relative group">
+                          <img 
+                            src={url} 
+                            alt={`${t('admin:news.images')} ${index + 1}`}
+                            className="w-full h-20 object-cover rounded border"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Remove the image from the imageUrls array
+                                const newImageUrls = imageUrls.filter((_, i) => i !== index);
+                                setImageUrls(newImageUrls);
+                                
+                                // Also update previewImages to stay in sync
+                                // Find the corresponding index in previewImages and remove it
+                                // Existing images are at the beginning of previewImages
+                                const newPreviewImages = previewImages.filter((_, i) => i !== index);
+                                setPreviewImages(newPreviewImages);
+                              }}
+                              className="text-white hover:text-red-300 p-1 rounded-full hover:bg-red-600"
+                              aria-label="Delete image"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 6h18"></path>
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Preview for newly selected files */}
+                  {previewImages.length > 0 && (
+                    <AttachmentPreview 
+                      files={imageFiles}
+                      onRemove={(index) => {
+                        // Clean up the local URL object to prevent memory leaks
+                        // Only revoke blob URLs (local previews), not actual image URLs
+                        if (previewImages[index]?.startsWith('blob:')) {
+                          URL.revokeObjectURL(previewImages[index]);
+                        }
+                        
+                        const newFiles = imageFiles.filter((_, i) => i !== index);
+                        const newPreviews = previewImages.filter((_, i) => i !== index);
+                        setImageFiles(newFiles);
+                        setPreviewImages(newPreviews);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+              
               <div className="flex space-x-2">
                 <Button type="submit">
                   {editingNews ? t('admin:news.updateNews') : t('admin:news.createNews')}

@@ -140,6 +140,7 @@ export default function BookDetail() {
   // State for comments and reviews
   const [bookComments, setBookComments] = useState<Comment[]>([]);
   const [bookReviews, setBookReviews] = useState<Review[]>([]);
+  const [totalCommentCount, setTotalCommentCount] = useState<number>(0);
   
   // State for new comment/review
   const [newComment, setNewComment] = useState('');
@@ -214,6 +215,13 @@ export default function BookDetail() {
       if (reviewsResponse.ok) {
         const reviewsData = await reviewsResponse.json();
         setBookReviews(reviewsData);
+      }
+      
+      // Fetch total comment count (including replies)
+      const totalCountResponse = await fetch(`/api/books/${bookId}/comments/count`);
+      if (totalCountResponse.ok) {
+        const totalCountData = await totalCountResponse.json();
+        setTotalCommentCount(totalCountData.count);
       }
     } catch (err) {
       console.error('Error fetching comments and reviews:', err);
@@ -1082,7 +1090,7 @@ export default function BookDetail() {
                   
                   {typeof book.shelfCount === 'number' && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
-                      <Bookmark className="w-3 h-3 mr-1" />
+                      <span className="mr-1">📚</span>
                       <span>{t('books:addedToShelf')}: {book.shelfCount}</span>
                     </div>
                   )}
@@ -1119,7 +1127,7 @@ export default function BookDetail() {
         <Card>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="comments">{t('books:commentCount')} ({bookComments.length})</TabsTrigger>
+              <TabsTrigger value="comments">{t('books:commentCount')} ({totalCommentCount})</TabsTrigger>
               <TabsTrigger value="reviews">{t('books:reviewCount')} ({bookReviews.length})</TabsTrigger>
               <TabsTrigger value="articles" className="gap-2">
                 Статьи
