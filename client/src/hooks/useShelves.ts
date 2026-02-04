@@ -137,7 +137,7 @@ export function useShelves() {
         // Update local state, preserving bookIds property
         setShelves(prev => 
           prev.map(shelf => 
-            shelf.id === id ? { ...updatedShelf, bookIds: shelf.bookIds || [] } : shelf
+            shelf.id === id ? { ...updatedShelf, bookIds: (shelf.bookIds || []) } : shelf
           )
         );
         return updatedShelf;
@@ -217,7 +217,7 @@ export function useShelves() {
         setShelves(prev => 
           prev.map(shelf => 
             shelf.id === shelfId 
-              ? { ...shelf, bookIds: [...shelf.bookIds, bookId] } 
+              ? { ...shelf, bookIds: [...(shelf.bookIds || []), bookId] } 
               : shelf
           )
         );
@@ -264,7 +264,7 @@ export function useShelves() {
         setShelves(prev => 
           prev.map(shelf => 
             shelf.id === shelfId 
-              ? { ...shelf, bookIds: shelf.bookIds.filter(id => id !== bookId) } 
+              ? { ...shelf, bookIds: (shelf.bookIds || []).filter(id => id !== bookId) } 
               : shelf
           )
         );

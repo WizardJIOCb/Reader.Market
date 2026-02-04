@@ -744,7 +744,7 @@ export default function BookDetail() {
       if (isAdded) {
         // Check if book is already in shelf
         const shelf = shelves.find(s => s.id === shelfId);
-        if (shelf && shelf.bookIds.includes(bookId)) {
+        if (shelf && shelf.bookIds?.includes(bookId)) {
           return;
         }
         

@@ -74,7 +74,7 @@ export function AddToShelfDialog({ bookId, shelves, onToggleShelf, trigger, isOp
                 {shelves.map((shelf) => {
                   // Check both bookIds array and books array for the book
                   const isAdded = 
-                    (shelf.bookIds && shelf.bookIds.includes(bookId)) ||
+                    (shelf.bookIds?.includes(bookId)) ||
                     (shelf.books && shelf.books.some((book: any) => book.id === bookId));
                   
                   return (

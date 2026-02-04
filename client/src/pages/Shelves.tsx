@@ -56,10 +56,11 @@ export default function Shelves() {
         
         // Fetch books for each shelf
         for (const shelf of shelves) {
-          if (shelf.bookIds && shelf.bookIds.length > 0) {
+          const shelfBookIds = shelf.bookIds || [];
+          if (shelfBookIds.length > 0) {
             try {
               // Convert book IDs to strings if they're not already
-              const bookIds = shelf.bookIds.map(id => String(id));
+              const bookIds = shelfBookIds.map(id => String(id));
               
               // Fetch books with reactions using search API to ensure reactions are included
               const token = localStorage.getItem('authToken');
@@ -182,7 +183,7 @@ export default function Shelves() {
       if (isAdded) {
         // Check if book is already in shelf
         const shelf = shelves.find(s => s.id === shelfId);
-        if (shelf && shelf.bookIds.includes(bookIdStr)) {
+        if (shelf && shelf.bookIds?.includes(bookIdStr)) {
           return;
         }
         
