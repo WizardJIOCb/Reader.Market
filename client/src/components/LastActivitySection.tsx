@@ -124,9 +124,10 @@ type UserActivity = Activity | LastAction;
 interface LastActivitySectionProps {
   profileId: string;
   profileUsername: string;
+  initialExpanded?: boolean;
 }
 
-export function LastActivitySection({ profileId, profileUsername }: LastActivitySectionProps) {
+export function LastActivitySection({ profileId, profileUsername, initialExpanded = true }: LastActivitySectionProps) {
   const { t, i18n } = useTranslation(['profile', 'stream']);
   const { user, isLoading: authLoading } = useAuth();
   const [activities, setActivities] = useState<UserActivity[]>([]);
@@ -138,7 +139,7 @@ export function LastActivitySection({ profileId, profileUsername }: LastActivity
   const [replyText, setReplyText] = useState<string>('');
   const [quotedText, setQuotedText] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(initialExpanded);
   const [showAllActivities, setShowAllActivities] = useState(false);
   
   // Batch load reading progress for all comments/reviews

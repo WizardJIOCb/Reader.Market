@@ -18,6 +18,7 @@ import { BookCard } from '@/components/BookCard';
 import ProfileRatingsSection from '@/components/ProfileRatingsSection';
 import { LastActivitySection } from '@/components/LastActivitySection';
 import { useAuth } from '@/lib/auth';
+import { useShelves } from '@/hooks/useShelves';
 import { 
   BookOpen, 
   Type, 
@@ -120,6 +121,7 @@ export default function Profile() {
   const { t, i18n } = useTranslation(['profile', 'notifications', 'common']);
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
   
+  const { shelves, loading: shelvesLoading, addBookToShelf, removeBookFromShelf } = useShelves();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1117,6 +1119,7 @@ export default function Profile() {
         <LastActivitySection
           profileId={profile.id}
           profileUsername={profile.username}
+          initialExpanded={false}
         />
         
         {/* Profile Ratings & Comments Section */}
@@ -1232,12 +1235,40 @@ export default function Profile() {
           {profile.recentlyReadBooks.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('profile:noRecentBooks')}</p>
           ) : expandedRecentlyRead ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {profile.recentlyReadBooks.map((book: any) => (
                 <BookCard 
                   key={book.id} 
                   book={book} 
-                  variant="detailed"
+                  variant="compact"
+                  columns={2}
+                  addToShelfButton={
+                    <AddToShelfDialog 
+                      bookId={book.id}
+                      shelves={shelves}
+                      onToggleShelf={async (shelfId, bookId, isAdded) => {
+                        try {
+                          if (isAdded) {
+                            await addBookToShelf(shelfId, bookId);
+                          } else {
+                            await removeBookFromShelf(shelfId, bookId);
+                          }
+                          // Refresh profile data
+                          window.location.reload();
+                        } catch (error) {
+                          console.error('Error toggling shelf:', error);
+                        }
+                      }}
+                      trigger={
+                        <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                          </svg>
+                          <span className="truncate">{t('shelves:shelves')}</span>
+                        </Button>
+                      }
+                    />
+                  }
                 />
               ))}
             </div>
@@ -1261,10 +1292,38 @@ export default function Profile() {
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {profile.recentlyReadBooks.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-[calc(85%-8px)] md:w-[calc(33.333%-11px)]">
+                  <div key={book.id} className="flex-shrink-0 w-[calc(85%-8px)] md:w-[calc(50%-8px)]">
                     <BookCard 
                       book={book} 
-                      variant="detailed"
+                      variant="compact"
+                      columns={2}
+                      addToShelfButton={
+                        <AddToShelfDialog 
+                          bookId={book.id}
+                          shelves={shelves}
+                          onToggleShelf={async (shelfId, bookId, isAdded) => {
+                            try {
+                              if (isAdded) {
+                                await addBookToShelf(shelfId, bookId);
+                              } else {
+                                await removeBookFromShelf(shelfId, bookId);
+                              }
+                              // Refresh profile data
+                              window.location.reload();
+                            } catch (error) {
+                              console.error('Error toggling shelf:', error);
+                            }
+                          }}
+                          trigger={
+                            <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                              </svg>
+                              <span className="truncate">{t('shelves:shelves')}</span>
+                            </Button>
+                          }
+                        />
+                      }
                     />
                   </div>
                 ))}
@@ -1334,12 +1393,40 @@ export default function Profile() {
                         {((!shelf.bookIds || shelf.bookIds.length === 0) && (!shelf.books || shelf.books.length === 0)) ? (
                           <p className="text-sm text-muted-foreground">{t('profile:emptyShelf')}</p>
                         ) : isExpanded ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {shelf.books?.map((book: Book) => (
                               <BookCard 
                                 key={book.id} 
                                 book={book} 
-                                variant="detailed"
+                                variant="compact"
+                                columns={2}
+                                addToShelfButton={
+                                  <AddToShelfDialog 
+                                    bookId={book.id}
+                                    shelves={shelves}
+                                    onToggleShelf={async (shelfId, bookId, isAdded) => {
+                                      try {
+                                        if (isAdded) {
+                                          await addBookToShelf(shelfId, bookId);
+                                        } else {
+                                          await removeBookFromShelf(shelfId, bookId);
+                                        }
+                                        // Refresh profile data
+                                        window.location.reload();
+                                      } catch (error) {
+                                        console.error('Error toggling shelf:', error);
+                                      }
+                                    }}
+                                    trigger={
+                                      <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                        </svg>
+                                        <span className="truncate">{t('shelves:shelves')}</span>
+                                      </Button>
+                                    }
+                                  />
+                                }
                               />
                             ))}
                           </div>
@@ -1364,10 +1451,38 @@ export default function Profile() {
                               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                             >
                               {shelf.books?.map((book: Book) => (
-                                <div key={book.id} className="flex-shrink-0 w-[calc(85%-8px)] md:w-[calc(33.333%-11px)]">
+                                <div key={book.id} className="flex-shrink-0 w-[calc(85%-8px)] md:w-[calc(50%-8px)]">
                                   <BookCard 
                                     book={book} 
-                                    variant="detailed"
+                                    variant="compact"
+                                    columns={2}
+                                    addToShelfButton={
+                                      <AddToShelfDialog 
+                                        bookId={book.id}
+                                        shelves={shelves}
+                                        onToggleShelf={async (shelfId, bookId, isAdded) => {
+                                          try {
+                                            if (isAdded) {
+                                              await addBookToShelf(shelfId, bookId);
+                                            } else {
+                                              await removeBookFromShelf(shelfId, bookId);
+                                            }
+                                            // Refresh profile data
+                                            window.location.reload();
+                                          } catch (error) {
+                                            console.error('Error toggling shelf:', error);
+                                          }
+                                        }}
+                                        trigger={
+                                          <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                            </svg>
+                                            <span className="truncate">{t('shelves:shelves')}</span>
+                                          </Button>
+                                        }
+                                      />
+                                    }
                                   />
                                 </div>
                               ))}

@@ -23,6 +23,7 @@ import {
 import { useToast } from '../hooks/use-toast';
 import { usePageView } from '../hooks/usePageView';
 import { User, MessageSquare, BookMarked, MessageCircle, Star, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { UserCard } from '../components/UserCard';
 import { formatAbsoluteDateTime } from '../lib/dateUtils';
 import { ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -319,114 +320,13 @@ const PublicUsers: React.FC = () => {
       {/* User Cards Grid */}
       {!loading && users.length > 0 && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             {users.map((user) => (
-              <Card
+              <UserCard
                 key={user.id}
-                className={`flex flex-col hover:shadow-lg transition-shadow ${
-                  user.isBlocked ? 'border-red-500 border-2' : ''
-                }`}
-              >
-                <CardContent className="p-6 flex-1 flex flex-col">
-                  {/* Blocked Badge */}
-                  {user.isBlocked && (
-                    <Badge variant="destructive" className="mb-3">
-                      {t('blocked')}
-                    </Badge>
-                  )}
-
-                  {/* Avatar and Name */}
-                  <Link href={`/profile/${user.id}`} className="block">
-                    <div className="flex items-center gap-4 mb-4 cursor-pointer hover:opacity-80 transition-opacity">
-                      <Avatar className="h-20 w-20">
-                        <AvatarImage src={user.avatar || undefined} alt={user.username} />
-                        <AvatarFallback>
-                          <User className="h-10 w-10" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-lg truncate">
-                          {user.fullName || user.username}
-                        </h3>
-                        <p className="text-sm text-muted-foreground truncate">@{user.username}</p>
-                        <Badge className={getRatingColor(user.profileRating)}>
-                          <Star className="h-3 w-3 mr-1" />
-                          {user.profileRating !== null ? Number(user.profileRating).toFixed(1) : 'N/A'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </Link>
-
-                  {/* Bio */}
-                  {user.bio && (
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{user.bio}</p>
-                  )}
-
-                  {/* Dates */}
-                  <div className="text-xs text-muted-foreground mb-4 space-y-1">
-                    <div>
-                      <span className="font-medium">{t('registeredAt')}:</span>{' '}
-                      {formatAbsoluteDateTime(user.registeredAt, dateLocale)}
-                    </div>
-                    {user.lastActivityAt && (
-                      <div>
-                        <span className="font-medium">{t('lastActivity')}:</span>{' '}
-                        {formatAbsoluteDateTime(user.lastActivityAt, dateLocale)}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Statistics */}
-                  <div className="grid grid-cols-2 gap-3 mb-4 text-sm flex-1">
-                    <div className="flex items-center gap-2">
-                      <BookMarked className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <div className="font-medium">{user.shelvesCount}</div>
-                        <div className="text-xs text-muted-foreground">{t('stats.shelves')}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <BookMarked className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <div className="font-medium">{user.booksCount}</div>
-                        <div className="text-xs text-muted-foreground">{t('stats.books')}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <div className="font-medium">{user.commentsCount}</div>
-                        <div className="text-xs text-muted-foreground">{t('stats.comments')}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Star className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <div className="font-medium">{user.reviewsCount}</div>
-                        <div className="text-xs text-muted-foreground">{t('stats.reviews')}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quick Actions - at bottom */}
-                  <div className="flex flex-col lg:flex-row gap-2 mt-auto">
-                    <Button asChild variant="outline" className="flex-1 min-w-0" size="sm">
-                      <Link to={`/profile/${user.id}`} className="truncate px-2">
-                        {t('actions.viewProfile')}
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="default"
-                      className="flex-1 min-w-0 px-2"
-                      size="sm"
-                      onClick={() => handleSendMessage(user.id, user.username)}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-1 shrink-0" />
-                      <span className="truncate">{t('actions.sendMessage')}</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                user={user}
+                columns={2}
+              />
             ))}
           </div>
 
