@@ -117,5 +117,7 @@
   "allBooksContainingBookmarks": "All books containing bookmarks in this collection",
   "bookmarksCount_one": "{{count}} bookmark",
   "bookmarksCount_other": "{{count}} bookmarks",
-  "noBookmarksInCollectionYet": "There are no books with bookmarks in this collection yet"
+  "noBookmarksInCollectionYet": "There are no books with bookmarks in this collection yet",
+  "coverImageLabel": "Cover Image",
+  "coverImagePreview": "Cover Preview"
 }

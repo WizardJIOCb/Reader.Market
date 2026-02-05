@@ -14,6 +14,7 @@ export interface BookmarkCollection {
   bookCount?: number; // Number of books in the collection
   isClone?: boolean;
   isOwn?: boolean;
+  coverImageUrl?: string; // URL of the cover image for the collection
   // Owner information
   ownerId?: string;
   ownerUsername?: string;

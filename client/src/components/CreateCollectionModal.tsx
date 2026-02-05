@@ -35,6 +35,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#3b82f6');
   const [isPublic, setIsPublic] = useState(false);
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
   // Book search state
@@ -108,12 +110,29 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
     setLoading(true);
     
     try {
-      const response = await bookmarkCollectionsApi.createCollection({
-        name: name.trim(),
-        description: description.trim(),
-        color,
-        isPublic,
-        bookIds: selectedBooks.length > 0 ? selectedBooks.map(book => book.id) : undefined // Include multiple book IDs
+      // Create form data for the collection
+      const formData = new FormData();
+      formData.append('name', name.trim());
+      formData.append('description', description.trim());
+      formData.append('color', color);
+      formData.append('isPublic', String(isPublic));
+      
+      if (coverImage) {
+        formData.append('coverImage', coverImage);
+      }
+      
+      if (selectedBooks.length > 0) {
+        selectedBooks.forEach((book, index) => {
+          formData.append(`bookIds[${index}]`, book.id);
+        });
+      }
+
+      const response = await fetch('/api/bookmark-collections', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
       });
 
       if (response.ok) {
@@ -128,6 +147,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         setDescription('');
         setColor('#3b82f6');
         setIsPublic(false);
+        setCoverImage(null);
+        setCoverImageUrl(null);
         setSelectedBooks([]);
         setBookSearchQuery('');
         setBookSearchResults([]);
@@ -335,6 +356,33 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
             <Label htmlFor="isPublic" className="cursor-pointer">
               {t('collections:publicCollectionLabel')}
             </Label>
+          </div>
+          
+          {/* Cover Image Upload */}
+          <div className="space-y-2">
+            <Label htmlFor="coverImage">{t('collections:coverImageLabel')}</Label>
+            <div className="flex items-center gap-4">
+              {coverImageUrl && (
+                <img 
+                  src={coverImageUrl} 
+                  alt={t('collections:coverImagePreview')} 
+                  className="w-16 h-16 rounded object-cover border"
+                />
+              )}
+              <Input
+                id="coverImage"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setCoverImage(file);
+                    setCoverImageUrl(URL.createObjectURL(file));
+                  }
+                }}
+                className="flex-1"
+              />
+            </div>
           </div>
           
           <div className="flex justify-end gap-2 pt-4">

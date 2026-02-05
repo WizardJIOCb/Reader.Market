@@ -37,6 +37,8 @@ export function EditCollectionPage() {
   const [bookSearchQuery, setBookSearchQuery] = useState('');
   const [bookSearchResults, setBookSearchResults] = useState<Array<{id: string, title: string, author: string}>>([]);
   const [showBookSearch, setShowBookSearch] = useState(false);
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -53,6 +55,11 @@ export function EditCollectionPage() {
       setDescription(collection.description || '');
       setColor(collection.color);
       setIsPublic(collection.isPublic);
+      
+      // Set cover image URL if available
+      if (collection.coverImageUrl) {
+        setCoverImageUrl(collection.coverImageUrl);
+      }
       
       // Handle multiple books (new approach)
       if (collection.books && Array.isArray(collection.books) && collection.books.length > 0) {
@@ -224,26 +231,33 @@ export function EditCollectionPage() {
     setSaving(true);
     
     try {
+      // Create form data for the collection update
+      const formData = new FormData();
+      formData.append('name', name.trim());
+      formData.append('description', description.trim() || '');
+      formData.append('color', color);
+      formData.append('isPublic', String(isPublic));
+      
+      if (coverImage) {
+        formData.append('coverImage', coverImage);
+      }
+      
+      if (bookIds.length > 0) {
+        bookIds.forEach((bookId, index) => {
+          formData.append(`bookIds[${index}]`, bookId);
+        });
+      }
+      
       console.log('Submitting collection update:');
       console.log('Collection ID:', id);
-      console.log('Name:', name.trim());
-      console.log('Description:', description.trim() || undefined);
-      console.log('Color:', color);
-      console.log('Is Public:', isPublic);
-      console.log('Book IDs:', bookIds);
-      console.log('Selected Books Count:', selectedBooks.length);
       
-      const requestData = {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        color,
-        isPublic,
-        bookIds: bookIds.length > 0 ? bookIds : undefined
-      };
-      
-      console.log('Request Data:', requestData);
-      
-      const response = await bookmarkCollectionsApi.updateCollection(id!, requestData);
+      const response = await fetch(`/api/bookmark-collections/${id}`, {
+        method: 'PUT',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+      });
       
       if (response.ok) {
         const updatedCollection = await response.json();
@@ -495,6 +509,33 @@ export function EditCollectionPage() {
               >
                 {isPublic ? 'ON' : 'OFF'}
               </Button>
+            </div>
+            
+            {/* Cover Image Upload */}
+            <div className="space-y-2">
+              <Label htmlFor="coverImage">{t('collections:coverImageLabel')}</Label>
+              <div className="flex items-center gap-4">
+                {coverImageUrl && (
+                  <img 
+                    src={coverImageUrl} 
+                    alt={t('collections:coverImagePreview')} 
+                    className="w-16 h-16 rounded object-cover border"
+                  />
+                )}
+                <Input
+                  id="coverImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setCoverImage(file);
+                      setCoverImageUrl(URL.createObjectURL(file));
+                    }
+                  }}
+                  className="flex-1"
+                />
+              </div>
             </div>
 
             {/* Actions */}

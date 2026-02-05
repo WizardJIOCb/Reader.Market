@@ -1,0 +1,1 @@
+ALTER TABLE "bookmark_collections" ADD COLUMN "cover_image_url" text;

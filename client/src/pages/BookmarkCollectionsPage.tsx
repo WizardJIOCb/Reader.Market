@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
 import { CloneCollectionModal } from '@/components/CloneCollectionModal';
 import { CreateCollectionModal } from '@/components/CreateCollectionModal';
+import { CollectionCard } from '@/components/CollectionCard';
 import { useTranslation } from 'react-i18next';
 import { usePageView } from '@/hooks/usePageView';
 import { 
@@ -345,94 +346,16 @@ export function BookmarkCollectionsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
           {filteredCollections.map((collection) => (
-            <Card key={collection.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div 
-                      className="w-4 h-4 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: collection.color }}
-                    ></div>
-                    <CardTitle 
-                      className="text-xl truncate hover:text-primary transition-colors cursor-pointer"
-                      onClick={() => window.location.href = `/collections/${collection.id}`}
-                    >
-                      {collection.name}
-                    </CardTitle>
-                  </div>
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <Badge variant="secondary">
-                      {(collection.bookmarkCount || 0)} {t('collections:collectionCard.bookmarks')}
-                    </Badge>
-                    {collection.bookCount !== undefined && collection.bookCount > 0 && (
-                      <Badge variant="outline" className="text-xs">
-                        {collection.bookCount} {collection.bookCount === 1 ? 'книга' : 'книг'}
-                      </Badge>
-                    )}
-                  </div>
-                  {collection.description && (
-                    <CardDescription 
-                      className="line-clamp-2 text-sm mt-2 hover:text-primary transition-colors cursor-pointer"
-                      onClick={() => window.location.href = `/collections/${collection.id}`}
-                    >
-                      {collection.description}
-                    </CardDescription>
-                  )}
-                  {renderOwnerInfo(collection)}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center text-sm text-muted-foreground mb-4 flex-wrap gap-2">
-                  <span className="truncate">{t('collections:collectionCard.created')} {formatDate(collection.createdAt)}</span>
-                  <div className="flex gap-1">
-                    {collection.isPublic ? (
-                      <Badge variant="outline" className="text-xs whitespace-nowrap bg-green-50 border-green-200 text-green-700">
-                        {t('collections:collectionCard.public')}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs whitespace-nowrap bg-gray-100 border-gray-300 text-gray-600">
-                        {t('collections:collectionCard.private')}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    asChild 
-                    size="sm" 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Link href={`/collections/${collection.id}`}>
-                      <Eye className="w-4 h-4 mr-2" />
-                      {t('collections:collectionCard.view')}
-                    </Link>
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleCloneCollection(collection)}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/collections/${collection.id}/edit`}>
-                      <Edit className="w-4 h-4" />
-                    </Link>
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleDeleteCollection(collection.id, collection.name)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <CollectionCard 
+              key={collection.id} 
+              collection={collection} 
+              variant="compact"
+              columns={2}
+              onDeleteCollection={handleDeleteCollection}
+              onCloneCollection={handleCloneCollection}
+            />
           ))}
         </div>
       )}

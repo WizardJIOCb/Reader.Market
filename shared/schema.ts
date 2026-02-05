@@ -158,6 +158,7 @@ export const bookmarkCollections = pgTable("bookmark_collections", {
   description: text("description"),
   color: varchar("color").default("#3b82f6"),
   isPublic: boolean("is_public").default(false),
+  coverImageUrl: text("cover_image_url"), // URL of the cover image for the collection
   bookId: varchar("book_id").references(() => books.id, { onDelete: "set null" }), // Deprecated: Use collection_books table instead
   viewCount: integer("view_count").default(0), // Number of times collection has been viewed
   createdAt: timestamp("created_at").defaultNow().notNull(),

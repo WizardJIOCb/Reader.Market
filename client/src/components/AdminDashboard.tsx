@@ -46,6 +46,7 @@ import { AdminLoggingConfig } from './AdminLoggingConfig';
 import TtsAdminSettings from '@/pages/TtsAdminSettings';
 import { LogAnalytics } from './LogAnalytics';
 import MagicLoader from '@/components/MagicLoader';
+import { AdminCollectionsPage } from '@/pages/admin/AdminCollectionsPage';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatAbsoluteDateTime } from '@/lib/dateUtils';
@@ -433,6 +434,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'dashboard', label: t('admin:navigation.dashboard'), icon: LayoutDashboard },
     { id: 'news', label: t('admin:navigation.newsManagement'), icon: Newspaper },
     { id: 'articles', label: t('articles:admin.title'), icon: FileText },
+    { id: 'collections', label: t('admin:navigation.collections'), icon: BookOpen },
     { id: 'comments', label: t('admin:navigation.comments'), icon: MessageSquare },
     { id: 'reviews', label: t('admin:navigation.reviews'), icon: Star },
     { id: 'books', label: t('admin:navigation.books'), icon: BookOpen },
@@ -809,6 +811,10 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'articles' && (
               <AdminArticlesPage />
+            )}
+
+            {activeTab === 'collections' && (
+              <AdminCollectionsPage />
             )}
 
             {activeTab === 'comments' && (

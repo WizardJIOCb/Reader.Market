@@ -119,5 +119,7 @@
   "bookmarksCount_few": "{{count}} закладки",
   "bookmarksCount_many": "{{count}} закладок",
   "bookmarksCount_other": "{{count}} закладки",
-  "noBookmarksInCollectionYet": "В этой коллекции пока нет книг с закладками"
+  "noBookmarksInCollectionYet": "В этой коллекции пока нет книг с закладками",
+  "coverImageLabel": "Изображение обложки",
+  "coverImagePreview": "Предварительный просмотр обложки"
 }

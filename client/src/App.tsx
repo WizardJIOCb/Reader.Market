@@ -42,6 +42,7 @@ import { ArticleEditorPage } from "@/pages/ArticleEditorPage";
 import { ReadLaterPage } from "@/pages/ReadLaterPage";
 import { AdminArticlesPage } from "@/pages/admin/AdminArticlesPage";
 import { AdminCategoriesPage } from "@/pages/admin/AdminCategoriesPage";
+import { AdminCollectionsPage } from "@/pages/admin/AdminCollectionsPage";
 import GitHistoryPage from "@/pages/GitHistoryPage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -83,6 +84,7 @@ function Router() {
       <Route path="/admin/users" component={UserManagement} />
       <Route path="/admin/articles" component={AdminArticlesPage} />
       <Route path="/admin/articles/categories" component={AdminCategoriesPage} />
+      <Route path="/admin/collections" component={AdminCollectionsPage} />
       <Route path="/admin/rating-system" component={RatingSystemSettings} />
       <Route path="/admin/user-rating-system" component={UserRatingSystemSettings} />
       <Route path="/git-to-gpt" component={GitHistoryPage} />
