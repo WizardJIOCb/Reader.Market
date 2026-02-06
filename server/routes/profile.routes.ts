@@ -6,14 +6,14 @@ import bcrypt from "bcrypt";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
+// Use relative path for uploads directory
+const avatarUploadPath = path.join(process.cwd(), "uploads", "avatars");
 
 // Avatar upload configuration
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, "..", "uploads", "avatars");
+    const uploadPath = avatarUploadPath;
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -21,7 +21,7 @@ const avatarStorage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const filename = `${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+    const filename = `avatar-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
     cb(null, filename);
   }
 });

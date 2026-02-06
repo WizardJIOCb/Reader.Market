@@ -1,20 +1,18 @@
 server {
-    listen 80;
-    listen [::]:80;
-    
-    server_name reader.market www.reader.market;
-    
-    # Путь к корневой папке
-    root /var/www/reader.market;
-    index index.php index.html;
 
-    # Логи
+    server_name reader.market www.reader.market;
+
+    # Path to application root
+    root /var/www/reader.market/dist/public;
+    index index.html;
+
+    # Logs
     access_log /var/log/nginx/reader.market.access.log;
     error_log /var/log/nginx/reader.market.error.log;
 
     # ===============================================
-    # ВАЖНО: Восстановление реальных IP-адресов посетителей
-    # Без этого в логах везде будет один и тот же IP Cloudflare
+    # IMPORTANT: Restore real IP addresses of visitors
+    # Without this, all logs will show the same Cloudflare IP
     # ===============================================
     set_real_ip_from 173.245.48.0/20;
     set_real_ip_from 103.21.244.0/22;
@@ -38,29 +36,162 @@ server {
     set_real_ip_from 2405:8100::/32;
     set_real_ip_from 2a06:98c0::/29;
     set_real_ip_from 2c0f:f248::/32;
-    
+
     real_ip_header CF-Connecting-IP;
     # ===============================================
 
+    # Serve static assets directly with correct MIME types
+location ~* ^/assets/.*\.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    root /var/www/reader.market/dist/public;
+    try_files $uri =404;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+
+    # Fix MIME type for .mjs files (required for PDF.js worker)
+    location ~* \.mjs$ {
+        types { text/javascript mjs; }
+        add_header Cache-Control "public, immutable";
+        expires 1y;
+    }
+}
+
+# Proxy uploads requests to Node.js server (MUST BE PRESENT)
+location /uploads {
+    proxy_pass http://127.0.0.1:5001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_cache_bypass $http_upgrade;
+    client_max_body_size 100M;
+}
+
+    # Serve static assets directly
+    #location ~* ^/.*\.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    #   root /var/www/reader.market/dist/public;
+    #   try_files $uri =404;
+    #   expires 1y;
+    #   add_header Cache-Control "public, immutable";
+    #}
+
+
+    #location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    #location ~* ^/(?!uploads/).*\.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    #    root /var/www/reader.market/dist/public;
+    #    try_files $uri $uri/ =404;
+    #    expires 1y;
+    #    add_header Cache-Control "public, immutable";
+    #}
+
+        # Socket.IO WebSocket support
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache_bypass $http_upgrade;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+
+    # Proxy API requests to Node.js server
+    location /api {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+
+        # Allow larger file uploads
+        client_max_body_size 100M;
+    }
+
+    # Proxy uploads requests to Node.js server
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    location /git-to-gpt {
+        root /var/www/reader.market/dist/public;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Serve all other requests from the React app (fallback)
+    # For non-API routes, serve index.html to allow client-side routing
     location / {
-        try_files $uri $uri/ /index.php?$query_string;
+        root /var/www/reader.market/dist/public;
+        try_files $uri $uri/ @fallback;
     }
 
-    location ~ \.php$ {
-        include fastcgi_params;
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        
-        # Оптимизация буферов для предотвращения 502 ошибок
-        fastcgi_buffer_size 32k;
-        fastcgi_buffers 8 16k;
-        fastcgi_connect_timeout 300;
-        fastcgi_send_timeout 300;
-        fastcgi_read_timeout 300;
+    # Fallback to Node.js for API routes that don't match static files
+    location @fallback {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
 
-    # Запрет доступа к скрытым файлам
-    location ~ /\.ht {
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # Block access to hidden files
+    location ~ /\. {
         deny all;
     }
+
+    listen [::]:443 ssl ipv6only=on; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/reader.market/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/reader.market/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+
+}
+server {
+    if ($host = www.reader.market) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = reader.market) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    listen [::]:80;
+
+    server_name reader.market www.reader.market;
+    return 404; # managed by Certbot
+
+
+
+
 }
