@@ -133,16 +133,66 @@ export function createBooksStorage(db: DB) {
         // Get active books sorted by rating (descending, nulls last), limit to 20
         // Use SQL to ensure null ratings appear last
         const booksResult = await db.select().from(books).where(sql`is_active = true`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(limit * 2);
+        console.log('Found', booksResult.length, 'books before adding counts');
         
-        // Format the results
-        const formattedResults = booksResult.map(book => ({
-          ...book,
-          uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
-          publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
-          createdAt: book.createdAt.toISOString(),
-          updatedAt: book.updatedAt.toISOString(),
-        }));
+        // Format the results and add counts
+        const formattedResults = [];
+        for (const book of booksResult) {
+          try {
+            console.log('Processing book:', book.id);
+            
+            // Get comment count using Drizzle ORM
+            const commentCountResult = await db.select({ count: count() })
+              .from(comments)
+              .where(eq(comments.bookId, book.id));
+            
+            // Get review count using Drizzle ORM
+            const reviewCountResult = await db.select({ count: count() })
+              .from(reviews)
+              .where(eq(reviews.bookId, book.id));
+            
+            // Get shelf count using Drizzle ORM
+            const shelfCountResult = await db.select({ count: count() })
+              .from(shelfBooks)
+              .where(eq(shelfBooks.bookId, book.id));
+            
+            console.log('Counts for book', book.id, ': comments=', commentCountResult[0]?.count || 0, 
+                       'reviews=', reviewCountResult[0]?.count || 0, 
+                       'shelves=', shelfCountResult[0]?.count || 0);
+            
+            formattedResults.push({
+              ...book,
+              rating: book.rating !== null && book.rating !== undefined ? 
+                (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+                null,
+              uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+              publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+              createdAt: book.createdAt.toISOString(),
+              updatedAt: book.updatedAt.toISOString(),
+              commentCount: commentCountResult[0]?.count || 0,
+              reviewCount: reviewCountResult[0]?.count || 0,
+              shelfCount: shelfCountResult[0]?.count || 0,
+            });
+          } catch (innerError) {
+            console.error("Error processing individual book:", book.id, innerError);
+            // Add the book with default count values if there's an error processing it
+            formattedResults.push({
+              ...book,
+              rating: book.rating !== null && book.rating !== undefined ? 
+                (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+                null,
+              uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+              publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+              createdAt: book.createdAt.toISOString(),
+              updatedAt: book.updatedAt.toISOString(),
+              commentCount: 0,
+              reviewCount: 0,
+              shelfCount: 0,
+            });
+          }
+        }
         
+        console.log('Returning', formattedResults.length, 'books from getPopularBooks');
         return formattedResults;
       } catch (error) {
         console.error("Error getting popular books:", error);

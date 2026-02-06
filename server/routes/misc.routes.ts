@@ -3,8 +3,8 @@ import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth
 import { logUserAction } from '../actionLoggingMiddleware';
 import { storage } from '../storage';
 import { db } from '../storage/db';
-import { books, bookViewStatistics } from '@shared/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { books, bookViewStatistics, comments, reviews, shelfBooks } from '@shared/schema';
+import { eq, desc, sql, count } from 'drizzle-orm';
 
 export function createMiscRouter() {
   const router = Router();
@@ -19,11 +19,11 @@ export function createMiscRouter() {
           title: books.title,
           author: books.author,
           coverImageUrl: books.coverImageUrl,
+          description: books.description,
+          genre: books.genre,
           rating: books.rating,
-          viewStats: {
-            cardViews: sql<number>`COALESCE(SUM(CASE WHEN ${bookViewStatistics.viewType} = 'card_view' THEN ${bookViewStatistics.viewCount} ELSE 0 END), 0)`,
-            readerOpens: sql<number>`COALESCE(SUM(CASE WHEN ${bookViewStatistics.viewType} = 'reader_open' THEN ${bookViewStatistics.viewCount} ELSE 0 END), 0)`
-          }
+          cardViewCount: sql<number>`COALESCE(SUM(CASE WHEN ${bookViewStatistics.viewType} = 'card_view' THEN ${bookViewStatistics.viewCount} ELSE 0 END), 0)`,
+          readerOpenCount: sql<number>`COALESCE(SUM(CASE WHEN ${bookViewStatistics.viewType} = 'reader_open' THEN ${bookViewStatistics.viewCount} ELSE 0 END), 0)`
         })
         .from(books)
         .leftJoin(bookViewStatistics, eq(books.id, bookViewStatistics.bookId))
@@ -32,7 +32,32 @@ export function createMiscRouter() {
         .orderBy(desc(sql`COALESCE(SUM(${bookViewStatistics.viewCount}), 0)`))
         .limit(20);
 
-      res.json(popularBooks);
+      // Now add the counts for comments, shelves, and reviews separately
+      const popularBooksWithCounts = await Promise.all(popularBooks.map(async (book) => {
+        // Get comment count using Drizzle ORM
+        const commentCountResult = await db.select({ count: count() })
+          .from(comments)
+          .where(eq(comments.bookId, book.id));
+        
+        // Get review count using Drizzle ORM
+        const reviewCountResult = await db.select({ count: count() })
+          .from(reviews)
+          .where(eq(reviews.bookId, book.id));
+        
+        // Get shelf count using Drizzle ORM
+        const shelfCountResult = await db.select({ count: count() })
+          .from(shelfBooks)
+          .where(eq(shelfBooks.bookId, book.id));
+
+        return {
+          ...book,
+          commentCount: commentCountResult[0]?.count || 0,
+          reviewCount: reviewCountResult[0]?.count || 0,
+          shelfCount: shelfCountResult[0]?.count || 0,
+        };
+      }));
+
+      res.json(popularBooksWithCounts);
     } catch (error) {
       console.error('Error fetching popular books:', error);
       res.status(500).json({ error: 'Failed to fetch popular books' });

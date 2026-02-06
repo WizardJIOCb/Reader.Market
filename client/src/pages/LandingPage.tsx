@@ -316,9 +316,15 @@ const LandingPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-              {popularBooks.map((book) => (
-                <BookCard key={book.id} book={book} variant="compact" columns={2} />
-              ))}
+              {popularBooks.length > 0 ? (
+                popularBooks.map((book) => (
+                  <BookCard key={book.id} book={book} variant="compact" columns={2} />
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-muted-foreground">{t('home:noPopularBooks')}</p>
+                </div>
+              )}
             </div>
           )}
           

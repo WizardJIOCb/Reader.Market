@@ -438,11 +438,11 @@ export const BookCard: React.FC<BookCardProps> = ({
                     <TooltipTrigger asChild>
                       <div className="absolute -top-1 -right-1 bg-yellow-500 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5 text-xs font-bold cursor-pointer">
                         <Star className="w-2 h-2 fill-current" />
-                        {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
+                        {typeof book.rating === 'number' ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{t('books:rating')}: {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)} {book.ratingCount !== undefined ? `(${book.ratingCount} ${t('books:ratings')})` : ''}</p>
+                      <p>{t('books:rating')}: {typeof book.rating === 'number' ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'} {book.ratingCount !== undefined ? `(${book.ratingCount} ${t('books:ratings')})` : ''}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -560,12 +560,12 @@ export const BookCard: React.FC<BookCardProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="flex items-center gap-0.5">
-                        <Star className="w-3 h-3 fill-current text-yellow-500" /> {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
+                        <Star className="w-3 h-3 fill-current text-yellow-500" /> {typeof book.rating === 'number' ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
                         {book.ratingCount !== undefined && ` (${book.ratingCount})`}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{t('books:rating')}: {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)} {book.ratingCount !== undefined ? `(${book.ratingCount} ${t('books:ratings')})` : ''}</p>
+                      <p>{t('books:rating')}: {typeof book.rating === 'number' ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'} {book.ratingCount !== undefined ? `(${book.ratingCount} ${t('books:ratings')})` : ''}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -652,7 +652,7 @@ export const BookCard: React.FC<BookCardProps> = ({
               {(book.rating !== undefined && book.rating !== null) ? (
                 <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm font-bold">
                   <Star className="w-3 h-3 fill-current" />
-                  {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
+                  {typeof book.rating === 'number' ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
                 </div>
               ) : (
                 <div className="absolute top-2 right-2 bg-gray-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm">
@@ -715,7 +715,7 @@ export const BookCard: React.FC<BookCardProps> = ({
               {(book.rating !== undefined && book.rating !== null) && (
                 <div className="flex items-center text-xs font-bold text-yellow-600">
                   <Star className="w-3 h-3 mr-1 fill-current" />
-                  <span>{t('books:rating')}: {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}</span>
+                  <span>{t('books:rating')}: {typeof book.rating === 'number' ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}</span>
                 </div>
               )}
               
