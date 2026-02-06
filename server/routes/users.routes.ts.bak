@@ -91,7 +91,7 @@ export function createUsersRouter() {
       console.log("Calculated pagination - page:", pageNum, "totalPages:", totalPages, "totalItems:", totalCount);
 
       res.json({
-        users: users,
+        items: users,
         pagination: {
           page: pageNum,
           totalPages: totalPages || 1, // Ensure at least 1 page
@@ -106,7 +106,7 @@ export function createUsersRouter() {
       console.error("Get users error:", error);
       // Even in case of error, return the expected structure to prevent client-side crashes
       res.status(500).json({
-        users: [],
+        items: [],
         pagination: {
           page: 1,
           totalPages: 1,

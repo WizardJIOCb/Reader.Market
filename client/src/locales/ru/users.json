@@ -12,6 +12,12 @@
     "registered": "Дате регистрации"
   },
   "itemsPerPage": "Записей на странице",
+  "pagination": {
+    "previous": "Назад",
+    "next": "Вперед",
+    "ariaPrevious": "Перейти к предыдущей странице",
+    "ariaNext": "Перейти к следующей странице"
+  },
   "stats": {
     "shelves": "Полок",
     "books": "Книг",

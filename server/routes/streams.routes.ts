@@ -20,37 +20,12 @@ export function createStreamsRouter() {
 // Global stream - public content
 router.get("/global", async (req, res) => {
   try {
-    // Get recent public activities
-    const globalActivities = await db
-      .select({
-        id: activityFeed.id,
-        activityType: activityFeed.activityType,
-        entityId: activityFeed.entityId,
-        userId: activityFeed.userId,
-        targetUserId: activityFeed.targetUserId,
-        bookId: activityFeed.bookId,
-        metadata: activityFeed.metadata,
-        createdAt: activityFeed.createdAt,
-        user: {
-          id: users.id,
-          username: users.username,
-          fullName: users.fullName,
-          avatarUrl: users.avatarUrl
-        },
-        book: {
-          id: books.id,
-          title: books.title,
-          author: books.author,
-          coverImageUrl: books.coverImageUrl
-        }
-      })
-      .from(activityFeed)
-      .leftJoin(users, eq(activityFeed.userId, users.id))
-      .leftJoin(books, eq(activityFeed.bookId, books.id))
-      .orderBy(desc(activityFeed.createdAt))
-      .limit(50);
-
-    res.json(globalActivities);
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const before = req.query.before as string;
+    
+    const activities = await storage.getGlobalActivities(limit, offset, before);
+    res.json(activities);
   } catch (error) {
     console.error('Error fetching global stream:', error);
     res.status(500).json({ error: 'Failed to fetch global stream' });
@@ -61,39 +36,12 @@ router.get("/global", async (req, res) => {
 router.get("/personal", authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
-
-    // For now, return activities related to user's interests
-    // In a real implementation, this would include activities from followed users
-    const personalActivities = await db
-      .select({
-        id: activityFeed.id,
-        activityType: activityFeed.activityType,
-        entityId: activityFeed.entityId,
-        userId: activityFeed.userId,
-        targetUserId: activityFeed.targetUserId,
-        bookId: activityFeed.bookId,
-        metadata: activityFeed.metadata,
-        createdAt: activityFeed.createdAt,
-        user: {
-          id: users.id,
-          username: users.username,
-          fullName: users.fullName,
-          avatarUrl: users.avatarUrl
-        },
-        book: {
-          id: books.id,
-          title: books.title,
-          author: books.author,
-          coverImageUrl: books.coverImageUrl
-        }
-      })
-      .from(activityFeed)
-      .leftJoin(users, eq(activityFeed.userId, users.id))
-      .leftJoin(books, eq(activityFeed.bookId, books.id))
-      .orderBy(desc(activityFeed.createdAt))
-      .limit(50);
-
-    res.json(personalActivities);
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const before = req.query.before as string;
+    
+    const activities = await storage.getPersonalActivities(userId, limit, offset, before);
+    res.json(activities);
   } catch (error) {
     console.error('Error fetching personal stream:', error);
     res.status(500).json({ error: 'Failed to fetch personal stream' });
@@ -104,39 +52,14 @@ router.get("/personal", authenticateToken, async (req, res) => {
 router.get("/shelves", authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
-
-    // Get activities related to user's shelves
-    const shelfActivities = await db
-      .select({
-        id: activityFeed.id,
-        activityType: activityFeed.activityType,
-        entityId: activityFeed.entityId,
-        userId: activityFeed.userId,
-        targetUserId: activityFeed.targetUserId,
-        bookId: activityFeed.bookId,
-        metadata: activityFeed.metadata,
-        createdAt: activityFeed.createdAt,
-        user: {
-          id: users.id,
-          username: users.username,
-          fullName: users.fullName,
-          avatarUrl: users.avatarUrl
-        },
-        book: {
-          id: books.id,
-          title: books.title,
-          author: books.author,
-          coverImageUrl: books.coverImageUrl
-        }
-      })
-      .from(activityFeed)
-      .leftJoin(users, eq(activityFeed.userId, users.id))
-      .leftJoin(books, eq(activityFeed.bookId, books.id))
-      .where(eq(activityFeed.userId, userId))
-      .orderBy(desc(activityFeed.createdAt))
-      .limit(50);
-
-    res.json(shelfActivities);
+    const shelfIds = req.query.shelfIds ? (req.query.shelfIds as string).split(',') : undefined;
+    const bookIds = req.query.bookIds ? (req.query.bookIds as string).split(',') : undefined;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const before = req.query.before as string;
+    
+    const activities = await storage.getShelfActivities(userId, shelfIds, bookIds, limit, offset, before);
+    res.json(activities);
   } catch (error) {
     console.error('Error fetching shelves stream:', error);
     res.status(500).json({ error: 'Failed to fetch shelves stream' });
@@ -148,20 +71,9 @@ router.get("/shelves/filters", authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
 
-    // Get user's shelves to use as filters
-    const userShelves = await db
-      .select({
-        id: shelves.id,
-        name: shelves.name,
-        description: shelves.description,
-        color: shelves.color,
-        createdAt: shelves.createdAt
-      })
-      .from(shelves)
-      .where(eq(shelves.userId, userId))
-      .orderBy(asc(shelves.name));
+    const shelvesWithBooks = await storage.getUserShelvesWithBooks(userId);
 
-    res.json(userShelves);
+    res.json(shelvesWithBooks);
   } catch (error) {
     console.error('Error fetching shelf filters:', error);
     res.status(500).json({ error: 'Failed to fetch shelf filters' });
@@ -171,30 +83,24 @@ router.get("/shelves/filters", authenticateToken, async (req, res) => {
 // Get last actions for stream
 router.get("/last-actions", async (req, res) => {
   try {
-    // Get most recent activities across all types
-    const lastActions = await db
-      .select({
-        id: activityFeed.id,
-        activityType: activityFeed.activityType,
-        entityId: activityFeed.entityId,
-        userId: activityFeed.userId,
-        targetUserId: activityFeed.targetUserId,
-        bookId: activityFeed.bookId,
-        metadata: activityFeed.metadata,
-        createdAt: activityFeed.createdAt,
-        user: {
-          id: users.id,
-          username: users.username,
-          fullName: users.fullName,
-          avatarUrl: users.avatarUrl
-        }
-      })
-      .from(activityFeed)
-      .leftJoin(users, eq(activityFeed.userId, users.id))
-      .orderBy(desc(activityFeed.createdAt))
-      .limit(20);
-
-    res.json(lastActions);
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    
+    // Validate limits
+    const validatedLimit = Math.min(Math.max(1, limit), 100);
+    const validatedOffset = Math.max(0, offset);
+    
+    const activities = await storage.getLastActions(validatedLimit, validatedOffset);
+    
+    res.json({
+      activities,
+      pagination: {
+        limit: validatedLimit,
+        offset: validatedOffset,
+        total: activities.length,
+        has_more: activities.length === validatedLimit
+      }
+    });
   } catch (error) {
     console.error('Error fetching last actions:', error);
     res.status(500).json({ error: 'Failed to fetch last actions' });

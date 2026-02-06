@@ -195,19 +195,48 @@ export function MessageNotificationProvider({
       // Listen for new private messages
       const cleanupPrivateMessage = onSocketEvent('message:new', (data) => {
         // Don't show notification for messages sent by current user
-        if (data.message?.senderId === currentUserId) {
+        // Handle both structures: direct message object or { message: messageObject, conversationId: string }
+        const messageData = data.message || data; // Support both structures
+        const senderId = messageData.sender?.id || data.message?.senderId;
+        
+        if (senderId === currentUserId) {          
+          return;
+        }
+
+        // Don't show notification if user is on messages page AND in the same conversation with the sender
+        const currentPath = typeof location === 'string' ? location : location[0];
+        const isOnMessagesPage = currentPath === '/messages';
+        
+        // Check if currently chatting with the sender by checking global state
+        const isCurrentlyChattingWithSender = (window as any).__CURRENT_SELECTED_CONVERSATION?.otherUser?.id === senderId;
+
+        if (isOnMessagesPage && isCurrentlyChattingWithSender) {
+          // Don't show notification - message will be visible in the chat
+          console.log('Skipping notification - already chatting with sender:', senderId);
+          
+          // Dispatch event to mark message as read in Messages component
+          window.dispatchEvent(new CustomEvent('auto-mark-read', {
+            detail: {
+              messageId: messageData.id,
+              conversationId: messageData.conversationId,
+              senderId: senderId
+            }
+          }));
+          
+          // Update unread count for this specific conversation only
+          // We shouldn't update the global unread count here because it affects other conversations
+          // Instead, let the Messages component handle updating the conversation list properly
           
           return;
         }
 
-        const senderName = data.message?.senderFullName || 
-                          data.message?.senderUsername ||
-                          data.message?.sender?.fullName || 
-                          data.message?.sender?.username || 
+        const senderName = messageData.senderFullName || 
+                          messageData.senderUsername ||
+                          messageData.sender?.fullName || 
+                          messageData.sender?.username || 
                           'Unknown user';
         
-        const messagePreview = data.message?.content?.substring(0, 50) || 'New message';
-        
+        const messagePreview = messageData.content?.substring(0, 50) || 'New message';
         
         
         // Don't show notification if user is on messages page AND in the same conversation
@@ -229,9 +258,9 @@ export function MessageNotificationProvider({
           description: (
             <div className="flex flex-col gap-1">
               <div className="flex items-start gap-2">
-                {data.message?.senderAvatarUrl || data.message?.sender?.avatarUrl ? (
+                {messageData.senderAvatarUrl || messageData.sender?.avatarUrl ? (
                   <img 
-                    src={data.message.senderAvatarUrl || data.message.sender.avatarUrl} 
+                    src={messageData.senderAvatarUrl || messageData.sender.avatarUrl} 
                     alt={senderName}
                     className="w-8 h-8 rounded-full object-cover"
                   />
@@ -244,14 +273,14 @@ export function MessageNotificationProvider({
                 )}
                 <div className="flex-1">
                   <UserNameWithRating
-                    userId={data.message?.sender?.id || ''}
-                    username={data.message?.senderUsername || data.message?.sender?.username || ''}
-                    fullName={data.message?.senderFullName || data.message?.sender?.fullName || ''}
-                    profileRating={data.message?.senderRating ? parseFloat(data.message.senderRating) : (data.message?.sender?.rating || null)}
+                    userId={messageData.sender?.id || ''}
+                    username={messageData.senderUsername || messageData.sender?.username || ''}
+                    fullName={messageData.senderFullName || messageData.sender?.fullName || ''}
+                    profileRating={messageData.senderRating ? parseFloat(messageData.senderRating) : (messageData.sender?.rating || null)}
                     showRating={true}
                     className="mb-1"
                   />
-                  <p className="text-sm text-muted-foreground">{messagePreview}{data.message?.content?.length > 50 ? '...' : ''}</p>
+                  <p className="text-sm text-muted-foreground">{messagePreview}{messageData.content?.length > 50 ? '...' : ''}</p>
                 </div>
               </div>
               <button
@@ -269,10 +298,13 @@ export function MessageNotificationProvider({
                   // Navigate to messages page
                   setLocation('/messages');
                   
-                  // Dispatch focus event with delay
+                  // Dispatch focus event with delay - find conversation with sender
                   setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('focus-conversation', { 
-                      detail: { conversationId: data.conversationId } 
+                      detail: { 
+                        conversationId: null, // Don't rely on conversationId
+                        withUserId: senderId  // Specify the user to open conversation with
+                      } 
                     }));
                   }, 500);
                 }}
@@ -284,20 +316,26 @@ export function MessageNotificationProvider({
           ),
           duration: 8000,
         });
+        
+        // Update unread count since we received a new message that will be shown as notification
+        window.dispatchEvent(new CustomEvent('update-unread-count'));
+
       });
 
       // Listen for new group messages
       const cleanupGroupMessage = onSocketEvent('channel:message:new', (data) => {
         // Don't show notification for messages sent by current user
-        if (data.message?.senderId === currentUserId) {
+        // Handle both structures: direct message object or { message: messageObject, ... }
+        const messageData = data.message || data; // Support both structures
+        if (messageData.sender?.id === currentUserId) {
           
           return;
         }
 
-        const senderName = data.message?.senderFullName || 
-                          data.message?.senderUsername ||
-                          data.message?.sender?.fullName || 
-                          data.message?.sender?.username || 
+        const senderName = messageData.senderFullName || 
+                          messageData.senderUsername ||
+                          messageData.sender?.fullName || 
+                          messageData.sender?.username || 
                           'Unknown user';
         
         // Find group and channel names
@@ -308,8 +346,7 @@ export function MessageNotificationProvider({
         const channelName = channel?.name || '';
         const fullGroupName = channelName ? `${groupName} #${channelName}` : groupName;
         
-        const messagePreview = data.message?.content?.substring(0, 50) || 'New message';
-        
+        const messagePreview = messageData.content?.substring(0, 50) || 'New message';
         
         
         // Don't show notification if user is on messages page AND in the same group/channel
@@ -336,7 +373,6 @@ export function MessageNotificationProvider({
         }
         
         
-        
         // Test with simple toast first
         // const groupNotification = toast({
         //   title: `New message in ${fullGroupName}`,
@@ -355,9 +391,9 @@ export function MessageNotificationProvider({
           description: (
             <div className="flex flex-col gap-1">
               <div className="flex items-start gap-2">
-                {data.message?.senderAvatarUrl || data.message?.sender?.avatarUrl ? (
+                {messageData.senderAvatarUrl || messageData.sender?.avatarUrl ? (
                   <img 
-                    src={data.message.senderAvatarUrl || data.message.sender.avatarUrl} 
+                    src={messageData.senderAvatarUrl || messageData.sender.avatarUrl} 
                     alt={senderName}
                     className="w-8 h-8 rounded-full object-cover"
                   />
@@ -370,15 +406,15 @@ export function MessageNotificationProvider({
                 )}
                 <div className="flex-1">
                   <UserNameWithRating
-                    userId={data.message?.sender?.id || ''}
-                    username={data.message?.senderUsername || data.message?.sender?.username || ''}
-                    fullName={data.message?.senderFullName || data.message?.sender?.fullName || ''}
-                    profileRating={data.message?.senderRating ? parseFloat(data.message.senderRating) : (data.message?.sender?.rating || null)}
+                    userId={messageData.sender?.id || ''}
+                    username={messageData.senderUsername || messageData.sender?.username || ''}
+                    fullName={messageData.senderFullName || messageData.sender?.fullName || ''}
+                    profileRating={messageData.senderRating ? parseFloat(messageData.senderRating) : (messageData.sender?.rating || null)}
                     showRating={true}
                     className="mb-1"
                   />
                   <p className="text-xs text-muted-foreground mt-1">{fullGroupName}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{messagePreview}{data.message?.content?.length > 50 ? '...' : ''}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{messagePreview}{messageData.content?.length > 50 ? '...' : ''}</p>
                 </div>
               </div>
               <button
@@ -397,11 +433,14 @@ export function MessageNotificationProvider({
                   
                   // Wait for Messages component to mount and load data
                   setTimeout(() => {
+                    // Ensure we get the correct group and channel IDs
+                    const groupId = data.groupId || data.message?.groupId;
+                    const channelId = data.channelId || data.message?.channelId;
                     
                     window.dispatchEvent(new CustomEvent('focus-group', { 
                       detail: { 
-                        groupId: data.groupId,
-                        channelId: data.channelId 
+                        groupId: groupId,
+                        channelId: channelId 
                       } 
                     }));
                   }, 1000); // Increased delay to ensure data is loaded

@@ -1,6 +1,9 @@
 import { User, InsertUser } from "@shared/schema";
+import { ArticlesServiceInterface } from "./modules/articles.storage";
+import { CollectionsServiceInterface } from "./modules/collections.storage";
+import { AdminStorage } from "./modules/admin.storage";
 
-export interface Storage {
+export interface Storage extends ArticlesServiceInterface, CollectionsServiceInterface, AdminStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -9,6 +12,9 @@ export interface Storage {
   updateUser(id: string, userData: Partial<InsertUser>): Promise<User>;
   updateUserLastLogin(userId: string): Promise<void>;
   updateUserLastActivity(userId: string): Promise<void>;
+  getUsersWithStats(limit: number, offset: number): Promise<any[]>;
+  searchUsers(query: string): Promise<any[]>;
+  getUsersCount(): Promise<number>;
   
   // Book operations
   createBook(bookData: any): Promise<any>;
@@ -29,6 +35,7 @@ export interface Storage {
   deleteShelf(id: string): Promise<void>;
   addBookToShelf(shelfId: string, bookId: string): Promise<void>;
   removeBookFromShelf(shelfId: string, bookId: string): Promise<void>;
+  getUserShelvesWithBooks(userId: string): Promise<{shelves: any[], books: any[]}>;
   
   // Reading progress operations
   updateReadingProgress(userId: string, bookId: string, progress: any): Promise<any>;
@@ -78,4 +85,8 @@ export interface Storage {
   getReactions(entityId: string, entityType: 'comment' | 'review' | 'news' | 'book'): Promise<any[]>;
   getReactionsForItems(itemIds: string[], isComment: boolean): Promise<any[]>;
   deleteReaction(id: string, userId: string | null): Promise<boolean>;
+  
+  // Logging configuration methods
+  getLogConfig(): Promise<any>;
+  updateLogConfig(config: any): Promise<any>;
 }

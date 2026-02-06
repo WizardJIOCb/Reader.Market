@@ -102,6 +102,8 @@ const ttsPath = path.resolve(process.cwd(), 'storage', 'tts');
 
 
 
+import { accessLogger } from './utils/logger';
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -111,6 +113,9 @@ export function log(message: string, source = "express") {
   });
 
   console.log(`${formattedTime} [${source}] ${message}`);
+  
+  // Also log to file
+  accessLogger.info(`${formattedTime} [${source}] ${message}`);
 }
 
 app.use((req, res, next) => {
@@ -122,7 +127,19 @@ app.use((req, res, next) => {
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
+    console.log(`API Response for ${req.method} ${path}:`, bodyJson);
+    accessLogger.info(`API Response for ${req.method} ${path}: ${JSON.stringify(bodyJson)}`);
     return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  // Capture non-JSON responses (like HTML)
+  const originalResSend = res.send;
+  res.send = function (data, ...args) {
+    if (typeof data === 'string' && data.includes('<!DOCTYPE html')) {
+      console.log(`HTML Response detected for ${req.method} ${path}:`, data.substring(0, 200) + '...');
+      accessLogger.info(`HTML Response detected for ${req.method} ${path}: ${data.substring(0, 200)}...`);
+    }
+    return originalResSend.apply(res, [data, ...args]);
   };
 
   res.on("finish", () => {
@@ -134,6 +151,9 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+      
+      // Also log to file using accessLogger
+      accessLogger.info(`${req.method} ${path} ${res.statusCode} in ${duration}ms`);
     }
   });
 

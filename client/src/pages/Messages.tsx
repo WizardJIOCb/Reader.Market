@@ -141,7 +141,12 @@ export default function Messages() {
   const [contextMenuTarget, setContextMenuTarget] = useState<Message | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  
+
+  // Effect to update global state when selected conversation changes
+  useEffect(() => {
+    (window as any).__CURRENT_SELECTED_CONVERSATION = selectedConversation;
+  }, [selectedConversation]);
+
   // Scroll to a specific message
   const scrollToMessage = (messageId: string) => {
     const element = messageRefs.current.get(messageId);
@@ -363,31 +368,81 @@ export default function Messages() {
       console.log('%c[MESSAGE LISTENER] Message attachments:', 'color: teal', data.message?.attachments);
       
       // If message is for currently open conversation, add it to the message list
-      if (selectedConversation && data.conversationId === selectedConversation.id) {
+      // Handle both structures: direct message object or { message: messageObject, conversationId: string }
+      const messageData = data.message || data; // Support both structures
+      const conversationId = data.conversationId || data.message?.conversationId || messageData.conversationId;
+      
+      console.log('%c[MESSAGE LISTENER] Checking if message is for current conversation', 'color: orange', {
+        incomingConversationId: conversationId,
+        selectedConversationId: selectedConversation?.id,
+        selectedConversationOtherUserId: selectedConversation?.otherUser?.id,
+        messageSenderId: messageData.senderId,
+        currentUserId: user?.id
+      });
+      
+      if (selectedConversation && conversationId === selectedConversation.id) {
         console.log('%c[MESSAGE LISTENER] ✅ Message is for current conversation, adding to list', 'color: green; font-weight: bold');
         setMessages((prev) => {
           // Avoid duplicates
-          if (prev.some(msg => msg.id === data.message.id)) {
+          if (prev.some(msg => msg.id === messageData.id)) {
             console.log('%c[MESSAGE LISTENER] ⚠️  Message already exists, skipping', 'color: orange');
             return prev;
           }
           console.log('%c[MESSAGE LISTENER] ➕ Adding new message to list', 'color: green');
-          return [...prev, data.message];
+          return [...prev, messageData];
         });
         
         // Mark as read if user is recipient
-        if (data.message.senderId !== user?.id) {
+        if (messageData.senderId !== user?.id) {
           console.log('%c[MESSAGE LISTENER] 👁️ Marking message as read', 'color: blue');
-          markMessageAsRead(data.message.id);
+          markMessageAsRead(messageData.id);
         }
         
         // Update conversation list and unread count
         fetchConversations();
         window.dispatchEvent(new CustomEvent('update-unread-count'));
+        
+        // Scroll to bottom immediately to show the new message
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        }, 10);
       } else {
-        console.log('%c[MESSAGE LISTENER] 📁 Message is for different conversation, updating list only', 'color: gray');
-        // Just update the conversation list to show unread count
-        fetchConversations();
+        // Check if it's a private conversation with the sender, even if we don't have the conversation ID yet
+        // This handles the case where user is viewing a conversation that hasn't been fully loaded yet
+        console.log('%c[MESSAGE LISTENER] ❌ Message is for different conversation, checking if it\'s with current user', 'color: orange');
+        if (selectedConversation && 
+            selectedConversation.otherUser?.id && 
+            messageData.senderId === selectedConversation.otherUser.id &&
+            messageData.senderId !== user?.id) {
+          console.log('%c[MESSAGE LISTENER] ✅ Message is from the user we are chatting with, adding to current view', 'color: purple; font-weight: bold');
+          
+          setMessages((prev) => {
+            // Avoid duplicates
+            if (prev.some(msg => msg.id === messageData.id)) {
+              console.log('%c[MESSAGE LISTENER] ⚠️  Message already exists, skipping', 'color: orange');
+              return prev;
+            }
+            console.log('%c[MESSAGE LISTENER] ➕ Adding new message to current view', 'color: purple');
+            return [...prev, messageData];
+          });
+          
+          // Mark as read
+          console.log('%c[MESSAGE LISTENER] 👁️ Marking message as read', 'color: blue');
+          markMessageAsRead(messageData.id);
+          
+          // Update conversation list and unread count
+          fetchConversations();
+          window.dispatchEvent(new CustomEvent('update-unread-count'));
+          
+          // Scroll to bottom immediately to show the new message
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+          }, 10);
+        } else {
+          console.log('%c[MESSAGE LISTENER] 📁 Message is for different conversation, updating list only', 'color: gray');
+          // Just update the conversation list to show unread count
+          fetchConversations();
+        }
       }
     });
     
@@ -482,52 +537,115 @@ export default function Messages() {
     };
   }, [selectedChannel, selectedGroup]);
 
+  // Handle auto-mark read events when user is already viewing the conversation
+  useEffect(() => {
+    const handleAutoMarkRead = (event: CustomEvent) => {
+      const { messageId, conversationId, senderId } = event.detail;
+      console.log('%c[AUTO-MARK-READ] Received auto-mark read event', 'color: purple', { messageId, conversationId, senderId });
+      
+      // Only mark as read if the message is from the other user in the current conversation
+      if (selectedConversation && 
+          selectedConversation.otherUser?.id === senderId && 
+          selectedConversation.id === conversationId) {
+        console.log('%c[AUTO-MARK-READ] Marking message as read in current conversation', 'color: purple');
+        
+        // Mark message as read via API call
+        fetch(`/api/messages/${messageId}/read`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(response => {
+          if (response.ok) {
+            console.log('%c[AUTO-MARK-READ] Successfully marked message as read', 'color: green');
+            // Update conversation list to reflect the change in unread count
+            fetchConversations();
+            // Update the global unread count
+            window.dispatchEvent(new CustomEvent('update-unread-count'));
+          } else {
+            console.error('%c[AUTO-MARK-READ] Failed to mark message as read', 'color: red');
+          }
+        })
+        .catch(error => {
+          console.error('%c[AUTO-MARK-READ] Error marking message as read:', 'color: red', error);
+        });
+      }
+    };
+
+    window.addEventListener('auto-mark-read', handleAutoMarkRead as EventListener);
+    
+    return () => {
+      window.removeEventListener('auto-mark-read', handleAutoMarkRead as EventListener);
+    };
+  }, [selectedConversation]);
+
   // Handle focus events from notifications
   useEffect(() => {
     console.log('%c[MESSAGES] Setting up focus event listeners', 'color: cyan; font-weight: bold');
     
     const handleFocusConversation = (event: CustomEvent) => {
-      const { conversationId } = event.detail;
-      console.log('%c[MESSAGES] 🎯 Focus conversation event received:', 'color: green; font-weight: bold', conversationId);
+      const { conversationId, withUserId } = event.detail;
+      console.log('%c[MESSAGES] 🎯 Focus conversation event received:', 'color: green; font-weight: bold', { conversationId, withUserId });
       console.log('%c[MESSAGES] Available conversations:', 'color: green', conversations.map(c => ({id: c.id, name: c.otherUser?.username})));
       console.log('%c[MESSAGES] Conversations count:', 'color: green', conversations.length);
       console.log('%c[MESSAGES] Current selected conversation:', 'color: green', selectedConversation?.id);
       
-      // Find and select the conversation
-      const conversation = conversations.find(c => c.id === conversationId);
-      if (conversation) {
-        console.log('%c[MESSAGES] ✅ Found conversation, selecting:', 'color: green', conversation);
-        setSelectedConversation(conversation);
-        if (isMobile) setShowMobileChat(true);
-        setActiveTab('private');
+      // If withUserId is provided instead of conversationId, find or create conversation with that user
+      if (withUserId && !conversationId) {
+        console.log('%c[MESSAGES] Focus request with user ID, finding or creating conversation', 'color: orange');
         
-        // Scroll to the conversation in the list
-        setTimeout(() => {
-          const element = document.querySelector(`[data-conversation-id="${conversationId}"]`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            element.classList.add('bg-accent');
-            setTimeout(() => {
-              element.classList.remove('bg-accent');
-            }, 2000);
-          }
-        }, 100);
-      } else {
-        console.log('%c[MESSAGES] ❌ Conversation not found in list', 'color: red');
-        console.log('%c[MESSAGES] Trying to fetch conversations again...', 'color: orange');
+        // Find existing conversation with this user
+        const existingConversation = conversations.find(c => 
+          c.otherUser?.id === withUserId
+        );
         
-        // Force refresh conversations
-        fetchConversations().then(() => {
-          // Retry after a delay
+        if (existingConversation) {
+          console.log('%c[MESSAGES] ✅ Found existing conversation with user, selecting:', 'color: green', existingConversation);
+          setSelectedConversation(existingConversation);
+          if (isMobile) setShowMobileChat(true);
+          setActiveTab('private');
+          
+          // Scroll to the conversation in the list
           setTimeout(() => {
-            const retryConversation = conversations.find(c => c.id === conversationId);
-            if (retryConversation) {
-              console.log('%c[MESSAGES] ✅ Found conversation on retry:', 'color: green', retryConversation);
-              setSelectedConversation(retryConversation);
+            const element = document.querySelector(`[data-conversation-id="${existingConversation.id}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'instant', block: 'center' });
+              element.classList.add('bg-accent');
+              setTimeout(() => {
+                element.classList.remove('bg-accent');
+              }, 2000);
+            }
+          }, 100);
+        } else {
+          console.log('%c[MESSAGES] ❌ No existing conversation found, attempting to create/fetch', 'color: orange');
+          // If no existing conversation, we'll need to fetch conversations again or create one
+          fetchConversations().then(() => {
+            // Look again after refresh
+            const refreshedConversation = conversations.find(c => 
+              c.otherUser?.id === withUserId
+            );
+            
+            if (refreshedConversation) {
+              console.log('%c[MESSAGES] ✅ Found conversation after refresh:', 'color: green', refreshedConversation);
+              setSelectedConversation(refreshedConversation);
               if (isMobile) setShowMobileChat(true);
               setActiveTab('private');
+              
+              // Scroll to the conversation in the list
+              setTimeout(() => {
+                const element = document.querySelector(`[data-conversation-id="${refreshedConversation.id}"]`);
+                if (element) {
+                  element.scrollIntoView({ behavior: 'instant', block: 'center' });
+                  element.classList.add('bg-accent');
+                  setTimeout(() => {
+                    element.classList.remove('bg-accent');
+                  }, 2000);
+                }
+              }, 100);
             } else {
-              console.log('%c[MESSAGES] ❌ Still not found after retry', 'color: red');
+              console.log('%c[MESSAGES] ❌ Still no conversation found after refresh, showing error', 'color: red');
               // Show error toast
               toast({
                 title: "Conversation not found",
@@ -535,8 +653,55 @@ export default function Messages() {
                 variant: "destructive"
               });
             }
-          }, 500);
-        });
+          });
+        }
+      } else {
+        // Original logic for when conversationId is provided
+        // Find and select the conversation
+        const conversation = conversations.find(c => c.id === conversationId);
+        if (conversation) {
+          console.log('%c[MESSAGES] ✅ Found conversation, selecting:', 'color: green', conversation);
+          setSelectedConversation(conversation);
+          if (isMobile) setShowMobileChat(true);
+          setActiveTab('private');
+          
+          // Scroll to the conversation in the list
+          setTimeout(() => {
+            const element = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'instant', block: 'center' });
+              element.classList.add('bg-accent');
+              setTimeout(() => {
+                element.classList.remove('bg-accent');
+              }, 2000);
+            }
+          }, 100);
+        } else {
+          console.log('%c[MESSAGES] ❌ Conversation not found in list', 'color: red');
+          console.log('%c[MESSAGES] Trying to fetch conversations again...', 'color: orange');
+          
+          // Force refresh conversations
+          fetchConversations().then(() => {
+            // Retry after a delay
+            setTimeout(() => {
+              const retryConversation = conversations.find(c => c.id === conversationId);
+              if (retryConversation) {
+                console.log('%c[MESSAGES] ✅ Found conversation on retry:', 'color: green', retryConversation);
+                setSelectedConversation(retryConversation);
+                if (isMobile) setShowMobileChat(true);
+                setActiveTab('private');
+              } else {
+                console.log('%c[MESSAGES] ❌ Still not found after retry', 'color: red');
+                // Show error toast
+                toast({
+                  title: "Conversation not found",
+                  description: "The conversation may have been deleted or you don't have access to it.",
+                  variant: "destructive"
+                });
+              }
+            }, 500);
+          });
+        }
       }
     };
     

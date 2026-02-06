@@ -256,11 +256,6 @@ export interface IStorage {
   removeProfileCommentReaction(userId: string, commentId: string, emoji: string): Promise<boolean>;
   getProfileCommentReactions(commentId: string, currentUserId?: string): Promise<{emoji: string, count: number, userReacted: boolean}[]>;
   
-  // Admin book operations
-  getAllBooksWithUploader(limit: number, offset: number, search?: string, sortBy?: string, sortOrder?: string): Promise<{books: any[], total: number}>;
-  updateBookAdmin(id: string, bookData: any): Promise<any>;
-  deleteBookAdmin(id: string): Promise<boolean>;
-  
   // File upload operations
   createFileUpload(fileData: any): Promise<any>;
   getFileUpload(id: string): Promise<any | undefined>;
@@ -4664,6 +4659,19 @@ export class DBStorage implements IStorage {
     }
   }
   
+  async getUsersCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`COUNT(*)`.as('count') })
+        .from(users)
+        .execute();
+        
+      return parseInt(String(result[0]?.count) || '0');
+    } catch (error) {
+      console.error("Error getting users count:", error);
+      return 0;
+    }
+  }
+
   async getUsersWithStats(limit: number, offset: number): Promise<any[]> {
     try {
       // Get users with basic information
@@ -4980,169 +4988,11 @@ export class DBStorage implements IStorage {
   }
 
   // Admin book operations
-  async getAllBooksWithUploader(limit: number, offset: number, search?: string, sortBy?: string, sortOrder?: string): Promise<{books: any[], total: number}> {
-    try {
-      let query = db
-        .select({
-          id: books.id,
-          title: books.title,
-          author: books.author,
-          description: books.description,
-          coverImageUrl: books.coverImageUrl,
-          filePath: books.filePath,
-          fileSize: books.fileSize,
-          fileType: books.fileType,
-          genre: books.genre,
-          publishedYear: books.publishedYear,
-          rating: books.rating,
-          userId: books.userId,
-          uploaderUsername: users.username,
-          uploaderFullName: users.fullName,
-          uploadedAt: books.uploadedAt,
-          publishedAt: books.publishedAt,
-          isActive: books.isActive,
-          createdAt: books.createdAt,
-          updatedAt: books.updatedAt
-        })
-        .from(books)
-        .leftJoin(users, eq(books.userId, users.id));
 
-      // Apply search filter if provided
-      if (search && search.trim()) {
-        const searchPattern = `%${search.trim()}%`;
-        query = query.where(
-          sql`LOWER(${books.title}) LIKE LOWER(${searchPattern}) 
-           OR LOWER(${books.author}) LIKE LOWER(${searchPattern}) 
-           OR LOWER(${books.genre}) LIKE LOWER(${searchPattern})`
-        ) as any;
-      }
 
-      // Get total count
-      const countQuery = search && search.trim() 
-        ? db.select({ count: sql<number>`count(*)` })
-            .from(books)
-            .where(
-              sql`LOWER(${books.title}) LIKE LOWER(${'%' + search.trim() + '%'}) 
-               OR LOWER(${books.author}) LIKE LOWER(${'%' + search.trim() + '%'}) 
-               OR LOWER(${books.genre}) LIKE LOWER(${'%' + search.trim() + '%'})`
-            )
-        : db.select({ count: sql<number>`count(*)` }).from(books);
-      
-      const totalResult = await countQuery;
-      const total = Number(totalResult[0]?.count || 0);
 
-      // Apply sorting
-      const sortColumn = sortBy === 'title' ? books.title 
-                       : sortBy === 'rating' ? books.rating 
-                       : books.uploadedAt;
-      const sortDirection = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
-      
-      query = query.orderBy(sortDirection) as any;
 
-      // Apply pagination
-      const result = await query.limit(limit).offset(offset);
 
-      // Format the results
-      const formattedBooks = result.map(book => ({
-        ...book,
-        rating: book.rating !== null && book.rating !== undefined ? 
-          (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
-          null,
-        uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
-        publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
-        createdAt: book.createdAt.toISOString(),
-        updatedAt: book.updatedAt.toISOString()
-      }));
-
-      return {
-        books: formattedBooks,
-        total
-      };
-    } catch (error) {
-      console.error("Error getting all books with uploader:", error);
-      throw error;
-    }
-  }
-
-  async updateBookAdmin(id: string, bookData: any): Promise<any> {
-    try {
-      const updateData: any = {
-        ...bookData,
-        updatedAt: new Date()
-      };
-
-      // Remove undefined values
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key] === undefined) {
-          delete updateData[key];
-        }
-      });
-
-      const result = await db.update(books)
-        .set(updateData)
-        .where(eq(books.id, id))
-        .returning();
-
-      if (result.length === 0) {
-        return null;
-      }
-
-      return result[0];
-    } catch (error) {
-      console.error("Error updating book (admin):", error);
-      throw error;
-    }
-  }
-
-  async deleteBookAdmin(id: string): Promise<boolean> {
-    try {
-      // Delete in the correct order to respect foreign key constraints
-      
-      // 1. Delete reactions on comments and reviews for this book
-      const bookComments = await db.select({ id: comments.id }).from(comments).where(eq(comments.bookId, id));
-      const bookReviews = await db.select({ id: reviews.id }).from(reviews).where(eq(reviews.bookId, id));
-      
-      const commentIds = bookComments.map(c => c.id);
-      const reviewIds = bookReviews.map(r => r.id);
-      
-      if (commentIds.length > 0) {
-        await db.delete(reactions).where(sql`${reactions.commentId} IN (${sql.join(commentIds.map(id => sql`${id}`), sql`, `)})`);
-      }
-      
-      if (reviewIds.length > 0) {
-        await db.delete(reactions).where(sql`${reactions.reviewId} IN (${sql.join(reviewIds.map(id => sql`${id}`), sql`, `)})`);
-      }
-
-      // 2. Delete comments
-      await db.delete(comments).where(eq(comments.bookId, id));
-
-      // 3. Delete reviews
-      await db.delete(reviews).where(eq(reviews.bookId, id));
-
-      // 4. Delete bookmarks
-      await db.delete(bookmarks).where(eq(bookmarks.bookId, id));
-
-      // 5. Delete reading statistics
-      await db.delete(readingStatistics).where(eq(readingStatistics.bookId, id));
-
-      // 6. Delete reading progress
-      await db.delete(readingProgress).where(eq(readingProgress.bookId, id));
-
-      // 7. Delete book view statistics
-      await db.delete(bookViewStatistics).where(eq(bookViewStatistics.bookId, id));
-
-      // 8. Delete shelf associations
-      await db.delete(shelfBooks).where(eq(shelfBooks.bookId, id));
-
-      // 9. Finally delete the book itself
-      const result = await db.delete(books).where(eq(books.id, id)).returning();
-
-      return result.length > 0;
-    } catch (error) {
-      console.error("Error deleting book (admin):", error);
-      throw error;
-    }
-  }
 
   // New messaging system methods
   async getConversation(id: string): Promise<any | undefined> {
@@ -9677,19 +9527,7 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async deleteArticleByAdmin(id: string): Promise<boolean> {
-    try {
-      // Admin can delete any article without ownership check
-      const result = await db.delete(articles)
-        .where(eq(articles.id, id))
-        .returning();
-      
-      return result.length > 0;
-    } catch (error) {
-      console.error("Error deleting article by admin:", error);
-      return false;
-    }
-  }
+
   
   async publishArticle(id: string): Promise<Article> {
     try {
@@ -10427,115 +10265,9 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async moderateArticle(id: string, status: string, moderationNotes?: string): Promise<Article> {
-    try {
-      const result = await db.update(articles)
-        .set({ 
-          status,
-          updatedAt: new Date()
-        })
-        .where(eq(articles.id, id))
-        .returning();
-      
-      if (result.length === 0) {
-        throw new Error('Article not found');
-      }
-      
-      return result[0];
-    } catch (error) {
-      console.error("Error moderating article:", error);
-      throw error;
-    }
-  }
+
   
-  async getAllArticlesForAdmin(page: number, limit: number, status?: string): Promise<{ articles: any[]; total: number; page: number; limit: number; totalPages: number }> {
-    try {
-      const offset = (page - 1) * limit;
-      
-      // Build query with user join to get author information
-      let query = db.select({
-        id: articles.id,
-        authorUserId: articles.authorUserId,
-        section: articles.section,
-        format: articles.format,
-        status: articles.status,
-        lang: articles.lang,
-        title: articles.title,
-        slug: articles.slug,
-        excerpt: articles.excerpt,
-        coverImageUrl: articles.coverImageUrl,
-        contentJson: articles.contentJson,
-        searchText: articles.searchText,
-        views: articles.views,
-        commentsCount: articles.commentsCount,
-        publishedAt: articles.publishedAt,
-        createdAt: articles.createdAt,
-        updatedAt: articles.updatedAt,
-        username: users.username,
-        fullName: users.fullName,
-        avatarUrl: users.avatarUrl
-      })
-      .from(articles)
-      .leftJoin(users, eq(articles.authorUserId, users.id));
-      
-      let countQuery = db.select({ count: count() }).from(articles);
-      
-      // Filter by status if provided
-      if (status) {
-        query = query.where(eq(articles.status, status));
-        countQuery = countQuery.where(eq(articles.status, status));
-      }
-      
-      // Order by creation date
-      query = query.orderBy(desc(articles.createdAt));
-      
-      // Execute queries
-      const [articlesResult, countResult] = await Promise.all([
-        query.limit(limit).offset(offset),
-        countQuery
-      ]);
-      
-      // Transform the data to match the expected format
-      const transformedArticles = articlesResult.map(item => ({
-        id: item.id,
-        authorUserId: item.authorUserId,
-        section: item.section,
-        format: item.format,
-        status: item.status,
-        lang: item.lang,
-        title: item.title,
-        slug: item.slug,
-        excerpt: item.excerpt,
-        coverImageUrl: item.coverImageUrl,
-        contentJson: item.contentJson,
-        searchText: item.searchText,
-        views: item.views,
-        commentsCount: item.commentsCount,
-        publishedAt: item.publishedAt?.toISOString() || null,
-        createdAt: item.createdAt.toISOString(),
-        updatedAt: item.updatedAt.toISOString(),
-        author: {
-          username: item.username || 'Unknown',
-          fullName: item.fullName || null,
-          avatarUrl: item.avatarUrl || null
-        }
-      }));
-      
-      const total = countResult[0]?.count || 0;
-      const totalPages = Math.ceil(total / limit);
-      
-      return {
-        articles: transformedArticles,
-        total,
-        page,
-        limit,
-        totalPages
-      };
-    } catch (error) {
-      console.error("Error getting all articles for admin:", error);
-      throw error;
-    }
-  }
+  
   
   async getAllArticleCategories(): Promise<ArticleCategory[]> {
     try {

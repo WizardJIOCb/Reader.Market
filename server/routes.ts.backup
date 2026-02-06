@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+﻿import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
@@ -15,6 +15,7 @@ import https from "https";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
 import { createOAuthRoutes } from "./oauth/routes";
+
 
 // Utility function to download files from external URLs with redirect support
 function downloadFileFromUrl(url: string, destPath: string): Promise<void> {
@@ -103,6 +104,7 @@ import loggingConfigRoutes from "./routes/loggingConfig";
 import logAnalyticsRoutes from "./routes/logAnalytics";
 import ttsRoutes from "./routes/tts.routes";
 import ttsPersonaRoutes from "./routes/tts.persona.routes";
+import { registerRoutes as registerAllModuleRoutes } from "./routes/index";
 import { logAggregator, logMiddleware } from './logAggregator';
 
 // Import db from storage module
@@ -403,19 +405,19 @@ export async function registerRoutes(
     const isAuthenticated = !!userId;
     
     if (isAuthenticated) {
-      console.log('\x1b[34m%s\x1b[0m', `[WEBSOCKET] 🔗 User ${userId} connected via WebSocket`);
+      console.log('\x1b[34m%s\x1b[0m', `[WEBSOCKET] рџ”— User ${userId} connected via WebSocket`);
       
       // Join user's personal room for notifications (authenticated only)
       const personalRoom = `user:${userId}`;
       socket.join(personalRoom);
-      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined personal room: ${personalRoom}`);
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] вњ… User ${userId} joined personal room: ${personalRoom}`);
     } else {
-      console.log('\x1b[34m%s\x1b[0m', `[WEBSOCKET] 🔗 Unauthenticated user connected via WebSocket`);
+      console.log('\x1b[34m%s\x1b[0m', `[WEBSOCKET] рџ”— Unauthenticated user connected via WebSocket`);
     }
     
     // Log all rooms this socket is in
     const rooms = Array.from(socket.rooms);
-    console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] 📋 Socket rooms: ${JSON.stringify(rooms)}`);
+    console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] рџ“‹ Socket rooms: ${JSON.stringify(rooms)}`);
     
     // Handle joining conversation rooms (authenticated only)
     socket.on('join:conversation', (conversationId: string) => {
@@ -494,7 +496,7 @@ export async function registerRoutes(
       // Global stream is accessible to everyone (authenticated and unauthenticated)
       console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} joining global stream`);
       socket.join('stream:global');
-      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Joined global stream room`);
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] вњ… Joined global stream room`);
     });
     
     socket.on('join:stream:personal', () => {
@@ -513,14 +515,14 @@ export async function registerRoutes(
       }
       console.log(`User ${userId} joining shelves stream`);
       socket.join(`stream:shelves:${userId}`);
-      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined shelves stream room`);
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] вњ… User ${userId} joined shelves stream room`);
     });
     
     socket.on('join:stream:last-actions', () => {
       // Last actions stream is accessible to everyone (authenticated and unauthenticated)
       console.log(`${isAuthenticated ? 'User ' + userId : 'Unauthenticated user'} joining last actions stream`);
       socket.join('stream:last-actions');
-      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Joined last actions stream room`);
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] вњ… Joined last actions stream room`);
     });
     
     // Handle leaving stream rooms
@@ -548,7 +550,7 @@ export async function registerRoutes(
       }
       const roomName = `book-chat:${bookId}`;
       socket.join(roomName);
-      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ User ${userId} joined book chat room: ${roomName}`);
+      console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] вњ… User ${userId} joined book chat room: ${roomName}`);
       
       // Notify others that user joined
       socket.to(roomName).emit('book-chat:user-joined', {
@@ -754,1449 +756,24 @@ export async function registerRoutes(
   // Register TTS routes
   app.use('/api/tts', ttsRoutes);
   app.use('/api/tts', ttsPersonaRoutes);
-  
+    
   // Add log middleware to capture HTTP requests
   app.use(logMiddleware(logAggregator));
   
-  // In-memory cache for GitHub commits
-  const commitsCache = {
-    data: [] as any[],
-    timestamp: 0,
-    ttl: 30 * 60 * 1000 // 30 minutes cache TTL (increased from 5 minutes)
-  };
+  // Register all modular routes using centralized registration
+  registerAllModuleRoutes(app);
   
-  // In-memory cache for individual commit details
-  const commitDetailsCache = {
-    data: new Map<string, { details: any; timestamp: number }>(),
-    ttl: 30 * 60 * 1000 // 30 minutes cache TTL (increased from 5 minutes)
-  };
+
   
-  // Cache for API git history endpoint
-  const apiGitCache = {
-    data: '' as string,
-    timestamp: 0,
-    ttl: 30 * 60 * 1000 // 30 minutes cache TTL (increased from 5 minutes)
-  };
+
   
-  console.log('Initialized empty commits cache');
+
   
-  // put application routes here
-  // prefix all routes with /api
+
   
-  // Health check endpoint
-  app.get("/api/health", (req, res) => {
-    console.log("Health check endpoint called");
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
-  });
+
   
-  // Batch commit details endpoint - get details for multiple commits in one request
-  app.post("/api/commits/details/batch", async (req, res) => {
-    console.log("=== BATCH COMMIT DETAILS ENDPOINT CALLED ===");
-    console.log("Requested SHAs:", req.body.shas);
-    
-    try {
-      const { shas } = req.body;
-      
-      if (!Array.isArray(shas) || shas.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'SHAs array is required'
-        });
-      }
-      
-      // Validate all SHAs
-      const invalidShas = shas.filter((sha: string) => !/^[0-9a-f]{40}$/i.test(sha));
-      if (invalidShas.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: `Invalid commit SHA format: ${invalidShas.join(', ')}`
-        });
-      }
-      
-      // Limit batch size to prevent abuse
-      if (shas.length > 50) {
-        return res.status(400).json({
-          success: false,
-          error: 'Maximum 50 commits per request'
-        });
-      }
-      
-      // Check GitHub rate limit before processing
-      const rateLimitResponse = await fetch('https://api.github.com/rate_limit', {
-        headers: {
-          'User-Agent': 'reader.market-app/1.0',
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
-      
-      if (rateLimitResponse.ok) {
-        const rateLimitData = await rateLimitResponse.json();
-        const coreLimit = rateLimitData.resources.core;
-        
-        console.log(`GitHub Rate Limit - Remaining: ${coreLimit.remaining}/${coreLimit.limit}`);
-        
-        // If we don't have enough requests for all commits, return error
-        if (coreLimit.remaining < shas.length + 5) { // +5 buffer
-          console.warn('Not enough GitHub requests remaining for batch');
-          return res.status(429).json({
-            success: false,
-            error: 'GitHub API rate limit would be exceeded. Please try again later.',
-            rate_limit_remaining: coreLimit.remaining
-          });
-        }
-      }
-      
-      // Process commits with caching
-      const now = Date.now();
-      const results: Record<string, any> = {};
-      const fetchPromises: Promise<void>[] = [];
-      
-      for (const sha of shas) {
-        // Check cache first
-        const cachedEntry = commitDetailsCache.data.get(sha);
-        if (cachedEntry && (now - cachedEntry.timestamp) < commitDetailsCache.ttl) {
-          console.log(`Using cached data for commit ${sha.substring(0, 7)}`);
-          results[sha] = {
-            success: true,
-            commit: cachedEntry.details,
-            cache_hit: true,
-            cache_age_seconds: Math.floor((now - cachedEntry.timestamp) / 1000)
-          };
-          continue;
-        }
-        
-        // Add small delay between requests to be respectful to GitHub
-        const delay = fetchPromises.length * 50; // 50ms between requests
-        
-        const fetchPromise = new Promise<void>(resolve => {
-          setTimeout(async () => {
-            try {
-              const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits/${sha}`;
-              console.log(`Fetching commit details from: ${apiUrl}`);
-              
-              const githubHeaders: Record<string, string> = {
-                'User-Agent': 'reader.market-app/1.0',
-                'Accept': 'application/vnd.github.v3+json'
-              };
-                      
-              // Add GitHub token if available
-              if (process.env.GITHUB_TOKEN) {
-                githubHeaders['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
-              }
-                      
-              const response = await fetch(apiUrl, {
-                headers: githubHeaders
-              });
-              
-              if (!response.ok) {
-                if (response.status === 404) {
-                  results[sha] = {
-                    success: false,
-                    error: 'Commit not found'
-                  };
-                } else {
-                  results[sha] = {
-                    success: false,
-                    error: `GitHub API error: ${response.status}`
-                  };
-                }
-                resolve();
-                return;
-              }
-              
-              const commitData = await response.json();
-              
-              // Transform the response
-              const commitResult = {
-                sha: commitData.sha,
-                message: commitData.commit.message,
-                author: {
-                  name: commitData.commit.author.name,
-                  email: commitData.commit.author.email,
-                  date: commitData.commit.author.date
-                },
-                committer: {
-                  name: commitData.commit.committer.name,
-                  email: commitData.commit.committer.email,
-                  date: commitData.commit.committer.date
-                },
-                url: commitData.html_url,
-                stats: {
-                  additions: commitData.stats?.additions || 0,
-                  deletions: commitData.stats?.deletions || 0,
-                  total: commitData.stats?.total || 0
-                },
-                files: (commitData.files || []).map((file: any) => ({
-                  filename: file.filename,
-                  status: file.status,
-                  additions: file.additions || 0,
-                  deletions: file.deletions || 0,
-                  changes: file.changes || 0,
-                  blob_url: file.blob_url,
-                  raw_url: file.raw_url,
-                  patch: file.patch
-                }))
-              };
-              
-              // Cache the result
-              commitDetailsCache.data.set(sha, {
-                details: commitResult,
-                timestamp: now
-              });
-              
-              results[sha] = {
-                success: true,
-                commit: commitResult,
-                cache_hit: false
-              };
-              
-              console.log(`Successfully fetched and cached details for commit ${sha.substring(0, 7)}`);
-              
-            } catch (error) {
-              console.error(`Error fetching commit ${sha.substring(0, 7)}:`, error);
-              results[sha] = {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error'
-              };
-            }
-            resolve();
-          }, delay);
-        });
-        
-        fetchPromises.push(fetchPromise);
-      }
-      
-      // Wait for all requests to complete
-      await Promise.all(fetchPromises);
-      
-      res.json({
-        success: true,
-        commits: results
-      });
-      
-    } catch (error) {
-      console.error('Error in batch commit details endpoint:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch commit details',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-  
-  // Git commit details endpoint - get changed files and stats
-  app.get("/api/commit/:sha/details", async (req, res) => {
-    console.log("=== COMMIT DETAILS ENDPOINT CALLED ===");
-    console.log("Commit SHA:", req.params.sha);
-    
-    try {
-      const { sha } = req.params;
-      
-      if (!sha) {
-        return res.status(400).json({
-          success: false,
-          error: 'Commit SHA is required'
-        });
-      }
-      
-      // Validate SHA format (should be 40 characters hex)
-      if (!/^[0-9a-f]{40}$/i.test(sha)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid commit SHA format'
-        });
-      }
-      
-      // Check if we have cached data for this commit
-      const now = Date.now();
-      const cachedEntry = commitDetailsCache.data.get(sha);
-      
-      if (cachedEntry && (now - cachedEntry.timestamp) < commitDetailsCache.ttl) {
-        console.log(`Returning cached commit details for ${sha.substring(0, 7)}`);
-        console.log(`Cache age: ${Math.floor((now - cachedEntry.timestamp) / 1000)} seconds`);
-        
-        return res.json({
-          success: true,
-          commit: cachedEntry.details,
-          cache_hit: true,
-          cache_age_seconds: Math.floor((now - cachedEntry.timestamp) / 1000)
-        });
-      }
-      
-      // Check GitHub rate limit headers before making request
-      const rateLimitHeaders: Record<string, string> = {
-        'User-Agent': 'reader.market-app/1.0',
-        'Accept': 'application/vnd.github.v3+json'
-      };
-      
-      // Add GitHub token if available
-      if (process.env.GITHUB_TOKEN) {
-        rateLimitHeaders['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
-      }
-      
-      const rateLimitResponse = await fetch('https://api.github.com/rate_limit', {
-        headers: rateLimitHeaders
-      });
-      
-      if (rateLimitResponse.ok) {
-        const rateLimitData = await rateLimitResponse.json();
-        const coreLimit = rateLimitData.resources.core;
-        
-        console.log(`GitHub Rate Limit - Remaining: ${coreLimit.remaining}/${coreLimit.limit}`);
-        
-        // If we're close to the limit, return cached data or error
-        if (coreLimit.remaining < 10) {
-          console.warn('GitHub rate limit is low, returning error');
-          return res.status(429).json({
-            success: false,
-            error: 'GitHub API rate limit exceeded. Please try again later.',
-            rate_limit_remaining: coreLimit.remaining
-          });
-        }
-      }
-      
-      const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits/${sha}`;
-      console.log(`Fetching commit details from: ${apiUrl}`);
-      
-      // Fetch from GitHub API
-      const githubHeaders: Record<string, string> = {
-        'User-Agent': 'reader.market-app/1.0',
-        'Accept': 'application/vnd.github.v3+json'
-      };
-      
-      // Add GitHub token if available
-      if (process.env.GITHUB_TOKEN) {
-        githubHeaders['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
-      }
-      
-      const response = await fetch(apiUrl, {
-        headers: githubHeaders
-      });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          return res.status(404).json({
-            success: false,
-            error: 'Commit not found'
-          });
-        }
-        throw new Error(`GitHub API responded with status ${response.status}`);
-      }
-      
-      const commitData = await response.json();
-      
-      // Transform the response to include file changes
-      const result = {
-        success: true,
-        commit: {
-          sha: commitData.sha,
-          message: commitData.commit.message,
-          author: {
-            name: commitData.commit.author.name,
-            email: commitData.commit.author.email,
-            date: commitData.commit.author.date
-          },
-          committer: {
-            name: commitData.commit.committer.name,
-            email: commitData.commit.committer.email,
-            date: commitData.commit.committer.date
-          },
-          url: commitData.html_url,
-          stats: {
-            additions: commitData.stats?.additions || 0,
-            deletions: commitData.stats?.deletions || 0,
-            total: commitData.stats?.total || 0
-          },
-          files: (commitData.files || []).map((file: any) => ({
-            filename: file.filename,
-            status: file.status, // added, modified, removed
-            additions: file.additions || 0,
-            deletions: file.deletions || 0,
-            changes: file.changes || 0,
-            blob_url: file.blob_url,
-            raw_url: file.raw_url,
-            patch: file.patch // The actual diff content
-          }))
-        }
-      };
-      
-      // Cache the result
-      commitDetailsCache.data.set(sha, {
-        details: result.commit,
-        timestamp: now
-      });
-      
-      console.log(`Successfully fetched and cached details for commit ${sha.substring(0, 7)}`);
-      console.log(`Files changed: ${result.commit.files.length}`);
-      console.log(`Additions: ${result.commit.stats.additions}, Deletions: ${result.commit.stats.deletions}`);
-      
-      res.json({
-        ...result,
-        cache_hit: false
-      });
-      
-    } catch (error) {
-      console.error('Error fetching commit details:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch commit details',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-  
-  // Git commit history endpoint - no authentication required
-  app.get("/git-to-gpt", async (req, res) => {
-    console.log("=== GIT-TO-GPT ENDPOINT CALLED ===");
-    console.log("Request URL:", req.url);
-    console.log("Request query:", req.query);
-    console.log("Template param:", req.query.template);
-    console.log("Count param:", req.query.count);
-    console.log("=== GIT-TO-GPT ENDPOINT CALLED ===");
-    console.log("Request URL:", req.url);
-    console.log("Request query:", req.query);
-    console.log("Template param:", req.query.template);
-    console.log("Count param:", req.query.count);
-    try {
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      // Get parameters
-      const countParam = req.query.count;
-      const count = countParam !== undefined ? parseInt(countParam as string, 10) : undefined;
-      const template = req.query.template as string | undefined;
-      const clearCache = req.query.clear === 'true';
-      
-      console.log(`Requested count: ${count}, template: ${template}, clear: ${clearCache}`);
-      
-      // Handle cache clearing for all caches
-      if (clearCache) {
-        console.log('Clearing all caches');
-        commitsCache.data = [];
-        commitsCache.timestamp = 0;
-          
-        // Clear commit details cache
-        commitDetailsCache.data.clear();
-          
-        // Clear API git history cache
-        apiGitCache.data = '';
-        apiGitCache.timestamp = 0;
-        
-        if (template === 'cool') {
-          const htmlResponse = `
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Git History - Reader.Market</title>
-    <style>
-        :root {
-            --background: #f5f0e6;
-            --foreground: #262626;
-            --primary: #3a5a7a;
-            --secondary: #e6d9c2;
-            --border: #d9cab3;
-            --button: #3a5a7a;
-            --card: #faf5eb;
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--background); color: var(--foreground); margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        .message { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 30px; text-align: center; margin-top: 50px; }
-        .success { color: #10b981; font-size: 3rem; margin-bottom: 20px; }
-        h1 { color: var(--primary); margin: 0 0 15px 0; }
-        p { font-size: 1.1rem; opacity: 0.8; }
-        .footer { text-align: center; margin-top: 30px; opacity: 0.6; font-size: 0.9rem; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="message">
-            <div class="success">✓</div>
-            <h1>Кэш очищен</h1>
-            <p>Кэш истории коммитов успешно очищен.<br>При следующем запросе данные будут загружены с GitHub.</p>
-        </div>
-        <div class="footer">Generated by git-to-gpt endpoint • ${new Date().toISOString()}</div>
-    </div>
-</body>
-</html>`;
-          
-          res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          return res.send(htmlResponse);
-        }
-        
-        return res.json({
-          success: true,
-          message: 'Cache cleared successfully',
-          action: 'cache_cleared',
-          timestamp: new Date().toISOString()
-        });
-      }
-      
-      // Check cache first
-      const now = Date.now();
-      if (commitsCache.data.length > 0 && (now - commitsCache.timestamp) < commitsCache.ttl) {
-        console.log(`Using cached commits. Cache age: ${Math.floor((now - commitsCache.timestamp) / 1000)} seconds`);
-        
-        // Apply count limit if specified
-        const cachedCommits = count !== undefined && count > 0 ? commitsCache.data.slice(0, count) : commitsCache.data;
-        
-        // Return cached response
-        if (template === 'cool') {
-          // Generate HTML from cached data
-          const htmlResponse = `
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Git History - Reader.Market</title>
-    <style>
-        :root {
-            /* Reader.Market light theme colors */
-            --background: #f5f0e6; /* 35 30% 96% - soft cream paper */
-            --foreground: #262626; /* 220 10% 15% - dark charcoal ink */
-            --primary: #3a5a7a;    /* 230 45% 35% - academic blue */
-            --secondary: #e6d9c2;  /* 35 20% 90% - darker paper for secondary */
-            --accent: #c47a40;     /* 25 60% 50% - subtle orange/sepia highlight */
-            --muted: #d9cab3;      /* 35 15% 85% - muted background */
-            --border: #d9cab3;     /* 35 15% 85% - border color */
-            --button: #3a5a7a;     /* Primary blue for buttons */
-            --card: #faf5eb;       /* Light card background */
-            --card-hover: #f0e6d2; /* Slightly darker on hover */
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--background);
-            color: var(--foreground);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        .header {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 30px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-        
-        .header h1 {
-            margin: 0 0 10px 0;
-            color: var(--primary);
-            font-size: 2.2rem;
-            font-weight: 700;
-        }
-        
-        .header p {
-            color: var(--foreground);
-            margin: 0 0 20px 0;
-            font-size: 1.1rem;
-            opacity: 0.8;
-        }
-        
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .stat-box {
-            background: var(--secondary);
-            border: 1px solid var(--border);
-            color: var(--foreground);
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-        
-        .commits-grid {
-            display: grid;
-            gap: 16px;
-        }
-        
-        .commit-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-        
-        .commit-card:hover {
-            background: var(--card-hover);
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-        }
-        
-        .commit-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        
-        .commit-hash {
-            font-family: 'Monaco', 'Consolas', monospace;
-            background: var(--primary);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        
-        .commit-date {
-            color: var(--foreground);
-            font-size: 0.85rem;
-            opacity: 0.7;
-        }
-        
-        .commit-message {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: var(--foreground);
-            margin-bottom: 15px;
-            line-height: 1.5;
-        }
-        
-        .commit-body {
-            background: rgba(58, 90, 122, 0.05);
-            border-left: 3px solid var(--accent);
-            padding: 12px 16px;
-            margin-bottom: 15px;
-            border-radius: 0 6px 6px 0;
-        }
-        
-        .commit-body-content {
-            font-size: 0.95rem;
-            color: var(--foreground);
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        
-        .commit-author {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .author-avatar {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: var(--accent);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 0.8rem;
-        }
-        
-        .author-name {
-            font-weight: 500;
-            color: var(--foreground);
-            opacity: 0.8;
-        }
-        
-        .commit-link {
-            display: inline-block;
-            background: var(--button);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            margin-top: 12px;
-        }
-        
-        .commit-link:hover {
-            background: #2c4a6a;
-            transform: translateY(-1px);
-        }
-        
-        .footer {
-            text-align: center;
-            color: var(--foreground);
-            margin-top: 40px;
-            padding: 20px;
-            font-size: 0.9rem;
-            border-top: 1px solid var(--border);
-            opacity: 0.7;
-        }
-        
-        .cache-info {
-            background: var(--secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 15px;
-            font-size: 0.85rem;
-            color: var(--foreground);
-            opacity: 0.8;
-        }
-        
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 1.8rem;
-            }
-            
-            .stats {
-                gap: 12px;
-            }
-            
-            .commit-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .commit-card {
-                padding: 16px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📚 Reader.Market Commits</h1>
-            <p>Полная история изменений проекта</p>
-            <div class="stats">
-                <div class="stat-box">Всего коммитов: ${cachedCommits.length}</div>
-                <div class="stat-box">Репозиторий: WizardJIOCb/Reader.Market</div>
-                <div class="stat-box">Обновлено: ${new Date().toLocaleString('ru-RU')}</div>
-            </div>
-            <div class="cache-info">
-                ℹ️ Данные из кэша (обновлены ${(now - commitsCache.timestamp) / 1000} секунд назад)
-            </div>
-        </div>
-        
-        <div class="commits-grid">
-            ${cachedCommits.map((commit: any) => `
-                <div class="commit-card">
-                    <div class="commit-header">
-                        <div class="commit-hash">${commit.hash.substring(0, 7)}</div>
-                        <div class="commit-date">${new Date(commit.timestamp).toLocaleString('ru-RU')}</div>
-                    </div>
-                    
-                    <div class="commit-message">${commit.message}</div>
-                    
-                    ${(commit.body && commit.body.trim()) ? `
-                    <div class="commit-body">
-                        <div class="commit-body-content">${commit.body.trim().replace(/\n/g, '<br>')}</div>
-                    </div>
-                    ` : ''}
-                    
-                    <div class="commit-author">
-                        <div class="author-avatar">${commit.author.charAt(0)}</div>
-                        <div class="author-name">${commit.author}</div>
-                    </div>
-                    
-                    <a href="${commit.url}" target="_blank" class="commit-link">
-                        📄 Посмотреть на GitHub
-                    </a>
-                </div>
-            `).join('')}
-        </div>
-        
-        <div class="footer">
-            Generated by git-to-gpt endpoint • Cached response • ${new Date().toISOString()}
-        </div>
-    </div>
-</body>
-</html>`;
-          
-          res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          return res.send(htmlResponse);
-        }
-        
-        // Return JSON from cached data
-        return res.json({
-          success: true,
-          repository: 'WizardJIOCb/Reader.Market',
-          url: `https://github.com/WizardJIOCb/Reader.Market/commits/main`,
-          api_url: `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits`,
-          timestamp: new Date().toISOString(),
-          cache_hit: true,
-          cache_age_seconds: Math.floor((now - commitsCache.timestamp) / 1000),
-          requested_count: count,
-          total_fetched: cachedCommits.length,
-          commits: cachedCommits
-        });
-      }
-      
-      console.log('Cache miss - fetching from GitHub API');
-      
-      const commits = [];
-      let page = 1;
-      const perPage = 100; // Maximum allowed by GitHub API
-      let hasNextPage = true;
-            
-      // Fetch commits until we have enough or reach the end
-      while (hasNextPage && (count === 0 || commits.length < (count || 100))) {
-        const apiUrl = `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits?per_page=${perPage}&page=${page}&_=${currentTime}`;
-        console.log(`Fetching GitHub commits from: ${apiUrl}`);
-              
-        // Fetch from GitHub API
-        const githubHeaders: Record<string, string> = {
-          'User-Agent': 'reader.market-app/1.0',
-          'Accept': 'application/vnd.github.v3+json'
-        };
-        
-        // Add GitHub token if available
-        if (process.env.GITHUB_TOKEN) {
-          githubHeaders['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
-        }
-        
-        const response = await fetch(apiUrl, {
-          headers: githubHeaders
-        });
-              
-        if (!response.ok) {
-          throw new Error(`GitHub API responded with status ${response.status}`);
-        }
-              
-        const commitsData = await response.json();
-              
-        // Transform GitHub API response to our format
-        const pageCommits = commitsData.map((commit: any) => {
-          const fullMessage = commit.commit.message;
-          const messageLines = fullMessage.split('\n');
-          const subject = messageLines[0];
-          const body = messageLines.slice(1).join('\n').trim();
-          
-          return {
-            hash: commit.sha,
-            message: subject,
-            body: body || null, // Full commit message body (without first line)
-            author: commit.commit.author.name,
-            timestamp: commit.commit.author.date,
-            url: commit.html_url
-          };
-        });
-              
-        commits.push(...pageCommits);
-        console.log(`Page ${page}: fetched ${pageCommits.length} commits`);
-              
-        // Check if there are more pages
-        hasNextPage = pageCommits.length === perPage && (count === 0 || commits.length < (count || 100));
-        page++;
-      }
-            
-      // Apply count limit if specified
-      const finalCommits = count !== undefined && count > 0 ? commits.slice(0, count) : commits;
-            
-      console.log(`Total commits fetched: ${commits.length}`);
-      console.log(`Returning ${finalCommits.length} commits (requested count: ${count})`);
-            
-      // Save ALL fetched commits to cache (not just the sliced amount)
-      commitsCache.data = commits;  // Save full list for future requests
-      commitsCache.timestamp = now;
-      console.log(`Saved ${commits.length} commits to cache for future use`);
-      
-      // If template is specified, return HTML instead of JSON
-      console.log(`Template requested: ${template}`);
-      if (template === 'cool') {
-        // Generate commit activity data for the graph
-        const commitDates = finalCommits.map(commit => new Date(commit.timestamp).toISOString().split('T')[0]);
-        const activityMap = new Map<string, number>();
-        
-        // Count commits per day
-        commitDates.forEach(date => {
-            activityMap.set(date, (activityMap.get(date) || 0) + 1);
-        });
-        
-        // Generate last 365 days
-        const dates = [];
-        const today = new Date();
-        for (let i = 364; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-            dates.push({
-                date: dateStr,
-                count: activityMap.get(dateStr) || 0,
-                weekday: date.getDay()
-            });
-        }
-        
-        // Generate activity graph HTML
-        let activityGraph = '<div class="activity-graph">';
-        activityGraph += '<div class="graph-header"><h3>Активность коммитов за год</h3></div>';
-        activityGraph += '<div class="graph-container">';
-        
-        // Weekday labels
-        activityGraph += '<div class="weekday-labels">';
-        activityGraph += '<div></div>'; // Empty corner
-        ['Пн', 'Ср', 'Пт'].forEach(day => {
-            activityGraph += `<div class="weekday-label">${day}</div>`;
-        });
-        activityGraph += '</div>';
-        
-        // Month labels
-        activityGraph += '<div class="month-labels">';
-        const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
-        let currentMonth = -1;
-        dates.forEach((day, index) => {
-            const date = new Date(day.date);
-            const month = date.getMonth();
-            if (month !== currentMonth && index % 7 === 0) {
-                activityGraph += `<div class="month-label">${months[month]}</div>`;
-                currentMonth = month;
-            } else if (index % 7 === 0) {
-                activityGraph += '<div class="month-label"></div>';
-            }
-        });
-        activityGraph += '</div>';
-        
-        // Activity squares
-        activityGraph += '<div class="activity-grid">';
-        dates.forEach(day => {
-            const intensity = day.count === 0 ? 0 : 
-                             day.count === 1 ? 1 : 
-                             day.count <= 3 ? 2 : 
-                             day.count <= 6 ? 3 : 4;
-            
-            const intensityColors = [
-                '#ebedf0', // No activity
-                '#9be9a8', // Low
-                '#40c463', // Medium
-                '#30a14e', // High
-                '#216e39'  // Very high
-            ];
-            
-            activityGraph += `<div class="activity-cell" 
-                               style="background-color: ${intensityColors[intensity]};"
-                               title="${day.date}: ${day.count} коммитов"></div>`;
-        });
-        activityGraph += '</div>';
-        
-        // Legend
-        activityGraph += '<div class="graph-legend">';
-        activityGraph += '<span>Меньше</span>';
-        activityGraph += '<div class="legend-colors">';
-        ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'].forEach(color => {
-            activityGraph += `<div class="legend-cell" style="background-color: ${color}"></div>`;
-        });
-        activityGraph += '</div>';
-        activityGraph += '<span>Больше</span>';
-        activityGraph += '</div>';
-        
-        activityGraph += '</div></div>';
-        
-        const htmlResponse = `
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Git History - Reader.Market</title>
-    <style>
-        :root {
-            /* Reader.Market light theme colors */
-            --background: #f5f0e6; /* 35 30% 96% - soft cream paper */
-            --foreground: #262626; /* 220 10% 15% - dark charcoal ink */
-            --primary: #3a5a7a;    /* 230 45% 35% - academic blue */
-            --secondary: #e6d9c2;  /* 35 20% 90% - darker paper for secondary */
-            --accent: #c47a40;     /* 25 60% 50% - subtle orange/sepia highlight */
-            --muted: #d9cab3;      /* 35 15% 85% - muted background */
-            --border: #d9cab3;     /* 35 15% 85% - border color */
-            --button: #3a5a7a;     /* Primary blue for buttons */
-            --card: #faf5eb;       /* Light card background */
-            --card-hover: #f0e6d2; /* Slightly darker on hover */
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--background);
-            color: var(--foreground);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        .header {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 30px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-        
-        .header h1 {
-            margin: 0 0 10px 0;
-            color: var(--primary);
-            font-size: 2.2rem;
-            font-weight: 700;
-        }
-        
-        .header p {
-            color: var(--foreground);
-            margin: 0 0 20px 0;
-            font-size: 1.1rem;
-            opacity: 0.8;
-        }
-        
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .stat-box {
-            background: var(--secondary);
-            border: 1px solid var(--border);
-            color: var(--foreground);
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-        
-        .commits-grid {
-            display: grid;
-            gap: 16px;
-        }
-        
-        .commit-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-        
-        .commit-card:hover {
-            background: var(--card-hover);
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-        }
-        
-        .commit-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        
-        .commit-hash {
-            font-family: 'Monaco', 'Consolas', monospace;
-            background: var(--primary);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        
-        .commit-date {
-            color: var(--foreground);
-            font-size: 0.85rem;
-            opacity: 0.7;
-        }
-        
-        .commit-message {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: var(--foreground);
-            margin-bottom: 15px;
-            line-height: 1.5;
-        }
-        
-        .commit-body {
-            background: rgba(58, 90, 122, 0.05);
-            border-left: 3px solid var(--accent);
-            padding: 12px 16px;
-            margin-bottom: 15px;
-            border-radius: 0 6px 6px 0;
-        }
-        
-        .commit-body-content {
-            font-size: 0.95rem;
-            color: var(--foreground);
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        
-        .commit-author {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .author-avatar {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: var(--accent);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 0.8rem;
-        }
-        
-        .author-name {
-            font-weight: 500;
-            color: var(--foreground);
-            opacity: 0.8;
-        }
-        
-        .commit-link {
-            display: inline-block;
-            background: var(--button);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            margin-top: 12px;
-        }
-        
-        .commit-link:hover {
-            background: #2c4a6a;
-            transform: translateY(-1px);
-        }
-        
-        .footer {
-            text-align: center;
-            color: var(--foreground);
-            margin-top: 40px;
-            padding: 20px;
-            font-size: 0.9rem;
-            border-top: 1px solid var(--border);
-            opacity: 0.7;
-        }
-        
-        /* Activity Graph Styles */
-        .activity-graph {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-        
-        .graph-header {
-            text-align: center;
-        }
-        
-        .graph-header h3 {
-            margin: 0 0 20px 0;
-            color: var(--primary);
-            font-size: 1.4rem;
-            display: inline-block;
-        }
-        
-        .graph-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .weekday-labels, .month-labels {
-            display: flex;
-            gap: 3px;
-            width: 100%;
-        }
-        
-        .weekday-label, .month-label {
-            width: 12px;
-            height: 16px;
-            font-size: 0.7rem;
-            color: var(--foreground);
-            opacity: 0.7;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .activity-grid {
-            display: flex;
-            gap: 3px;
-            flex-wrap: wrap;
-            width: 100%;
-            max-width: 800px;
-        }
-        
-        .activity-cell {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            transition: transform 0.1s ease;
-        }
-        
-        .activity-cell:hover {
-            transform: scale(1.2);
-            border: 1px solid var(--primary);
-            z-index: 10;
-            position: relative;
-        }
-        
-        .graph-legend {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 15px;
-            font-size: 0.85rem;
-            color: var(--foreground);
-            opacity: 0.8;
-        }
-        
-        .legend-colors {
-            display: flex;
-            gap: 3px;
-        }
-        
-        .legend-cell {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-        
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 1.8rem;
-            }
-            
-            .stats {
-                gap: 12px;
-            }
-            
-            .commit-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .commit-card {
-                padding: 16px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📚 Reader.Market Commits</h1>
-            <p>Полная история изменений проекта</p>
-            <div class="stats">
-                <div class="stat-box">Всего коммитов: ${finalCommits.length}</div>
-                <div class="stat-box">Репозиторий: WizardJIOCb/Reader.Market</div>
-                <div class="stat-box">Обновлено: ${new Date().toLocaleString('ru-RU')}</div>
-            </div>
-        </div>
-        
-        ${activityGraph}
-        
-        <div class="commits-grid">
-            ${finalCommits.map((commit: any) => `
-                <div class="commit-card">
-                    <div class="commit-header">
-                        <div class="commit-hash">${commit.hash.substring(0, 7)}</div>
-                        <div class="commit-date">${new Date(commit.timestamp).toLocaleString('ru-RU')}</div>
-                    </div>
-                    
-                    <div class="commit-message">${commit.message}</div>
-                    
-                    ${(commit.body && commit.body.trim()) ? `
-                    <div class="commit-body">
-                        <div class="commit-body-content">${commit.body.trim().replace(/\n/g, '<br>')}</div>
-                    </div>
-                    ` : ''}
-                    
-                    <div class="commit-author">
-                        <div class="author-avatar">${commit.author.charAt(0)}</div>
-                        <div class="author-name">${commit.author}</div>
-                    </div>
-                    
-                    <a href="${commit.url}" target="_blank" class="commit-link">
-                        📄 Посмотреть на GitHub
-                    </a>
-                </div>
-            `).join('')}
-        </div>
-        
-        <div class="footer">
-            Generated by git-to-gpt endpoint • ${new Date().toISOString()}
-        </div>
-    </div>
-</body>
-</html>`;
-        
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(htmlResponse);
-      }
-      
-      // Default JSON response
-      res.json({
-        success: true,
-        repository: 'WizardJIOCb/Reader.Market',
-        url: `https://github.com/WizardJIOCb/Reader.Market/commits/main?cache=${currentTime}`,
-        api_url: `https://api.github.com/repos/WizardJIOCb/Reader.Market/commits`,
-        timestamp: new Date().toISOString(),
-        cache_buster: currentTime,
-        requested_count: count,
-        total_fetched: finalCommits.length,
-        commits: finalCommits
-      });
-      
-    } catch (error) {
-      console.error('Error fetching git history:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch commit history',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-  
-  // API endpoint for React frontend to fetch git history
-  app.get("/api/git-history", async (req, res) => {
-    console.log("API Git history endpoint called");
-    try {
-      const count = req.query.count ? parseInt(req.query.count as string, 10) : 50;
-      const template = req.query.template as string || 'cool';
-      const skipCache = req.query.cache === 'false';
-      
-      // Check cache first (unless cache=false is specified)
-      const now = Date.now();
-      if (!skipCache && apiGitCache.data && (now - apiGitCache.timestamp) < apiGitCache.ttl) {
-        console.log(`Using cached API git history. Cache age: ${Math.floor((now - apiGitCache.timestamp) / 1000)} seconds`);
-        // Add cache timestamp to cached response
-        const timestampComment = `<!-- Cache updated: ${new Date(apiGitCache.timestamp).toLocaleString('ru-RU')} -->`;
-        let cachedHtml = apiGitCache.data;
-        if (!cachedHtml.includes('<!-- Cache updated:')) {
-          cachedHtml = cachedHtml.replace('</body>', `${timestampComment}\n</body>`);
-        }
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(cachedHtml);
-      }
-      
-      if (skipCache) {
-        console.log('Cache bypass requested, fetching fresh data from GitHub');
-        // Even when bypassing cache, we should update the cache for future requests
-      }
-      
-      // Forward to the main git-to-gpt endpoint
-      const response = await fetch(`http://localhost:5001/git-to-gpt?template=${template}&count=${count}`);
-      const html = await response.text();
-      
-      // Add cache timestamp comment to HTML
-      const timestampComment = `<!-- Cache updated: ${new Date().toLocaleString('ru-RU')} -->`;
-      let modifiedHtml = html;
-      if (!html.includes('<!-- Cache updated:')) {
-        modifiedHtml = html.replace('</body>', `${timestampComment}\n</body>`);
-      }
-      
-      // Cache the result (always cache, even when bypassing for display)
-      // This ensures subsequent cache=true requests get fresh data
-      apiGitCache.data = modifiedHtml;
-      apiGitCache.timestamp = now;
-      console.log('Cached API git history response');
-      
-      // But only send fresh data when cache bypass is requested
-      if (skipCache) {
-        console.log('Sending fresh data due to cache bypass');
-      } else {
-        console.log('Sending cached data');
-      }
-      
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(modifiedHtml);
-    } catch (error) {
-      console.error('Error in API git history endpoint:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch commit history',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-  
-  // Navigation tracking endpoints (lightweight, just for logging)
-  app.get("/api/page-view/home", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "home" });
-  });
-  
-  app.get("/api/page-view/stream", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "stream" });
-  });
-  
-  app.get("/api/page-view/search", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "search" });
-  });
-  
-  app.get("/api/page-view/shelves", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "shelves" });
-  });
-  
-  app.get("/api/page-view/messages", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "messages" });
-  });
-  
-  app.get("/api/page-view/about", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "about" });
-  });
-  
-  app.get("/api/page-view/users", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "users" });
-  });
-  
-  app.get("/api/page-view/collections", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "collections" });
-  });
-  
-  // Collection detail page view tracking
-  app.get("/api/page-view/collection/:id", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "collection-detail", id: req.params.id });
-  });
-  
-  app.get("/api/page-view/git-to-gpt", authenticateToken, logUserAction, (req, res) => {
-    res.json({ page: "git-to-gpt" });
-  });
+
   
   // Collection detail page view tracking
   app.get("/api/collections/:id", authenticateToken, logUserAction, async (req, res) => {
@@ -2217,213 +794,13 @@ export async function registerRoutes(
     }
   });
   
-  // Get popular books for landing page
-  app.get("/api/popular-books", async (req, res) => {
-    try {
-      const popularBooks = await storage.getPopularBooks(undefined, 6);
-      res.json(popularBooks);
-    } catch (error) {
-      console.error('[API] Error fetching popular books:', error);
-      res.status(500).json({ error: 'Failed to fetch popular books' });
-    }
-  });
+
   
-  // Get public users list with search, sort, and pagination
-  app.get("/api/public/users", async (req, res) => {
-    try {
-      // Parse and validate query parameters
-      const page = Math.max(1, parseInt(req.query.page as string) || 1);
-      const rawLimit = parseInt(req.query.limit as string) || 9;
-      const limit = [3, 6, 9, 12].includes(rawLimit) ? rawLimit : 9; // Validate limit
-      const search = req.query.search as string | undefined;
-      const rawSortBy = req.query.sortBy as string || 'rating';
-      const sortOrder = (req.query.order as string) === 'asc' ? 'asc' : 'desc';
-      
-      // Whitelist sortBy parameter to prevent SQL injection
-      const allowedSortOptions = ['rating', 'shelves', 'books', 'comments', 'reviews', 'lastActivity', 'registered'];
-      const sortBy = allowedSortOptions.includes(rawSortBy) 
-        ? rawSortBy as 'rating' | 'shelves' | 'books' | 'comments' | 'reviews' | 'lastActivity' | 'registered'
-        : 'rating';
-      
-      const { users, total } = await storage.getPublicUsers(page, limit, search, sortBy, sortOrder);
-      
-      const pages = Math.ceil(total / limit);
-      
-      res.json({
-        users,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages
-        }
-      });
-    } catch (error) {
-      console.error('[API] Error fetching public users:', error);
-      res.status(500).json({ error: 'Failed to fetch users' });
-    }
-  });
+
   
-  // User registration
-  app.post("/api/auth/register", async (req, res) => {
-    console.log("Registration endpoint called");
-    try {
-      const { username, password, email, fullName, language } = req.body;
-      if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required" });
-      }
-      
-      // Check if user already exists (case-insensitive)
-      const existingUser = await storage.getUserByUsernameCaseInsensitive(username);
-      if (existingUser) {
-        return res.status(400).json({ error: "Username already taken" });
-      }
-      
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
-      // Create user with language preference
-      const user = await storage.createUser({ 
-        username, 
-        password: hashedPassword,
-        email,
-        fullName,
-        language: language || 'en' // Default to 'en' if not provided
-      });
-      
-      // Generate token
-      const token = generateToken(user.id, user.accessLevel);
-      
-      // Create default "My books" shelf for new user
-      try {
-        console.log('[Registration] Creating default shelf for new user');
-        await storage.createShelf(user.id, {
-          name: 'My books',
-          description: 'My personal book collection',
-          color: 'bg-blue-100 dark:bg-blue-900/20'
-        });
-        console.log('[Registration] ✅ Default shelf created');
-      } catch (shelfError) {
-        console.error('[Registration] Failed to create default shelf:', shelfError);
-        // Don't fail registration if shelf creation fails
-      }
-      
-      // Log user registration action and broadcast via WebSocket
-      try {
-        console.log('[Registration] Creating user action for registration event');
-        const action = await storage.createUserAction({
-          userId: user.id,
-          actionType: 'user_registered',
-          targetType: 'user',
-          targetId: user.id,
-          metadata: { username: user.username }
-        });
-        console.log('[Registration] User action created:', action?.id);
-        
-        // Broadcast registration event via WebSocket
-        if ((app as any).io && action) {
-          const io = (app as any).io;
-          console.log('[Registration] Broadcasting registration event to stream:global');
-          
-          const eventData = {
-            id: action.id,
-            type: 'user_action',
-            action_type: 'user_registered',
-            entityId: action.id,
-            userId: user.id,
-            user: {
-              id: user.id,
-              username: user.username,
-              avatar_url: user.avatarUrl || null
-            },
-            target: {
-              type: 'user',
-              id: user.id,
-              username: user.username,
-              avatar_url: user.avatarUrl || null
-            },
-            metadata: { username: user.username },
-            createdAt: action.createdAt,
-            timestamp: action.createdAt.toISOString()
-          };
-          
-          // Broadcast to both global stream and last-actions room
-          io.to('stream:global').emit('stream:last-action', eventData);
-          io.to('stream:last-actions').emit('stream:last-action', eventData);
-          console.log('[Registration] ✅ Registration event broadcasted to stream:global and stream:last-actions');
-        }
-      } catch (actionError) {
-        console.error('[Registration] Failed to log user action or broadcast event:', actionError);
-        // Don't fail registration if action logging fails
-      }
-      
-      // Return user data without password
-      const { password: _, ...userWithoutPassword } = user;
-      res.status(201).json({ user: userWithoutPassword, token });
-    } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ error: "Failed to create user" });
-    }
-  });
+
   
-  // User login
-  app.post("/api/auth/login", async (req, res) => {
-    console.log("Login endpoint called");
-    try {
-      const { username, password } = req.body;
-      console.log("Login attempt for username:", username);
-      
-      if (!username || !password) {
-        console.log("Missing username or password");
-        return res.status(400).json({ error: "Username and password are required" });
-      }
-      
-      // Find user
-      console.log("Searching for user by username:", username);
-      const user = await storage.getUserByUsername(username);
-      console.log("User lookup result:", user ? "found" : "not found");
-      
-      if (!user) {
-        console.log("User not found, returning invalid credentials");
-        return res.status(400).json({ error: "Invalid credentials" });
-      }
-      
-      // Check password
-      console.log("Checking password for user:", username);
-      const validPassword = await bcrypt.compare(password, user.password);
-      console.log("Password validation result:", validPassword);
-      
-      if (!validPassword) {
-        console.log("Invalid password, returning invalid credentials");
-        return res.status(400).json({ error: "Invalid credentials" });
-      }
-      
-      // Check if user is blocked
-      if (user.isBlocked) {
-        console.log("User is blocked:", username);
-        return res.status(403).json({ 
-          error: "Account blocked",
-          blockReason: user.blockReason || "Your account has been blocked. Please contact support for more information."
-        });
-      }
-      
-      // Update last login timestamp
-      await storage.updateUserLastLogin(user.id);
-      
-      // Generate token
-      console.log("Generating token for user ID:", user.id);
-      const token = generateToken(user.id, user.accessLevel);
-      console.log("Token generated successfully");
-      
-      // Return user data without password
-      const { password: _, ...userWithoutPassword } = user;
-      console.log("Sending login response");
-      res.json({ user: userWithoutPassword, token });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Failed to login" });
-    }
-  });
+
 
   // Get current user profile
   app.get("/api/profile", authenticateToken, logUserAction, async (req, res) => {
@@ -2944,7 +1321,7 @@ export async function registerRoutes(
           
           // Broadcast to global stream
           io.to('stream:global').emit('stream:new-activity', activityData);
-          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ News comment broadcast sent to stream:global');
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] вњ… News comment broadcast sent to stream:global');
           
           // Also broadcast counter update for the news item
           try {
@@ -3289,7 +1666,7 @@ export async function registerRoutes(
             
             // Broadcast to global stream
             io.to('stream:global').emit('stream:new-activity', activityData);
-            console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✅ Direct broadcast sent to stream:global');
+            console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] вњ… Direct broadcast sent to stream:global');
           } else {
             console.warn('[STREAM DEBUG] Missing requirements for broadcast:', {
               hasUser: !!user,
@@ -3398,7 +1775,7 @@ export async function registerRoutes(
             
             // Broadcast to global stream
             io.to('stream:global').emit('stream:new-activity', activityData);
-            console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✅ Direct broadcast sent to stream:global');
+            console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] вњ… Direct broadcast sent to stream:global');
           } else {
             console.warn('[STREAM DEBUG] Missing requirements for broadcast:', {
               hasUser: !!user,
@@ -3437,7 +1814,7 @@ export async function registerRoutes(
           const io = (app as any).io;
           console.log('[STREAM] Broadcasting news deletion:', id);
           io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
-          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] вњ… Deletion broadcast sent');
         }
       } catch (streamError) {
         console.error('[STREAM] Failed to broadcast deletion:', streamError);
@@ -3938,7 +2315,7 @@ export async function registerRoutes(
     try {
       const { id } = req.params;
       const userId = (req as any).user.userId;
-      const emoji = req.body.Emoji || req.body.emoji || '👍';
+      const emoji = req.body.Emoji || req.body.emoji || 'рџ‘Ќ';
       
       console.log("Received like data - userId:", userId, "articleId:", id, "emoji:", emoji);
       
@@ -4009,7 +2386,7 @@ export async function registerRoutes(
     try {
       const { id: commentId } = req.params;
       const userId = (req as any).user.userId;
-      const emoji = req.body.emoji || '👍';
+      const emoji = req.body.emoji || 'рџ‘Ќ';
       
       console.log("Received comment like data - userId:", userId, "commentId:", commentId, "emoji:", emoji);
       
@@ -4594,7 +2971,7 @@ export async function registerRoutes(
             
             // Broadcast to last-actions room
             io.to('stream:last-actions').emit('stream:last-action', eventData);
-            console.log('[Search] ✅ Search event broadcasted');
+            console.log('[Search] вњ… Search event broadcasted');
           }
         } catch (actionError) {
           console.error('[Search] Failed to log user action or broadcast event:', actionError);
@@ -5185,7 +3562,7 @@ export async function registerRoutes(
       // Create new collection with user's ID
       const newCollectionData = {
         userId,
-        name: name || `Копия ${collectionToClone.name}`,
+        name: name || `РљРѕРїРёСЏ ${collectionToClone.name}`,
         description: description || collectionToClone.description || '',
         color: collectionToClone.color,
         isPublic: false // Cloned collections are private by default
@@ -5393,7 +3770,7 @@ export async function registerRoutes(
           ));
         
         // Check if this is a clone
-        const isClone = collection.name.startsWith('Копия ');
+        const isClone = collection.name.startsWith('РљРѕРїРёСЏ ');
         
         return {
           ...collection,
@@ -5726,13 +4103,13 @@ export async function registerRoutes(
       const book = await storage.createBook(bookData);
       
       // Add book to the "Uploaded" shelf if it exists, or create it
-      let uploadedShelf = (await storage.getShelves(userId)).find(shelf => shelf.name === "Загруженные");
+      let uploadedShelf = (await storage.getShelves(userId)).find(shelf => shelf.name === "Р—Р°РіСЂСѓР¶РµРЅРЅС‹Рµ");
       
       if (!uploadedShelf) {
-        // Create the "Загруженные" shelf
+        // Create the "Р—Р°РіСЂСѓР¶РµРЅРЅС‹Рµ" shelf
         uploadedShelf = await storage.createShelf(userId, {
-          name: "Загруженные",
-          description: "Загруженные книги",
+          name: "Р—Р°РіСЂСѓР¶РµРЅРЅС‹Рµ",
+          description: "Р—Р°РіСЂСѓР¶РµРЅРЅС‹Рµ РєРЅРёРіРё",
           color: "bg-blue-100 dark:bg-blue-900/20"
         });
       }
@@ -5829,7 +4206,7 @@ export async function registerRoutes(
           // Broadcast to both global stream and last-actions room
           io.to('stream:global').emit('stream:last-action', eventData);
           io.to('stream:last-actions').emit('stream:last-action', eventData);
-          console.log('[Shelf Creation] ✅ Shelf creation event broadcasted');
+          console.log('[Shelf Creation] вњ… Shelf creation event broadcasted');
         }
       } catch (actionError) {
         console.error('[Shelf Creation] Failed to log user action or broadcast event:', actionError);
@@ -5959,7 +4336,7 @@ export async function registerRoutes(
           // Broadcast to both global stream and last-actions room
           io.to('stream:global').emit('stream:last-action', eventData);
           io.to('stream:last-actions').emit('stream:last-action', eventData);
-          console.log('[Book to Shelf] ✅ Book added to shelf event broadcasted');
+          console.log('[Book to Shelf] вњ… Book added to shelf event broadcasted');
         }
       } catch (actionError) {
         console.error('[Book to Shelf] Failed to log user action or broadcast event:', actionError);
@@ -6139,7 +4516,7 @@ export async function registerRoutes(
           
           // Broadcast to global stream
           io.to('stream:global').emit('stream:new-activity', activityData);
-          console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✅ Direct broadcast sent to stream:global');
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] вњ… Direct broadcast sent to stream:global');
           
           // Also broadcast counter update for the book
           try {
@@ -6299,7 +4676,7 @@ export async function registerRoutes(
                 
                 console.log('[Book Comment Reaction] Broadcasting to stream:last-actions');
                 io.to('stream:last-actions').emit('stream:last-action', eventData);
-                console.log('[Book Comment Reaction] ✅ Broadcast sent');
+                console.log('[Book Comment Reaction] вњ… Broadcast sent');
               }
             }
           }
@@ -6351,7 +4728,7 @@ export async function registerRoutes(
           const io = (app as any).io;
           console.log('[STREAM] Broadcasting comment deletion:', id);
           io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
-          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] вњ… Deletion broadcast sent');
         }
       } catch (streamError) {
         console.error('[STREAM] Failed to broadcast deletion:', streamError);
@@ -6383,7 +4760,7 @@ export async function registerRoutes(
           const io = (app as any).io;
           console.log('[STREAM] Broadcasting comment deletion:', id);
           io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
-          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] вњ… Deletion broadcast sent');
         }
       } catch (streamError) {
         console.error('[STREAM] Failed to broadcast deletion:', streamError);
@@ -6509,7 +4886,7 @@ export async function registerRoutes(
           
           // Broadcast to global stream
           io.to('stream:global').emit('stream:new-activity', activityData);
-          console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✅ Direct broadcast sent to stream:global');
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] вњ… Direct broadcast sent to stream:global');
           
           // Also broadcast counter update for the book
           try {
@@ -6686,7 +5063,7 @@ export async function registerRoutes(
           const io = (app as any).io;
           console.log('[STREAM] Broadcasting review deletion:', id);
           io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
-          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] вњ… Deletion broadcast sent');
         }
       } catch (streamError) {
         console.error('[STREAM] Failed to broadcast deletion:', streamError);
@@ -6718,7 +5095,7 @@ export async function registerRoutes(
           const io = (app as any).io;
           console.log('[STREAM] Broadcasting review deletion:', id);
           io.to('stream:global').emit('stream:activity-deleted', { entityId: id });
-          console.log('\x1b[32m%s\x1b[0m', '[STREAM] ✅ Deletion broadcast sent');
+          console.log('\x1b[32m%s\x1b[0m', '[STREAM] вњ… Deletion broadcast sent');
         }
       } catch (streamError) {
         console.error('[STREAM] Failed to broadcast deletion:', streamError);
@@ -6829,7 +5206,7 @@ export async function registerRoutes(
                 
                 console.log('[Book Review Reaction] Broadcasting to stream:last-actions');
                 io.to('stream:last-actions').emit('stream:last-action', eventData);
-                console.log('[Book Review Reaction] ✅ Broadcast sent');
+                console.log('[Book Review Reaction] вњ… Broadcast sent');
               }
             }
           }
@@ -7503,13 +5880,13 @@ export async function registerRoutes(
       const book = await storage.createBook(bookData);
 
       // Add book to the "External Sources" shelf if it exists, or create it
-      let externalShelf = (await storage.getShelves((req as any).user.userId)).find(shelf => shelf.name === "Внешние источники");
+      let externalShelf = (await storage.getShelves((req as any).user.userId)).find(shelf => shelf.name === "Р’РЅРµС€РЅРёРµ РёСЃС‚РѕС‡РЅРёРєРё");
       
       if (!externalShelf) {
-        // Create the "Внешние источники" shelf
+        // Create the "Р’РЅРµС€РЅРёРµ РёСЃС‚РѕС‡РЅРёРєРё" shelf
         externalShelf = await storage.createShelf((req as any).user.userId, {
-          name: "Внешние источники",
-          description: "Книги, добавленные из внешних источников",
+          name: "Р’РЅРµС€РЅРёРµ РёСЃС‚РѕС‡РЅРёРєРё",
+          description: "РљРЅРёРіРё, РґРѕР±Р°РІР»РµРЅРЅС‹Рµ РёР· РІРЅРµС€РЅРёС… РёСЃС‚РѕС‡РЅРёРєРѕРІ",
           color: "bg-green-100 dark:bg-green-900/20"
         });
       }
@@ -7918,11 +6295,11 @@ export async function registerRoutes(
       // Process attachments if provided
       let attachmentMetadata = null;
       if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-        console.log('🔵 Processing attachments:', attachments);
+        console.log('рџ”µ Processing attachments:', attachments);
         const uploadedAttachments = [];
         for (const uploadId of attachments) {
           const fileUpload = await storage.getFileUpload(uploadId);
-          console.log('🔵 File upload for', uploadId, ':', fileUpload);
+          console.log('рџ”µ File upload for', uploadId, ':', fileUpload);
           if (fileUpload && fileUpload.uploaderId === userId && fileUpload.entityType === 'temp') {
             uploadedAttachments.push({
               url: fileUpload.fileUrl,
@@ -7935,7 +6312,7 @@ export async function registerRoutes(
         }
         if (uploadedAttachments.length > 0) {
           attachmentMetadata = { attachments: uploadedAttachments };
-          console.log('🟢 Created attachmentMetadata:', JSON.stringify(attachmentMetadata, null, 2));
+          console.log('рџџў Created attachmentMetadata:', JSON.stringify(attachmentMetadata, null, 2));
         }
       }
       
@@ -7954,15 +6331,15 @@ export async function registerRoutes(
         messageData.quotedText = quotedText || null;
       }
       
-      console.log('🟡 Calling createMessage with data:', JSON.stringify(messageData, null, 2));
+      console.log('рџџЎ Calling createMessage with data:', JSON.stringify(messageData, null, 2));
       
       // Create message with attachments
       const message = await storage.createMessage(messageData);
-      console.log('🟠 createMessage returned:', JSON.stringify(message, null, 2));
+      console.log('рџџ  createMessage returned:', JSON.stringify(message, null, 2));
       
       // Log message structure for debugging
-      console.log('🔵 Message structure keys:', Object.keys(message));
-      console.log('🔵 Message sender data:', {
+      console.log('рџ”µ Message structure keys:', Object.keys(message));
+      console.log('рџ”µ Message sender data:', {
         senderId: message.senderId,
         senderUsername: message.senderUsername,
         senderFullName: message.senderFullName
@@ -7980,7 +6357,7 @@ export async function registerRoutes(
         }
       };
       
-      console.log('🟢 Enriched message for WebSocket:', {
+      console.log('рџџў Enriched message for WebSocket:', {
         hasSender: !!enrichedMessage.sender,
         senderKeys: enrichedMessage.sender ? Object.keys(enrichedMessage.sender) : [],
         senderUsername: enrichedMessage.sender?.username,
@@ -8000,7 +6377,7 @@ export async function registerRoutes(
       // Broadcast new message via WebSocket
       const io = (app as any).io;
       if (io) {
-        console.log('\x1b[35m%s\x1b[0m', '[WEBSOCKET] 📡 Emitting WebSocket events for new message');
+        console.log('\x1b[35m%s\x1b[0m', '[WEBSOCKET] рџ“Ў Emitting WebSocket events for new message');
         console.log('\x1b[35m%s\x1b[0m', `[WEBSOCKET] Sender: ${userId}, Recipient: ${recipientId}`);
         console.log('\x1b[35m%s\x1b[0m', `[WEBSOCKET] Conversation ID: ${conversation.id}`);
         
@@ -8016,10 +6393,10 @@ export async function registerRoutes(
         
         // Send notification to recipient's personal room
         const recipientRoom = `user:${recipientId}`;
-        console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Emitting 'notification:new' to room: ${recipientRoom}`);
+        console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] вњ… Emitting 'notification:new' to room: ${recipientRoom}`);
         
         // ALSO send message:new to recipient's personal room for notifications
-        console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] 📩 ALSO emitting 'message:new' to recipient room: ${recipientRoom}`);
+        console.log('\x1b[36m%s\x1b[0m', `[WEBSOCKET] рџ“© ALSO emitting 'message:new' to recipient room: ${recipientRoom}`);
         
         io.to(recipientRoom).emit('message:new', {
           message: enrichedMessage,
@@ -8038,14 +6415,14 @@ export async function registerRoutes(
         
         // Check how many clients are in the recipient's room
         const sockets = await io.in(recipientRoom).fetchSockets();
-        console.log('\x1b[33m%s\x1b[0m', `[WEBSOCKET] 👥 Number of clients in room '${recipientRoom}': ${sockets.length}`);
+        console.log('\x1b[33m%s\x1b[0m', `[WEBSOCKET] рџ‘Ґ Number of clients in room '${recipientRoom}': ${sockets.length}`);
         if (sockets.length === 0) {
-          console.log('\x1b[31m%s\x1b[0m', `[WEBSOCKET] ⚠️  WARNING: No clients connected to room '${recipientRoom}'!`);
+          console.log('\x1b[31m%s\x1b[0m', `[WEBSOCKET] вљ пёЏ  WARNING: No clients connected to room '${recipientRoom}'!`);
         } else {
-          console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] ✅ Event sent to ${sockets.length} client(s)`);
+          console.log('\x1b[32m%s\x1b[0m', `[WEBSOCKET] вњ… Event sent to ${sockets.length} client(s)`);
         }
       } else {
-        console.log('\x1b[31m%s\x1b[0m', '[WEBSOCKET] ❌ ERROR: Socket.IO instance not found!');
+        console.log('\x1b[31m%s\x1b[0m', '[WEBSOCKET] вќЊ ERROR: Socket.IO instance not found!');
       }
       
       res.status(201).json(message);
@@ -8133,7 +6510,7 @@ export async function registerRoutes(
   app.get("/api/conversations", authenticateToken, async (req, res) => {
     const userId = (req as any).user.userId;
     
-    console.log("\n=== GET /api/conversations ===");
+    console.log("=== GET /api/conversations ===");
     console.log("CODE VERSION: 2026-01-07-v2 - FIXED QUERY");
     console.log("Timestamp:", new Date().toISOString());
     console.log("User ID from token:", userId);
@@ -8145,15 +6522,15 @@ export async function registerRoutes(
       if (conversations.length > 0) {
         console.log("Sample conversation:", JSON.stringify(conversations[0], null, 2));
       } else {
-        console.log("⚠️  WARNING: No conversations found for this user!");
+        console.log("вљ пёЏ  WARNING: No conversations found for this user!");
       }
-      console.log("=========================\n");
+      console.log("=========================");
       
       // Add version header for debugging
       res.setHeader('X-API-Version', '2026-01-07-v2');
       res.json(conversations);
     } catch (error) {
-      console.error("❌ Get conversations error:", error);
+      console.error("вќЊ Get conversations error:", error);
       res.status(500).json({ error: "Failed to retrieve conversations" });
     }
   });
@@ -8491,7 +6868,7 @@ export async function registerRoutes(
       // Validate input
       if (!newMemberId) {
         console.log('Validation failed: No userId provided');
-        return res.status(400).json({ error: "Не указан ID пользователя" });
+        return res.status(400).json({ error: "РќРµ СѓРєР°Р·Р°РЅ ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ" });
       }
       
       // Check if requester is admin or moderator
@@ -8499,21 +6876,21 @@ export async function registerRoutes(
       console.log('Requester role:', role);
       if (role !== 'administrator' && role !== 'moderator') {
         console.log('Permission denied: role is', role);
-        return res.status(403).json({ error: "Недостаточно прав для добавления участников" });
+        return res.status(403).json({ error: "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ РґР»СЏ РґРѕР±Р°РІР»РµРЅРёСЏ СѓС‡Р°СЃС‚РЅРёРєРѕРІ" });
       }
       
       // Check if user is already a member
       const isMember = await storage.isGroupMember(groupId, newMemberId);
       console.log('Is already member:', isMember);
       if (isMember) {
-        return res.status(400).json({ error: "Пользователь уже в группе" });
+        return res.status(400).json({ error: "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СѓР¶Рµ РІ РіСЂСѓРїРїРµ" });
       }
       
       // Check if user exists
       const userExists = await storage.getUser(newMemberId);
       console.log('User exists:', !!userExists);
       if (!userExists) {
-        return res.status(404).json({ error: "Пользователь не найден" });
+        return res.status(404).json({ error: "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ" });
       }
       
       console.log('Adding member to group...');
@@ -8522,7 +6899,7 @@ export async function registerRoutes(
       res.status(201).json({ success: true });
     } catch (error) {
       console.error("Add group member error:", error);
-      res.status(500).json({ error: "Не удалось добавить участника" });
+      res.status(500).json({ error: "РќРµ СѓРґР°Р»РѕСЃСЊ РґРѕР±Р°РІРёС‚СЊ СѓС‡Р°СЃС‚РЅРёРєР°" });
     }
   });
   
@@ -9634,7 +8011,7 @@ export async function registerRoutes(
             
             // Broadcast to last-actions room
             io.to('stream:last-actions').emit('stream:last-action', eventData);
-            console.log('[Profile Rating] ✅ Profile rating event broadcasted');
+            console.log('[Profile Rating] вњ… Profile rating event broadcasted');
           }
         }
       } catch (actionError) {
@@ -9808,7 +8185,7 @@ export async function registerRoutes(
             
             // Broadcast to last-actions room
             io.to('stream:last-actions').emit('stream:last-action', eventData);
-            console.log('[Profile Comment] ✅ Profile comment event broadcasted');
+            console.log('[Profile Comment] вњ… Profile comment event broadcasted');
             console.log('[Profile Comment] Broadcast metadata:', {
               content: eventData.metadata?.content,
               content_preview: eventData.metadata?.content_preview,
@@ -10084,10 +8461,9 @@ export async function registerRoutes(
       const userId = (req as any).user?.userId;
       
       const replies = await storage.getCommentReplies(commentId, userId);
-      
       res.json(replies);
     } catch (error) {
-      console.error("Get comment replies error:", error);
+      console.error("Get profile comment replies error:", error);
       res.status(500).json({ error: "Failed to get replies" });
     }
   });
@@ -10330,3 +8706,5 @@ export async function registerRoutes(
 
   return httpServer;
 }
+
+

@@ -29,8 +29,8 @@ import { ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth';
 
-interface PublicUser {
-  id: number;
+interface PublicUserApi {
+  id: string;
   username: string;
   fullName: string | null;
   avatar: string | null;
@@ -45,8 +45,24 @@ interface PublicUser {
   booksCount: number;
 }
 
+interface PublicUserDisplay {
+  id: string;
+  username: string;
+  fullName: string | null;
+  avatar: string | null; // Expected by UserCard
+  profileRating: number | null;
+  registeredAt: string; // Expected by UserCard
+  lastActivityAt: string | null;
+  bio: string | null;
+  isBlocked: boolean;
+  commentsCount: number;
+  reviewsCount: number;
+  shelvesCount: number;
+  booksCount: number; // Expected by UserCard
+}
+
 interface UsersResponse {
-  users: PublicUser[];
+  users: PublicUserApi[];
   pagination: {
     page: number;
     limit: number;
@@ -82,7 +98,7 @@ const PublicUsers: React.FC = () => {
   
   const initialParams = getUrlParams();
   
-  const [users, setUsers] = useState<PublicUser[]>([]);
+  const [users, setUsers] = useState<PublicUserDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(initialParams.search);
   const [debouncedSearch, setDebouncedSearch] = useState(initialParams.search);
@@ -141,8 +157,22 @@ const PublicUsers: React.FC = () => {
 
       const data: UsersResponse = await response.json();
       
-      setUsers(data.users);
-      setPagination(data.pagination);
+      // Transform API response to match UserCard expectations
+      const transformedUsers = data.users.map(item => ({
+        ...item,
+        avatar: item.avatar,
+        registeredAt: item.registeredAt,
+        booksCount: item.booksCount
+      })) as PublicUserDisplay[];
+      
+      setUsers(transformedUsers);
+      // Transform pagination data
+      setPagination({
+        page: data.pagination.page,
+        limit: data.pagination.limit,
+        total: data.pagination.total,
+        pages: data.pagination.pages
+      });
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -338,6 +368,8 @@ const PublicUsers: React.FC = () => {
                   <PaginationPrevious
                     onClick={() => handlePageChange(Math.max(1, pagination.page - 1))}
                     className={pagination.page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    previousLabel={t('pagination.previous', 'Previous')}
+                    ariaLabel={t('pagination.ariaPrevious', 'Go to previous page')}
                   />
                 </PaginationItem>
 
@@ -370,6 +402,8 @@ const PublicUsers: React.FC = () => {
                   <PaginationNext
                     onClick={() => handlePageChange(Math.min(pagination.pages, pagination.page + 1))}
                     className={pagination.page === pagination.pages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    nextLabel={t('pagination.next', 'Next')}
+                    ariaLabel={t('pagination.ariaNext', 'Go to next page')}
                   />
                 </PaginationItem>
               </PaginationContent>

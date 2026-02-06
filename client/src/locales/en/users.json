@@ -12,6 +12,12 @@
     "registered": "Registration Date"
   },
   "itemsPerPage": "Items per page",
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "ariaPrevious": "Go to previous page",
+    "ariaNext": "Go to next page"
+  },
   "stats": {
     "shelves": "Shelves",
     "books": "Books",
