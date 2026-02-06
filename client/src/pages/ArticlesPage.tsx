@@ -38,6 +38,12 @@ import { ru, enUS } from 'date-fns/locale';
 
 // Helper function to calculate total reply count recursively
 const getTotalReplyCount = (reply: Comment): number => {
+  // First check if replyCount is available (for root comments with known reply count)
+  if (reply.replyCount !== undefined && reply.replyCount !== null) {
+    return reply.replyCount;
+  }
+  
+  // Fallback to counting replies array if replyCount is not available
   if (!reply.replies || reply.replies.length === 0) {
     return 0;
   }
@@ -190,7 +196,7 @@ const RecursiveReplyItem: React.FC<{
               ) : (
                 <>
                   <ChevronDown className="w-2.5 h-2.5 mr-1" />
-                  {t('profile:ratings.repliesCount', { count: totalReplyCount })}
+                  {totalReplyCount > 0 && t('profile:ratings.repliesCount', { count: totalReplyCount })}
                 </>
               )}
             </Button>
@@ -1199,16 +1205,75 @@ export function ArticlesPage() {
     });
   };
 
+  // Function to fetch replies for a comment
+  const fetchReplies = async (commentId: string) => {
+    try {
+      const response = await fetch(`/api/articles/comments/${commentId}/replies`, {
+        headers: user ? { Authorization: `Bearer ${localStorage.getItem('authToken')}` } : undefined,
+      });
+      
+      if (response.ok) {
+        const replies = await response.json();
+        
+        // Update the comment with its replies
+        setComments(prevComments => 
+          updateRepliesForComment(prevComments, commentId, replies)
+        );
+      } else {
+        console.error('Failed to fetch replies:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching replies:', error);
+    }
+  };
+  
+  // Helper function to find a comment by ID recursively
+  const findCommentById = (comments: Comment[], id: string): Comment | undefined => {
+    for (const comment of comments) {
+      if (comment.id === id) return comment;
+      if (comment.replies && comment.replies.length > 0) {
+        const found = findCommentById(comment.replies, id);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
+  
+  // Helper function to update replies for a specific comment
+  const updateRepliesForComment = (comments: Comment[], commentId: string, replies: Comment[]): Comment[] => {
+    return comments.map(comment => {
+      if (comment.id === commentId) {
+        return { ...comment, replies };
+      }
+      // Also update in nested replies if needed
+      if (comment.replies && comment.replies.length > 0) {
+        return {
+          ...comment,
+          replies: updateRepliesForComment(comment.replies, commentId, replies)
+        };
+      }
+      return comment;
+    });
+  };
+  
   // Function to toggle reply expansion
-  const toggleReplyExpansion = (commentId: string) => {
+  const toggleReplyExpansion = async (commentId: string) => {
     setExpandedReplies(prev => {
       const newSet = new Set(prev);
       if (newSet.has(commentId)) {
+        // Collapse - just remove from expanded set
         newSet.delete(commentId);
+        return newSet;
       } else {
+        // Expand - check if replies need to be fetched
+        const comment = findCommentById(comments, commentId);
+        if (comment && (!comment.replies || comment.replies.length === 0)) {
+          // Fetch replies if not already loaded
+          fetchReplies(commentId);
+        }
         newSet.add(commentId);
+        return newSet;
       }
-      return newSet;
     });
   };
   
@@ -2610,7 +2675,7 @@ export function ArticlesPage() {
                               </Button>
                             )}
                             
-                            {comment.replyCount && comment.replyCount > 0 && (
+                            {typeof comment.replyCount === 'number' && comment.replyCount > 0 && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -2625,7 +2690,9 @@ export function ArticlesPage() {
                                 ) : (
                                   <>
                                     <ChevronDown className="w-3 h-3 mr-1" />
-                                    {t('profile:ratings.repliesCount', { count: getTotalCommentReplyCount(comment) })}
+                                    {getTotalCommentReplyCount(comment) > 0 && (
+                                      <span>{t('profile:ratings.repliesCount', { count: getTotalCommentReplyCount(comment) })}</span>
+                                    )}
                                   </>
                                 )}
                               </Button>

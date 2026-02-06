@@ -1,5 +1,5 @@
-import { eq, and } from "drizzle-orm";
-import { comments } from "@shared/schema";
+import { eq, and, desc, isNull, sql } from "drizzle-orm";
+import { comments, users } from "@shared/schema";
 import type { DB } from "../db";
 
 export function createCommentsStorage(db: DB) {
@@ -7,7 +7,41 @@ export function createCommentsStorage(db: DB) {
     async createComment(commentData: any): Promise<any> {
       try {
         const result = await db.insert(comments).values(commentData).returning();
-        return result[0];
+        const createdComment = result[0];
+        
+        // Now fetch the complete comment with user information
+        const commentWithUser = await db
+          .select({
+            id: comments.id,
+            userId: comments.userId,
+            bookId: comments.bookId,
+            newsId: comments.newsId,
+            articleId: comments.articleId,
+            content: comments.content,
+            attachmentUrls: comments.attachmentUrls,
+            attachmentMetadata: comments.attachmentMetadata,
+            parentCommentId: comments.parentCommentId,
+            quotedText: comments.quotedText,
+            createdAt: comments.createdAt,
+            updatedAt: comments.updatedAt,
+            // User information - using names that match frontend expectations
+            username: users.username,
+            fullName: users.fullName,
+            userAvatar: users.avatarUrl  // Frontend expects userAvatar, not avatarUrl
+          })
+          .from(comments)
+          .leftJoin(users, eq(users.id, comments.userId))
+          .where(eq(comments.id, createdComment.id))
+          .limit(1);
+          
+        if (commentWithUser[0]) {
+          return {
+            ...commentWithUser[0],
+            author: commentWithUser[0].fullName || commentWithUser[0].username || 'Anonymous'
+          };
+        }
+        
+        return createdComment;
       } catch (error) {
         console.error("Error creating comment:", error);
         throw error;
@@ -30,6 +64,151 @@ export function createCommentsStorage(db: DB) {
         return result;
       } catch (error) {
         console.error("Error getting comments:", error);
+        return [];
+      }
+    },
+
+    async getArticleComments(articleId: string, currentUserId?: string): Promise<any[]> {
+      try {
+        // Get only root comments (no parent) with user information - similar to book comments
+        const result = await db
+        .select({
+          id: comments.id,
+          userId: comments.userId,
+          bookId: comments.bookId,
+          newsId: comments.newsId,
+          articleId: comments.articleId,
+          content: comments.content,
+          attachmentUrls: comments.attachmentUrls,
+          attachmentMetadata: comments.attachmentMetadata,
+          parentCommentId: comments.parentCommentId,
+          quotedText: comments.quotedText,
+          createdAt: comments.createdAt,
+          updatedAt: comments.updatedAt,
+          // User information - using names that match frontend expectations
+          username: users.username,
+          fullName: users.fullName,
+          userAvatar: users.avatarUrl  // Frontend expects userAvatar, not avatarUrl
+        })
+        .from(comments)
+        .leftJoin(users, eq(users.id, comments.userId))
+        .where(and(
+          eq(comments.articleId, articleId),
+          isNull(comments.parentCommentId)  // Only get root comments (no parent)
+        ))
+        .orderBy(desc(comments.createdAt));  // Get root comments sorted by newest first
+        
+        // Get reply counts for each root comment
+        const commentsWithData = await Promise.all(result.map(async (comment) => {
+          // Count replies for this comment recursively (including nested replies)
+          const replyCount = await this.countArticleCommentReplies(comment.id);
+
+          return {
+            ...comment,
+            author: comment.fullName || comment.username || 'Anonymous',
+            isOwnComment: currentUserId ? comment.userId === currentUserId : false,
+            replyCount: replyCount,
+            reactions: [], // Will be populated by frontend if needed
+            attachments: [] // Will be populated by frontend if needed
+          };
+        }));
+        
+        return commentsWithData;
+      } catch (error) {
+        console.error("Error getting article comments:", error);
+        return [];
+      }
+    },
+
+    async countArticleCommentReplies(commentId: string): Promise<number> {
+      try {
+        // Get direct replies to this comment
+        const directReplies = await db.select({
+          id: comments.id
+        })
+        .from(comments)
+        .where(eq(comments.parentCommentId, commentId));
+
+        let total = directReplies.length;
+
+        // Recursively count replies to each reply
+        for (const reply of directReplies) {
+          total += await this.countArticleCommentReplies(reply.id);
+        }
+
+        return total;
+      } catch (error) {
+        console.error("Error counting article comment replies:", error);
+        return 0;
+      }
+    },
+
+    async getArticleCommentReplies(commentId: string, currentUserId?: string): Promise<any[]> {
+      try {
+        // Get direct replies to this comment
+        const replies = await db.select({
+          id: comments.id,
+          userId: comments.userId,
+          bookId: comments.bookId,
+          newsId: comments.newsId,
+          articleId: comments.articleId,
+          content: comments.content,
+          attachmentUrls: comments.attachmentUrls,
+          attachmentMetadata: comments.attachmentMetadata,
+          parentCommentId: comments.parentCommentId,
+          quotedText: comments.quotedText,
+          createdAt: comments.createdAt,
+          updatedAt: comments.updatedAt,
+          // User information - using names that match frontend expectations
+          username: users.username,
+          fullName: users.fullName,
+          userAvatar: users.avatarUrl  // Frontend expects userAvatar, not avatarUrl
+        })
+        .from(comments)
+        .leftJoin(users, eq(users.id, comments.userId))
+        .where(eq(comments.parentCommentId, commentId))
+        .orderBy(comments.createdAt); // Oldest first for replies
+        
+        // Process each reply to add additional data and recursively get nested replies
+        const repliesWithData = await Promise.all(replies.map(async (reply) => {
+          // Get nested replies recursively
+          const nestedReplies = await this.getArticleCommentReplies(reply.id, currentUserId);
+          
+          // Count replies to this reply (for nested structure) - using recursive count
+          const replyCount = await this.countArticleCommentReplies(reply.id);
+
+          // Get parent comment author name
+          let parentCommentAuthor = null;
+          if (reply.parentCommentId) {
+            const parentComment = await db.select({
+              username: users.username,
+              fullName: users.fullName,
+            })
+            .from(comments)
+            .leftJoin(users, eq(users.id, comments.userId))
+            .where(eq(comments.id, reply.parentCommentId))
+            .limit(1);
+            
+            if (parentComment[0]) {
+              parentCommentAuthor = parentComment[0].fullName || parentComment[0].username;
+            }
+          }
+
+          return {
+            ...reply,
+            author: reply.fullName || reply.username || 'Anonymous',
+            isOwnComment: currentUserId ? reply.userId === currentUserId : false,
+            parentCommentAuthor: parentCommentAuthor,
+            replyCount: replyCount,
+            reactions: [], // Will be populated if needed
+            attachments: [], // Will be populated if needed
+            replies: nestedReplies // Include nested replies recursively
+          };
+        }));
+        
+        return repliesWithData;
+      } catch (error) {
+        console.error("Error getting article comment replies:", error);
         return [];
       }
     },
