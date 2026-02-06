@@ -1,6 +1,6 @@
-import { eq, and, desc, isNull, sql } from "drizzle-orm";
-import { comments, users } from "@shared/schema";
-import type { DB } from "../db";
+import { eq, and, desc, isNull, sql, count } from 'drizzle-orm';
+import { comments, users, reactions } from '@shared/schema';
+import type { DB } from '../db';
 
 export function createCommentsStorage(db: DB) {
   return {
@@ -103,12 +103,14 @@ export function createCommentsStorage(db: DB) {
           // Count replies for this comment recursively (including nested replies)
           const replyCount = await this.countArticleCommentReplies(comment.id);
 
+          const reactions = await this.getCommentReactions(comment.id, currentUserId);
+          
           return {
             ...comment,
             author: comment.fullName || comment.username || 'Anonymous',
             isOwnComment: currentUserId ? comment.userId === currentUserId : false,
             replyCount: replyCount,
-            reactions: [], // Will be populated by frontend if needed
+            reactions,
             attachments: [] // Will be populated by frontend if needed
           };
         }));
@@ -193,6 +195,8 @@ export function createCommentsStorage(db: DB) {
               parentCommentAuthor = parentComment[0].fullName || parentComment[0].username;
             }
           }
+          
+          const reactions = await this.getCommentReactions(reply.id, currentUserId);
 
           return {
             ...reply,
@@ -200,7 +204,7 @@ export function createCommentsStorage(db: DB) {
             isOwnComment: currentUserId ? reply.userId === currentUserId : false,
             parentCommentAuthor: parentCommentAuthor,
             replyCount: replyCount,
-            reactions: [], // Will be populated if needed
+            reactions,
             attachments: [], // Will be populated if needed
             replies: nestedReplies // Include nested replies recursively
           };
@@ -231,6 +235,68 @@ export function createCommentsStorage(db: DB) {
       } catch (error) {
         console.error("Error counting comment replies:", error);
         return 0;
+      }
+    },
+
+    async addCommentReaction(userId: string, commentId: string, emoji: string): Promise<void> {
+      try {
+        await db.insert(reactions).values({
+          userId,
+          commentId,
+          emoji
+        });
+      } catch (error) {
+        console.error("Error adding comment reaction:", error);
+        throw error;
+      }
+    },
+
+    async removeCommentReaction(userId: string, commentId: string, emoji: string): Promise<void> {
+      try {
+        await db.delete(reactions)
+          .where(and(
+            eq(reactions.userId, userId),
+            eq(reactions.commentId, commentId),
+            eq(reactions.emoji, emoji)
+          ));
+      } catch (error) {
+        console.error("Error removing comment reaction:", error);
+        throw error;
+      }
+    },
+
+    async getCommentReactions(commentId: string, currentUserId?: string): Promise<any[]> {
+      try {
+        // Get all reactions for this comment grouped by emoji
+        const allReactions = await db.select({
+          emoji: reactions.emoji,
+          userId: reactions.userId,
+        })
+        .from(reactions)
+        .where(eq(reactions.commentId, commentId));
+        
+        // Group by emoji and count
+        const emojiCounts: Record<string, {count: number, userReacted: boolean}> = {};
+        
+        for (const reaction of allReactions) {
+          if (!emojiCounts[reaction.emoji]) {
+            emojiCounts[reaction.emoji] = { count: 0, userReacted: false };
+          }
+          emojiCounts[reaction.emoji].count++;
+          if (currentUserId && reaction.userId === currentUserId) {
+            emojiCounts[reaction.emoji].userReacted = true;
+          }
+        }
+        
+        // Convert to array
+        return Object.entries(emojiCounts).map(([emoji, data]) => ({
+          emoji,
+          count: data.count,
+          userReacted: data.userReacted,
+        }));
+      } catch (error) {
+        console.error("Error getting comment reactions:", error);
+        return [];
       }
     },
 

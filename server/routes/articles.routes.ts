@@ -406,5 +406,42 @@ export function createArticlesRouter() {
     }
   });
 
+  // Toggle reaction on an article comment
+  router.post("/comments/:commentId/reaction", authenticateToken, async (req, res) => {
+    console.log("Toggle article comment reaction endpoint called for comment ID:", req.params.commentId);
+    try {
+      const { commentId } = req.params;
+      const userId = (req as any).user.userId;
+      const { emoji } = req.body;
+
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+
+      // Use the comments storage service to handle the reaction
+      const commentsService = createCommentsStorage(db);
+      
+      // Check if user already reacted with this emoji
+      const existingReactions = await commentsService.getCommentReactions(commentId, userId);
+      const alreadyReacted = existingReactions.some((r: any) => r.emoji === emoji && r.userReacted);
+      
+      let action: 'added' | 'removed';
+      if (alreadyReacted) {
+        await commentsService.removeCommentReaction(userId, commentId, emoji);
+        action = 'removed';
+      } else {
+        await commentsService.addCommentReaction(userId, commentId, emoji);
+        action = 'added';
+      }
+      
+      // Get updated reactions
+      const reactions = await commentsService.getCommentReactions(commentId, userId);
+      res.json({ action, reactions });
+    } catch (error) {
+      console.error("Toggle article comment reaction error:", error);
+      res.status(500).json({ error: "Failed to toggle article comment reaction" });
+    }
+  });
+
   return router;
 }

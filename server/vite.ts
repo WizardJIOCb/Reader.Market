@@ -43,9 +43,15 @@ export async function setupVite(server: Server, app: Express) {
 
   // Catch-all route for frontend
   app.use("*", async (req, res, next) => {
-    // Skip this for API routes and uploaded files
-    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-      console.log(`Skipping Vite catch-all for API/upload route: ${req.path}`);
+    // Check if this is an API route that wasn't handled
+    if (req.path.startsWith('/api')) {
+      console.log(`Unmatched API route requested: ${req.path}, returning JSON error`);
+      return res.status(404).json({ error: "API endpoint not found" });
+    }
+    
+    // Skip this for uploaded files
+    if (req.path.startsWith('/uploads')) {
+      console.log(`Skipping Vite catch-all for upload route: ${req.path}`);
       return next();
     }
     
