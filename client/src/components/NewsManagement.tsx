@@ -137,7 +137,7 @@ const NewsManagement: React.FC = () => {
       if (imageFiles.length > 0) {
         for (const file of imageFiles) {
           try {
-            const uploaded = await fileUploadManager.uploadFile(file, () => {});
+            const uploaded = await fileUploadManager.uploadFile(file, () => {}, 'news');
             uploadedImageUrls.push(uploaded.url);
           } catch (error) {
             console.error('Failed to upload image:', error);
