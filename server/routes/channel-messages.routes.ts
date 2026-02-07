@@ -15,16 +15,16 @@ export function createChannelMessagesRouter() {
   const router = Router();
 
 // Get messages in a channel
-router.get("/:channelId/messages", authenticateToken, async (req, res) => {
+router.get("/:groupId/channels/:channelId/messages", authenticateToken, async (req, res) => {
   try {
-    const { channelId } = req.params;
+    const { groupId, channelId } = req.params;
     const userId = (req as any).user.userId;
 
     // Check if user is a member of the group that owns this channel
     const channelInfo = await db
       .select({ groupId: channels.groupId })
       .from(channels)
-      .where(eq(channels.id, channelId))
+      .where(and(eq(channels.id, channelId), eq(channels.groupId, groupId)))
       .limit(1);
 
     if (!channelInfo[0]) {
@@ -35,7 +35,7 @@ router.get("/:channelId/messages", authenticateToken, async (req, res) => {
       .select()
       .from(groupMembers)
       .where(and(
-        eq(groupMembers.groupId, channelInfo[0].groupId),
+        eq(groupMembers.groupId, groupId),
         eq(groupMembers.userId, userId)
       ))
       .limit(1);
@@ -61,7 +61,7 @@ router.get("/:channelId/messages", authenticateToken, async (req, res) => {
         attachmentMetadata: messagesTable.attachmentMetadata
       })
       .from(messagesTable)
-      .innerJoin(users, eq(messagesTable.senderId, users.id))
+      .leftJoin(users, eq(messagesTable.senderId, users.id))
       .where(eq(messagesTable.channelId, channelId))
       .orderBy(desc(messagesTable.createdAt))
       .limit(50); // Limit to last 50 messages
@@ -74,58 +74,109 @@ router.get("/:channelId/messages", authenticateToken, async (req, res) => {
 });
 
 // Mark channel as read
-router.put("/:channelId/mark-read", authenticateToken, async (req, res) => {
+router.put("/:groupId/channels/:channelId/mark-read", authenticateToken, async (req, res) => {
   try {
-    const { channelId } = req.params;
+    const { groupId, channelId } = req.params;
     const userId = (req as any).user.userId;
+    
+    console.log('Mark channel as read - Params:', { groupId, channelId, userId });
 
     // Check if user is a member of the group that owns this channel
     const channelInfo = await db
       .select({ groupId: channels.groupId })
       .from(channels)
-      .where(eq(channels.id, channelId))
+      .where(and(eq(channels.id, channelId), eq(channels.groupId, groupId)))
       .limit(1);
 
     if (!channelInfo[0]) {
+      console.log('Channel not found:', { channelId, groupId });
       return res.status(404).json({ error: 'Channel not found' });
     }
+    
+    console.log('Channel found:', channelInfo[0]);
 
     const membership = await db
       .select()
       .from(groupMembers)
       .where(and(
-        eq(groupMembers.groupId, channelInfo[0].groupId),
+        eq(groupMembers.groupId, groupId),
         eq(groupMembers.userId, userId)
       ))
       .limit(1);
 
     if (!membership[0]) {
+      console.log('User not member of group:', { userId, groupId });
       return res.status(403).json({ error: 'Access denied' });
     }
+    
+    console.log('User is member of group, proceeding to update read position');
 
-    // Update or create read position
-    await db.insert(userChannelReadPositions)
-      .values({
-        userId,
-        channelId,
-        lastReadAt: new Date()
-      })
-      .onConflictDoUpdate({
-        target: [userChannelReadPositions.userId, userChannelReadPositions.channelId],
-        set: { lastReadAt: new Date() }
-      });
+    // Update or create read position with fallback approach
+    try {
+      // Attempt upsert operation
+      await db.insert(userChannelReadPositions)
+        .values({
+          userId,
+          channelId,
+          lastReadAt: new Date()
+        })
+        .onConflictDoUpdate({
+          target: [userChannelReadPositions.userId, userChannelReadPositions.channelId],
+          set: { lastReadAt: new Date() }
+        });
+    } catch (upsertError: any) {
+      // If upsert fails due to missing constraint, try manual update/insert
+      if (upsertError.code === '42P10' || upsertError.message.includes('constraint')) {
+        // Check if record exists
+        const existingRecord = await db.select().from(userChannelReadPositions)
+          .where(and(
+            eq(userChannelReadPositions.userId, userId),
+            eq(userChannelReadPositions.channelId, channelId)
+          ))
+          .limit(1);
+        
+        if (existingRecord.length > 0) {
+          // Update existing record
+          await db
+            .update(userChannelReadPositions)
+            .set({ lastReadAt: new Date() })
+            .where(and(
+              eq(userChannelReadPositions.userId, userId),
+              eq(userChannelReadPositions.channelId, channelId)
+            ));
+        } else {
+          // Insert new record
+          await db.insert(userChannelReadPositions)
+            .values({
+              userId,
+              channelId,
+              lastReadAt: new Date()
+            });
+        }
+      } else {
+        // Re-throw if it's a different error
+        throw upsertError;
+      }
+    }
+    
+    console.log('Read position updated successfully');
 
     res.json({ message: 'Channel marked as read' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error marking channel as read:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({ error: 'Failed to mark channel as read' });
   }
 });
 
 // Send message to channel
-router.post("/:channelId/messages", authenticateToken, async (req, res) => {
+router.post("/:groupId/channels/:channelId/messages", authenticateToken, async (req, res) => {
   try {
-    const { channelId } = req.params;
+    const { groupId, channelId } = req.params;
     const { content, parentMessageId, quotedMessageId } = req.body;
     const userId = (req as any).user.userId;
 
@@ -137,7 +188,7 @@ router.post("/:channelId/messages", authenticateToken, async (req, res) => {
     const channelInfo = await db
       .select({ groupId: channels.groupId })
       .from(channels)
-      .where(eq(channels.id, channelId))
+      .where(and(eq(channels.id, channelId), eq(channels.groupId, groupId)))
       .limit(1);
 
     if (!channelInfo[0]) {
@@ -148,7 +199,7 @@ router.post("/:channelId/messages", authenticateToken, async (req, res) => {
       .select()
       .from(groupMembers)
       .where(and(
-        eq(groupMembers.groupId, channelInfo[0].groupId),
+        eq(groupMembers.groupId, groupId),
         eq(groupMembers.userId, userId)
       ))
       .limit(1);
