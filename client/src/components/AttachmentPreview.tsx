@@ -9,6 +9,8 @@ interface AttachmentPreviewProps {
   onRemove: (index: number) => void;
   onUploadComplete?: (uploadedFiles: UploadedFile[]) => void;
   autoUpload?: boolean;
+  entityType?: string;
+  entityId?: string;
 }
 
 interface FileWithProgress {
@@ -24,7 +26,9 @@ export function AttachmentPreview({
   files, 
   onRemove,
   onUploadComplete,
-  autoUpload = false
+  autoUpload = false,
+  entityType,
+  entityId
 }: AttachmentPreviewProps) {
   const [filesWithProgress, setFilesWithProgress] = useState<FileWithProgress[]>([]);
 
@@ -58,7 +62,7 @@ export function AttachmentPreview({
             };
             return updated;
           });
-        });
+        }, entityType, entityId);
 
         setFilesWithProgress(prev => {
           const updated = [...prev];

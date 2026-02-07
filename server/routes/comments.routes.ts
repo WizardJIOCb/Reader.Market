@@ -210,7 +210,7 @@ export function createCommentsRouter() {
   });
 
   // Get detailed reactions for a book comment
-  router.get("/api/comments/:commentId/reactions", optionalAuthenticateToken, async (req, res) => {
+  router.get("/:commentId/reactions", optionalAuthenticateToken, async (req, res) => {
     try {
       const { commentId } = req.params;
       
@@ -221,6 +221,25 @@ export function createCommentsRouter() {
     } catch (error) {
       console.error("Get comment reactions error:", error);
       res.status(500).json({ error: "Failed to get comment reactions" });
+    }
+  });
+  
+  // Get replies to a comment
+  router.get('/:commentId/replies', optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      console.log('DEBUG: Get comment replies route called for commentId:', commentId);
+      const currentUserId = (req as any).user?.userId;
+        
+      // Get replies for the comment
+      console.log('DEBUG: Calling storage.getBookCommentReplies for commentId:', commentId);
+      const replies = await storage.getBookCommentReplies(commentId, currentUserId);
+      console.log('DEBUG: Replies returned from storage:', replies.length);
+        
+      res.json(replies);
+    } catch (error) {
+      console.error("Get comment replies error:", error);
+      res.status(500).json({ error: "Failed to get comment replies" });
     }
   });
 

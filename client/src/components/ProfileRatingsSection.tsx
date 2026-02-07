@@ -16,6 +16,10 @@ import { Star, ChevronDown, ChevronUp, Trash2, User, Reply, Quote } from 'lucide
 import { EmojiPicker } from './EmojiPicker';
 import { ReactionBar } from './ReactionBar';
 import { UserNameWithRating } from './UserNameWithRating';
+import { AttachmentButton } from './AttachmentButton';
+import { AttachmentPreview } from './AttachmentPreview';
+import { AttachmentDisplay } from './AttachmentDisplay';
+import { fileUploadManager } from '../lib/fileUploadManager';
 
 interface ProfileRatingsSectionProps {
   profileId: string;
@@ -49,6 +53,14 @@ interface Comment {
   reactions?: Reaction[];
   replyCount?: number;
   replies?: Comment[];
+  attachments?: {
+    uploadId: string;
+    url: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    thumbnailUrl?: string;
+  }[];
   metadata?: {
     readingProgress?: {
       percentage: number;
@@ -75,15 +87,32 @@ interface CommentItemProps {
   onToggleReplies: (commentId: string) => void;
   onReply: (comment: Comment) => void;
   onCancelReply: () => void;
-  onReplyTextChange: (text: string) => void;
-  onSubmitReply: () => void;
+  onReplyTextChange?: (text: string) => void;
+  setReplyText?: (text: string) => void;
+  onSubmitReply: (comment: Comment) => void;
   onDelete: (commentId: string) => void;
   onReaction: (commentId: string, emoji: string) => void;
   onTextSelect: (comment: Comment) => void;
   onScrollToComment: (commentId: string) => void;
   getRatingBadgeVariant: (rating: number | null) => string;
   onUpdateCommentReactions: (commentId: string, reactions: Reaction[]) => void;
+  // Attachment props
+  attachmentPreviews?: {file: File, preview: string, uploadId?: string}[];
+  handleAttachmentChange?: (files: FileList | null) => void;
+  removeAttachment?: (index: number) => void;
+  uploadingAttachments?: boolean;
+  formatFileSize?: (bytes: number) => string;
+  replyAttachmentFiles?: Record<string, File[]>;
+  replyUploadedFiles?: Record<string, any[]>;
+  setReplyAttachmentFiles?: React.Dispatch<React.SetStateAction<Record<string, File[]>>>;
+  setReplyUploadedFiles?: React.Dispatch<React.SetStateAction<Record<string, any[]>>>;
 }
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return bytes + ' bytes';
+  else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  else return (bytes / 1048576).toFixed(1) + ' MB';
+};
 
 export function CommentItem({
   comment,
@@ -106,9 +135,18 @@ export function CommentItem({
   onDelete,
   onReaction,
   onTextSelect,
-  onScrollToComment,
-  getRatingBadgeVariant,
-  onUpdateCommentReactions
+  onScrollToComment, 
+  getRatingBadgeVariant, 
+  onUpdateCommentReactions,
+  attachmentPreviews,
+  handleAttachmentChange,
+  removeAttachment,
+  uploadingAttachments,
+  formatFileSize,
+  replyAttachmentFiles = {},
+  replyUploadedFiles = {},
+  setReplyAttachmentFiles = (() => {}) as any,
+  setReplyUploadedFiles = (() => {}) as any
 }: CommentItemProps) {
   const isExpanded = expandedReplies.has(comment.id);
   const isLoading = loadingReplies.has(comment.id);
@@ -141,7 +179,7 @@ export function CommentItem({
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       if (replyText.trim() && !submitting) {
-        onSubmitReply();
+        onSubmitReply(comment);
       }
     }
   };
@@ -249,6 +287,13 @@ export function CommentItem({
               {comment.content}
             </p>
 
+            {/* Display attachments */}
+            {comment.attachments && comment.attachments.length > 0 && (
+              <div className="mt-2">
+                <AttachmentDisplay attachments={comment.attachments} className="mt-2" />
+              </div>
+            )}
+
             {/* Actions row: Reply button + Reactions + Show replies */}
             <div className="flex items-center gap-2 flex-wrap">
               {isAuthenticated && !isReplyingToThis && (
@@ -306,18 +351,62 @@ export function CommentItem({
                   <Textarea
                     placeholder={`${t('profile:ratings.replyPlaceholder')}...`}
                     value={replyText}
-                    onChange={(e) => onReplyTextChange(e.target.value)}
+                    onChange={(e) => onReplyTextChange?.(e.target.value)}
                     onKeyDown={handleKeyDown}
                     rows={2}
                     className="pr-10 text-sm min-h-[50px] bg-background border-muted"
                     autoFocus
                   />
-                  <div className="absolute bottom-1 right-1">
+                  <div className="absolute bottom-1 right-1 flex gap-1">
                     <EmojiPicker
-                      onEmojiSelect={(emoji) => onReplyTextChange(replyText + emoji)}
+                      onEmojiSelect={(emoji) => onReplyTextChange?.(replyText + emoji)}
+                    />
+                    <AttachmentButton 
+                      onFilesSelected={(files: File[]) => {
+                        // Update reply attachment files for the current comment
+                        setReplyAttachmentFiles(prev => ({
+                          ...prev,
+                          [comment.id]: files
+                        }));
+                      }}
+                      maxFiles={5}
                     />
                   </div>
                 </div>
+                
+                {/* Reply attachment preview */}
+                {replyAttachmentFiles[comment.id] && replyAttachmentFiles[comment.id].length > 0 && (
+                  <AttachmentPreview
+                    files={replyAttachmentFiles[comment.id]}
+                    onRemove={(index) => {
+                      // Remove attachment from reply
+                      const newFiles = replyAttachmentFiles[comment.id].filter((_, i) => i !== index);
+                      setReplyAttachmentFiles(prev => ({
+                        ...prev,
+                        [comment.id]: newFiles
+                      }));
+                                          
+                      // Also remove corresponding uploaded files
+                      if (replyUploadedFiles[comment.id]) {
+                        const newUploadedFiles = replyUploadedFiles[comment.id].filter((_, i) => i !== index);
+                        setReplyUploadedFiles(prev => ({
+                          ...prev,
+                          [comment.id]: newUploadedFiles
+                        }));
+                      }
+                    }}
+                    onUploadComplete={(files: UploadedFile[]) => {
+                      // Handle uploaded files for reply
+                      setReplyUploadedFiles(prev => ({
+                        ...prev,
+                        [comment.id]: files
+                      }));
+                    }}
+                    autoUpload={true}
+                    entityType="comment"
+                  />
+                )}
+                
                 <div className="flex items-center justify-end gap-1.5">
                   <span className="text-xs text-muted-foreground mr-auto">Ctrl+Enter</span>
                   <Button
@@ -331,10 +420,10 @@ export function CommentItem({
                   <Button
                     size="sm"
                     className="h-6 text-xs px-3"
-                    onClick={onSubmitReply}
-                    disabled={submitting || !replyText.trim()}
+                    onClick={() => onSubmitReply(comment)}
+                    disabled={submitting || (!replyText.trim() && !(replyAttachmentFiles[comment.id] && replyAttachmentFiles[comment.id].length > 0)) || (replyAttachmentFiles[comment.id] && replyAttachmentFiles[comment.id].length > 0 && replyUploadedFiles[comment.id] && replyUploadedFiles[comment.id].length !== replyAttachmentFiles[comment.id].length) || uploadingAttachments}
                   >
-                    {t('profile:ratings.postReply')}
+                    {uploadingAttachments ? t('profile:ratings.uploadingAttachments') : t('profile:ratings.postReply')}
                   </Button>
                 </div>
               </div>
@@ -365,19 +454,33 @@ export function CommentItem({
               onReply={onReply}
               onCancelReply={onCancelReply}
               onReplyTextChange={onReplyTextChange}
-              onSubmitReply={onSubmitReply}
+              onSubmitReply={() => onSubmitReply(reply)}
               onDelete={onDelete}
               onReaction={onReaction}
               onTextSelect={onTextSelect}
               onScrollToComment={onScrollToComment}
               getRatingBadgeVariant={getRatingBadgeVariant}
               onUpdateCommentReactions={onUpdateCommentReactions}
+              replyAttachmentFiles={replyAttachmentFiles}
+              replyUploadedFiles={replyUploadedFiles}
+              setReplyAttachmentFiles={setReplyAttachmentFiles}
+              setReplyUploadedFiles={setReplyUploadedFiles}
             />
           ))}
         </div>
       )}
     </div>
   );
+}
+
+// Define UploadedFile interface
+interface UploadedFile {
+  uploadId: string;
+  url: string;
+  filename: string;
+  fileSize: number;
+  mimeType: string;
+  thumbnailUrl?: string;
 }
 
 export default function ProfileRatingsSection({
@@ -405,10 +508,172 @@ export default function ProfileRatingsSection({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [replyToComment, setReplyToComment] = useState<Comment | null>(null);
+  const [replyText, setReplyText] = useState<string>('');
   const [quotedText, setQuotedText] = useState<string>('');
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+  
+  // Attachment state
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [replyAttachmentFiles, setReplyAttachmentFiles] = useState<Record<string, File[]>>({});
+  const [replyUploadedFiles, setReplyUploadedFiles] = useState<Record<string, any[]>>({});
+    const [uploadingAttachments, setUploadingAttachments] = useState(false);
+    const [attachmentPreviews, setAttachmentPreviews] = useState<{file: File, preview: string, uploadId?: string}[]>([]);
+
+  // Attachment utility functions
+  const MAX_ATTACHMENTS = 5;
+  const ALLOWED_TYPES = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf',
+    'text/plain',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+  const handleAttachmentChange = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newFiles = Array.from(files);
+    const totalFiles = attachmentPreviews.length + newFiles.length;
+
+    if (totalFiles > MAX_ATTACHMENTS) {
+      toast({
+        title: t('profile:ratings.attachmentLimitReached'),
+        description: t('profile:ratings.maxAttachmentsReached', { count: MAX_ATTACHMENTS }),
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const validFiles = newFiles.filter(file => {
+      if (!ALLOWED_TYPES.includes(file.type) && !file.type.startsWith('image/')) {
+        toast({
+          title: t('profile:ratings.invalidFileType'),
+          description: t('profile:ratings.invalidFileTypeDescription', { type: file.type }),
+          variant: 'destructive'
+        });
+        return false;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          title: t('profile:ratings.fileTooLarge'),
+          description: t('profile:ratings.maxFileSize', { size: formatFileSize(MAX_FILE_SIZE) }),
+          variant: 'destructive'
+        });
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    const newPreviews = validFiles.map(file => ({
+      file,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+    }));
+
+    setAttachmentPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const removeAttachment = (index: number) => {
+    const fileToRemove = attachmentPreviews[index];
+    if (fileToRemove.preview) {
+      URL.revokeObjectURL(fileToRemove.preview);
+    }
+    setAttachmentPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadAttachments = async (): Promise<string[]> => {
+    if (attachmentPreviews.length === 0) return [];
+
+    setUploadingAttachments(true);
+    const uploadedIds: string[] = [];
+
+    try {
+      // Use the same fileUploadManager as CommentsSection
+      const filesToUpload = attachmentPreviews.map(p => p.file);
+      
+      // Import fileUploadManager functionality
+      const uploadPromises = filesToUpload.map(file => {
+        return new Promise<UploadedFile>((resolve, reject) => {
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          // Add entity type as 'comment' for profile comments
+          formData.append('entityType', 'comment');
+          
+          const xhr = new XMLHttpRequest();
+          
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const response = JSON.parse(xhr.responseText);
+                resolve(response);
+              } catch (error) {
+                reject(new Error('Invalid response from server'));
+              }
+            } else {
+              reject(new Error(`Upload failed: ${xhr.statusText}`));
+            }
+          });
+          
+          xhr.addEventListener('error', () => {
+            reject(new Error('Network error during upload'));
+          });
+          
+          xhr.addEventListener('abort', () => {
+            reject(new Error('Upload cancelled'));
+          });
+          
+          // Use direct backend URL in development to bypass Vite proxy
+          const apiUrl = import.meta.env.DEV 
+            ? 'http://localhost:5001/api/uploads'
+            : '/api/uploads';
+          
+          xhr.open('POST', apiUrl);
+          
+          // Add auth token if available
+          const token = localStorage.getItem('authToken');
+          if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+          }
+          
+          xhr.send(formData);
+        });
+      });
+      
+      const results = await Promise.all(uploadPromises);
+      
+      // Extract upload IDs
+      for (const result of results) {
+        if (result.uploadId) {
+          uploadedIds.push(result.uploadId);
+        }
+      }
+      
+      // Update the previews with upload IDs
+      setAttachmentPreviews(prev => 
+        prev.map((p, index) => ({
+          ...p,
+          uploadId: results[index]?.uploadId
+        }))
+      );
+    } catch (error) {
+      console.error('Error uploading attachments:', error);
+      toast({
+        title: t('profile:ratings.uploadFailed'),
+        description: t('profile:ratings.uploadFailedDescription'),
+        variant: 'destructive'
+      });
+      throw error;
+    } finally {
+      setUploadingAttachments(false);
+    }
+
+    return uploadedIds;
+  };
 
   // Fetch comment count on mount for header display
   useEffect(() => {
@@ -562,10 +827,16 @@ export default function ProfileRatingsSection({
   };
 
   const handleSubmitComment = async () => {
-    if (!user || !userComment.trim()) return;
+    if (!user || (!userComment.trim() && attachmentPreviews.length === 0)) return;
 
     setSubmitting(true);
     try {
+      // Upload attachments first if there are any
+      let uploadedAttachmentIds: string[] = [];
+      if (attachmentPreviews.length > 0) {
+        uploadedAttachmentIds = await uploadAttachments();
+      }
+
       const response = await fetch(`/api/profile/${profileId}/comment`, {
         method: 'POST',
         headers: {
@@ -575,7 +846,8 @@ export default function ProfileRatingsSection({
         body: JSON.stringify({ 
           content: userComment,
           parentCommentId: replyToComment?.id,
-          quotedText: quotedText || undefined
+          quotedText: quotedText || undefined,
+          attachments: uploadedAttachmentIds
         })
       });
 
@@ -604,6 +876,7 @@ export default function ProfileRatingsSection({
             parentCommentId: replyToComment.id,
             quotedText: quotedText || null,
             parentCommentAuthor: replyToComment.fullName || replyToComment.username,
+            attachments: newComment.attachments || [],
             reactions: [],
             replyCount: 0,
             replies: []
@@ -632,6 +905,7 @@ export default function ProfileRatingsSection({
             parentCommentId: null,
             quotedText: null,
             parentCommentAuthor: null,
+            attachments: newComment.attachments || [],
             reactions: [],
             replyCount: 0,
             replies: []
@@ -645,6 +919,15 @@ export default function ProfileRatingsSection({
         setUserComment('');
         setReplyToComment(null);
         setQuotedText('');
+        // Clear attachments
+        setAttachments([]);
+        setAttachmentPreviews([]);
+        // Revoke object URLs
+        attachmentPreviews.forEach(preview => {
+          if (preview.preview) {
+            URL.revokeObjectURL(preview.preview);
+          }
+        });
       } else {
         const error = await response.json();
         toast({
@@ -655,6 +938,106 @@ export default function ProfileRatingsSection({
       }
     } catch (error) {
       console.error('Error submitting comment:', error);
+      toast({
+        title: t('profile:ratings.error'),
+        description: t('profile:ratings.failedToPostComment'),
+        variant: 'destructive'
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Function to handle reply submission with attachments
+  const handleSubmitReply = async (comment: Comment) => {
+    if (!user || (!replyText.trim() && !(replyAttachmentFiles[comment.id] && replyAttachmentFiles[comment.id].length > 0))) return;
+    
+    setSubmitting(true);
+    try {
+      // Get uploaded attachment IDs for this reply
+      let uploadedAttachmentIds: string[] = [];
+      if (replyUploadedFiles[comment.id] && replyUploadedFiles[comment.id].length > 0) {
+        uploadedAttachmentIds = replyUploadedFiles[comment.id].map((file: any) => file.uploadId);
+      }
+      
+      const response = await fetch(`/api/profile/${profileId}/comment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          content: replyText,
+          parentCommentId: comment.id,
+          quotedText: quotedText || undefined,
+          attachments: uploadedAttachmentIds
+        })
+      });
+
+      if (response.ok) {
+        const newReply = await response.json();
+        
+        toast({
+          title: t('profile:ratings.success'),
+          description: t('profile:ratings.commentPosted')
+        });
+        
+        // Add the new reply to the parent comment
+        const newReplyObj: Comment = {
+          id: newReply.id,
+          userId: user.id,
+          profileId: profileId,
+          content: replyText,
+          createdAt: new Date().toISOString(),
+          username: user.username,
+          fullName: user.fullName || null,
+          avatarUrl: user.avatarUrl || null,
+          rating: null,
+          isOwnComment: true,
+          parentCommentId: comment.id,
+          quotedText: quotedText || null,
+          parentCommentAuthor: comment.fullName || comment.username,
+          attachments: newReply.attachments || [],
+          reactions: [],
+          replyCount: 0,
+          replies: []
+        };
+        
+        // Add reply to the correct parent and increment reply count
+        setComments(prevComments => 
+          prevComments.map(c => addReplyToParent(c, comment.id, newReplyObj))
+        );
+        
+        // Expand the parent so the new reply is visible
+        setExpandedReplies(prev => new Set(prev).add(comment.id));
+        
+        // Clear reply state for this specific comment
+        setUserComment('');
+        setReplyText('');
+        setReplyToComment(null);
+        setQuotedText('');
+        
+        // Clear reply attachments for this specific comment
+        setReplyAttachmentFiles(prev => {
+          const newPrev = {...prev};
+          delete newPrev[comment.id];
+          return newPrev;
+        });
+        setReplyUploadedFiles(prev => {
+          const newPrev = {...prev};
+          delete newPrev[comment.id];
+          return newPrev;
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: t('profile:ratings.error'),
+          description: error.error || t('profile:ratings.failedToPostComment'),
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting reply:', error);
       toast({
         title: t('profile:ratings.error'),
         description: t('profile:ratings.failedToPostComment'),
@@ -734,6 +1117,7 @@ export default function ProfileRatingsSection({
 
   const handleReplyClick = (comment: Comment) => {
     setReplyToComment(comment);
+    setReplyText('');
     setQuotedText('');
   };
 
@@ -972,19 +1356,73 @@ export default function ProfileRatingsSection({
                       rows={3}
                       className="pr-12"
                     />
-                    <div className="absolute bottom-2 right-2">
+                    <div className="absolute bottom-2 right-2 flex gap-0.5">
                       <EmojiPicker
                         onEmojiSelect={(emoji) => setUserComment(prev => prev + emoji)}
                       />
+                      <label className="cursor-pointer flex items-center justify-center w-9 h-9 rounded-md ml-0.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*,.pdf,.doc,.docx,.txt"
+                          className="hidden"
+                          onChange={(e) => handleAttachmentChange?.(e.target.files)}
+                          disabled={uploadingAttachments}
+                        />
+                      </label>
                     </div>
                   </div>
+                  
+                  {/* Attachment Previews */}
+                  {attachmentPreviews.length > 0 && (
+                    <div className="space-y-2">
+                      {attachmentPreviews.map((preview, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded">
+                          {preview.preview ? (
+                            <div className="bg-background p-1 rounded">
+                              <img 
+                                src={preview.preview} 
+                                alt={preview.file.name} 
+                                className="w-10 h-10 object-cover rounded" 
+                              />
+                            </div>
+                          ) : (
+                            <div className="bg-background p-2 rounded">
+                              <span className="text-sm text-muted-foreground">📄</span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm truncate">{preview.file.name}</div>
+                            <div className="text-xs text-muted-foreground">{formatFileSize(preview.file.size)}</div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAttachment(index)}
+                            disabled={uploadingAttachments}
+                            className="h-6 w-6 p-0"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                              <path d="M18 6 6 18" />
+                              <path d="m6 6 12 12" />
+                            </svg>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-2">
                     <Button
                       onClick={handleSubmitComment}
-                      disabled={submitting || !userComment.trim()}
+                      disabled={submitting || (!userComment.trim() && attachmentPreviews.length === 0) || uploadingAttachments}
                       size="sm"
                     >
-                      {t('profile:ratings.postComment')}
+                      {uploadingAttachments ? t('profile:ratings.uploadingAttachments') : t('profile:ratings.postComment')}
                     </Button>
                     <span className="text-xs text-muted-foreground">
                       Ctrl+Enter
@@ -1019,20 +1457,31 @@ export default function ProfileRatingsSection({
                     loadingReplies={loadingReplies}
                     highlightedCommentId={highlightedCommentId}
                     replyingToId={replyToComment?.id || null}
-                    replyText={userComment}
+                    replyText={replyText}
                     quotedText={quotedText}
                     submitting={submitting}
                     onToggleReplies={handleToggleReplies}
                     onReply={handleReplyClick}
                     onCancelReply={handleCancelReply}
-                    onReplyTextChange={setUserComment}
-                    onSubmitReply={handleSubmitComment}
+                    onReplyTextChange={setReplyText}
+                    setReplyText={setReplyText}
+                    onSubmitReply={(submittedComment) => handleSubmitReply(submittedComment)}
                     onDelete={handleDeleteComment}
                     onReaction={handleReaction}
                     onTextSelect={handleTextSelect}
                     onScrollToComment={handleScrollToComment}
                     getRatingBadgeVariant={getRatingBadgeVariant}
                     onUpdateCommentReactions={updateCommentReactions}
+                    // Attachment props
+                    attachmentPreviews={attachmentPreviews}
+                    handleAttachmentChange={handleAttachmentChange}
+                    removeAttachment={removeAttachment}
+                    uploadingAttachments={uploadingAttachments}
+                    formatFileSize={formatFileSize}
+                    replyAttachmentFiles={replyAttachmentFiles}
+                    replyUploadedFiles={replyUploadedFiles}
+                    setReplyAttachmentFiles={setReplyAttachmentFiles}
+                    setReplyUploadedFiles={setReplyUploadedFiles}
                   />
                 ))}
 

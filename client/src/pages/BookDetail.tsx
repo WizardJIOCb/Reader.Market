@@ -1142,13 +1142,7 @@ export default function BookDetail() {
               <CardContent className="pt-4">
                 <CommentsSection 
                   bookId={bookId} 
-                  onCommentsCountChange={(count) => setBookComments(prev => {
-                    // Update comment count for tab label
-                    if (count !== prev.length) {
-                      fetchCommentsAndReviews();
-                    }
-                    return prev;
-                  })}
+                  onCommentsCountChange={(count) => setTotalCommentCount(count)}
                   onSwitchToReviewsTab={() => setActiveTab('reviews')}
                 />
               </CardContent>
@@ -1160,10 +1154,7 @@ export default function BookDetail() {
                 <ReviewsSection 
                   bookId={bookId}
                   onReviewsCountChange={(count) => setBookReviews(prev => {
-                    // Update review count for tab label
-                    if (count !== prev.length) {
-                      fetchCommentsAndReviews();
-                    }
+                    // Only update state without triggering refetch
                     return prev;
                   })}
                   onBookRatingChange={(newRating) => {

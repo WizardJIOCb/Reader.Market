@@ -65,6 +65,7 @@ export interface Storage extends ArticlesServiceInterface, CollectionsServiceInt
   getAllComments(): Promise<any[]>;
   updateComment(id: string, commentData: any): Promise<any>;
   deleteComment(id: string, userId: string | null): Promise<boolean>;
+  getUserComments(userId: string, limit?: number, offset?: number): Promise<any[]>;
   
   // Review operations
   createReview(reviewData: any): Promise<any>;

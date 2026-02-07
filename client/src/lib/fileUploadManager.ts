@@ -80,7 +80,9 @@ export class FileUploadManager {
 
   async uploadFile(
     file: File,
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    entityType?: string,
+    entityId?: string
   ): Promise<UploadedFile> {
     // Validate file
     const validation = this.validateFile(file);
@@ -114,7 +116,16 @@ export class FileUploadManager {
 
       // Create form data
       const formData = new FormData();
-      formData.append('file', processedFile);
+      // Use original filename for the processed file
+      formData.append('file', processedFile, file.name);
+      
+      // Add entity type and ID if provided
+      if (entityType) {
+        formData.append('entityType', entityType);
+      }
+      if (entityId) {
+        formData.append('entityId', entityId);
+      }
 
       // Upload with progress tracking
       const xhr = new XMLHttpRequest();

@@ -36,7 +36,9 @@ export interface UsersServiceInterface {
   getUserReviewsCount(userId: string): Promise<number>;
 }
 
-export function createUsersStorage() {
+import type { DB } from '../db';
+
+export function createUsersStorage(db: DB) {
   return {
     // User operations
     async getUser(userId: string) {

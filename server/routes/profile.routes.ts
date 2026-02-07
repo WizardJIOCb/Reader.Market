@@ -2,6 +2,9 @@ import { Router } from "express";
 import { authenticateToken, optionalAuthenticateToken } from "../middleware/auth";
 import { logUserAction } from '../actionLoggingMiddleware';
 import { storage } from "../storage";
+import { db } from "../storage/db";
+import { comments, users, reviews, profileComments, fileUploads } from '@shared/schema';
+import { eq, desc, count, sql, and, isNull, inArray, or } from 'drizzle-orm';
 import bcrypt from "bcrypt";
 import multer from "multer";
 import path from "path";
@@ -368,7 +371,7 @@ export function createProfileRouter() {
   });
 
   // Increment profile view count
-  router.post(":userId/view", optionalAuthenticateToken, async (req, res) => {
+  router.post("/:userId/view", optionalAuthenticateToken, async (req, res) => {
     try {
       const { userId: targetUserId } = req.params;
       
@@ -404,6 +407,183 @@ export function createProfileRouter() {
     }
   });
 
+  // Get user profile comments
+  router.get('/:userId/comments', optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { userId: targetUserId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Check if the param is a UUID or a username
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(targetUserId);
+      
+      let user;
+      if (isUuid) {
+        user = await storage.getUser(targetUserId);
+      } else {
+        user = await storage.getUserByUsername(targetUserId);
+      }
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Get profile comments made ON this user's profile
+      const commentsResult = await db
+        .select({
+          id: profileComments.id,
+          userId: profileComments.userId,
+          profileId: profileComments.profileId,
+          content: profileComments.content,
+          parentCommentId: profileComments.parentCommentId,
+          quotedText: profileComments.quotedText,
+          createdAt: profileComments.createdAt,
+          updatedAt: profileComments.updatedAt,
+          attachmentUrls: profileComments.attachmentUrls,
+          attachmentMetadata: profileComments.attachmentMetadata,
+          // Include user information
+          username: users.username,
+          fullName: users.fullName,
+          avatarUrl: users.avatarUrl
+        })
+        .from(profileComments)
+        .innerJoin(users, eq(profileComments.userId, users.id))
+        .where(
+          and(
+            eq(profileComments.profileId, targetUserId), // Get comments made on this profile
+            isNull(profileComments.parentCommentId) // Only get root comments, replies will be handled separately
+          )
+        )
+        .orderBy(desc(profileComments.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // For each comment, get its attachments
+      const commentsWithAttachments = await Promise.all(commentsResult.map(async (comment) => {
+        // Get file uploads associated with this comment
+        const commentAttachments = await db
+          .select({
+            id: fileUploads.id,
+            fileUrl: fileUploads.fileUrl,
+            filename: fileUploads.filename,
+            fileSize: fileUploads.fileSize,
+            mimeType: fileUploads.mimeType,
+            thumbnailUrl: fileUploads.thumbnailUrl
+          })
+          .from(fileUploads)
+          .where(and(
+            eq(fileUploads.entityId, comment.id),
+            sql`(${fileUploads.entityType} = 'comment')`
+          ));
+        
+        return {
+          ...comment,
+          attachments: commentAttachments.map(att => ({
+            uploadId: att.id,
+            url: att.fileUrl,
+            filename: att.filename,
+            fileSize: att.fileSize,
+            mimeType: att.mimeType,
+            thumbnailUrl: att.thumbnailUrl
+          }))
+        };
+      }));
+      
+      // Also get total count for pagination
+      const countResult = await db
+        .select({ count: count(profileComments.id) })
+        .from(profileComments)
+        .where(
+          and(
+            eq(profileComments.profileId, targetUserId)
+          )
+        );
+      
+      const total = countResult[0]?.count || 0;
+      
+      // Build hierarchical structure from flat list
+      const commentsMap: Record<string, any> = {};
+      // Add replies property to each comment
+      commentsWithAttachments.forEach(comment => {
+        (comment as any)['replies'] = [];
+        commentsMap[comment.id] = comment;
+      });
+      
+      // Get replies for each root comment
+      for (const comment of commentsWithAttachments) {
+        const replies = await db
+          .select({
+            id: profileComments.id,
+            userId: profileComments.userId,
+            profileId: profileComments.profileId,
+            content: profileComments.content,
+            parentCommentId: profileComments.parentCommentId,
+            quotedText: profileComments.quotedText,
+            createdAt: profileComments.createdAt,
+            updatedAt: profileComments.updatedAt,
+            attachmentUrls: profileComments.attachmentUrls,
+            attachmentMetadata: profileComments.attachmentMetadata,
+            // Include user information
+            username: users.username,
+            fullName: users.fullName,
+            avatarUrl: users.avatarUrl
+          })
+          .from(profileComments)
+          .innerJoin(users, eq(profileComments.userId, users.id))
+          .where(eq(profileComments.parentCommentId, comment.id))
+          .orderBy(profileComments.createdAt);
+        
+        // Get attachments for each reply
+        const repliesWithAttachments = await Promise.all(replies.map(async (reply) => {
+          // Get file uploads associated with this reply
+          const replyAttachments = await db
+            .select({
+              id: fileUploads.id,
+              fileUrl: fileUploads.fileUrl,
+              filename: fileUploads.filename,
+              fileSize: fileUploads.fileSize,
+              mimeType: fileUploads.mimeType,
+              thumbnailUrl: fileUploads.thumbnailUrl
+            })
+            .from(fileUploads)
+            .where(and(
+              eq(fileUploads.entityId, reply.id),
+              eq(fileUploads.entityType, 'comment')
+            ));
+          
+          return {
+            ...reply,
+            attachments: replyAttachments.map(att => ({
+              uploadId: att.id,
+              url: att.fileUrl,
+              filename: att.filename,
+              fileSize: att.fileSize,
+              mimeType: att.mimeType,
+              thumbnailUrl: att.thumbnailUrl
+            }))
+          };
+        }));
+        
+        (commentsMap[comment.id] as any)['replies'] = repliesWithAttachments;
+      }
+      
+      const rootComments = commentsWithAttachments;
+      
+      res.json({
+        comments: rootComments,
+        total: total
+      });
+    } catch (error) {
+      console.error('Get user profile comments error:', error);
+      res.status(500).json({ error: "Failed to get user profile comments" });
+    }
+  });
+
   // Get user profile activities
   router.get('/:profileId/activities', optionalAuthenticateToken, async (req, res) => {
     try {
@@ -430,17 +610,88 @@ export function createProfileRouter() {
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Get user activities - this would need to be implemented in the storage layer
-      // For now, returning an empty array as placeholder
-      const activities: any[] = [];
+      // Get user activities - combine comments and reviews
+      const [commentsResult, reviewsResult] = await Promise.all([
+        // Get user's comments
+        db
+          .select({
+            id: comments.id,
+            type: sql`'comment'`.as('type'),
+            content: comments.content,
+            bookId: comments.bookId,
+            parentCommentId: comments.parentCommentId,
+            createdAt: comments.createdAt,
+            updatedAt: comments.updatedAt,
+            // Include user information
+            username: users.username,
+            fullName: users.fullName,
+            avatarUrl: users.avatarUrl
+          })
+          .from(comments)
+          .innerJoin(users, eq(comments.userId, users.id))
+          .where(eq(comments.userId, user.id))
+          .orderBy(desc(comments.createdAt))
+          .limit(limit * 2), // Get more to merge and sort later
+        
+        // Get user's reviews
+        db
+          .select({
+            id: reviews.id,
+            type: sql`'review'`.as('type'),
+            content: reviews.content, // Using content field for reviews
+            bookId: reviews.bookId,
+            createdAt: reviews.createdAt,
+            updatedAt: reviews.updatedAt,
+            // Include user information
+            username: users.username,
+            fullName: users.fullName,
+            avatarUrl: users.avatarUrl
+          })
+          .from(reviews)
+          .innerJoin(users, eq(reviews.userId, users.id))
+          .where(eq(reviews.userId, user.id))
+          .orderBy(desc(reviews.createdAt))
+          .limit(limit * 2)
+      ]);
+      
+      // Combine and sort activities by date
+      let allActivities = [
+        ...commentsResult.map(activity => ({
+          ...activity,
+          type: activity.type,
+          content: activity.content,
+          metadata: {
+            username: activity.username,
+            fullName: activity.fullName,
+            avatarUrl: activity.avatarUrl
+          }
+        })),
+        ...reviewsResult.map(activity => ({
+          ...activity,
+          type: activity.type,
+          content: activity.content,
+          metadata: {
+            username: activity.username,
+            fullName: activity.fullName,
+            avatarUrl: activity.avatarUrl
+          }
+        }))
+      ];
+      
+      // Sort by creation date descending
+      allActivities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // Apply pagination
+      const total = allActivities.length;
+      allActivities = allActivities.slice(offset, offset + limit);
       
       res.json({
-        activities,
+        activities: allActivities,
         pagination: {
           limit,
           offset,
-          total: activities.length,
-          has_more: activities.length === limit
+          total,
+          has_more: (offset + limit) < total
         }
       });
     } catch (error) {
@@ -449,5 +700,225 @@ export function createProfileRouter() {
     }
   });
 
+  // Add comment to user's profile
+  router.post('/:userId/comment', authenticateToken, async (req, res) => {
+    try {
+      const { userId: targetUserId } = req.params;
+      const { content, parentCommentId, attachments } = req.body;
+      const currentUserId = (req as any).user.userId;
+      
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ error: "Comment content is required" });
+      }
+      
+      // Verify target user exists
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // If this is a reply, verify the parent comment exists in profileComments
+      if (parentCommentId) {
+        const parentComment = await db
+          .select()
+          .from(profileComments)
+          .where(eq(profileComments.id, parentCommentId))
+          .limit(1);
+          
+        if (parentComment.length === 0) {
+          return res.status(404).json({ error: "Parent comment not found" });
+        }
+      }
+      
+      // Create the profile comment
+      const newComment = await db
+        .insert(profileComments)
+        .values({
+          userId: currentUserId, // The person making the comment
+          profileId: targetUserId, // The profile being commented on
+          content: content.trim(),
+          parentCommentId: parentCommentId || null, // Set parent if this is a reply
+        })
+        .returning();
+      
+      // If there are attachments, update their entityId to link them to this comment
+      console.log('DEBUG: Checking for attachments in profile comment request:', { attachments, commentId: newComment[0].id, currentUserId });
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        try {
+          console.log('Linking attachments to profile comment:', attachments, 'Comment ID:', newComment[0].id, 'Uploader ID:', currentUserId);
+          
+          // First, verify the files exist and belong to the user
+          const existingFiles = await db.select({
+            id: fileUploads.id,
+            uploaderId: fileUploads.uploaderId,
+            entityType: fileUploads.entityType,
+            entityId: fileUploads.entityId
+          })
+            .from(fileUploads)
+            .where(
+              and(
+                inArray(fileUploads.id, attachments),
+                eq(fileUploads.uploaderId, currentUserId),
+                or(
+                  eq(fileUploads.entityType, 'temp'),
+                  and(
+                    eq(fileUploads.entityType, 'comment'),
+                    isNull(fileUploads.entityId)
+                  )
+                )
+              )
+            );
+          
+          console.log('Found existing files to link:', existingFiles.length, 'out of', attachments.length);
+          
+          if (existingFiles.length > 0) {
+            // Extract the IDs of files that need to be updated
+            const fileIdsToUpdate = existingFiles.map(file => file.id);
+            
+            // Update file uploads to link them to the created comment
+            const result = await db.update(fileUploads)
+              .set({ entityId: newComment[0].id })
+              .where(
+                and(
+                  inArray(fileUploads.id, fileIdsToUpdate),
+                  eq(fileUploads.uploaderId, currentUserId),
+                  eq(fileUploads.entityType, 'comment')
+                )
+              ).execute();
+            
+            console.log('Profile comment attachment linking result - rows affected:', result);
+            
+            // Verify that the files were linked by querying them
+            const linkedFiles = await db.select()
+              .from(fileUploads)
+              .where(
+                and(
+                  inArray(fileUploads.id, fileIdsToUpdate),
+                  eq(fileUploads.entityId, newComment[0].id)
+                )
+              );
+            
+            console.log('Linked profile comment files count:', linkedFiles.length, 'expected:', fileIdsToUpdate.length);
+            
+            // Move files from temp to permanent location and update linkedFiles array
+            for (const file of linkedFiles) {
+              if (file.fileUrl && file.fileUrl.includes('/uploads/attachments/temp/')) {
+                try {
+                  const tempPath = path.join(process.cwd(), file.fileUrl);
+                  const fileName = path.basename(file.fileUrl);
+                  
+                  // Create permanent directory if it doesn't exist
+                  const permDir = path.join(process.cwd(), 'uploads', 'attachments', 'profile-comments');
+                  if (!fs.existsSync(permDir)) {
+                    fs.mkdirSync(permDir, { recursive: true });
+                  }
+                  
+                  const permPath = path.join(permDir, fileName);
+                  
+                  // Move the file from temp to permanent location
+                  fs.renameSync(tempPath, permPath);
+                  
+                  // Update the database record with the new permanent path
+                  await db.update(fileUploads)
+                    .set({ 
+                      fileUrl: `/uploads/attachments/profile-comments/${fileName}`,
+                      storagePath: permPath
+                    })
+                    .where(eq(fileUploads.id, file.id));
+                    
+                  // Update the linkedFiles array with the new URL so the response has the correct path
+                  const updatedFile = linkedFiles.find(f => f.id === file.id);
+                  if (updatedFile) {
+                    updatedFile.fileUrl = `/uploads/attachments/profile-comments/${fileName}`;
+                  }
+                  
+                  console.log(`Moved file from temp to permanent: ${file.fileUrl} -> /uploads/attachments/profile-comments/${fileName}`);
+                } catch (moveError) {
+                  console.error('Error moving file from temp to permanent location:', moveError);
+                }
+              }
+            }
+          }
+        } catch (attachmentError) {
+          console.error('Error updating profile comment attachment entity IDs:', attachmentError);
+          // Don't fail the comment creation if attachment linking fails
+        }
+      }
+      
+      // Fetch the comment again to include attachment information
+      const commentWithAttachments = await db
+        .select({
+          id: profileComments.id,
+          userId: profileComments.userId,
+          profileId: profileComments.profileId,
+          content: profileComments.content,
+          parentCommentId: profileComments.parentCommentId,
+          quotedText: profileComments.quotedText,
+          createdAt: profileComments.createdAt,
+          updatedAt: profileComments.updatedAt,
+          attachmentUrls: profileComments.attachmentUrls,
+          attachmentMetadata: profileComments.attachmentMetadata,
+        })
+        .from(profileComments)
+        .where(eq(profileComments.id, newComment[0].id))
+        .limit(1);
+      
+      // Get file uploads associated with this comment
+      const commentAttachments = await db
+        .select({
+          id: fileUploads.id,
+          fileUrl: fileUploads.fileUrl,
+          filename: fileUploads.filename,
+          fileSize: fileUploads.fileSize,
+          mimeType: fileUploads.mimeType,
+          thumbnailUrl: fileUploads.thumbnailUrl
+        })
+        .from(fileUploads)
+        .where(and(
+          eq(fileUploads.entityId, newComment[0].id),
+          eq(fileUploads.entityType, 'comment')
+        ));
+      
+      const commentWithAttachmentsData = {
+        ...commentWithAttachments[0],
+        attachments: commentAttachments.map(att => ({
+          uploadId: att.id,
+          url: att.fileUrl,
+          filename: att.filename,
+          fileSize: att.fileSize,
+          mimeType: att.mimeType,
+          thumbnailUrl: att.thumbnailUrl
+        }))
+      };
+      
+      // Get user information for the response
+      const user = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          fullName: users.fullName,
+          avatarUrl: users.avatarUrl
+        })
+        .from(users)
+        .where(eq(users.id, currentUserId))
+        .limit(1);
+      
+      // Combine comment data with user info
+      const responseComment = {
+        ...commentWithAttachmentsData,
+        author: user[0]?.fullName || user[0]?.username || 'Anonymous',
+        username: user[0]?.username,
+        fullName: user[0]?.fullName,
+        avatarUrl: user[0]?.avatarUrl
+      };
+      
+      // Return the created comment with attachments
+      res.status(201).json(responseComment);
+    } catch (error) {
+      console.error('Add profile comment error:', error);
+      res.status(500).json({ error: "Failed to add profile comment" });
+    }
+  });
+  
   return router;
 }

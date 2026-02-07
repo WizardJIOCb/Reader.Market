@@ -717,3 +717,7 @@ router.get('/books/:bookId/content/:language', async (req: Request, res: Respons
 });
 
 export default router;
+
+export function createBookTranslationsRouter() {
+  return router;
+}

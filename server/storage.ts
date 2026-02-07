@@ -2592,6 +2592,22 @@ export class DBStorage implements IStorage {
         const nestedReplies = await this.getBookCommentReplies(reply.id, currentUserId);
         const replyCount = await this.countBookCommentReplies(reply.id);
         
+        // Get file uploads associated with this reply
+        const replyAttachments = await db
+          .select({
+            id: fileUploads.id,
+            fileUrl: fileUploads.fileUrl,
+            filename: fileUploads.filename,
+            fileSize: fileUploads.fileSize,
+            mimeType: fileUploads.mimeType,
+            thumbnailUrl: fileUploads.thumbnailUrl
+          })
+          .from(fileUploads)
+          .where(and(
+            eq(fileUploads.entityId, reply.id),
+            eq(fileUploads.entityType, 'comment')
+          ));
+        
         return {
           id: reply.id,
           userId: reply.userId,
@@ -2609,7 +2625,14 @@ export class DBStorage implements IStorage {
           parentCommentAuthor,
           replies: nestedReplies,
           replyCount,
-          attachments: metadata?.attachments || []
+          attachments: replyAttachments.map(att => ({
+            uploadId: att.id,
+            url: att.fileUrl,
+            filename: att.filename,
+            fileSize: att.fileSize,
+            mimeType: att.mimeType,
+            thumbnailUrl: att.thumbnailUrl
+          }))
         };
       }));
       

@@ -102,6 +102,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     socket.on('disconnect', (reason) => {
       console.log('[WEBSOCKET] User disconnected:', userId || 'unauthenticated', 'reason:', reason);
     });
+    
+    // Join book-comments room
+    socket.on('join:book-comments', (bookId) => {
+      if (bookId) {
+        const roomName = `book-comments:${bookId}`;
+        socket.join(roomName);
+        console.log(`[WEBSOCKET] User joined book-comments room: ${roomName}`);
+      }
+    });
+    
+    // Leave book-comments room
+    socket.on('leave:book-comments', (bookId) => {
+      if (bookId) {
+        const roomName = `book-comments:${bookId}`;
+        socket.leave(roomName);
+        console.log(`[WEBSOCKET] User left book-comments room: ${roomName}`);
+      }
+    });
   });
   
   // Attach io to app so routes can access it

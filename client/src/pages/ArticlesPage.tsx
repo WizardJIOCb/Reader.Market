@@ -13,6 +13,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { ReactionBar } from '@/components/ReactionBar';
 import { AuthPrompt } from '@/components/AuthPrompt';
+import { AttachmentButton } from '@/components/AttachmentButton';
+import { AttachmentPreview } from '@/components/AttachmentPreview';
+import { AttachmentDisplay } from '@/components/AttachmentDisplay';
+import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
 import { 
   Search, 
   Calendar, 
@@ -78,6 +82,10 @@ const RecursiveReplyItem: React.FC<{
   i18n: any;
   ru: any;
   enUS: any;
+  replyAttachmentFiles: Record<string, File[]>;
+  replyUploadedFiles: Record<string, UploadedFile[]>;
+  setReplyAttachmentFiles: React.Dispatch<React.SetStateAction<Record<string, File[]>>>;
+  setReplyUploadedFiles: React.Dispatch<React.SetStateAction<Record<string, UploadedFile[]>>>;
 }> = ({
   reply,
   user,
@@ -95,6 +103,10 @@ const RecursiveReplyItem: React.FC<{
   i18n,
   ru,
   enUS,
+  replyAttachmentFiles,
+  replyUploadedFiles,
+  setReplyAttachmentFiles,
+  setReplyUploadedFiles,
 }) => {
   const hasNestedReplies = reply.replies && reply.replies.length > 0;
   const totalReplyCount = getTotalReplyCount(reply);
@@ -166,6 +178,20 @@ const RecursiveReplyItem: React.FC<{
         
         <p className="text-xs mb-2 whitespace-pre-wrap">{reply.content}</p>
         
+        {/* Display attachments */}
+        {reply.attachments && reply.attachments.length > 0 && (
+          <AttachmentDisplay 
+            attachments={reply.attachments.map(att => ({
+              url: att.url || att.fileUrl,
+              filename: att.filename || att.fileName || 'attachment',
+              fileSize: att.fileSize || 0,
+              mimeType: att.mimeType || 'application/octet-stream',
+              thumbnailUrl: att.thumbnailUrl
+            }))} 
+            className="mt-2" 
+          />
+        )}
+        
         {/* Actions row for reply - with expand/collapse button for nested replies */}
         <div className="flex items-center gap-2 flex-wrap">
           {user && (
@@ -231,12 +257,43 @@ const RecursiveReplyItem: React.FC<{
                 }}
                 autoFocus
               />
-              <div className="absolute bottom-1 right-1">
+              <div className="absolute bottom-1 right-1 flex gap-1">
                 <EmojiPicker
                   onEmojiSelect={(emoji) => setReplyInput(prev => prev + emoji)}
                 />
+                <AttachmentButton 
+                  onFilesSelected={(files: File[]) => {
+                    setReplyAttachmentFiles((prev: Record<string, File[]>) => ({
+                      ...prev,
+                      [replyingTo!.id]: files
+                    }));
+                  }}
+                  maxFiles={5}
+                />
               </div>
             </div>
+            {replyAttachmentFiles[replyingTo?.id || ''] && replyAttachmentFiles[replyingTo?.id || ''].length > 0 && (
+              <AttachmentPreview
+                files={replyAttachmentFiles[replyingTo!.id]}
+                onRemove={(index) => {
+                  // Remove attachment from reply
+                  const newFiles = replyAttachmentFiles[replyingTo!.id].filter((_, i) => i !== index);
+                  setReplyAttachmentFiles(prev => ({
+                    ...prev,
+                    [replyingTo!.id]: newFiles
+                  }));
+                }}
+                onUploadComplete={(files: UploadedFile[]) => {
+                  // Handle uploaded files for reply
+                  setReplyUploadedFiles(prev => ({
+                    ...prev,
+                    [replyingTo!.id]: files
+                  }));
+                }}
+                autoUpload={true}
+                entityType="comment"
+              />
+            )}
             <div className="flex items-center justify-end gap-1.5">
               <span className="text-xs text-muted-foreground mr-auto">Shift+Enter for new line</span>
               <Button
@@ -251,7 +308,7 @@ const RecursiveReplyItem: React.FC<{
                 size="sm"
                 className="h-5 text-xs px-3"
                 onClick={() => submitReply(reply.id)}
-                disabled={!replyInput.trim()}
+                disabled={!replyInput.trim() || (replyAttachmentFiles[replyingTo?.id || ''] && replyAttachmentFiles[replyingTo?.id || ''].length > 0 && replyUploadedFiles[replyingTo?.id || ''] && replyUploadedFiles[replyingTo?.id || ''].length !== replyAttachmentFiles[replyingTo?.id || ''].length)}
               >
                 {t('articles:reply')}
               </Button>
@@ -282,6 +339,10 @@ const RecursiveReplyItem: React.FC<{
               i18n={i18n}
               ru={ru}
               enUS={enUS}
+              replyAttachmentFiles={replyAttachmentFiles}
+              replyUploadedFiles={replyUploadedFiles}
+              setReplyAttachmentFiles={setReplyAttachmentFiles}
+              setReplyUploadedFiles={setReplyUploadedFiles}
             />
           ))}
         </div>
@@ -767,11 +828,15 @@ export function ArticlesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const [replyInput, setReplyInput] = useState('');
+  const [replyAttachmentFiles, setReplyAttachmentFiles] = useState<Record<string, File[]>>({});
+  const [replyUploadedFiles, setReplyUploadedFiles] = useState<Record<string, UploadedFile[]>>({});
   const [expandingReply, setExpandingReply] = useState<string | null>(null);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [articleReactions, setArticleReactions] = useState<ArticleReaction | null>(null);
   const [loadingComments, setLoadingComments] = useState(false);
-  
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+    
   // Function to toggle category expansion
   const toggleCategory = (id: string) => {
     setExpandedCategories(prev => {
@@ -920,12 +985,15 @@ export function ArticlesPage() {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify({
-          content: commentInput.trim()
+          content: commentInput.trim(),
+          attachments: uploadedFiles.map(f => f.uploadId)
         })
       });
       
       if (response.ok) {
         setCommentInput('');
+        setAttachmentFiles([]);
+        setUploadedFiles([]);
         // Reload comments to include the new one
         await loadComments(singleArticle.id);
         
@@ -1111,7 +1179,10 @@ export function ArticlesPage() {
         body: JSON.stringify({ 
           content: replyInput,
           parentCommentId: parentCommentId,
-          quotedText: replyingTo.content
+          quotedText: replyingTo.content,
+          attachments: replyUploadedFiles[parentCommentId] 
+            ? replyUploadedFiles[parentCommentId].map(f => f.uploadId)
+            : []
         }),
       });
       
@@ -1156,6 +1227,17 @@ export function ArticlesPage() {
         // Clear reply form
         setReplyInput('');
         setReplyingTo(null);
+        // Clear reply attachments
+        setReplyAttachmentFiles(prev => {
+          const newPrev = {...prev};
+          delete newPrev[parentCommentId];
+          return newPrev;
+        });
+        setReplyUploadedFiles(prev => {
+          const newPrev = {...prev};
+          delete newPrev[parentCommentId];
+          return newPrev;
+        });
       } else {
         console.error('Failed to submit reply:', response.status, response.statusText);
       }
@@ -2553,17 +2635,33 @@ export function ArticlesPage() {
                           }}
                           className="w-full px-3 py-2 text-sm min-h-[100px] bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 resize-none"
                         />
+                        {attachmentFiles.length > 0 && (
+                          <AttachmentPreview
+                            files={attachmentFiles}
+                            onRemove={(index) => {
+                              setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+                              setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                            }}
+                            onUploadComplete={(files: UploadedFile[]) => setUploadedFiles(files)}
+                            autoUpload={true}
+                            entityType="comment"
+                          />
+                        )}
                         <div className="flex justify-between items-center">
                           <div className="flex gap-1">
                             <EmojiPicker
                               onEmojiSelect={(emoji) => setCommentInput(prev => prev + emoji)}
+                            />
+                            <AttachmentButton 
+                              onFilesSelected={(files: File[]) => setAttachmentFiles(prev => [...prev, ...files])}
+                              maxFiles={5}
                             />
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
                             <Button 
                               onClick={submitComment} 
-                              disabled={!commentInput.trim() || submitting}
+                              disabled={!commentInput.trim() || submitting || (attachmentFiles.length > 0 && uploadedFiles.length !== attachmentFiles.length)}
                               className="gap-2"
                             >
                               <Send className="w-4 h-4" />
@@ -2660,6 +2758,20 @@ export function ArticlesPage() {
                           )}
                           
                           <p className="mb-2 whitespace-pre-wrap">{comment.content}</p>
+                          
+                          {/* Display attachments */}
+                          {comment.attachments && comment.attachments.length > 0 && (
+                            <AttachmentDisplay 
+                              attachments={comment.attachments.map(att => ({
+                                url: att.url || att.fileUrl,
+                                filename: att.filename || att.fileName || 'attachment',
+                                fileSize: att.fileSize || 0,
+                                mimeType: att.mimeType || 'application/octet-stream',
+                                thumbnailUrl: att.thumbnailUrl
+                              }))} 
+                              className="mt-2" 
+                            />
+                          )}
                           
                           {/* Actions row: Reply button + Reactions + Show replies */}
                           <div className="flex items-center gap-2 flex-wrap">
@@ -2777,6 +2889,10 @@ export function ArticlesPage() {
                                   i18n={i18n}
                                   ru={ru}
                                   enUS={enUS}
+                                  replyAttachmentFiles={replyAttachmentFiles}
+                                  replyUploadedFiles={replyUploadedFiles}
+                                  setReplyAttachmentFiles={setReplyAttachmentFiles}
+                                  setReplyUploadedFiles={setReplyUploadedFiles}
                                 />
                                                         
                                                         

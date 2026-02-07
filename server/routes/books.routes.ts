@@ -3,8 +3,8 @@ import { authenticateToken, optionalAuthenticateToken } from "../middleware/auth
 import { logUserAction } from '../actionLoggingMiddleware';
 import { storage } from "../storage";
 import { db } from "../storage/db";
-import { eq, and } from 'drizzle-orm';
-import { books as booksSchema, bookmarkCollections, bookmarkCollectionItems, bookmarks } from '@shared/schema';
+import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
+import { books as booksSchema, bookmarkCollections, bookmarkCollectionItems, bookmarks, fileUploads } from '@shared/schema';
 
 export function createBooksRouter() {
   const router = Router();
@@ -364,6 +364,314 @@ export function createBooksRouter() {
     }
   });
 
+  // Add a comment to a book
+  router.post('/:bookId/comments', authenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const userId = (req as any).user.userId;
+      const { content, parentCommentId, quotedText, attachments } = req.body;
+      
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ error: "Comment content is required" });
+      }
+      
+      // Verify that the book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // If this is a reply, verify the parent comment exists
+      if (parentCommentId) {
+        const parentComment = await storage.getCommentById(parentCommentId);
+        if (!parentComment || parentComment.bookId !== bookId) {
+          return res.status(404).json({ error: "Parent comment not found or does not belong to this book" });
+        }
+      }
+      
+      // Create the comment
+      const newComment = await storage.createComment({
+        userId,
+        bookId,
+        content: content.trim(),
+        parentCommentId: parentCommentId || null,
+        quotedText: quotedText || null
+      });
+      
+      // If there are attachments, update their entityId to link them to this comment
+      console.log('Attachments:', attachments);
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        try {
+          console.log('Linking attachments to comment:', attachments, 'Comment ID:', newComment.id, 'Uploader ID:', userId);
+          
+          // First, verify the files exist and belong to the user
+          const existingFiles = await db.select({
+            id: fileUploads.id,
+            uploaderId: fileUploads.uploaderId,
+            entityType: fileUploads.entityType,
+            entityId: fileUploads.entityId
+          })
+            .from(fileUploads)
+            .where(
+              and(
+                inArray(fileUploads.id, attachments),
+                eq(fileUploads.uploaderId, userId),
+                sql`(${fileUploads.entityType} = 'temp' OR (${fileUploads.entityType} = 'comment' AND ${fileUploads.entityId} IS NULL))`
+              )
+            );
+          
+          console.log('Found existing files to link:', existingFiles.length, 'out of', attachments.length);
+          console.log('Existing files details:', existingFiles);
+          
+          if (existingFiles.length > 0) {
+            // Extract the IDs of files that need to be updated
+            const fileIdsToUpdate = existingFiles.map(file => file.id);
+            
+            // Update file uploads to link them to the created comment
+            const result = await db.update(fileUploads)
+              .set({ entityId: newComment.id })
+              .where(
+                and(
+                  inArray(fileUploads.id, fileIdsToUpdate),
+                  eq(fileUploads.uploaderId, userId),
+                  sql`(${fileUploads.entityType} = 'temp' OR (${fileUploads.entityType} = 'comment' AND ${fileUploads.entityId} IS NULL))`
+                )
+              ).execute();
+            
+            console.log('Attachment linking result - rows affected:', result);
+            
+            // Verify that the files were linked by querying them
+            const linkedFiles = await db.select()
+              .from(fileUploads)
+              .where(
+                and(
+                  inArray(fileUploads.id, fileIdsToUpdate),
+                  eq(fileUploads.entityId, newComment.id)
+                )
+              );
+            
+            console.log('Linked files count:', linkedFiles.length, 'expected:', fileIdsToUpdate.length);
+            console.log('Linked files details:', linkedFiles);
+          }
+        } catch (attachmentError) {
+          console.error('Error updating attachment entity IDs:', attachmentError);
+          // Don't fail the comment creation if attachment linking fails
+        }
+      }
+      
+      // Fetch the comment again to include attachment information
+      const commentWithAttachments = await storage.getCommentById(newComment.id);
+      
+      // If we have attachment IDs and the comment doesn't have attachments populated yet,
+      // explicitly query for the file uploads
+      if (attachments && attachments.length > 0 && (!commentWithAttachments.attachments || commentWithAttachments.attachments.length === 0)) {
+        // Query file uploads directly
+        const directAttachments = await db.select({
+          id: fileUploads.id,
+          fileUrl: fileUploads.fileUrl,
+          filename: fileUploads.filename,
+          fileSize: fileUploads.fileSize,
+          mimeType: fileUploads.mimeType,
+          thumbnailUrl: fileUploads.thumbnailUrl
+        })
+        .from(fileUploads)
+        .where(and(
+          eq(fileUploads.entityId, newComment.id),
+          sql`(${fileUploads.entityType} = 'comment')`
+        ));
+        
+        // Add attachments to the comment object
+        commentWithAttachments.attachments = directAttachments.map(att => ({
+          uploadId: att.id,
+          url: att.fileUrl,
+          filename: att.filename,
+          fileSize: att.fileSize,
+          mimeType: att.mimeType,
+          thumbnailUrl: att.thumbnailUrl
+        }));
+      }
+      
+      // Broadcast the new comment via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Get the user who made the comment
+          const user = await storage.getUser(userId);
+          
+          // Prepare comment data for broadcast
+          const commentData = {
+            ...commentWithAttachments,
+            username: user?.username,
+            fullName: user?.fullName,
+            avatarUrl: user?.avatarUrl
+          };
+          
+          // Emit to book-specific room
+          io.to(`book-comments:${bookId}`).emit('new-comment', commentData);
+          
+          // Emit to global stream
+          io.to('stream:global').emit('stream:activity', {
+            type: 'comment',
+            entityId: commentWithAttachments.id,
+            userId: userId,
+            metadata: {
+              content_preview: content.substring(0, 100),
+              book_id: bookId,
+              book_title: book.title
+            },
+            createdAt: commentWithAttachments.createdAt
+          });
+          
+          console.log('[STREAM] Comment broadcast sent');
+        }
+      } catch (broadcastError) {
+        console.error('[STREAM] Failed to broadcast comment:', broadcastError);
+        // Don't fail the request if broadcast fails
+      }
+      
+      res.status(201).json(commentWithAttachments);
+    } catch (error) {
+      console.error("Add book comment error:", error);
+      res.status(500).json({ error: "Failed to add comment to book" });
+    }
+  });
+
+  // Get comments for a book
+  router.get('/:bookId/comments', optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const currentUserId = (req as any).user?.userId;
+      
+      // Verify that the book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Get comments for the book
+      const comments = await storage.getComments(bookId, currentUserId);
+      
+      // Ensure all comments have their attachments properly populated
+      // (double-check in case storage.getComments didn't populate them correctly)
+      const commentsWithVerifiedAttachments = await Promise.all(comments.map(async (comment) => {
+        if (!comment.attachments || comment.attachments.length === 0) {
+          // If no attachments found, query directly from fileUploads
+          const directAttachments = await db.select({
+            id: fileUploads.id,
+            fileUrl: fileUploads.fileUrl,
+            filename: fileUploads.filename,
+            fileSize: fileUploads.fileSize,
+            mimeType: fileUploads.mimeType,
+            thumbnailUrl: fileUploads.thumbnailUrl
+          })
+          .from(fileUploads)
+          .where(and(
+            eq(fileUploads.entityId, comment.id),
+            eq(fileUploads.entityType, 'comment')
+          ));
+          
+          // Add attachments to the comment object
+          return {
+            ...comment,
+            attachments: directAttachments.map(att => ({
+              uploadId: att.id,
+              url: att.fileUrl,
+              filename: att.filename,
+              fileSize: att.fileSize,
+              mimeType: att.mimeType,
+              thumbnailUrl: att.thumbnailUrl
+            }))
+          };
+        }
+        return comment;
+      }));
+      
+      res.json({
+        comments: commentsWithVerifiedAttachments,
+        pagination: {
+          limit: commentsWithVerifiedAttachments.length, // Total number returned
+          offset: 0,
+          total: commentsWithVerifiedAttachments.length,
+          has_more: false // No pagination implemented in storage.getComments
+        }
+      });
+    } catch (error) {
+      console.error("Get book comments error:", error);
+      res.status(500).json({ error: "Failed to get comments for book" });
+    }
+  });
+
+  // Get user review for a book
+  router.get('/:bookId/user-review/:userId', optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { bookId, userId } = req.params;
+      
+      // Verify that the book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Get user's review for this book
+      const userReview = await storage.getUserReview(userId, bookId);
+      
+      res.json(userReview || null);
+    } catch (error) {
+      console.error("Get user review error:", error);
+      res.status(500).json({ error: "Failed to get user review" });
+    }
+  });
+  
+  // Get all reviews for a book
+  router.get('/:bookId/reviews', optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const currentUserId = (req as any).user?.userId;
+      
+      // Verify that the book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Get all reviews for the book
+      const reviews = await storage.getReviews(bookId, currentUserId);
+      
+      res.json(reviews);
+    } catch (error) {
+      console.error("Get book reviews error:", error);
+      res.status(500).json({ error: "Failed to get reviews for book" });
+    }
+  });
+  
+  // Get comment count for a book
+  router.get('/:bookId/comments/count', optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      
+      // Verify that the book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Get comment count for the book
+      try {
+        // Get all comments and count them
+        const comments = await storage.getComments(bookId);
+        res.json({ count: comments.length });
+      } catch (storageError) {
+        console.error("Error getting comment count:", storageError);
+        // Fallback: return 0 if there's an error
+        res.json({ count: 0 });
+      }
+    } catch (error) {
+      console.error("Get book comment count error:", error);
+      res.status(500).json({ error: "Failed to get comment count for book" });
+    }
+  });
+  
   // Get a single book by ID - this must be LAST to avoid catching other routes
   router.get("/:id", optionalAuthenticateToken, logUserAction, async (req, res) => {
     console.log("Get book by ID endpoint called");
@@ -382,6 +690,49 @@ export function createBooksRouter() {
     } catch (error) {
       console.error("Get book by ID error:", error);
       res.status(500).json({ error: "Failed to get book" });
+    }
+  });
+
+  // Import and use translation routes
+  // We'll import the translation routes directly into the books router
+  // to make the path /api/books/:bookId/translations work correctly
+  
+  // Get all translations for a book
+  router.get('/:bookId/translations', async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      
+      // Import the logic from bookTranslations
+      const { db } = await import('../storage/db');
+      const { bookTranslations } = await import('@shared/schema');
+      
+      const translations = await db
+        .select({
+          id: bookTranslations.id,
+          language: bookTranslations.language,
+          translationType: bookTranslations.translationType,
+          translationService: bookTranslations.translationService,
+          fileType: bookTranslations.fileType,
+          fileSize: bookTranslations.fileSize,
+          status: bookTranslations.status,
+          progress: bookTranslations.progress,
+          statusDetails: bookTranslations.statusDetails,
+          errorMessage: bookTranslations.errorMessage,
+          createdAt: bookTranslations.createdAt,
+          completedAt: bookTranslations.completedAt,
+          partialFilePath: bookTranslations.partialFilePath,
+          lastCompletedChunk: bookTranslations.lastCompletedChunk,
+          totalChunks: bookTranslations.totalChunks,
+          totalCharacters: bookTranslations.totalCharacters,
+          translatedCharacters: bookTranslations.translatedCharacters,
+        })
+        .from(bookTranslations)
+        .where(eq(bookTranslations.bookId, bookId));
+      
+      res.json(translations);
+    } catch (error) {
+      console.error('Error fetching translations:', error);
+      res.status(500).json({ error: 'Failed to fetch translations' });
     }
   });
 

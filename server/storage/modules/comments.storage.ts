@@ -1,13 +1,53 @@
-import { eq, and, desc, isNull, sql, count } from 'drizzle-orm';
-import { comments, users, reactions } from '@shared/schema';
+import { eq, and, desc, isNull, sql, count, or } from 'drizzle-orm';
+import { comments, users, reactions, fileUploads } from '@shared/schema';
 import type { DB } from '../db';
 
 export function createCommentsStorage(db: DB) {
   return {
     async createComment(commentData: any): Promise<any> {
       try {
-        const result = await db.insert(comments).values(commentData).returning();
+        // Extract attachmentIds from the comment data if present
+        const attachmentIds = commentData.attachmentIds || [];
+        
+        // Create the comment without the attachmentIds
+        const { attachmentIds: _, ...commentValues } = commentData;
+        
+        const result = await db.insert(comments).values(commentValues).returning();
         const createdComment = result[0];
+        
+        // If there are attachment IDs, link them to the comment
+        if (attachmentIds && attachmentIds.length > 0) {
+          try {
+            // Update file uploads to set the entityId to link them to the comment
+            // Handle both 'temp' files and 'comment' files without entityId
+            for (const attachmentId of attachmentIds) {
+              // Sanitize the attachmentId to prevent SQL injection
+              const sanitizedId = attachmentId.replace(/[^a-zA-Z0-9-]/g, '');
+              
+              if (sanitizedId && sanitizedId === attachmentId) { // Make sure sanitization didn't change the ID
+                await db.update(fileUploads)
+                  .set({
+                    entityId: createdComment.id,
+                    entityType: 'comment'  // Ensure it's set to 'comment'
+                  })
+                  .where(
+                    and(
+                      eq(fileUploads.id, sanitizedId),
+                      or(
+                        eq(fileUploads.entityType, 'temp'),
+                        and(
+                          eq(fileUploads.entityType, 'comment'),
+                          isNull(fileUploads.entityId)
+                        )
+                      )
+                    )
+                  );
+              }
+            }
+          } catch (attachmentError) {
+            console.error('Error linking attachments to comment:', attachmentError);
+          }
+        }
         
         // Now fetch the complete comment with user information
         const commentWithUser = await db
@@ -35,9 +75,33 @@ export function createCommentsStorage(db: DB) {
           .limit(1);
           
         if (commentWithUser[0]) {
+          // Get file uploads associated with this comment
+          const commentAttachments = await db
+            .select({
+              id: fileUploads.id,
+              fileUrl: fileUploads.fileUrl,
+              filename: fileUploads.filename,
+              fileSize: fileUploads.fileSize,
+              mimeType: fileUploads.mimeType,
+              thumbnailUrl: fileUploads.thumbnailUrl
+            })
+            .from(fileUploads)
+            .where(and(
+              eq(fileUploads.entityId, createdComment.id),
+              eq(fileUploads.entityType, 'comment')
+            ));
+          
           return {
             ...commentWithUser[0],
-            author: commentWithUser[0].fullName || commentWithUser[0].username || 'Anonymous'
+            author: commentWithUser[0].fullName || commentWithUser[0].username || 'Anonymous',
+            attachments: commentAttachments.map(att => ({
+              uploadId: att.id,
+              url: att.fileUrl,
+              filename: att.filename,
+              fileSize: att.fileSize,
+              mimeType: att.mimeType,
+              thumbnailUrl: att.thumbnailUrl
+            }))
           };
         }
         
@@ -50,8 +114,67 @@ export function createCommentsStorage(db: DB) {
 
     async getCommentById(id: string): Promise<any | undefined> {
       try {
-        const result = await db.select().from(comments).where(eq(comments.id, id));
-        return result[0] || null;
+        const result = await db
+          .select({
+            id: comments.id,
+            userId: comments.userId,
+            bookId: comments.bookId,
+            newsId: comments.newsId,
+            articleId: comments.articleId,
+            content: comments.content,
+            attachmentUrls: comments.attachmentUrls,
+            attachmentMetadata: comments.attachmentMetadata,
+            parentCommentId: comments.parentCommentId,
+            quotedText: comments.quotedText,
+            createdAt: comments.createdAt,
+            updatedAt: comments.updatedAt,
+            // User information - using names that match frontend expectations
+            username: users.username,
+            fullName: users.fullName,
+            userAvatar: users.avatarUrl  // Frontend expects userAvatar, not avatarUrl
+          })
+          .from(comments)
+          .leftJoin(users, eq(users.id, comments.userId))
+          .where(eq(comments.id, id))
+          .limit(1);
+          
+        if (result.length === 0) {
+          return null;
+        }
+        
+        const comment = result[0];
+        
+        // Get file uploads associated with this comment
+        console.log('DEBUG: Getting attachments for single comment ID:', comment.id);
+        const commentAttachments = await db
+          .select({
+            id: fileUploads.id,
+            fileUrl: fileUploads.fileUrl,
+            filename: fileUploads.filename,
+            fileSize: fileUploads.fileSize,
+            mimeType: fileUploads.mimeType,
+            thumbnailUrl: fileUploads.thumbnailUrl
+          })
+          .from(fileUploads)
+          .where(and(
+            eq(fileUploads.entityId, comment.id),
+            eq(fileUploads.entityType, 'comment')
+          ));
+          
+        console.log('DEBUG: Found attachments for single comment', comment.id, ':', commentAttachments.length);
+        
+        return {
+          ...comment,
+          author: comment.fullName || comment.username || 'Anonymous',
+          attachments: commentAttachments.map(att => ({
+            uploadId: att.id,
+            url: att.fileUrl,
+            filename: att.filename,
+            fileSize: att.fileSize,
+            mimeType: att.mimeType,
+            thumbnailUrl: att.thumbnailUrl
+          }))
+        };
       } catch (error) {
         console.error("Error getting comment by ID:", error);
         return undefined;
@@ -60,8 +183,67 @@ export function createCommentsStorage(db: DB) {
 
     async getComments(bookId: string, currentUserId?: string): Promise<any[]> {
       try {
-        const result = await db.select().from(comments).where(eq(comments.bookId, bookId));
-        return result;
+        const result = await db
+          .select({
+            id: comments.id,
+            userId: comments.userId,
+            bookId: comments.bookId,
+            newsId: comments.newsId,
+            articleId: comments.articleId,
+            content: comments.content,
+            attachmentUrls: comments.attachmentUrls,
+            attachmentMetadata: comments.attachmentMetadata,
+            parentCommentId: comments.parentCommentId,
+            quotedText: comments.quotedText,
+            createdAt: comments.createdAt,
+            updatedAt: comments.updatedAt,
+            // User information - using names that match frontend expectations
+            username: users.username,
+            fullName: users.fullName,
+            userAvatar: users.avatarUrl  // Frontend expects userAvatar, not avatarUrl
+          })
+          .from(comments)
+          .leftJoin(users, eq(users.id, comments.userId))
+          .where(eq(comments.bookId, bookId));
+          
+        // For each comment, get its associated file uploads
+        console.log('DEBUG: Getting attachments for comments, count:', result.length);
+        const commentsWithAttachments = await Promise.all(result.map(async (comment) => {
+          console.log('DEBUG: Processing comment ID:', comment.id);
+          
+          // Get file uploads associated with this comment
+          const commentAttachments = await db
+            .select({
+              id: fileUploads.id,
+              fileUrl: fileUploads.fileUrl,
+              filename: fileUploads.filename,
+              fileSize: fileUploads.fileSize,
+              mimeType: fileUploads.mimeType,
+              thumbnailUrl: fileUploads.thumbnailUrl
+            })
+            .from(fileUploads)
+            .where(and(
+              eq(fileUploads.entityId, comment.id),
+              eq(fileUploads.entityType, 'comment')
+            ));
+            
+          console.log('DEBUG: Found attachments for comment', comment.id, ':', commentAttachments.length);
+          
+          return {
+            ...comment,
+            author: comment.fullName || comment.username || 'Anonymous',
+            attachments: commentAttachments.map(att => ({
+              uploadId: att.id,
+              url: att.fileUrl,
+              filename: att.filename,
+              fileSize: att.fileSize,
+              mimeType: att.mimeType,
+              thumbnailUrl: att.thumbnailUrl
+            }))
+          };
+        }));
+        
+        return commentsWithAttachments;
       } catch (error) {
         console.error("Error getting comments:", error);
         return [];
@@ -115,7 +297,37 @@ export function createCommentsStorage(db: DB) {
           };
         }));
         
-        return commentsWithData;
+        // For each comment, get its associated file uploads
+        const commentsWithAttachments = await Promise.all(commentsWithData.map(async (comment) => {
+          const commentAttachments = await db
+            .select({
+              id: fileUploads.id,
+              fileUrl: fileUploads.fileUrl,
+              filename: fileUploads.filename,
+              fileSize: fileUploads.fileSize,
+              mimeType: fileUploads.mimeType,
+              thumbnailUrl: fileUploads.thumbnailUrl
+            })
+            .from(fileUploads)
+            .where(and(
+              eq(fileUploads.entityId, comment.id),
+              eq(fileUploads.entityType, 'comment')
+            ));
+          
+          return {
+            ...comment,
+            attachments: commentAttachments.map(att => ({
+              uploadId: att.id,
+              url: att.fileUrl,
+              filename: att.filename,
+              fileSize: att.fileSize,
+              mimeType: att.mimeType,
+              thumbnailUrl: att.thumbnailUrl
+            }))
+          };
+        }));
+        
+        return commentsWithAttachments;
       } catch (error) {
         console.error("Error getting article comments:", error);
         return [];
@@ -198,6 +410,22 @@ export function createCommentsStorage(db: DB) {
           
           const reactions = await this.getCommentReactions(reply.id, currentUserId);
 
+          // Get attachments for this reply
+          const replyAttachments = await db
+            .select({
+              id: fileUploads.id,
+              fileUrl: fileUploads.fileUrl,
+              filename: fileUploads.filename,
+              fileSize: fileUploads.fileSize,
+              mimeType: fileUploads.mimeType,
+              thumbnailUrl: fileUploads.thumbnailUrl
+            })
+            .from(fileUploads)
+            .where(and(
+              eq(fileUploads.entityId, reply.id),
+              eq(fileUploads.entityType, 'comment')
+            ));
+          
           return {
             ...reply,
             author: reply.fullName || reply.username || 'Anonymous',
@@ -205,7 +433,14 @@ export function createCommentsStorage(db: DB) {
             parentCommentAuthor: parentCommentAuthor,
             replyCount: replyCount,
             reactions,
-            attachments: [], // Will be populated if needed
+            attachments: replyAttachments.map(att => ({
+              uploadId: att.id,
+              url: att.fileUrl,
+              filename: att.filename,
+              fileSize: att.fileSize,
+              mimeType: att.mimeType,
+              thumbnailUrl: att.thumbnailUrl
+            })),
             replies: nestedReplies // Include nested replies recursively
           };
         }));
@@ -219,9 +454,67 @@ export function createCommentsStorage(db: DB) {
 
     async getBookCommentReplies(commentId: string, currentUserId?: string): Promise<any[]> {
       try {
-        const result = await db.select().from(comments)
+        // Get replies with user information
+        const result = await db
+          .select({
+            id: comments.id,
+            userId: comments.userId,
+            bookId: comments.bookId,
+            newsId: comments.newsId,
+            articleId: comments.articleId,
+            content: comments.content,
+            attachmentUrls: comments.attachmentUrls,
+            attachmentMetadata: comments.attachmentMetadata,
+            parentCommentId: comments.parentCommentId,
+            quotedText: comments.quotedText,
+            createdAt: comments.createdAt,
+            updatedAt: comments.updatedAt,
+            // User information - using names that match frontend expectations
+            username: users.username,
+            fullName: users.fullName,
+            userAvatar: users.avatarUrl  // Frontend expects userAvatar, not avatarUrl
+          })
+          .from(comments)
+          .leftJoin(users, eq(users.id, comments.userId))
           .where(eq(comments.parentCommentId, commentId));
-        return result;
+        
+        // For each reply, get its associated file uploads
+        console.log('DEBUG: Getting attachments for replies, count:', result.length);
+        const repliesWithAttachments = await Promise.all(result.map(async (reply) => {
+          console.log('DEBUG: Processing reply ID:', reply.id);
+          // Get file uploads associated with this reply
+          const replyAttachments = await db
+            .select({
+              id: fileUploads.id,
+              fileUrl: fileUploads.fileUrl,
+              filename: fileUploads.filename,
+              fileSize: fileUploads.fileSize,
+              mimeType: fileUploads.mimeType,
+              thumbnailUrl: fileUploads.thumbnailUrl
+            })
+            .from(fileUploads)
+            .where(and(
+              eq(fileUploads.entityId, reply.id),
+              eq(fileUploads.entityType, 'comment')
+            ));
+          
+          console.log('DEBUG: Found attachments for reply', reply.id, ':', replyAttachments.length);
+          
+          return {
+            ...reply,
+            author: reply.fullName || reply.username || 'Anonymous',
+            attachments: replyAttachments.map(att => ({
+              uploadId: att.id,
+              url: att.fileUrl,
+              filename: att.filename,
+              fileSize: att.fileSize,
+              mimeType: att.mimeType,
+              thumbnailUrl: att.thumbnailUrl
+            }))
+          };
+        }));
+        
+        return repliesWithAttachments;
       } catch (error) {
         console.error("Error getting comment replies:", error);
         return [];

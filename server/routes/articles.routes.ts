@@ -315,7 +315,8 @@ export function createArticlesRouter() {
         articleId: id,
         content: req.body.content,
         parentCommentId: req.body.parentCommentId,
-        quotedText: req.body.quotedText
+        quotedText: req.body.quotedText,
+        attachmentIds: req.body.attachments || []
       });
       
       // Update the article's comment count

@@ -19,6 +19,7 @@ import { AttachmentButton } from '@/components/AttachmentButton';
 import { AttachmentPreview } from '@/components/AttachmentPreview';
 import { AttachmentDisplay } from '@/components/AttachmentDisplay';
 import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
+import { onSocketEvent, getSocket, joinBookComments, leaveBookComments } from '@/lib/socket';
 
 interface Reaction {
   emoji: string;
@@ -90,6 +91,10 @@ interface CommentItemProps {
   onReaction: (commentId: string, emoji: string) => void;
   onTextSelect: (comment: Comment) => void;
   onScrollToComment: (commentId: string) => void;
+  replyAttachmentFiles: Record<string, File[]>;
+  replyUploadedFiles: Record<string, UploadedFile[]>;
+  setReplyAttachmentFiles: React.Dispatch<React.SetStateAction<Record<string, File[]>>>;
+  setReplyUploadedFiles: React.Dispatch<React.SetStateAction<Record<string, UploadedFile[]>>>;
 }
 
 export function CommentItem({
@@ -114,7 +119,11 @@ export function CommentItem({
   onDelete,
   onReaction,
   onTextSelect,
-  onScrollToComment
+  onScrollToComment,
+  replyAttachmentFiles,
+  replyUploadedFiles,
+  setReplyAttachmentFiles,
+  setReplyUploadedFiles
 }: CommentItemProps) {
   const isExpanded = expandedReplies.has(comment.id);
   const isLoading = loadingReplies.has(comment.id);
@@ -578,12 +587,44 @@ export function CommentItem({
                     className="pr-10 text-sm min-h-[50px] bg-background border-muted"
                     autoFocus
                   />
-                  <div className="absolute bottom-1 right-1">
+                  <div className="absolute bottom-1 right-1 flex gap-1">
                     <EmojiPicker
                       onEmojiSelect={(emoji) => onReplyTextChange(replyText + emoji)}
                     />
+                    <AttachmentButton 
+                      onFilesSelected={(files) => {
+                        // Update reply attachment files for the current comment
+                        setReplyAttachmentFiles(prev => ({
+                          ...prev,
+                          [comment.id]: files
+                        }));
+                      }}
+                      maxFiles={5}
+                    />
                   </div>
                 </div>
+                {replyAttachmentFiles[comment.id] && replyAttachmentFiles[comment.id].length > 0 && (
+                  <AttachmentPreview
+                    files={replyAttachmentFiles[comment.id]}
+                    onRemove={(index) => {
+                      // Remove attachment from reply
+                      const newFiles = replyAttachmentFiles[comment.id].filter((_, i) => i !== index);
+                      setReplyAttachmentFiles(prev => ({
+                        ...prev,
+                        [comment.id]: newFiles
+                      }));
+                    }}
+                    onUploadComplete={(files) => {
+                      // Handle uploaded files for reply
+                      setReplyUploadedFiles(prev => ({
+                        ...prev,
+                        [comment.id]: files
+                      }));
+                    }}
+                    autoUpload={true}
+                    entityType="comment"
+                  />
+                )}
                 <div className="flex items-center justify-end gap-1.5">
                   <span className="text-xs text-muted-foreground mr-auto">Ctrl+Enter</span>
                   <Button
@@ -598,7 +639,7 @@ export function CommentItem({
                     size="sm"
                     className="h-6 text-xs px-3"
                     onClick={onSubmitReply}
-                    disabled={submitting || !replyText.trim()}
+                    disabled={submitting || !replyText.trim() || (replyAttachmentFiles[comment.id] && replyAttachmentFiles[comment.id].length > 0 && replyUploadedFiles[comment.id] && replyUploadedFiles[comment.id].length !== replyAttachmentFiles[comment.id].length)}
                   >
                     {t('profile:ratings.postReply')}
                   </Button>
@@ -637,6 +678,10 @@ export function CommentItem({
               onReaction={onReaction}
               onTextSelect={onTextSelect}
               onScrollToComment={onScrollToComment}
+              replyAttachmentFiles={replyAttachmentFiles}
+              replyUploadedFiles={replyUploadedFiles}
+              setReplyAttachmentFiles={setReplyAttachmentFiles}
+              setReplyUploadedFiles={setReplyUploadedFiles}
             />
           ))}
         </div>
@@ -660,6 +705,10 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   
+  // State for reply attachments
+  const [replyAttachmentFiles, setReplyAttachmentFiles] = useState<Record<string, File[]>>({});
+  const [replyUploadedFiles, setReplyUploadedFiles] = useState<Record<string, UploadedFile[]>>({});
+  
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
   const fetchComments = useCallback(async () => {
@@ -674,7 +723,9 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       });
       
       if (response.ok) {
-        const fetchedComments = await response.json();
+        const responseData = await response.json();
+        // Extract comments from the response (new API structure)
+        const fetchedComments = Array.isArray(responseData) ? responseData : responseData.comments || [];
         setComments(fetchedComments);
         setCachedComments(bookId, fetchedComments);
         
@@ -711,7 +762,9 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
 
     const pendingRequest = getPendingRequest('comments', bookId);
     if (pendingRequest) {
-      pendingRequest.then((fetchedComments) => {
+      pendingRequest.then((responseData) => {
+        // Extract comments from the response (new API structure)
+        const fetchedComments = Array.isArray(responseData) ? responseData : responseData.comments || [];
         setComments(fetchedComments);
         if (onCommentsCountChange) {
           onCommentsCountChange(fetchedComments.length);
@@ -732,6 +785,32 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     }
   }, [bookId, onCommentsCountChange, fetchComments]);
 
+  // Set up WebSocket connection for real-time comments
+  useEffect(() => {
+    if (!bookId) return;
+
+    // Join the book-comments room
+    joinBookComments(bookId);
+
+    // Listen for new comments
+    const cleanupSocket = onSocketEvent('new-comment', (commentData: any) => {
+      if (commentData.bookId === bookId) {
+        // Add the new comment to the beginning of the comments list
+        setComments(prevComments => [commentData, ...prevComments]);
+        if (onCommentsCountChange) {
+          onCommentsCountChange(comments.length + 1);
+        }
+      }
+    });
+
+    return () => {
+      // Leave the book-comments room when component unmounts
+      leaveBookComments(bookId);
+      // Clean up the event listener
+      cleanupSocket();
+    };
+  }, [bookId, onCommentsCountChange]);
+
   const handlePostComment = async () => {
     if (!newComment.trim() || !user) return;
     
@@ -745,7 +824,9 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         },
         body: JSON.stringify({ 
           content: newComment,
-          attachments: uploadedFiles.map(f => f.uploadId),
+          attachments: replyToComment && replyUploadedFiles[replyToComment.id] 
+            ? replyUploadedFiles[replyToComment.id].map(f => f.uploadId)
+            : uploadedFiles.map(f => f.uploadId),
           parentCommentId: replyToComment?.id || null,
           quotedText: quotedText || null
         })
@@ -772,7 +853,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
             parentCommentAuthor: replyToComment.author,
             replyCount: 0,
             replies: [],
-            attachments: newCommentObj.attachmentMetadata?.attachments || []
+            attachments: newCommentObj.attachments || []
           };
           
           setComments(prevComments => 
@@ -798,7 +879,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
             parentCommentAuthor: null,
             replyCount: 0,
             replies: [],
-            attachments: newCommentObj.attachmentMetadata?.attachments || []
+            attachments: newCommentObj.attachments || []
           };
           
           const updatedComments = [formattedComment, ...comments];
@@ -815,6 +896,20 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         setQuotedText('');
         setAttachmentFiles([]);
         setUploadedFiles([]);
+        
+        // Clear reply attachment files if we were replying
+        if (replyToComment) {
+          setReplyAttachmentFiles(prev => {
+            const newPrev = {...prev};
+            delete newPrev[replyToComment.id];
+            return newPrev;
+          });
+          setReplyUploadedFiles(prev => {
+            const newPrev = {...prev};
+            delete newPrev[replyToComment.id];
+            return newPrev;
+          });
+        }
       } else {
         console.error('Failed to post comment');
       }
@@ -1060,6 +1155,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
                 }}
                 onUploadComplete={(files) => setUploadedFiles(files)}
                 autoUpload={true}
+                entityType="comment"
               />
             )}
             <div className="flex justify-between items-center">
@@ -1126,6 +1222,10 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
               onReaction={handleReact}
               onTextSelect={handleTextSelect}
               onScrollToComment={handleScrollToComment}
+              replyAttachmentFiles={replyAttachmentFiles}
+              replyUploadedFiles={replyUploadedFiles}
+              setReplyAttachmentFiles={setReplyAttachmentFiles}
+              setReplyUploadedFiles={setReplyUploadedFiles}
             />
           ))
         )}

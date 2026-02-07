@@ -92,9 +92,25 @@ app.use((req, res, next) => {
 
 app.use(express.urlencoded({ extended: false }));
 
-// Serve uploaded files BEFORE any other routes to ensure they're not intercepted
+// Serve uploaded files with CORS headers
 const uploadsPath = path.resolve(process.cwd(), 'uploads');
-app.use('/uploads', express.static(uploadsPath));
+app.use('/uploads', (req, res, next) => {
+  // Add CORS headers for static file requests
+  // For development, allow all origins to fix cross-origin issues
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  // Additional headers for image files
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    express.static(uploadsPath)(req, res, next);
+  }
+});
 
 // Serve TTS audio files
 const ttsPath = path.resolve(process.cwd(), 'storage', 'tts');

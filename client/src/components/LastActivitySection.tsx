@@ -91,6 +91,12 @@ interface Activity {
   metadata: any;
   createdAt: string;
   updatedAt: string;
+  username?: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+  content?: string;
+  parentCommentId?: string | null;
+  rating?: number | null;
 }
 
 interface LastAction {
@@ -1061,33 +1067,41 @@ export function LastActivitySection({ profileId, profileUsername, initialExpande
     console.log('Activity ID:', activity.id);
     console.log('Activity type:', activity.type);
     console.log('Full activity metadata:', activity.metadata);
-    console.log('Reading progress in activity:', activity.metadata.readingProgress);
+    console.log('Reading progress in activity:', activity.metadata?.readingProgress);
     console.log('Activity bookId:', activity.bookId);
-    console.log('Activity metadata book_id:', activity.metadata.book_id);
+    console.log('Activity metadata book_id:', activity.metadata?.book_id);
     console.log('Activity metadata type:', typeof activity.metadata);
     console.log('Activity metadata keys:', Object.keys(activity.metadata || {}));
+    
+    // Handle the case where user data is in the main activity object (from backend)
+    // or in metadata (legacy format)
+    const username = activity.username || activity.metadata?.author_name || activity.metadata?.username;
+    const fullName = activity.fullName || activity.metadata?.author_name || activity.metadata?.fullName;
+    const avatarUrl = activity.avatarUrl || activity.metadata?.author_avatar || activity.metadata?.avatarUrl;
+    const content = activity.content || activity.metadata?.content || activity.metadata?.content_preview;
+    const parentCommentId = activity.parentCommentId || activity.metadata?.parentCommentId;
     
     const result = {
       id: activity.id,
       userId: activity.userId,
       profileId: profileId,
-      content: activity.metadata.content || activity.metadata.content_preview,
+      content: content,
       createdAt: activity.createdAt,
-      username: activity.metadata.author_name,
-      fullName: activity.metadata.author_name,
-      avatarUrl: activity.metadata.author_avatar,
+      username: username,
+      fullName: fullName,
+      avatarUrl: avatarUrl,
       rating: null,
       isOwnComment: user?.id === activity.userId,
-      parentCommentId: null,
+      parentCommentId: parentCommentId || null,
       quotedText: null,
       parentCommentAuthor: null,
-      reactions: activity.metadata.reactions,
-      replyCount: activity.metadata.replyCount || activity.metadata.reply_count,
-      replies: activity.metadata.replies || [],
-      bookId: activity.bookId || activity.metadata.book_id,
+      reactions: activity.metadata?.reactions,
+      replyCount: activity.metadata?.replyCount || activity.metadata?.reply_count,
+      replies: activity.metadata?.replies || [],
+      bookId: activity.bookId || activity.metadata?.book_id,
       metadata: {
-        readingProgress: activity.metadata.readingProgress || undefined,
-        bookRating: activity.metadata.book_rating // Add book rating to metadata
+        readingProgress: activity.metadata?.readingProgress || undefined,
+        bookRating: activity.metadata?.book_rating // Add book rating to metadata
       }
     };
     
@@ -1109,32 +1123,40 @@ export function LastActivitySection({ profileId, profileUsername, initialExpande
     console.log('Activity ID:', activity.id);
     console.log('Activity type:', activity.type);
     console.log('Full activity metadata:', activity.metadata);
-    console.log('Reading progress in activity:', activity.metadata.readingProgress);
+    console.log('Reading progress in activity:', activity.metadata?.readingProgress);
     console.log('Activity bookId:', activity.bookId);
-    console.log('Activity metadata book_id:', activity.metadata.book_id);
+    console.log('Activity metadata book_id:', activity.metadata?.book_id);
+    
+    // Handle the case where user data is in the main activity object (from backend)
+    // or in metadata (legacy format)
+    const username = activity.username || activity.metadata?.author_name || activity.metadata?.username;
+    const author = activity.fullName || activity.username || activity.metadata?.author_name;
+    const avatarUrl = activity.avatarUrl || activity.metadata?.author_avatar || activity.metadata?.avatarUrl;
+    const content = activity.content || activity.metadata?.content || activity.metadata?.content_preview;
+    const rating = activity.rating || activity.metadata?.rating;
     
     const result = {
       id: activity.id,
-      bookId: activity.bookId || activity.metadata.book_id,
-      author: activity.metadata.author_name,
-      username: activity.metadata.author_name,
-      content: activity.metadata.content || activity.metadata.content_preview,
-      rating: activity.metadata.rating,
-      userBookRating: activity.metadata.rating,
+      bookId: activity.bookId || activity.metadata?.book_id,
+      author: author,
+      username: username,
+      content: content,
+      rating: rating,
+      userBookRating: rating,
       createdAt: activity.createdAt,
-      reactions: activity.metadata.reactions,
+      reactions: activity.metadata?.reactions,
       userId: activity.userId,
-      avatarUrl: activity.metadata.author_avatar,
+      avatarUrl: avatarUrl,
       attachments: [],
       isOwnReview: user?.id === activity.userId,
       parentReviewId: null,
       quotedText: null,
       parentReviewAuthor: null,
-      replyCount: activity.metadata.replyCount || activity.metadata.reply_count,
-      replies: activity.metadata.replies || [],
+      replyCount: activity.metadata?.replyCount || activity.metadata?.reply_count,
+      replies: activity.metadata?.replies || [],
       metadata: {
-        readingProgress: activity.metadata.readingProgress || undefined,
-        bookRating: activity.metadata.book_rating // Add book rating to metadata
+        readingProgress: activity.metadata?.readingProgress || undefined,
+        bookRating: activity.metadata?.book_rating // Add book rating to metadata
       }
     };
     

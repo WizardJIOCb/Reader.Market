@@ -40,6 +40,9 @@ export interface SocketEvents {
     pageInChapter: number;
     totalPagesInChapter: number;
   }) => void;
+  
+  // Comment events
+  'new-comment': (data: any) => void;
 }
 
 export function initializeSocket(token?: string): Socket {
@@ -192,6 +195,19 @@ export function deleteBookChatMessage(bookId: string, messageId: string): void {
 export function sendReadingPosition(bookId: string, chapterIndex: number, pageInChapter: number, totalPagesInChapter: number): void {
   if (socket?.connected) {
     socket.emit('book-chat:reading-position', { bookId, chapterIndex, pageInChapter, totalPagesInChapter });
+  }
+}
+
+// Book comments helpers
+export function joinBookComments(bookId: string): void {
+  if (socket?.connected) {
+    socket.emit('join:book-comments', bookId);
+  }
+}
+
+export function leaveBookComments(bookId: string): void {
+  if (socket?.connected) {
+    socket.emit('leave:book-comments', bookId);
   }
 }
 

@@ -69,22 +69,67 @@ router.post("/", authenticateToken, attachmentUpload.single('file'), async (req,
       return res.status(400).json({ error: 'Entity type is required' });
     }
 
-    // Create file upload record
+// Create file upload record first with the original fileUrl
     const newUpload = await db
       .insert(fileUploads)
       .values({
         uploaderId: userId,
-        fileUrl: req.file.path,
+        fileUrl: '', // We'll update this after path processing
         filename: req.file.originalname,
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
-        storagePath: req.file.path,
+        storagePath: req.file.path, // Keep the full system path for server operations
         entityType,
         entityId: entityId || null
       })
       .returning();
+    
+    // Convert the full file path to a web-accessible URL
+    // The file is stored in the uploads directory and served at /uploads
+    let relativeFilePath = req.file.path.replace(process.cwd(), '').replace(/\\/g, '/');
+    
+    // Clean up the path to ensure it's properly formatted
+    relativeFilePath = relativeFilePath.replace(/^[/\\]+/, ''); // Remove leading slashes/backslashes
+    
+    let webAccessibleUrl;
+    
+    // Check if the relative path already starts with 'uploads', if so use it directly
+    if (relativeFilePath.toLowerCase().startsWith('uploads/')) {
+      webAccessibleUrl = '/' + relativeFilePath;
+    } else {
+      // If the path doesn't start with uploads, prepend it
+      webAccessibleUrl = '/uploads/' + relativeFilePath;
+    }
+    
+    // Ensure we have a proper relative path
+    if (webAccessibleUrl.includes(':')) {
+      // If there's a colon (likely a Windows drive letter), extract just the uploads portion
+      const uploadsIndex = webAccessibleUrl.indexOf('/uploads/');
+      if (uploadsIndex !== -1) {
+        webAccessibleUrl = webAccessibleUrl.substring(uploadsIndex);
+      }
+    }
+    
+    // Update the fileUrl in the database record with the corrected URL
+    await db
+      .update(fileUploads)
+      .set({ fileUrl: webAccessibleUrl })
+      .where(eq(fileUploads.id, newUpload[0].id));
+    
+    // Update the newUpload variable to reflect the corrected URL
+    newUpload[0].fileUrl = webAccessibleUrl;
 
-    res.status(201).json(newUpload[0]);
+    // Transform the response to match frontend expectations
+    const transformedUpload = {
+      uploadId: newUpload[0].id,
+      url: newUpload[0].fileUrl,
+      filename: newUpload[0].filename,
+      fileSize: newUpload[0].fileSize,
+      mimeType: newUpload[0].mimeType,
+      thumbnailUrl: newUpload[0].thumbnailUrl
+    };
+
+    res.status(201).json(transformedUpload);
   } catch (error) {
     console.error('Error uploading file:', error);
     res.status(500).json({ error: 'Failed to upload file' });
