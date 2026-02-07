@@ -1,4 +1,8 @@
 import { Router, type Express } from 'express';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export function createGitRouter() {
   const router = Router();
@@ -235,8 +239,8 @@ router.get("/commit/:sha/details", async (req, res) => {
       });
     }
     
-    // Validate SHA format (should be 40 characters hex)
-    if (!/^[0-9a-f]{40}$/i.test(sha)) {
+    // Validate SHA format (can be short Git hash 7+ chars or full 40-char SHA)
+    if (!/^[0-9a-f]{7,40}$/i.test(sha)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid commit SHA format'
@@ -384,87 +388,228 @@ router.get("/commit/:sha/details", async (req, res) => {
 // Git history endpoint
 router.get("/git-history", async (req, res) => {
   try {
-    const { search, limit = 50, offset = 0, author } = req.query;
-
-    // Check if we have cached data and it's still fresh
-    const now = Date.now();
-    if (apiGitCache.data && (now - apiGitCache.timestamp) < apiGitCache.ttl) {
-      console.log(`Using cached API git history. Cache age: ${Math.floor((now - apiGitCache.timestamp) / 1000)} seconds`);
-      
-      // Apply pagination to cached data
-      const startIndex = parseInt(offset as string) || 0;
-      const limitNum = parseInt(limit as string) || 50;
-      const paginatedData = apiGitCache.data.commits.slice(startIndex, startIndex + limitNum);
-      
-      return res.json({
-        ...apiGitCache.data,
-        commits: paginatedData,
-        pagination: {
-          total: apiGitCache.data.commits.length,
-          limit: limitNum,
-          offset: startIndex,
-          hasMore: startIndex + limitNum < apiGitCache.data.commits.length
-        }
-      });
-    }
-
-    // Forward to the main git-to-gpt endpoint
-    const currentTime = Date.now();
-    const template = 'html';
-    const count = 100; // Get more commits to have enough for pagination
+    const { template = 'html', count = '50', cache = 'true' } = req.query;
     
-    const response = await fetch(`http://localhost:5001/git-to-gpt?template=${template}&count=${count}`);
-    const data = await response.json();
-
-    if (data.error) {
-      console.error('Error fetching git history from git-to-gpt:', data.error);
-      return res.status(500).json(data);
+    console.log(`Git history endpoint called - template: ${template}, count: ${count}, cache: ${cache}`);
+    
+    // Check if caching is disabled
+    if (cache === 'false' || cache === '0' || cache === 'false') {
+      console.log('Cache disabled for git-history, clearing commits cache');
+      commitsCache.data = [];
+      commitsCache.timestamp = 0;
     }
-
-    // Apply filters to the data
-    let filteredCommits = data.commits;
-
-    if (search && typeof search === 'string') {
-      filteredCommits = filteredCommits.filter((commit: any) => 
-        commit.message.toLowerCase().includes(search.toLowerCase())
-      );
+    
+    // Check if we have cached data and caching is enabled
+    const now = Date.now();
+    if (cache !== 'false' && commitsCache.data.length > 0 && 
+        (now - commitsCache.timestamp) < commitsCache.ttl) {
+      console.log(`Using cached commits data for git-history. Cache age: ${Math.floor((now - commitsCache.timestamp) / 1000)} seconds`);
+      
+      // Return only requested count if specified
+      const countNum = parseInt(count as string) || 50;
+      const limitedData = commitsCache.data.slice(0, countNum);
+      
+      // Generate HTML response compatible with client-side parsing
+      const htmlResponse = generateHtmlResponse(limitedData);
+      res.setHeader('Content-Type', 'text/html');
+      return res.send(htmlResponse);
     }
-
-    if (author && typeof author === 'string') {
-      filteredCommits = filteredCommits.filter((commit: any) => 
-        commit.author.toLowerCase().includes(author.toLowerCase())
-      );
-    }
-
-    // Apply pagination
-    const startIndex = parseInt(offset as string) || 0;
-    const limitNum = parseInt(limit as string) || 50;
-    const paginatedData = filteredCommits.slice(startIndex, startIndex + limitNum);
-
-    const result = {
-      commits: paginatedData,
-      pagination: {
-        total: filteredCommits.length,
-        limit: limitNum,
-        offset: startIndex,
-        hasMore: startIndex + limitNum < filteredCommits.length
-      }
-    };
-
-    // Cache the result
-    apiGitCache.data = { commits: filteredCommits }; // Cache full filtered data
-    apiGitCache.timestamp = now;
-    console.log('Cached API git history response');
-
-    res.json(result);
-  } catch (error) {
-    console.error('Error in API git history endpoint:', error);
-    res.status(500).json({
-      error: 'Failed to fetch commit history',
-      message: error instanceof Error ? error.message : 'Unknown error'
+    
+    console.log('Fetching fresh git log data for git-history...');
+    
+    // Execute git log command to get commits from the past year
+    // Use --since to get all commits from 1 year ago
+    // Use --date=format:"%d.%m.%Y, %H:%M" to get date in DD.MM.YYYY, HH:MM format
+    const { stdout } = await execAsync(`git log --oneline --pretty=format:"%h||%an||%ad||%s" --date=format:"%d.%m.%Y, %H:%M" --since="1 year ago"`, {
+      maxBuffer: 1024 * 1024 // 1MB buffer
     });
+    
+    const lines = stdout.trim().split('\n').filter((line: string) => line.trim() !== '');
+    
+    const commits = lines.map((line: string) => {
+      const [hash, author, date, ...messageParts] = line.split('||');
+      return {
+        hash: hash?.trim(),
+        author: author?.trim(),
+        date: date?.trim(),
+        message: messageParts.join('||')?.trim()
+      };
+    }).filter((commit: any) => commit.hash);
+    
+    console.log(`Fetched ${commits.length} commits from git for git-history`);
+    
+    // Cache the data
+    commitsCache.data = commits;
+    commitsCache.timestamp = now;
+    
+    // Generate HTML response compatible with client-side parsing
+    const htmlResponse = generateHtmlResponse(commits);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(htmlResponse);
+    
+  } catch (error) {
+    console.error('Error in git-history endpoint:', error);
+    const errorHtml = `<!DOCTYPE html><html><body><div class="error">Failed to fetch git history: ${(error as Error).message}</div></body></html>`;
+    res.setHeader('Content-Type', 'text/html');
+    res.status(500).send(errorHtml);
   }
 });
 
+  // Git to GPT endpoint - generates GPT-friendly format from git history
+  router.get("/git-to-gpt", async (req, res) => {
+    console.log("=== GIT-TO-GPT ENDPOINT CALLED ===");
+    console.log("Query params:", req.query);
+    
+    try {
+      const { template = 'html', count = '50', cache = 'true' } = req.query;
+      
+      console.log(`Parameters - template: ${template}, count: ${count}, cache: ${cache}`);
+      
+      // Check if caching is disabled
+      if (cache === 'false' || cache === '0' || cache === 'false') {
+        console.log('Cache disabled, clearing commits cache');
+        commitsCache.data = [];
+        commitsCache.timestamp = 0;
+      }
+      
+      // Check if we have cached data and caching is enabled
+      const now = Date.now();
+      if (cache !== 'false' && commitsCache.data.length > 0 && 
+          (now - commitsCache.timestamp) < commitsCache.ttl) {
+        console.log(`Using cached commits data. Cache age: ${Math.floor((now - commitsCache.timestamp) / 1000)} seconds`);
+        
+        // Return only requested count if specified
+        const countNum = parseInt(count as string) || 50;
+        const limitedData = commitsCache.data.slice(0, countNum);
+        
+        return res.json({
+          commits: limitedData,
+          count: limitedData.length,
+          cached: true,
+          cache_age_seconds: Math.floor((now - commitsCache.timestamp) / 1000)
+        });
+      }
+      
+      console.log('Fetching fresh git log data...');
+      
+      // Execute git log command to get recent commits
+      const countNum = parseInt(count as string) || 50;
+      
+      const { stdout } = await execAsync(`git log --oneline --pretty=format:"%h||%an||%ad||%s" -${countNum}`, {
+        maxBuffer: 1024 * 1024 // 1MB buffer
+      });
+      
+      const lines = stdout.trim().split('\n').filter((line: string) => line.trim() !== '');
+      
+      const commits = lines.map((line: string) => {
+        const [hash, author, date, ...messageParts] = line.split('||');
+        return {
+          hash: hash?.trim(),
+          author: author?.trim(),
+          date: date?.trim(),
+          message: messageParts.join('||')?.trim()
+        };
+      }).filter((commit: any) => commit.hash);
+      
+      console.log(`Fetched ${commits.length} commits from git`);
+      
+      // Cache the data
+      commitsCache.data = commits;
+      commitsCache.timestamp = now;
+      
+      // Format response according to template
+      let responseData;
+      
+      switch(template) {
+        case 'cool':
+          responseData = {
+            commits: commits.map((commit: any) => ({
+              id: commit.hash,
+              title: commit.message,
+              author: commit.author,
+              date: commit.date,
+              type: 'git-commit'
+            })),
+            summary: {
+              total: commits.length,
+              period: 'recent',
+              format: 'cool-template'
+            }
+          };
+          break;
+          
+        case 'html':
+          responseData = {
+            html: `<div class="git-commits">
+              <h3>Recent Commits (${commits.length})</h3>
+              <ul>
+                ${commits.map((commit: any) => `
+                  <li>
+                    <strong>${commit.hash}</strong>: ${commit.message} 
+                    <em>by ${commit.author}</em> 
+                    <small>(${commit.date})</small>
+                  </li>`).join('')}
+              </ul>
+            </div>`
+          };
+          break;
+          
+        default:
+          responseData = {
+            commits,
+            count: commits.length,
+            template: template as string
+          };
+      }
+      
+      res.json(responseData);
+      
+    } catch (error) {
+      console.error('Error in git-to-gpt endpoint:', error);
+      res.status(500).json({
+        error: 'Failed to fetch git commits',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  
+  
+  // Helper function to generate HTML response compatible with client-side parsing
+  function generateHtmlResponse(commits: any[]) {
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Git Commits</title>
+</head>
+<body>
+  <!-- Cache updated: ${new Date().toISOString()} -->
+  <div class="commits-container">
+    ${commits.map((commit: any) => `
+    <div class="commit-card">
+      <div class="commit-hash">${escapeHtml(commit.hash || '')}</div>
+      <div class="commit-message">${escapeHtml(commit.message || '')}</div>
+      <div class="author-name">${escapeHtml(commit.author || '')}</div>
+      <div class="commit-date">${escapeHtml(commit.date || '')}</div>
+      <div class="commit-body"></div>
+      <a class="commit-link" href="https://github.com/WizardJIOCb/Reader.Market/commit/${escapeHtml(commit.hash || '')}">${escapeHtml(commit.hash || '')}</a>
+    </div>`).join('')}
+  </div>
+</body>
+</html>`;
+    return html;
+  }
+  
+  // Helper function to escape HTML
+  function escapeHtml(text: string): string {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+  
   return router;
 }
