@@ -3796,6 +3796,18 @@ export class DBStorage implements IStorage {
         quotedMessageContent
       };
       
+      // Update the conversation's lastMessageId to reflect this new message
+      if (messageData.conversationId) {
+        try {
+          await db.update(conversations)
+            .set({ lastMessageId: insertedMessage.id, updatedAt: new Date() })
+            .where(eq(conversations.id, messageData.conversationId));
+          console.log('🔴 [storage.createMessage] Updated conversation lastMessageId:', messageData.conversationId, '->', insertedMessage.id);
+        } catch (updateError) {
+          console.error('🔴 [storage.createMessage] Error updating conversation lastMessageId:', updateError);
+        }
+      }
+      
       console.log('🔴 [storage.createMessage] Returning final message:', JSON.stringify(finalMessage, null, 2));
       
       return finalMessage;
