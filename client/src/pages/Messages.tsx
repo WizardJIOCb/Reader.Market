@@ -128,6 +128,20 @@ export default function Messages() {
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth > 1000);
+  
+  // Effect to update isLargeScreen when window is resized
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth > 1000);
+    };
+      
+    window.addEventListener('resize', handleResize);
+      
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
   const [quotedMessage, setQuotedMessage] = useState<{
     id: string;
     senderName: string;
@@ -1666,10 +1680,13 @@ export default function Messages() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <style>{`
+        .bg-muted { background-color: #d5e9ff !important; }
+      `}</style>
       <div className="flex h-[calc(100vh-8rem)] bg-background overflow-hidden rounded-lg border">
       {/* Left Panel - Conversations List */}
       <div className={`w-full md:w-80 border-r flex flex-col ${
-        isMobile && showMobileChat ? 'hidden' : 'flex'
+        isLargeScreen ? 'flex' : (isMobile && showMobileChat ? 'hidden' : 'flex')
       }`}>
         <div className="p-4 border-b space-y-3">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'private' | 'groups')} className="w-full">
@@ -1709,7 +1726,7 @@ export default function Messages() {
               {searchResults.map((user) => (
                 <div
                   key={user.id}
-                  className="p-3 hover:bg-muted cursor-pointer flex items-center gap-3"
+                  className="p-3 hover:!bg-[#fdf1dc] cursor-pointer flex items-center gap-3"
                   onClick={() => startConversation(user.id)}
                 >
                   <Avatar className="w-8 h-8">
@@ -1731,7 +1748,7 @@ export default function Messages() {
               {searchResults.map((group) => (
                 <div
                   key={group.id}
-                  className="p-3 hover:bg-muted cursor-pointer flex items-center gap-3"
+                  className="p-3 hover:!bg-[#fdf1dc] cursor-pointer flex items-center gap-3"
                   onClick={async () => {
                     console.log('Group search result clicked:', group);
                     setSearchQuery('');
@@ -1775,8 +1792,8 @@ export default function Messages() {
               conversations.map((conv) => (
                 <div
                   key={conv.id}
-                  className={`p-4 border-b cursor-pointer hover:bg-muted transition-colors ${
-                    selectedConversation?.id === conv.id ? 'bg-muted' : ''
+                  className={`p-4 border-b cursor-pointer hover:!bg-[#fdf1dc] transition-colors ${
+                    selectedConversation?.id === conv.id ? '!bg-[#eff3db]' : ''
                   }`}
                   onClick={() => {
                     setSelectedConversation(conv);
@@ -1825,8 +1842,8 @@ export default function Messages() {
               groups.map((group) => (
                 <div
                   key={group.id}
-                  className={`p-4 border-b cursor-pointer hover:bg-muted transition-colors ${
-                    selectedGroup?.id === group.id ? 'bg-muted' : ''
+                  className={`p-4 border-b cursor-pointer hover:!bg-[#fdf1dc] transition-colors ${
+                    selectedGroup?.id === group.id ? '!bg-[#eff3db]' : ''
                   }`}
                   onClick={async () => {
                     // Fetch full group details including books
@@ -1870,7 +1887,7 @@ export default function Messages() {
 
       {/* Right Panel - Chat Display */}
       <div className={`flex-1 flex flex-col ${
-        isMobile && !showMobileChat ? 'hidden' : 'flex'
+        isLargeScreen ? 'flex' : (isMobile && !showMobileChat ? 'hidden' : 'flex')
       }`}>
         {selectedConversation ? (
           <>
@@ -1974,8 +1991,8 @@ export default function Messages() {
                         <div
                           className={`rounded-lg p-3 relative group ${
                             isOwn
-                              ? 'bg-slate-100 dark:bg-slate-800 text-foreground'
-                              : 'bg-muted'
+                              ? '!bg-[#d5e9ff] text-foreground'
+                              : '!bg-[#eff3db]'
                           }`}
                           onTouchStart={(e) => handleTouchStart(e, message, isOwn)}
                           onTouchMove={handleTouchMove}
@@ -2186,7 +2203,7 @@ export default function Messages() {
                       className={`px-3 py-1 rounded-md text-sm flex items-center gap-1 whitespace-nowrap transition-colors ${
                         selectedChannel?.id === channel.id
                           ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted hover:bg-muted/80'
+                          : '!bg-[#d5e9ff] hover:!bg-[#d5e9ff]/80'
                       }`}
                     >
                       <Hash className="w-3 h-3" />
@@ -2231,8 +2248,8 @@ export default function Messages() {
                             <div
                               className={`rounded-lg p-3 relative group ${
                                 isOwn
-                                  ? 'bg-slate-100 dark:bg-slate-800 text-foreground'
-                                  : 'bg-muted'
+                                  ? '!bg-[#d5e9ff] text-foreground'
+                                  : '!bg-[#eff3db]'
                               }`}
                               onTouchStart={(e) => handleTouchStart(e, message, isOwn)}
                               onTouchMove={handleTouchMove}
