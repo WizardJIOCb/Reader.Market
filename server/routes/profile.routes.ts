@@ -3,7 +3,7 @@ import { authenticateToken, optionalAuthenticateToken } from "../middleware/auth
 import { logUserAction } from '../actionLoggingMiddleware';
 import { storage } from "../storage";
 import { db } from "../storage/db";
-import { comments, users, reviews, profileComments, fileUploads } from '@shared/schema';
+import { comments, users, reviews, profileComments, fileUploads, reactions } from '@shared/schema';
 import { eq, desc, count, sql, and, isNull, inArray, or } from 'drizzle-orm';
 import bcrypt from "bcrypt";
 import multer from "multer";
@@ -463,8 +463,8 @@ export function createProfileRouter() {
         .limit(limit)
         .offset(offset);
       
-      // For each comment, get its attachments
-      const commentsWithAttachments = await Promise.all(commentsResult.map(async (comment) => {
+      // For each comment, get its attachments and reactions
+      const commentsWithAttachmentsAndReactions = await Promise.all(commentsResult.map(async (comment) => {
         // Get file uploads associated with this comment
         const commentAttachments = await db
           .select({
@@ -481,6 +481,49 @@ export function createProfileRouter() {
             sql`(${fileUploads.entityType} = 'comment')`
           ));
         
+        // Get reactions for this comment
+        const commentReactions = await db
+          .select({
+            id: reactions.id,
+            userId: reactions.userId,
+            emoji: reactions.emoji,
+            createdAt: reactions.createdAt,
+            // Join with users table to get user info
+            username: users.username,
+            fullName: users.fullName,
+            avatarUrl: users.avatarUrl
+          })
+          .from(reactions)
+          .leftJoin(users, eq(reactions.userId, users.id))
+          .where(eq(reactions.profileCommentId, comment.id));
+        
+        // Group reactions by emoji to get counts
+        const reactionsWithCounts = commentReactions.reduce((acc: Array<{emoji: string, count: number, userReacted: boolean}>, reaction) => {
+          const existing = acc.find(r => r.emoji === reaction.emoji);
+          if (existing) {
+            existing.count = (existing.count || 0) + 1;
+            // We'll set userReacted later based on current user
+          } else {
+            acc.push({
+              emoji: reaction.emoji,
+              count: 1,
+              userReacted: false // Will be set later based on current user
+            });
+          }
+          return acc;
+        }, [] as Array<{emoji: string, count: number, userReacted: boolean}>);
+        
+        // Mark user's reactions as 'userReacted' if authenticated
+        const currentUserId = (req as any).user?.userId;
+        if (currentUserId) {
+          reactionsWithCounts.forEach(reaction => {
+            const userReaction = commentReactions.find(r => r.emoji === reaction.emoji && r.userId === currentUserId);
+            if (userReaction) {
+              reaction.userReacted = true;
+            }
+          });
+        }
+        
         return {
           ...comment,
           attachments: commentAttachments.map(att => ({
@@ -490,7 +533,8 @@ export function createProfileRouter() {
             fileSize: att.fileSize,
             mimeType: att.mimeType,
             thumbnailUrl: att.thumbnailUrl
-          }))
+          })),
+          reactions: reactionsWithCounts
         };
       }));
       
@@ -509,13 +553,13 @@ export function createProfileRouter() {
       // Build hierarchical structure from flat list
       const commentsMap: Record<string, any> = {};
       // Add replies property to each comment
-      commentsWithAttachments.forEach(comment => {
+      commentsWithAttachmentsAndReactions.forEach(comment => {
         (comment as any)['replies'] = [];
         commentsMap[comment.id] = comment;
       });
       
       // Get replies for each root comment
-      for (const comment of commentsWithAttachments) {
+      for (const comment of commentsWithAttachmentsAndReactions) {
         const replies = await db
           .select({
             id: profileComments.id,
@@ -538,8 +582,8 @@ export function createProfileRouter() {
           .where(eq(profileComments.parentCommentId, comment.id))
           .orderBy(profileComments.createdAt);
         
-        // Get attachments for each reply
-        const repliesWithAttachments = await Promise.all(replies.map(async (reply) => {
+        // Get attachments and reactions for each reply
+        const repliesWithAttachmentsAndReactions = await Promise.all(replies.map(async (reply) => {
           // Get file uploads associated with this reply
           const replyAttachments = await db
             .select({
@@ -556,6 +600,49 @@ export function createProfileRouter() {
               eq(fileUploads.entityType, 'comment')
             ));
           
+          // Get reactions for this reply
+          const replyReactions = await db
+            .select({
+              id: reactions.id,
+              userId: reactions.userId,
+              emoji: reactions.emoji,
+              createdAt: reactions.createdAt,
+              // Join with users table to get user info
+              username: users.username,
+              fullName: users.fullName,
+              avatarUrl: users.avatarUrl
+            })
+            .from(reactions)
+            .leftJoin(users, eq(reactions.userId, users.id))
+            .where(eq(reactions.profileCommentId, reply.id));
+          
+          // Group reactions by emoji to get counts
+          const replyReactionsWithCounts = replyReactions.reduce((acc: Array<{emoji: string, count: number, userReacted: boolean}>, reaction) => {
+            const existing = acc.find(r => r.emoji === reaction.emoji);
+            if (existing) {
+              existing.count = (existing.count || 0) + 1;
+              // We'll set userReacted later based on current user
+            } else {
+              acc.push({
+                emoji: reaction.emoji,
+                count: 1,
+                userReacted: false // Will be set later based on current user
+              });
+            }
+            return acc;
+          }, [] as Array<{emoji: string, count: number, userReacted: boolean}>);
+          
+          // Mark user's reactions as 'userReacted' if authenticated
+          const currentUserId = (req as any).user?.userId;
+          if (currentUserId) {
+            replyReactionsWithCounts.forEach(reaction => {
+              const userReaction = replyReactions.find(r => r.emoji === reaction.emoji && r.userId === currentUserId);
+              if (userReaction) {
+                reaction.userReacted = true;
+              }
+            });
+          }
+          
           return {
             ...reply,
             attachments: replyAttachments.map(att => ({
@@ -565,14 +652,15 @@ export function createProfileRouter() {
               fileSize: att.fileSize,
               mimeType: att.mimeType,
               thumbnailUrl: att.thumbnailUrl
-            }))
+            })),
+            reactions: replyReactionsWithCounts
           };
         }));
         
-        (commentsMap[comment.id] as any)['replies'] = repliesWithAttachments;
+        (commentsMap[comment.id] as any)['replies'] = repliesWithAttachmentsAndReactions;
       }
       
-      const rootComments = commentsWithAttachments;
+      const rootComments = commentsWithAttachmentsAndReactions;
       
       res.json({
         comments: rootComments,
@@ -706,17 +794,17 @@ export function createProfileRouter() {
       const { userId: targetUserId } = req.params;
       const { content, parentCommentId, attachments } = req.body;
       const currentUserId = (req as any).user.userId;
-      
+        
       if (!content || content.trim().length === 0) {
         return res.status(400).json({ error: "Comment content is required" });
       }
-      
+        
       // Verify target user exists
       const targetUser = await storage.getUser(targetUserId);
       if (!targetUser) {
         return res.status(404).json({ error: "User not found" });
       }
-      
+        
       // If this is a reply, verify the parent comment exists in profileComments
       if (parentCommentId) {
         const parentComment = await db
@@ -724,12 +812,12 @@ export function createProfileRouter() {
           .from(profileComments)
           .where(eq(profileComments.id, parentCommentId))
           .limit(1);
-          
+            
         if (parentComment.length === 0) {
           return res.status(404).json({ error: "Parent comment not found" });
         }
       }
-      
+        
       // Create the profile comment
       const newComment = await db
         .insert(profileComments)
@@ -740,13 +828,13 @@ export function createProfileRouter() {
           parentCommentId: parentCommentId || null, // Set parent if this is a reply
         })
         .returning();
-      
+        
       // If there are attachments, update their entityId to link them to this comment
       console.log('DEBUG: Checking for attachments in profile comment request:', { attachments, commentId: newComment[0].id, currentUserId });
       if (attachments && Array.isArray(attachments) && attachments.length > 0) {
         try {
           console.log('Linking attachments to profile comment:', attachments, 'Comment ID:', newComment[0].id, 'Uploader ID:', currentUserId);
-          
+            
           // First, verify the files exist and belong to the user
           const existingFiles = await db.select({
             id: fileUploads.id,
@@ -768,13 +856,13 @@ export function createProfileRouter() {
                 )
               )
             );
-          
+            
           console.log('Found existing files to link:', existingFiles.length, 'out of', attachments.length);
-          
+            
           if (existingFiles.length > 0) {
             // Extract the IDs of files that need to be updated
             const fileIdsToUpdate = existingFiles.map(file => file.id);
-            
+              
             // Update file uploads to link them to the created comment
             const result = await db.update(fileUploads)
               .set({ entityId: newComment[0].id })
@@ -785,9 +873,9 @@ export function createProfileRouter() {
                   eq(fileUploads.entityType, 'comment')
                 )
               ).execute();
-            
+              
             console.log('Profile comment attachment linking result - rows affected:', result);
-            
+              
             // Verify that the files were linked by querying them
             const linkedFiles = await db.select()
               .from(fileUploads)
@@ -797,27 +885,27 @@ export function createProfileRouter() {
                   eq(fileUploads.entityId, newComment[0].id)
                 )
               );
-            
+              
             console.log('Linked profile comment files count:', linkedFiles.length, 'expected:', fileIdsToUpdate.length);
-            
+              
             // Move files from temp to permanent location and update linkedFiles array
             for (const file of linkedFiles) {
               if (file.fileUrl && file.fileUrl.includes('/uploads/attachments/temp/')) {
                 try {
                   const tempPath = path.join(process.cwd(), file.fileUrl);
                   const fileName = path.basename(file.fileUrl);
-                  
+                    
                   // Create permanent directory if it doesn't exist
                   const permDir = path.join(process.cwd(), 'uploads', 'attachments', 'profile-comments');
                   if (!fs.existsSync(permDir)) {
                     fs.mkdirSync(permDir, { recursive: true });
                   }
-                  
+                    
                   const permPath = path.join(permDir, fileName);
-                  
+                    
                   // Move the file from temp to permanent location
                   fs.renameSync(tempPath, permPath);
-                  
+                    
                   // Update the database record with the new permanent path
                   await db.update(fileUploads)
                     .set({ 
@@ -831,7 +919,7 @@ export function createProfileRouter() {
                   if (updatedFile) {
                     updatedFile.fileUrl = `/uploads/attachments/profile-comments/${fileName}`;
                   }
-                  
+                    
                   console.log(`Moved file from temp to permanent: ${file.fileUrl} -> /uploads/attachments/profile-comments/${fileName}`);
                 } catch (moveError) {
                   console.error('Error moving file from temp to permanent location:', moveError);
@@ -844,7 +932,7 @@ export function createProfileRouter() {
           // Don't fail the comment creation if attachment linking fails
         }
       }
-      
+        
       // Fetch the comment again to include attachment information
       const commentWithAttachments = await db
         .select({
@@ -862,7 +950,7 @@ export function createProfileRouter() {
         .from(profileComments)
         .where(eq(profileComments.id, newComment[0].id))
         .limit(1);
-      
+        
       // Get file uploads associated with this comment
       const commentAttachments = await db
         .select({
@@ -878,7 +966,7 @@ export function createProfileRouter() {
           eq(fileUploads.entityId, newComment[0].id),
           eq(fileUploads.entityType, 'comment')
         ));
-      
+        
       const commentWithAttachmentsData = {
         ...commentWithAttachments[0],
         attachments: commentAttachments.map(att => ({
@@ -890,7 +978,7 @@ export function createProfileRouter() {
           thumbnailUrl: att.thumbnailUrl
         }))
       };
-      
+        
       // Get user information for the response
       const user = await db
         .select({
@@ -902,7 +990,7 @@ export function createProfileRouter() {
         .from(users)
         .where(eq(users.id, currentUserId))
         .limit(1);
-      
+        
       // Combine comment data with user info
       const responseComment = {
         ...commentWithAttachmentsData,
@@ -911,7 +999,7 @@ export function createProfileRouter() {
         fullName: user[0]?.fullName,
         avatarUrl: user[0]?.avatarUrl
       };
-      
+        
       // Return the created comment with attachments
       res.status(201).json(responseComment);
     } catch (error) {
@@ -919,6 +1007,126 @@ export function createProfileRouter() {
       res.status(500).json({ error: "Failed to add profile comment" });
     }
   });
-  
+    
+  // Toggle reaction on a profile comment
+  router.post('/comment/:commentId/reaction', authenticateToken, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      const userId = (req as any).user.userId;
+      const { emoji } = req.body;
+        
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+        
+      // Verify the profile comment exists
+      const profileComment = await db
+        .select()
+        .from(profileComments)
+        .where(eq(profileComments.id, commentId))
+        .limit(1);
+          
+      if (profileComment.length === 0) {
+        return res.status(404).json({ error: "Profile comment not found" });
+      }
+        
+      // Check if user already reacted with this emoji
+      const existingReaction = await db
+        .select()
+        .from(reactions)
+        .where(
+          and(
+            eq(reactions.userId, userId),
+            eq(reactions.profileCommentId, commentId),
+            eq(reactions.emoji, emoji)
+          )
+        );
+        
+      let action: 'added' | 'removed';
+        
+      if (existingReaction.length > 0) {
+        // Remove reaction
+        await db
+          .delete(reactions)
+          .where(
+            and(
+              eq(reactions.userId, userId),
+              eq(reactions.profileCommentId, commentId),
+              eq(reactions.emoji, emoji)
+            )
+          );
+          
+        action = 'removed';
+      } else {
+        // Add reaction
+        await db
+          .insert(reactions)
+          .values({
+            userId,
+            profileCommentId: commentId,
+            emoji
+          });
+          
+        action = 'added';
+      }
+        
+      // Get updated reactions for this profile comment
+      const updatedReactions = await db
+        .select({
+          id: reactions.id,
+          userId: reactions.userId,
+          emoji: reactions.emoji,
+          createdAt: reactions.createdAt,
+          // Join with users table to get user info
+          username: users.username,
+          fullName: users.fullName,
+          avatarUrl: users.avatarUrl
+        })
+        .from(reactions)
+        .leftJoin(users, eq(reactions.userId, users.id))
+        .where(eq(reactions.profileCommentId, commentId));
+        
+      // Group reactions by emoji to get counts
+      const reactionsWithCounts = updatedReactions.reduce((acc: Array<{emoji: string, count: number, userReacted: boolean}>, reaction) => {
+        const existing = acc.find(r => r.emoji === reaction.emoji);
+        if (existing) {
+          existing.count = (existing.count || 0) + 1;
+          if (userId === reaction.userId) {
+            existing.userReacted = true;
+          }
+        } else {
+          acc.push({
+            emoji: reaction.emoji,
+            count: 1,
+            userReacted: userId === reaction.userId
+          });
+        }
+        return acc;
+      }, [] as Array<{emoji: string, count: number, userReacted: boolean}>);
+        
+      // Broadcast the updated reactions via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+            
+          // Emit to profile-specific room
+          io.to(`profile-comments:${profileComment[0].profileId}`).emit('profile-comment-reactions-update', {
+            commentId,
+            reactions: reactionsWithCounts
+          });
+            
+          console.log('[STREAM] Profile comment reactions broadcast sent');
+        }
+      } catch (broadcastError) {
+        console.error('[STREAM] Failed to broadcast profile comment reactions:', broadcastError);
+      }
+        
+      res.status(200).json({ action, emoji, reactions: reactionsWithCounts });
+    } catch (error) {
+      console.error('Toggle profile comment reaction error:', error);
+      res.status(500).json({ error: "Failed to toggle reaction" });
+    }
+  });
+    
   return router;
 }

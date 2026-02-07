@@ -623,6 +623,120 @@ export function createBooksRouter() {
     }
   });
   
+  // Create a new review for a book
+  router.post('/:bookId/reviews', authenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const userId = (req as any).user.userId;
+      const { content, rating, parentReviewId, quotedText, attachments } = req.body;
+      
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ error: "Review content is required" });
+      }
+      
+      // Verify that the book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // If this is a reply, verify the parent review exists
+      if (parentReviewId) {
+        const parentReview = await storage.getReviewById(parentReviewId);
+        if (!parentReview || parentReview.bookId !== bookId) {
+          return res.status(404).json({ error: "Parent review not found or does not belong to this book" });
+        }
+      }
+      
+      // Create the review
+      const newReview = await storage.createReview({
+        userId,
+        bookId,
+        content: content.trim(),
+        rating: rating || null, // Rating is optional
+        parentReviewId: parentReviewId || null,
+        quotedText: quotedText || null
+      });
+      
+      // If there are attachments, update their entityId to link them to this review
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        try {
+          console.log('Linking attachments to review:', attachments, 'Review ID:', newReview.id, 'Uploader ID:', userId);
+          
+          // First, verify the files exist and belong to the user
+          const existingFiles = await db.select({
+            id: fileUploads.id,
+            uploaderId: fileUploads.uploaderId,
+            entityType: fileUploads.entityType,
+            entityId: fileUploads.entityId
+          })
+            .from(fileUploads)
+            .where(
+              and(
+                inArray(fileUploads.id, attachments),
+                eq(fileUploads.uploaderId, userId),
+                sql`(${fileUploads.entityType} = 'temp' OR (${fileUploads.entityType} = 'review' AND ${fileUploads.entityId} IS NULL))`
+              )
+            );
+          
+          console.log('Found existing files to link:', existingFiles.length, 'out of', attachments.length);
+          
+          if (existingFiles.length > 0) {
+            // Extract the IDs of files that need to be updated
+            const fileIdsToUpdate = existingFiles.map(file => file.id);
+            
+            // Update file uploads to link them to the created review
+            const result = await db.update(fileUploads)
+              .set({ entityId: newReview.id })
+              .where(
+                and(
+                  inArray(fileUploads.id, fileIdsToUpdate),
+                  eq(fileUploads.uploaderId, userId),
+                  sql`(${fileUploads.entityType} = 'temp' OR (${fileUploads.entityType} = 'review' AND ${fileUploads.entityId} IS NULL))`
+                )
+              ).execute();
+            
+            console.log('Review attachment linking result - rows affected:', result);
+          }
+        } catch (attachmentError) {
+          console.error('Error updating review attachment entity IDs:', attachmentError);
+          // Don't fail the review creation if attachment linking fails
+        }
+      }
+      
+      // Broadcast the new review via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Get the user who made the review
+          const user = await storage.getUser(userId);
+          
+          // Prepare review data for broadcast
+          const reviewData = {
+            ...newReview,
+            username: user?.username,
+            fullName: user?.fullName,
+            avatarUrl: user?.avatarUrl
+          };
+          
+          // Emit to book-specific room
+          io.to(`book-reviews:${bookId}`).emit('new-review', reviewData);
+          
+          console.log('[STREAM] Review broadcast sent');
+        }
+      } catch (broadcastError) {
+        console.error('[STREAM] Failed to broadcast review:', broadcastError);
+        // Don't fail the request if broadcast fails
+      }
+      
+      res.status(201).json(newReview);
+    } catch (error) {
+      console.error("Create book review error:", error);
+      res.status(500).json({ error: "Failed to create review for book" });
+    }
+  });
+  
   // Get all reviews for a book
   router.get('/:bookId/reviews', optionalAuthenticateToken, async (req, res) => {
     try {
