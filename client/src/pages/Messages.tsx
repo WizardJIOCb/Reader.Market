@@ -2065,6 +2065,7 @@ export default function Messages() {
                   }}
                   onUploadComplete={(files) => setUploadedFiles(files)}
                   autoUpload={true}
+                  entityType="temp"
                 />
               )}
               <div className="flex gap-1 sm:gap-2">
@@ -2322,6 +2323,7 @@ export default function Messages() {
                       }}
                       onUploadComplete={(files) => setUploadedFiles(files)}
                       autoUpload={true}
+                      entityType="temp"
                     />
                   )}
                   <div className="flex gap-1 sm:gap-2">
