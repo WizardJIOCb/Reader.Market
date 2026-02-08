@@ -2800,6 +2800,8 @@ export class DBStorage implements IStorage {
         content: comments.content,
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
+        parentCommentId: comments.parentCommentId,
+        quotedText: comments.quotedText,
         username: users.username,
         fullName: users.fullName,
         avatarUrl: users.avatarUrl
@@ -2823,6 +2825,10 @@ export class DBStorage implements IStorage {
         content: comment.content,
         createdAt: comment.createdAt.toISOString(),
         updatedAt: comment.updatedAt.toISOString(),
+        parentCommentId: comment.parentCommentId || null,
+        quotedText: comment.quotedText || null,
+        username: comment.username,
+        fullName: comment.fullName,
         author: comment.fullName || comment.username || 'Anonymous',
         avatarUrl: comment.avatarUrl || null
       };
@@ -4275,32 +4281,86 @@ export class DBStorage implements IStorage {
         throw new Error('News item not found');
       }
       
-      // Process attachments if provided
-      let attachmentUrls = [];
-      let attachmentMetadata = null;
-      
-      if (commentData.attachments && commentData.attachments.length > 0) {
-        const fileData = await this.processAttachments(commentData.attachments);
-        attachmentUrls = fileData.attachmentUrls;
-        attachmentMetadata = fileData.attachmentMetadata;
-      }
-      
       const result = await db.insert(comments).values({
         userId: commentData.userId,
         newsId: newsItem.id, // Use resolved UUID
         content: commentData.content,
-        attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
-        attachmentMetadata: attachmentMetadata ? attachmentMetadata : undefined,
+        attachmentMetadata: commentData.attachmentMetadata || null,
         createdAt: new Date(),
         updatedAt: new Date()
       }).returning();
+      
+      // Link file uploads to the comment if provided
+      if (commentData.attachments && commentData.attachments.length > 0) {
+        for (const uploadId of commentData.attachments) {
+          await this.updateFileUploadEntity(uploadId, 'comment', result[0].id);
+        }
+      }
+      
+      // Get the comment with user information and attachments
+      const commentWithUser = await db.select({
+        id: comments.id,
+        userId: comments.userId,
+        newsId: comments.newsId,
+        content: comments.content,
+        attachmentUrls: comments.attachmentUrls,
+        attachmentMetadata: comments.attachmentMetadata,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        username: users.username,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.id, result[0].id));
+      
+      // Get file uploads associated with this comment
+      const commentAttachments = await db
+        .select({
+          id: fileUploads.id,
+          fileUrl: fileUploads.fileUrl,
+          filename: fileUploads.filename,
+          fileSize: fileUploads.fileSize,
+          mimeType: fileUploads.mimeType,
+          thumbnailUrl: fileUploads.thumbnailUrl
+        })
+        .from(fileUploads)
+        .where(
+          and(
+            eq(fileUploads.entityId, result[0].id),
+            eq(fileUploads.entityType, 'comment')
+          )
+        );
       
       // Increment comment count in news
       await db.update(news)
         .set({ commentCount: sql`${news.commentCount} + 1`, updatedAt: new Date() })
         .where(eq(news.id, newsItem.id)); // Use resolved UUID
       
-      return result[0];
+      // Return formatted comment with attachments
+      const comment = commentWithUser[0];
+      return {
+        id: comment.id,
+        userId: comment.userId,
+        newsId: comment.newsId,
+        content: comment.content,
+        attachmentUrls: comment.attachmentUrls,
+        attachmentMetadata: comment.attachmentMetadata,
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
+        author: comment.fullName || comment.username || 'Anonymous',
+        username: comment.username,
+        avatarUrl: comment.avatarUrl || null,
+        attachments: commentAttachments.map(att => ({
+          uploadId: att.id,
+          url: att.fileUrl,
+          filename: att.filename,
+          fileSize: att.fileSize,
+          mimeType: att.mimeType,
+          thumbnailUrl: att.thumbnailUrl
+        }))
+      };
     } catch (error) {
       console.error("Error creating news comment:", error);
       throw error;
@@ -4333,7 +4393,7 @@ export class DBStorage implements IStorage {
       .where(eq(comments.newsId, newsItem.id)) // Use resolved UUID
       .orderBy(desc(comments.createdAt));
       
-      // For each comment, get its reactions
+      // For each comment, get its reactions and attachments
       const commentsWithReactions = await Promise.all(result.map(async item => {
         // Get reactions for this comment
         const commentReactions = await this.getReactions(item.id, 'comment');
@@ -4364,6 +4424,24 @@ export class DBStorage implements IStorage {
           });
         });
         
+        // Get file uploads associated with this comment
+        const commentAttachments = await db
+          .select({
+            id: fileUploads.id,
+            fileUrl: fileUploads.fileUrl,
+            filename: fileUploads.filename,
+            fileSize: fileUploads.fileSize,
+            mimeType: fileUploads.mimeType,
+            thumbnailUrl: fileUploads.thumbnailUrl
+          })
+          .from(fileUploads)
+          .where(
+            and(
+              eq(fileUploads.entityId, item.id),
+              eq(fileUploads.entityType, 'comment')
+            )
+          );
+        
         return {
           id: item.id,
           userId: item.userId,
@@ -4375,7 +4453,15 @@ export class DBStorage implements IStorage {
           updatedAt: item.updatedAt.toISOString(),
           author: item.fullName || item.username || 'Anonymous',
           avatarUrl: item.avatarUrl || null,
-          reactions: aggregatedReactions
+          reactions: aggregatedReactions,
+          attachments: commentAttachments.map(att => ({
+            uploadId: att.id,
+            url: att.fileUrl,
+            filename: att.filename,
+            fileSize: att.fileSize,
+            mimeType: att.mimeType,
+            thumbnailUrl: att.thumbnailUrl
+          }))
         };
       }));
       

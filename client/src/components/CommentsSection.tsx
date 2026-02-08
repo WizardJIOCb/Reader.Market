@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -709,9 +709,67 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
   const [replyAttachmentFiles, setReplyAttachmentFiles] = useState<Record<string, File[]>>({});
   const [replyUploadedFiles, setReplyUploadedFiles] = useState<Record<string, UploadedFile[]>>({});
   
+  // Track recently submitted comments to prevent duplication with WebSocket
+  // Track recently submitted comments to prevent duplication with WebSocket
+  const [recentlySubmitted, setRecentlySubmitted] = useState<Set<string>>(new Set());
+  
+  // Track which source (API or WebSocket) first processed each comment to prevent duplicates
+  const commentProcessingTracker = useRef<Map<string, 'api' | 'websocket'>>(new Map());
+  
+  // Initialize tracker with existing comment IDs to prevent re-processing on re-mount
+  useEffect(() => {
+    // Add all existing comment IDs to the tracker to prevent re-processing
+    comments.forEach(comment => {
+      if (!commentProcessingTracker.current.has(comment.id)) {
+        commentProcessingTracker.current.set(comment.id, 'websocket'); // Assume they came via WebSocket initially
+      }
+      
+      // Also add reply IDs if they exist
+      if (comment.replies && comment.replies.length > 0) {
+        comment.replies.forEach(reply => {
+          if (!commentProcessingTracker.current.has(reply.id)) {
+            commentProcessingTracker.current.set(reply.id, 'websocket');
+          }
+        });
+      }
+    });
+  }, [comments]);
+  
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
 
+  // Helper function to count all comments including nested replies
+  const countAllComments = useCallback((commentList: Comment[]): number => {
+    let count = commentList.length;
+    
+    const countReplies = (replies: Comment[] = []): number => {
+      let replyCount = replies.length;
+      replies.forEach(reply => {
+        if (reply.replies && reply.replies.length > 0) {
+          replyCount += countReplies(reply.replies);
+        }
+      });
+      return replyCount;
+    };
+    
+    commentList.forEach(comment => {
+      if (comment.replies && comment.replies.length > 0) {
+        count += countReplies(comment.replies);
+      }
+    });
+    
+    return count;
+  }, []);
+  
+  // Log when comments change to track removals/redraws
+  useEffect(() => {
+    const totalCount = countAllComments(comments);
+    
+    console.log('Comments state changed, root count:', comments.length, 'total count:', totalCount);
+    console.log('Comment IDs present:', comments.map(c => c.id));
+  }, [comments, countAllComments]);
+
   const fetchComments = useCallback(async () => {
+    console.log('fetchComments called');
     try {
       setLoading(true);
       setExpandedReplies(new Set());
@@ -725,14 +783,31 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       if (response.ok) {
         const responseData = await response.json();
         // Extract comments from the response (new API structure)
-        const fetchedComments = Array.isArray(responseData) ? responseData : responseData.comments || [];
-        setComments(fetchedComments);
-        setCachedComments(bookId, fetchedComments);
+        const serverComments = Array.isArray(responseData) ? responseData : responseData.comments || [];
+        
+        // Preserve any comments that were added locally but aren't in the server response yet
+        // This prevents optimistic additions from being lost during refresh
+        setComments(prevComments => {
+          // Find comments that were added locally (not in server response)
+          const localComments = prevComments.filter(localComment => 
+            !serverComments.some((serverComment: any) => serverComment.id === localComment.id)
+          );
+          
+          // Combine server comments with local comments that aren't duplicates
+          const allComments = [...serverComments, ...localComments];
+          return allComments;
+        });
+        
+        setCachedComments(bookId, serverComments);
         
         if (onCommentsCountChange) {
-          onCommentsCountChange(fetchedComments.length);
+          // Calculate total count based on the updated comments
+          setComments(currentComments => {
+            onCommentsCountChange(currentComments.length);
+            return currentComments;
+          });
         }
-        return fetchedComments;
+        return serverComments;
       }
       throw new Error('Failed to fetch comments');
     } catch (error) {
@@ -747,11 +822,42 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
   }, [bookId, onCommentsCountChange]);
 
   useEffect(() => {
+    console.log('Main useEffect running, bookId:', bookId);
     const cachedCommentsEntry = dataCache.comments[bookId];
     if (cachedCommentsEntry) {
-      setComments(cachedCommentsEntry.data);
+      // Preserve existing comments to avoid losing locally added ones during re-mount
+      setComments(prevComments => {
+        const cachedComments = cachedCommentsEntry.data;
+        
+        // Find comments that were added locally (not in cache)
+        const localComments = prevComments.filter((localComment: any) => 
+          !cachedComments.some((cachedComment: any) => cachedComment.id === localComment.id)
+        );
+        
+        console.log('Main useEffect: Cached comments count:', cachedComments.length);
+        console.log('Main useEffect: Local comments to preserve:', localComments.length);
+        
+        // Combine cached comments with local comments that aren't duplicates
+        const allComments = [...cachedComments, ...localComments];
+        console.log('Main useEffect: Final comments count after merge:', allComments.length);
+        
+        return allComments;
+      });
+      
       if (onCommentsCountChange) {
-        onCommentsCountChange(cachedCommentsEntry.data.length);
+        // Calculate total count including replies
+        setTimeout(() => {
+          setComments(currentComments => {
+            let count = currentComments.length;
+            currentComments.forEach((comment: Comment) => {
+              if (comment.replies && comment.replies.length > 0) {
+                count += comment.replies.length;
+              }
+            });
+            onCommentsCountChange(count);
+            return currentComments;
+          });
+        }, 0);
       }
       setLoading(false);
       if (bookId && isCachedDataStale(cachedCommentsEntry.timestamp)) {
@@ -764,10 +870,33 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     if (pendingRequest) {
       pendingRequest.then((responseData) => {
         // Extract comments from the response (new API structure)
-        const fetchedComments = Array.isArray(responseData) ? responseData : responseData.comments || [];
-        setComments(fetchedComments);
+        const serverComments = Array.isArray(responseData) ? responseData : responseData.comments || [];
+        
+        // Preserve any comments that were added locally but aren't in the server response yet
+        // This prevents optimistic additions from being lost during refresh
+        setComments(prevComments => {
+          console.log('fetchComments: Previous comments count:', prevComments.length);
+          console.log('fetchComments: Server comments count:', serverComments.length);
+          
+          // Find comments that were added locally (not in server response)
+          const localComments = prevComments.filter((localComment: any) => 
+            !serverComments.some((serverComment: any) => serverComment.id === localComment.id)
+          );
+          
+          console.log('fetchComments: Local comments to preserve:', localComments.length);
+          
+          // Combine server comments with local comments that aren't duplicates
+          const allComments = [...serverComments, ...localComments];
+          console.log('fetchComments: Final comments count after merge:', allComments.length);
+          
+          return allComments;
+        });
+        
         if (onCommentsCountChange) {
-          onCommentsCountChange(fetchedComments.length);
+          setComments(currentComments => {
+            onCommentsCountChange(currentComments.length);
+            return currentComments;
+          });
         }
         setLoading(false);
       }).catch(() => {
@@ -787,6 +916,7 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
 
   // Set up WebSocket connection for real-time comments
   useEffect(() => {
+    console.log('WebSocket useEffect running, bookId:', bookId);
     if (!bookId) return;
 
     // Join the book-comments room
@@ -795,15 +925,119 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     // Listen for new comments
     const cleanupSocket = onSocketEvent('new-comment', (commentData: any) => {
       if (commentData.bookId === bookId) {
-        // Add the new comment to the beginning of the comments list
-        setComments(prevComments => [commentData, ...prevComments]);
+        console.log('WebSocket received new comment/reply:', commentData);
+        
+        // Only update the comment tree if it hasn't been processed yet
+        setComments(prevComments => {
+          // Check if this comment was already processed by API response
+          if (commentProcessingTracker.current.get(commentData.id) === 'api') {
+            console.log('Skipping WebSocket update for comment already processed by API:', commentData.id);
+            return prevComments;
+          }
+          
+          // Mark this comment as processed by WebSocket
+          commentProcessingTracker.current.set(commentData.id, 'websocket');
+          
+          // Check if this comment was recently submitted by this client
+          if (recentlySubmitted.has(commentData.id)) {
+            console.log('Skipping WebSocket update for recently submitted comment:', commentData.id);
+            return prevComments; // Skip update if recently submitted
+          }
+          
+          // Look for the comment in the entire tree to prevent duplication
+          const findCommentInTree = (comments: Comment[]): boolean => {
+            for (const comment of comments) {
+              if (comment.id === commentData.id) return true;
+              if (comment.replies && comment.replies.length > 0) {
+                if (findCommentInTree(comment.replies)) return true;
+              }
+            }
+            return false;
+          };
+          
+          // If comment doesn't already exist, add it appropriately
+          if (!findCommentInTree(prevComments)) {
+            // Check if it's a reply - explicitly check for null/undefined
+            if (commentData.parentCommentId !== null && commentData.parentCommentId !== undefined && commentData.parentCommentId !== '') {
+              console.log('Adding reply to parent via WebSocket:', {
+                parentCommentId: commentData.parentCommentId,
+                replyId: commentData.id,
+                content: commentData.content
+              });
+              
+              // Add reply to the correct parent using the recursive function
+              return prevComments.map(c => addReplyToParent(c, commentData.parentCommentId, commentData));
+            } else {
+              console.log('Adding root comment via WebSocket:', {
+                commentId: commentData.id,
+                content: commentData.content,
+                parentCommentId: commentData.parentCommentId
+              });
+              
+              // Add top-level comment at the beginning if it doesn't already exist
+              const commentExists = prevComments.some(c => c.id === commentData.id);
+              if (!commentExists) {
+                console.log('Adding new root comment to beginning of array:', commentData.id, commentData.content);
+                console.log('Previous array length:', prevComments.length);
+                const updatedArray = [commentData, ...prevComments];
+                console.log('New array length:', updatedArray.length);
+                console.log('First comment in array:', updatedArray[0]?.id);
+                return updatedArray;
+              } else {
+                console.log('Root comment already exists, skipping:', commentData.id);
+                return prevComments; // Return unchanged if comment already exists
+              }
+            }
+          }
+          
+          console.log('Comment already exists in tree, skipping:', commentData.id);
+          // Return existing state if comment already exists
+          return prevComments;
+        });
+        
+        // Update expansion if it's a reply - explicitly check for null/undefined
+        if (commentData.parentCommentId !== null && commentData.parentCommentId !== undefined && commentData.parentCommentId !== '') {
+          setExpandedReplies(prev => {
+            const newSet = new Set(prev);
+            newSet.add(commentData.parentCommentId);
+            return newSet;
+          });
+        }
+        
+        // Update comment count if needed
         if (onCommentsCountChange) {
-          onCommentsCountChange(comments.length + 1);
+          // Update comment count in a separate operation to avoid nested updates
+          setTimeout(() => {
+            setComments(currentComments => {
+              // Just update state without calling parent callback
+              return currentComments;
+            });
+            
+            // Calculate and update the count separately
+            setTimeout(() => {
+              let count = 0;
+              setComments(currentComments => {
+                count = currentComments.length;
+                currentComments.forEach((comment: Comment) => {
+                  if (comment.replies && comment.replies.length > 0) {
+                    count += comment.replies.length;
+                  }
+                });
+                return currentComments;
+              });
+              
+              // Update parent after state is settled
+              setTimeout(() => {
+                onCommentsCountChange(count);
+              }, 5);
+            }, 20);
+          }, 0);
         }
       }
     });
 
     return () => {
+      console.log('WebSocket useEffect cleanup, bookId:', bookId);
       // Leave the book-comments room when component unmounts
       leaveBookComments(bookId);
       // Clean up the event listener
@@ -812,7 +1046,32 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
   }, [bookId, onCommentsCountChange]);
 
   const handlePostComment = async () => {
+    console.log('handlePostComment called');
     if (!newComment.trim() || !user) return;
+    
+    // Capture the current replyToComment state before clearing
+    const currentReplyToComment = replyToComment;
+    
+    // Clear form state immediately to ensure next submission is a root comment
+    setNewComment('');
+    setReplyToComment(null);
+    setQuotedText('');
+    setAttachmentFiles([]);
+    setUploadedFiles([]);
+    
+    // Clear reply attachment files if we were replying
+    if (currentReplyToComment) {
+      setReplyAttachmentFiles(prev => {
+        const newPrev = {...prev};
+        delete newPrev[currentReplyToComment.id];
+        return newPrev;
+      });
+      setReplyUploadedFiles(prev => {
+        const newPrev = {...prev};
+        delete newPrev[currentReplyToComment.id];
+        return newPrev;
+      });
+    }
     
     setSubmitting(true);
     try {
@@ -824,10 +1083,10 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         },
         body: JSON.stringify({ 
           content: newComment,
-          attachments: replyToComment && replyUploadedFiles[replyToComment.id] 
-            ? replyUploadedFiles[replyToComment.id].map(f => f.uploadId)
+          attachments: currentReplyToComment && replyUploadedFiles[currentReplyToComment.id] 
+            ? replyUploadedFiles[currentReplyToComment.id].map(f => f.uploadId)
             : uploadedFiles.map(f => f.uploadId),
-          parentCommentId: replyToComment?.id || null,
+          parentCommentId: currentReplyToComment?.id || null,
           quotedText: quotedText || null
         })
       });
@@ -835,62 +1094,33 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       if (response.ok) {
         const newCommentObj = await response.json();
         
-        if (replyToComment) {
-          // It's a reply - add to parent's replies array
-          const newReply: Comment = {
-            id: newCommentObj.id,
-            bookId: newCommentObj.bookId,
-            author: newCommentObj.author || user.fullName || user.username || 'You',
-            username: newCommentObj.username || user.username,
-            content: newCommentObj.content,
-            createdAt: new Date().toISOString(),
-            reactions: [],
-            userId: user.id,
-            avatarUrl: user.avatarUrl || null,
-            isOwnComment: true,
-            parentCommentId: replyToComment.id,
-            quotedText: quotedText || null,
-            parentCommentAuthor: replyToComment.author,
-            replyCount: 0,
-            replies: [],
-            attachments: newCommentObj.attachments || []
-          };
-          
-          setComments(prevComments => 
-            prevComments.map(c => addReplyToParent(c, replyToComment.id, newReply))
-          );
-          
-          setExpandedReplies(prev => new Set(prev).add(replyToComment.id));
-        } else {
-          // Root comment
-          const formattedComment: Comment = {
-            id: newCommentObj.id,
-            bookId: newCommentObj.bookId,
-            author: newCommentObj.author || user.fullName || user.username || 'You',
-            username: newCommentObj.username || user.username,
-            content: newCommentObj.content,
-            createdAt: new Date().toISOString(),
-            reactions: [],
-            userId: user.id,
-            avatarUrl: user.avatarUrl || null,
-            isOwnComment: true,
-            parentCommentId: null,
-            quotedText: null,
-            parentCommentAuthor: null,
-            replyCount: 0,
-            replies: [],
-            attachments: newCommentObj.attachments || []
-          };
-          
-          const updatedComments = [formattedComment, ...comments];
-          setComments(updatedComments);
-          setCachedComments(bookId, updatedComments);
-          
-          if (onCommentsCountChange) {
-            onCommentsCountChange(updatedComments.length);
-          }
+        console.log('API Response for new comment/reply:', newCommentObj);
+        
+        // Check if this comment was already processed by WebSocket
+        if (commentProcessingTracker.current.get(newCommentObj.id) === 'websocket') {
+          console.log('Skipping API response update for comment already processed by WebSocket:', newCommentObj.id);
+          return; // Exit early if already processed
         }
         
+        // Mark this comment as processed by API
+        commentProcessingTracker.current.set(newCommentObj.id, 'api');
+        
+        // Mark this comment as recently submitted to prevent WebSocket duplication
+        setRecentlySubmitted(prev => {
+          const newSet = new Set(prev);
+          newSet.add(newCommentObj.id);
+          return newSet;
+        });
+        
+        // Don't update UI here - let WebSocket handle the UI update
+        // This prevents dual UI updates and conflicts
+        // The WebSocket will receive the comment and update the UI
+        
+        console.log('handlePostComment: Form reset complete');
+      } else {
+        console.error('Failed to post comment');
+        
+        // Clear form state even if API call failed to prevent stuck reply state
         setNewComment('');
         setReplyToComment(null);
         setQuotedText('');
@@ -910,17 +1140,38 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
             return newPrev;
           });
         }
-      } else {
-        console.error('Failed to post comment');
       }
     } catch (error) {
       console.error('Error posting comment:', error);
+      
+      // Clear form state even if exception occurred to prevent stuck reply state
+      setNewComment('');
+      setReplyToComment(null);
+      setQuotedText('');
+      setAttachmentFiles([]);
+      setUploadedFiles([]);
+      
+      // Clear reply attachment files if we were replying
+      if (replyToComment) {
+        setReplyAttachmentFiles(prev => {
+          const newPrev = {...prev};
+          delete newPrev[replyToComment.id];
+          return newPrev;
+        });
+        setReplyUploadedFiles(prev => {
+          const newPrev = {...prev};
+          delete newPrev[replyToComment.id];
+          return newPrev;
+        });
+      }
     } finally {
+      console.log('handlePostComment: finally block, setting submitting to false');
       setSubmitting(false);
     }
   };
 
   const addReplyToParent = (comment: Comment, parentId: string, newReply: Comment): Comment => {
+    // If this is the target parent, add the new reply
     if (comment.id === parentId) {
       return {
         ...comment,
@@ -928,12 +1179,53 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         replies: [...(comment.replies || []), newReply]
       };
     }
+    
+    // If this comment has replies, recursively search through them
     if (comment.replies && comment.replies.length > 0) {
-      return {
-        ...comment,
-        replies: comment.replies.map(reply => addReplyToParent(reply, parentId, newReply))
-      };
+      const updatedReplies = comment.replies.map(reply => addReplyToParent(reply, parentId, newReply));
+      
+      // Check if any reply was actually modified by comparing IDs and reply counts
+      const hasChanges = updatedReplies.some((updatedReply, index) => {
+        const originalReply = comment.replies![index];
+        // If IDs don't match, it's a different object (meaning it was modified in the recursive call)
+        if (updatedReply.id !== originalReply.id) return true;
+        // If reply count changed, it indicates a reply was added
+        if (updatedReply.replyCount !== originalReply.replyCount) return true;
+        // If the replies array length changed, it indicates a reply was added
+        if ((updatedReply.replies?.length || 0) !== (originalReply.replies?.length || 0)) return true;
+        return false;
+      });
+      
+      // If any reply was modified, return the comment with updated replies
+      if (hasChanges) {
+        // Check if any reply's reply count increased, meaning a new reply was added to a reply
+        const originalTotalReplies = comment.replies?.reduce((sum, r) => sum + (r.replyCount || 0), 0) || 0;
+        const newTotalReplies = updatedReplies.reduce((sum, r) => sum + (r.replyCount || 0), 0);
+        
+        // If any reply's reply count increased, this means a reply was added to a reply
+        // In that case, we should also increment the parent's reply count
+        const hasNewNestedReply = updatedReplies.some((r, i) => {
+          const originalReply = comment.replies?.[i];
+          if (!originalReply) return false;
+          return (r.replies?.length || 0) > (originalReply.replies?.length || 0);
+        });
+        
+        if (newTotalReplies > originalTotalReplies || hasNewNestedReply) {
+          return {
+            ...comment,
+            replyCount: (comment.replyCount || 0) + 1,
+            replies: updatedReplies
+          };
+        } else {
+          return {
+            ...comment,
+            replies: updatedReplies
+          };
+        }
+      }
     }
+    
+    // No match found, return the comment unchanged
     return comment;
   };
 
@@ -1197,37 +1489,44 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
             <p>{t('books:noComments', 'No comments yet. Be the first!')}</p>
           </div>
         ) : (
-          comments.map((comment) => (
-            <CommentItem
-              key={comment.id}
-              comment={comment}
-              depth={0}
-              user={user}
-              dateLocale={dateLocale}
-              t={t}
-              expandedReplies={expandedReplies}
-              loadingReplies={loadingReplies}
-              highlightedCommentId={highlightedCommentId}
-              replyingToId={replyToComment?.id || null}
-              replyText={newComment}
-              quotedText={quotedText}
-              submitting={submitting}
-              bookId={bookId}
-              onToggleReplies={handleToggleReplies}
-              onReply={handleReplyClick}
-              onCancelReply={handleCancelReply}
-              onReplyTextChange={setNewComment}
-              onSubmitReply={handlePostComment}
-              onDelete={handleDeleteComment}
-              onReaction={handleReact}
-              onTextSelect={handleTextSelect}
-              onScrollToComment={handleScrollToComment}
-              replyAttachmentFiles={replyAttachmentFiles}
-              replyUploadedFiles={replyUploadedFiles}
-              setReplyAttachmentFiles={setReplyAttachmentFiles}
-              setReplyUploadedFiles={setReplyUploadedFiles}
-            />
-          ))
+          (() => {
+            console.log('Rendering comments array, length:', comments.length);
+            if (comments.length > 0) {
+              console.log('First comment ID in render:', comments[0].id);
+              console.log('Last comment ID in render:', comments[comments.length - 1].id);
+            }
+            return comments.map((comment) => (
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                depth={0}
+                user={user}
+                dateLocale={dateLocale}
+                t={t}
+                expandedReplies={expandedReplies}
+                loadingReplies={loadingReplies}
+                highlightedCommentId={highlightedCommentId}
+                replyingToId={replyToComment?.id || null}
+                replyText={newComment}
+                quotedText={quotedText}
+                submitting={submitting}
+                bookId={bookId}
+                onToggleReplies={handleToggleReplies}
+                onReply={handleReplyClick}
+                onCancelReply={handleCancelReply}
+                onReplyTextChange={setNewComment}
+                onSubmitReply={handlePostComment}
+                onDelete={handleDeleteComment}
+                onReaction={handleReact}
+                onTextSelect={handleTextSelect}
+                onScrollToComment={handleScrollToComment}
+                replyAttachmentFiles={replyAttachmentFiles}
+                replyUploadedFiles={replyUploadedFiles}
+                setReplyAttachmentFiles={setReplyAttachmentFiles}
+                setReplyUploadedFiles={setReplyUploadedFiles}
+              />
+            ));
+          })()
         )}
       </div>
     </div>

@@ -16,7 +16,7 @@ import { AttachmentButton } from '@/components/AttachmentButton';
 import { AttachmentPreview } from '@/components/AttachmentPreview';
 import { AttachmentDisplay } from '@/components/AttachmentDisplay';
 import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
-import { User, Eye, MessageCircle, Heart, X, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, Eye, MessageCircle, Heart, X, Send, ChevronLeft, ChevronRight, Reply } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatAbsoluteDateTime } from '@/lib/dateUtils';
 import { linkifyText } from '@/lib/linkify';
@@ -59,6 +59,9 @@ interface Comment {
     count: number;
     userReacted: boolean;
   }[];
+  replyCount?: number;
+  replies?: Comment[];
+  parentCommentId?: string;
 }
 
 interface Reaction {
@@ -88,6 +91,12 @@ const NewsDetailPage: React.FC = () => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isReacting, setIsReacting] = useState(false);
+  
+  // Reply functionality
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [showReplyInput, setShowReplyInput] = useState<Record<string, boolean>>({});
+  const [replyAttachmentFiles, setReplyAttachmentFiles] = useState<Record<string, File[]>>({});
+  const [replyUploadedFiles, setReplyUploadedFiles] = useState<Record<string, UploadedFile[]>>({});
 
   useEffect(() => {
     if (id) {
@@ -175,7 +184,7 @@ const NewsDetailPage: React.FC = () => {
           ...newCommentObj,
           author: newCommentObj.author || user.fullName || user.username || 'Вы',
           avatarUrl: newCommentObj.avatarUrl || user.avatarUrl || null,
-          attachments: newCommentObj.attachmentMetadata?.attachments || []
+          attachments: newCommentObj.attachments || []
         };
         
         // Add the new comment to the list
@@ -215,7 +224,6 @@ const NewsDetailPage: React.FC = () => {
 
       if (response.ok) {
         const result = await response.json();
-        
         
         // Use aggregated reactions from server instead of local calculation
         if (result.reactions) {
@@ -259,50 +267,20 @@ const NewsDetailPage: React.FC = () => {
       if (response.ok) {
         const result = await response.json();
         
-        // Update the specific comment's reactions in the local state
-        setComments(prevComments => {
-          return prevComments.map(comment => {
-            if (comment.id === commentId) {
-              const existingReactionIndex = (comment.reactions || []).findIndex(r => r.emoji === emoji);
-              let updatedReactions = [...(comment.reactions || [])];
-              
-              if (existingReactionIndex >= 0) {
-                // Update existing reaction
-                if (result.action === 'added') {
-                  updatedReactions[existingReactionIndex] = {
-                    ...updatedReactions[existingReactionIndex],
-                    count: updatedReactions[existingReactionIndex].count + 1,
-                    userReacted: true
-                  };
-                } else {
-                  // Remove reaction if count becomes 0
-                  if (updatedReactions[existingReactionIndex].count <= 1) {
-                    updatedReactions.splice(existingReactionIndex, 1);
-                  } else {
-                    updatedReactions[existingReactionIndex] = {
-                      ...updatedReactions[existingReactionIndex],
-                      count: updatedReactions[existingReactionIndex].count - 1,
-                      userReacted: false
-                    };
-                  }
-                }
-              } else if (result.action === 'added') {
-                // Add new reaction
-                updatedReactions.push({
-                  emoji,
-                  count: 1,
-                  userReacted: true
-                });
+        // Use the updated reactions from the server response
+        if (result.reactions) {
+          setComments(prevComments => {
+            return prevComments.map(comment => {
+              if (comment.id === commentId) {
+                return {
+                  ...comment,
+                  reactions: result.reactions || []
+                };
               }
-              
-              return {
-                ...comment,
-                reactions: updatedReactions || []
-              };
-            }
-            return comment;
+              return comment;
+            });
           });
-        });
+        }
       } else {
         console.error('Failed to react to comment');
       }
@@ -347,6 +325,119 @@ const NewsDetailPage: React.FC = () => {
     } catch (error) {
       console.error('Error deleting comment:', error);
     }
+  };
+
+  const toggleReplyInput = (commentId: string) => {
+    setShowReplyInput(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }));
+  };
+
+  const handleReplyChange = (commentId: string, text: string) => {
+    setReplyTexts(prev => ({
+      ...prev,
+      [commentId]: text
+    }));
+  };
+
+  const handleReplySubmit = async (commentId: string) => {
+    if (!replyTexts[commentId]?.trim() || !user || !id) return;
+
+    try {
+      const response = await apiCall(`/api/news/comments/${commentId}/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          content: replyTexts[commentId],
+          attachments: replyUploadedFiles[commentId]?.map(f => f.uploadId) || []
+        }),
+      });
+
+      if (response.ok) {
+        const newReply = await response.json();
+        
+        // Format the reply to match our frontend interface
+        const formattedReply = {
+          ...newReply,
+          author: newReply.author || user.fullName || user.username || 'Вы',
+          avatarUrl: newReply.avatarUrl || user.avatarUrl || null,
+          attachments: newReply.attachments || []
+        };
+        
+        // Update the parent comment to include the new reply
+        setComments(prevComments => {
+          return prevComments.map(comment => {
+            if (comment.id === commentId) {
+              const updatedReplies = comment.replies ? [...comment.replies, formattedReply] : [formattedReply];
+              return {
+                ...comment,
+                replies: updatedReplies,
+                replyCount: (comment.replyCount || 0) + 1
+              };
+            }
+            return comment;
+          });
+        });
+        
+        // Clear reply input
+        setReplyTexts(prev => ({
+          ...prev,
+          [commentId]: ''
+        }));
+        setReplyAttachmentFiles(prev => ({
+          ...prev,
+          [commentId]: []
+        }));
+        setReplyUploadedFiles(prev => ({
+          ...prev,
+          [commentId]: []
+        }));
+        
+        // Close the reply input
+        setShowReplyInput(prev => ({
+          ...prev,
+          [commentId]: false
+        }));
+      } else {
+        console.error('Failed to post reply');
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error);
+    }
+  };
+
+  const handleReplyAttachments = async (commentId: string, files: File[]) => {
+    setReplyAttachmentFiles(prev => ({
+      ...prev,
+      [commentId]: [...(prev[commentId] || []), ...files].slice(0, 5)
+    }));
+    
+    // Auto-upload files
+    for (const file of files) {
+      try {
+        const uploaded = await fileUploadManager.uploadFile(file, undefined, 'comment');
+        setReplyUploadedFiles(prev => ({
+          ...prev,
+          [commentId]: [...(prev[commentId] || []), uploaded]
+        }));
+      } catch (error) {
+        console.error('Failed to upload reply file:', error);
+      }
+    }
+  };
+
+  const removeReplyAttachment = (commentId: string, index: number) => {
+    setReplyAttachmentFiles(prev => ({
+      ...prev,
+      [commentId]: (prev[commentId] || []).filter((_, i) => i !== index)
+    }));
+    setReplyUploadedFiles(prev => ({
+      ...prev,
+      [commentId]: (prev[commentId] || []).filter((_, i) => i !== index)
+    }));
   };
 
   if (loading) {
@@ -657,7 +748,7 @@ const NewsDetailPage: React.FC = () => {
                             // Auto-upload files
                             for (const file of files) {
                               try {
-                                const uploaded = await fileUploadManager.uploadFile(file, 'comment');
+                                const uploaded = await fileUploadManager.uploadFile(file, undefined, 'comment');
                                 setUploadedFiles(prev => [...prev, uploaded]);
                               } catch (error) {
                                 console.error('Failed to upload file:', error);
@@ -700,29 +791,34 @@ const NewsDetailPage: React.FC = () => {
               <p>{t('common:noCommentsYet')}</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {comments.map((comment) => (
-                <Card key={comment.id} className="relative">
-                  <CardContent className="pt-6">
-                    {/* Delete Button */}
-                    {user && (comment.userId === user.id || user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
-                      <button
-                        onClick={() => handleDeleteComment(comment.id)}
-                        className="absolute top-4 right-4 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        aria-label={t('common:deleteComment')}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                    <div className="flex gap-4">
-                      <Avatar>
-                        {comment.avatarUrl ? (
-                          <AvatarImage src={comment.avatarUrl} alt={comment.author} />
-                        ) : null}
-                        <AvatarFallback>{comment.author ? comment.author.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                <div 
+                  key={comment.id}
+                  className={`rounded-lg p-4 border bg-card ${comment.userId === user?.id ? 'bg-[#fbf6f0] dark:bg-[#2a2520]' : 'bg-card'}`}
+                >
+                  {/* Delete Button */}
+                  {user && (comment.userId === user.id || user.accessLevel === 'admin' || user.accessLevel === 'moder') && (
+                    <button
+                      onClick={() => handleDeleteComment(comment.id)}
+                      className="absolute top-4 right-4 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label={t('common:deleteComment')}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                  <div className="flex gap-3">
+                    <Avatar className="flex-shrink-0 w-10 h-10">
+                      {comment.avatarUrl ? (
+                        <AvatarImage src={comment.avatarUrl} alt={comment.author} />
+                      ) : null}
+                      <AvatarFallback>
+                        {comment.author ? comment.author.charAt(0).toUpperCase() : 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center justify-between flex-wrap gap-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <Link 
                             href={`/profile/${comment.userId}`}
                             target="_blank"
@@ -734,26 +830,183 @@ const NewsDetailPage: React.FC = () => {
                             {formatAbsoluteDateTime(comment.createdAt, dateLocale)}
                           </span>
                         </div>
-                        <p className="text-foreground/90 whitespace-pre-line">{comment.content}</p>
+                      </div>
+                      <p className="whitespace-pre-wrap text-sm">
+                        {comment.content}
+                      </p>
+                      
+                      {/* Attachments display */}
+                      {comment.attachments && comment.attachments.length > 0 && (
+                        <AttachmentDisplay attachments={comment.attachments} className="mt-2" />
+                      )}
+                      
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => toggleReplyInput(comment.id)}
+                        >
+                          <Reply className="w-3 h-3 mr-1" />
+                          {t('profile:ratings.reply')}
+                        </Button>
                         
-                        {/* Attachments display */}
-                        {comment.attachments && comment.attachments.length > 0 && (
-                          <div className="mt-2">
-                            <AttachmentDisplay attachments={comment.attachments} />
-                          </div>
+                        {comment.replyCount && comment.replyCount > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => toggleReplyInput(comment.id)}
+                          >
+                            {t('profile:ratings.repliesCount', { count: comment.replyCount })}
+                          </Button>
                         )}
                         
-                        <div className="mt-2">
-                          <ReactionBar 
-                            reactions={comment.reactions || []}
-                            onReact={(emoji) => handleCommentReact(comment.id, emoji)}
-                            commentId={comment.id}
-                          />
+                        <ReactionBar 
+                          reactions={comment.reactions || []}
+                          onReact={(emoji) => handleCommentReact(comment.id, emoji)}
+                          commentId={comment.id}
+                        />
+                      </div>
+                        
+                        {/* Reply Button */}
+                        <div className="mt-3">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => toggleReplyInput(comment.id)}
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            {t('common:reply')}
+                          </Button>
+                          
+                          {/* Reply Input */}
+                          {showReplyInput[comment.id] && (
+                            <div className="mt-3 p-3 bg-muted rounded-md">
+                              <div className="flex gap-2">
+                                <Avatar className="w-6 h-6">
+                                  {user?.avatarUrl ? (
+                                    <AvatarImage src={user.avatarUrl} alt={user.username} />
+                                  ) : null}
+                                  <AvatarFallback>ВЫ</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 space-y-2">
+                                  <Textarea
+                                    placeholder={t('common:writeReply')}
+                                    value={replyTexts[comment.id] || ''}
+                                    onChange={(e) => handleReplyChange(comment.id, e.target.value)}
+                                    className="text-sm min-h-[60px]"
+                                  />
+                                  
+                                  {/* Reply Attachments Preview */}
+                                  {(replyAttachmentFiles[comment.id] || []).length > 0 && (
+                                    <div className="text-xs space-y-1">
+                                      {(replyAttachmentFiles[comment.id] || []).map((file, idx) => (
+                                        <div key={idx} className="flex items-center gap-1">
+                                          <span>{file.name}</span>
+                                          <button 
+                                            onClick={() => removeReplyAttachment(comment.id, idx)}
+                                            className="text-destructive hover:text-destructive/80"
+                                          >
+                                            ×
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex gap-2">
+                                    <EmojiPicker
+                                      onEmojiSelect={(emoji) => {
+                                        handleReplyChange(comment.id, (replyTexts[comment.id] || '') + emoji);
+                                      }}
+                                    />
+                                    <AttachmentButton
+                                      onFilesSelected={(files) => handleReplyAttachments(comment.id, files)}
+                                      disabled={(replyAttachmentFiles[comment.id] || []).length >= 5}
+                                    />
+                                    <Button 
+                                      size="sm" 
+                                      onClick={() => handleReplySubmit(comment.id)}
+                                      disabled={!(replyTexts[comment.id] || '').trim()}
+                                    >
+                                      {t('common:send')}
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => toggleReplyInput(comment.id)}
+                                    >
+                                      {t('common:cancel')}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
+                        
+                        {/* Replies */}
+                        {comment.replies && comment.replies.length > 0 && (
+                          <div className="mt-4 space-y-1.5">
+                            {comment.replies.map((reply) => (
+                              <div 
+                                key={reply.id} 
+                                className={`rounded-lg p-2.5 bg-muted/50 ${reply.userId === user?.id ? 'bg-[#fbf6f0] dark:bg-[#2a2520]' : ''}`}>
+                                <div className="flex gap-2">
+                                  <Avatar className="w-7 h-7 flex-shrink-0">
+                                    {reply.avatarUrl ? (
+                                      <AvatarImage src={reply.avatarUrl} alt={reply.author} />
+                                    ) : null}
+                                    <AvatarFallback className="text-xs">
+                                      {reply.author ? reply.author.charAt(0).toUpperCase() : 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <Link 
+                                        href={`/profile/${reply.userId}`}
+                                        target="_blank"
+                                        className="font-medium hover:underline text-blue-600 hover:text-blue-800 text-sm"
+                                      >
+                                        {reply.author || 'Anonymous'}
+                                      </Link>
+                                      <span className="text-xs text-muted-foreground">
+                                        {formatAbsoluteDateTime(reply.createdAt, dateLocale)}
+                                      </span>
+                                    </div>
+                                    <p className="text-foreground/90 text-sm whitespace-pre-line">{reply.content}</p>
+                                    
+                                    {/* Reply Attachments */}
+                                    {reply.attachments && reply.attachments.length > 0 && (
+                                      <div className="mt-1">
+                                        <AttachmentDisplay attachments={reply.attachments} />
+                                      </div>
+                                    )}
+                                    
+                                    <div className="mt-1">
+                                      <ReactionBar 
+                                        reactions={reply.reactions || []}
+                                        onReact={(emoji) => handleCommentReact(reply.id, emoji)}
+                                        commentId={reply.id}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            
+                            {/* Show reply count if there are more replies not shown */}
+                            {comment.replyCount && comment.replies && comment.replies.length < (comment.replyCount || 0) && (
+                              <div className="text-xs text-muted-foreground mt-2">
+                                {t('common:moreReplies', { count: comment.replyCount - comment.replies.length })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
               ))}
             </div>
           )}

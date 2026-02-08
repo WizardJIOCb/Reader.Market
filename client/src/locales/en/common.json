@@ -177,5 +177,9 @@
   "copy": "Copy",
   "copied": "Copied",
   "image": "Image",
-  "file": "File"
+  "file": "File",
+  "reply": "Reply",
+  "writeReply": "Write a reply...",
+  "send": "Send",
+  "moreReplies": "{{count}} more replies"
 }

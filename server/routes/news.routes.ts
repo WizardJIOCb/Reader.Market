@@ -43,7 +43,12 @@ export function createNewsRouter() {
   router.get("/:id/comments", optionalAuthenticateToken, async (req, res) => {
     console.log("Get news comments endpoint called for news ID:", req.params.id);
     try {
-      res.status(501).json({ error: "Get news comments API not yet implemented in modular form" });
+      const newsId = req.params.id;
+      const userId = req.user ? (req.user as any).userId : undefined;
+      
+      const comments = await storage.getNewsComments(newsId, userId);
+      
+      res.json(comments);
     } catch (error) {
       console.error("Get news comments error:", error);
       res.status(500).json({ error: "Failed to fetch news comments" });
@@ -54,7 +59,23 @@ export function createNewsRouter() {
   router.post("/:id/comments", authenticateToken, async (req, res) => {
     console.log("Post news comment endpoint called for news ID:", req.params.id);
     try {
-      res.status(501).json({ error: "Post news comment API not yet implemented in modular form" });
+      const newsId = req.params.id;
+      const { content } = req.body;
+      
+      // Validate input
+      if (!content || content.trim() === "") {
+        return res.status(400).json({ error: "Comment content is required" });
+      }
+      
+      // Create the news comment
+      const comment = await storage.createNewsComment({
+        newsId: newsId,
+        userId: (req.user as any).userId,
+        content: content.trim(),
+        attachments: req.body.attachments || []
+      });
+      
+      res.status(201).json(comment);
     } catch (error) {
       console.error("Post news comment error:", error);
       res.status(500).json({ error: "Failed to create news comment" });
@@ -65,7 +86,12 @@ export function createNewsRouter() {
   router.get("/:id/reactions", optionalAuthenticateToken, async (req, res) => {
     console.log("Get news reactions endpoint called for news ID:", req.params.id);
     try {
-      res.status(501).json({ error: "Get news reactions API not yet implemented in modular form" });
+      const { id } = req.params;
+      const userId = req.user ? (req.user as any).userId : undefined;
+      
+      const reactions = await storage.getNewsReactions(id);
+      
+      res.json(reactions);
     } catch (error) {
       console.error("Get news reactions error:", error);
       res.status(500).json({ error: "Failed to fetch news reactions" });
@@ -76,7 +102,25 @@ export function createNewsRouter() {
   router.post("/:id/reactions", authenticateToken, async (req, res) => {
     console.log("Post news reaction endpoint called for news ID:", req.params.id);
     try {
-      res.status(501).json({ error: "Post news reaction API not yet implemented in modular form" });
+      const { id } = req.params;
+      const { emoji } = req.body;
+      
+      // Validate input
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      // Create the reaction
+      const result = await storage.createNewsReaction({
+        newsId: id,
+        userId: (req.user as any).userId,
+        emoji: emoji
+      });
+      
+      // Fetch updated reactions for the news item
+      const updatedReactions = await storage.getNewsReactions(id);
+      
+      res.json({ ...result, reactions: updatedReactions });
     } catch (error) {
       console.error("Post news reaction error:", error);
       res.status(500).json({ error: "Failed to create news reaction" });
@@ -98,10 +142,58 @@ export function createNewsRouter() {
   router.post("/comments/:commentId/reactions", authenticateToken, async (req, res) => {
     console.log("Post news comment reaction endpoint called for comment ID:", req.params.commentId);
     try {
-      res.status(501).json({ error: "Post news comment reaction API not yet implemented in modular form" });
+      const { commentId } = req.params;
+      const { emoji } = req.body;
+      
+      // Validate input
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      // Create the reaction
+      const result = await storage.createReaction({
+        commentId: commentId,
+        userId: (req.user as any).userId,
+        emoji: emoji
+      });
+      
+      // Get updated reactions for this comment
+      const updatedReactions = await storage.getReactions(commentId, 'comment');
+      
+      res.json({ ...result, reactions: updatedReactions });
     } catch (error) {
       console.error("Post news comment reaction error:", error);
       res.status(500).json({ error: "Failed to create news comment reaction" });
+    }
+  });
+
+  // Authenticated: Post news comment reply
+  router.post("/comments/:commentId/reply", authenticateToken, async (req, res) => {
+    console.log("Post news comment reply endpoint called for comment ID:", req.params.commentId);
+    try {
+      const { commentId } = req.params;
+      const { content, quotedText } = req.body;
+      
+      // Validate input
+      if (!content || content.trim() === "") {
+        return res.status(400).json({ error: "Reply content is required" });
+      }
+      
+      // Create the comment reply using the general createComment method
+      const reply = await storage.createComment({
+        userId: (req.user as any).userId,
+        content: content.trim(),
+        parentCommentId: commentId,
+        quotedText: quotedText || null,
+        attachments: req.body.attachments || [],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      res.status(201).json(reply);
+    } catch (error) {
+      console.error("Post news comment reply error:", error);
+      res.status(500).json({ error: "Failed to create news comment reply" });
     }
   });
 
