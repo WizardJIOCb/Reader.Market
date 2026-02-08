@@ -837,8 +837,8 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         console.log('Main useEffect: Cached comments count:', cachedComments.length);
         console.log('Main useEffect: Local comments to preserve:', localComments.length);
         
-        // Combine cached comments with local comments that aren't duplicates
-        const allComments = [...cachedComments, ...localComments];
+        // Combine local comments with cached comments to maintain newest-first order
+        const allComments = [...localComments, ...cachedComments];
         console.log('Main useEffect: Final comments count after merge:', allComments.length);
         
         return allComments;
