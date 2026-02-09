@@ -121,12 +121,12 @@ export class AdminStorageImpl implements AdminStorage {
   async getAllBooksWithUploader(limit: number, offset: number, search?: string, sortBy?: string, sortOrder?: string): Promise<{books: any[], total: number}> {
     try {
       // First get the total count
-      let countQuery = this.db.select({ count: count() }).from(books);
+      let totalCountQuery = this.db.select({ total: count() }).from(books);
       if (search) {
-        countQuery = countQuery.where(ilike(books.title, `%${search}%`));
+        totalCountQuery = totalCountQuery.where(ilike(books.title, `%${search}%`));
       }
-      const countResult = await countQuery;
-      const count = countResult[0]?.count || 0;
+      const totalCountResult = await totalCountQuery;
+      const totalCount = totalCountResult[0]?.total || 0;
 
       // Then get the actual records
       let query = this.db
@@ -164,7 +164,7 @@ export class AdminStorageImpl implements AdminStorage {
 
       return {
         books: results,
-        total: count
+        total: totalCount
       };
     } catch (error) {
       console.error("Error getting books with uploader info:", error);
@@ -214,12 +214,12 @@ export class AdminStorageImpl implements AdminStorage {
       const offset = (page - 1) * limit;
       
       // First get the total count
-      let countQuery = this.db.select({ count: count() }).from(articles);
+      let totalCountQuery = this.db.select({ total: count() }).from(articles);
       if (status) {
-        countQuery = countQuery.where(eq(articles.status, status));
+        totalCountQuery = totalCountQuery.where(eq(articles.status, status));
       }
-      const countResult = await countQuery;
-      const count = countResult[0]?.count || 0;
+      const totalCountResult = await totalCountQuery;
+      const totalCount = Number(totalCountResult[0]?.total) || 0;
 
       // Then get the actual records
       let query = this.db.select({
@@ -282,11 +282,11 @@ export class AdminStorageImpl implements AdminStorage {
         }
       }));
       
-      const totalPages = Math.ceil(count / limit);
+      const totalPages = Math.ceil(totalCount / limit);
       
       return {
         articles: transformedArticles,
-        total: count,
+        total: totalCount,
         page,
         limit,
         totalPages

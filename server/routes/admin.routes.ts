@@ -3,6 +3,7 @@ import { authenticateToken } from '../middleware/auth';
 import { requireAdminOrModerator } from '../middleware/admin-auth';
 import { storage } from '../storage';
 import { db } from '../storage/db';
+import { createAdminStorage } from '../storage/modules/admin.storage';
 import { users, news, comments, reviews, articles, articleCategories, books, bookmarkCollections } from '@shared/schema';
 import { eq, and, or, asc, desc, sql } from 'drizzle-orm';
 import multer from 'multer';
@@ -431,7 +432,8 @@ export function createAdminRouter() {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       const status = req.query.status as string || undefined;
       
-      const result = await storage.getAllArticlesForAdmin(page, limit, status);
+      const adminStorage = createAdminStorage(db);
+      const result = await adminStorage.getAllArticlesForAdmin(page, limit, status);
       res.json(result);
     } catch (error) {
       console.error("Get all articles for admin error:", error);
@@ -856,7 +858,8 @@ export function createAdminRouter() {
       const sortOrder = req.query.sortOrder as string || 'desc';
       const offset = (page - 1) * limit;
       
-      const { books, total } = await storage.getAllBooksWithUploader(limit, offset, search, sortBy, sortOrder);
+      const adminStorage = createAdminStorage(db);
+      const { books, total } = await adminStorage.getAllBooksWithUploader(limit, offset, search, sortBy, sortOrder);
       
       res.json({
         books,
