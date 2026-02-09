@@ -794,6 +794,109 @@ export type ArticleReadLater = typeof articleReadLater.$inferSelect;
 export type InsertArticleReadLater = typeof articleReadLater.$inferInsert;
 
 
+// =====================================================================
+// GLOBAL CATALOG SYSTEM TABLES
+// =====================================================================
+
+// Table for canonical list of all books in the world (global catalog)
+export const globalWorks = pgTable("global_works", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  normalizedTitle: text("normalized_title").notNull(),
+  authorName: text("author_name").notNull(),
+  year: integer("year"),
+  language: varchar("language", { length: 10 }),
+  wikidataQid: varchar("wikidata_qid", { length: 20 }), // Wikidata entity ID
+  openlibraryWorkId: varchar("openlibrary_work_id"), // OpenLibrary work ID
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  discovered_at: timestamp("discovered_at"), // When first discovered in our system
+  discovery_source: text("discovery_source"), // openlibrary / wikidata / google / user_search
+  status: text("status").default('pending').notNull(), // pending / processing / processed / failed
+  bootstrap_source: text("bootstrap_source"), // Source of initial bootstrap (wikidata, openlibrary)
+  bootstrap_at: timestamp("bootstrap_at"), // When it was bootstrapped
+  externalIds: jsonb("external_ids"), // Additional external identifiers (ISBN, etc.)
+});
+
+// Table for specific book editions
+export const editions = pgTable("editions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workId: varchar("work_id").notNull().references(() => globalWorks.id, { onDelete: 'cascade' }),
+  isbn10: varchar("isbn10", { length: 10 }),
+  isbn13: varchar("isbn13", { length: 13 }),
+  publisher: text("publisher"),
+  year: integer("year"),
+  language: varchar("language", { length: 10 }),
+  source: text("source").notNull(), // Where this edition info came from
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Queue for discovery tasks
+export const discoveryQueue = pgTable("discovery_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  query: text("query").notNull(), // The search query or identifier
+  type: text("type").notNull(), // user_search | global_fill
+  priority: integer("priority").default(0).notNull(), // Higher number = higher priority
+  attempts: integer("attempts").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  status: text("status").default('pending').notNull(), // pending / found / failed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Log of search misses (user searches that returned no results)
+export const searchMissLog = pgTable("search_miss_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rawQuery: text("raw_query").notNull(), // The original user query
+  normalizedQuery: text("normalized_query").notNull(), // Normalized version of the query
+  userId: varchar("user_id").references(() => users.id), // Who searched (nullable for anonymous)
+  count: integer("count").default(1).notNull(), // How many times this query was made
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Track bootstrap progress
+export const bootstrapProgress = pgTable("bootstrap_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchIdentifier: varchar("batch_identifier").notNull(), // Identifier for the batch (e.g., last QID processed)
+  source: text("source").notNull(), // wikidata, openlibrary, etc.
+  recordsProcessed: integer("records_processed").default(0).notNull(),
+  status: text("status").default('running').notNull(), // running / completed / failed
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  metadata: jsonb("metadata"), // Additional metadata about the bootstrap run
+});
+
+// Worker statistics table
+export const workerStats = pgTable("worker_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerName: text("worker_name").notNull(), // Name of the worker (discovery_worker)
+  totalProcessed: integer("total_processed").default(0).notNull(), // Total items processed
+  totalErrors: integer("total_errors").default(0).notNull(), // Total errors occurred
+  lastProcessedAt: timestamp("last_processed_at"), // Last time an item was processed
+  activeSince: timestamp("active_since"), // When worker became active
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Export types for global catalog
+export type GlobalWork = typeof globalWorks.$inferSelect;
+export type InsertGlobalWork = typeof globalWorks.$inferInsert;
+
+export type Edition = typeof editions.$inferSelect;
+export type InsertEdition = typeof editions.$inferInsert;
+
+export type DiscoveryQueue = typeof discoveryQueue.$inferSelect;
+export type InsertDiscoveryQueue = typeof discoveryQueue.$inferInsert;
+
+export type SearchMissLog = typeof searchMissLog.$inferSelect;
+export type InsertSearchMissLog = typeof searchMissLog.$inferInsert;
+
+export type BootstrapProgress = typeof bootstrapProgress.$inferSelect;
+export type InsertBootstrapProgress = typeof bootstrapProgress.$inferInsert;
+
+export type WorkerStat = typeof workerStats.$inferSelect;
+export type InsertWorkerStat = typeof workerStats.$inferInsert;
 
 // Create unique constraint for conversations to prevent duplicate user pairs
 // Note: We'll handle this in the migration file

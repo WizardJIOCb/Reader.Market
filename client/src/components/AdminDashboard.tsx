@@ -47,6 +47,7 @@ import TtsAdminSettings from '@/pages/TtsAdminSettings';
 import { LogAnalytics } from './LogAnalytics';
 import MagicLoader from '@/components/MagicLoader';
 import { AdminCollectionsPage } from '@/pages/admin/AdminCollectionsPage';
+import GlobalCatalogManagement from '@/components/GlobalCatalogManagement';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatAbsoluteDateTime } from '@/lib/dateUtils';
@@ -438,6 +439,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'comments', label: t('admin:navigation.comments'), icon: MessageSquare },
     { id: 'reviews', label: t('admin:navigation.reviews'), icon: Star },
     { id: 'books', label: t('admin:navigation.books'), icon: BookOpen },
+    { id: 'global-catalog', label: t('admin:navigation.globalCatalog'), icon: BookOpen },
     ...(isAdmin ? [{ id: 'users', label: t('admin:navigation.userManagement'), icon: Users }] : []),
     ...(isAdmin ? [{ id: 'rating-system', label: t('admin:navigation.bookRatingSystem'), icon: Settings }] : []),
     ...(isAdmin ? [{ id: 'user-rating-system', label: t('admin:navigation.userRatingSystem'), icon: Settings }] : []),
@@ -827,6 +829,10 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'books' && (
               <BooksManagement />
+            )}
+
+            {activeTab === 'global-catalog' && (
+              <GlobalCatalogManagement />
             )}
 
             {activeTab === 'users' && isAdmin && (

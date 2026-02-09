@@ -1,0 +1,10 @@
+FROM postgres:15
+
+# Установка русской локали
+RUN apt-get update && \
+    apt-get install -y locales && \
+    localedef -i ru_RU -c -f UTF-8 ru_RU.UTF-8
+
+# Установка локали по умолчанию
+ENV LANG=ru_RU.UTF-8
+ENV LC_ALL=ru_RU.UTF-8
