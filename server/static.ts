@@ -63,20 +63,15 @@ export function serveStatic(app: Express) {
   }
 
   // fall through to index.html if the file doesn't exist
-  // but only for non-API routes
-  app.use("*", (req, res, next) => {
-    // Skip catch-all for API routes
-    if (req.path.startsWith('/api')) {
+  // but only for non-API routes and non-upload routes
+  app.use("*", (req, res) => {
+    // Skip catch-all for API routes and upload routes
+    if (req.path.startsWith('/api') || req.path.includes('/uploads/')) {
       res.status(404).json({ error: 'Route not found' });
       return;
     }
     
-    // For routes that don't contain /uploads/, serve index.html for SPA routing
-    if (!req.path.includes('/uploads/')) {
-      res.sendFile(path.resolve(distPath, "index.html"));
-    } else {
-      // Let the specific upload handler above deal with it
-      next();
-    }
+    // For other routes, serve index.html for SPA routing
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
