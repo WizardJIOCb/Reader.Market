@@ -28,6 +28,11 @@ export function getFileUrl(path: string): string {
     return `${API_BASE_URL}/${path}`;
   }
   
+  // For upload paths, ensure they are treated as absolute paths (starting with /)
+  if (path.startsWith('uploads/')) {
+    return `/${path}`;
+  }
+  
   // If API_BASE_URL is empty or path already starts with '/', just return the combination
   return `${API_BASE_URL}${path}`;
 }
