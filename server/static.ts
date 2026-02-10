@@ -40,10 +40,19 @@ export function serveStatic(app: Express) {
         // Check if file exists before attempting to send it
         fs.access(fullPath, fs.constants.F_OK, (err) => {
           if (err) {
-            // File does not exist, continue with other middleware
-            next();
+            // File does not exist at the direct path, try the books subdirectory
+            const booksSubdirPath = path.join(uploadsPath, 'books', sanitizedPath);
+            fs.access(booksSubdirPath, fs.constants.F_OK, (booksErr) => {
+              if (booksErr) {
+                // File does not exist in either location, continue with other middleware
+                next();
+              } else {
+                // File exists in books subdirectory, send it
+                res.sendFile(booksSubdirPath);
+              }
+            });
           } else {
-            // File exists, send it
+            // File exists at the direct path, send it
             res.sendFile(fullPath);
           }
         });
