@@ -23,7 +23,12 @@ export function getFileUrl(path: string): string {
     return path;
   }
   
-  // For relative paths, prepend base URL
+  // Ensure path starts with a slash if we're appending to a base URL
+  if (API_BASE_URL && path && !path.startsWith('/')) {
+    return `${API_BASE_URL}/${path}`;
+  }
+  
+  // If API_BASE_URL is empty or path already starts with '/', just return the combination
   return `${API_BASE_URL}${path}`;
 }
 
