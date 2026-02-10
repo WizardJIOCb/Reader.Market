@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticateToken, optionalAuthenticateToken } from "../middleware/auth";
 import { storage } from "../storage";
+import type { Server as SocketIOServer } from 'socket.io';
 
 export function createShelvesRouter() {
   const router = Router();
@@ -76,6 +77,29 @@ export function createShelvesRouter() {
         color: color || null
       });
       
+      // Broadcast shelf update via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Prepare shelf update data
+          const shelfUpdateData = {
+            userId: userId,
+            shelfId: shelf.id,
+            operation: 'create_shelf',
+            shelf: shelf,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Broadcast to user's personal shelf room
+          io.to(`user:shelves:${userId}`).emit('shelf:update', shelfUpdateData);
+          console.log(`[SHELF] Broadcasted shelf creation to user ${userId} for shelf ${shelf.id}`);
+        }
+      } catch (broadcastError) {
+        console.error('[SHELF] Failed to broadcast shelf creation:', broadcastError);
+        // Don't fail the request if broadcast fails
+      }
+      
       res.status(201).json(shelf);
     } catch (error) {
       console.error("Create shelf error:", error);
@@ -111,6 +135,30 @@ export function createShelvesRouter() {
       }
       
       const updatedShelf = await storage.updateShelf(id, updateData);
+      
+      // Broadcast shelf update via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Prepare shelf update data
+          const shelfUpdateData = {
+            userId: userId,
+            shelfId: id,
+            operation: 'update_shelf',
+            shelf: updatedShelf,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Broadcast to user's personal shelf room
+          io.to(`user:shelves:${userId}`).emit('shelf:update', shelfUpdateData);
+          console.log(`[SHELF] Broadcasted shelf update to user ${userId} for shelf ${id}`);
+        }
+      } catch (broadcastError) {
+        console.error('[SHELF] Failed to broadcast shelf update:', broadcastError);
+        // Don't fail the request if broadcast fails
+      }
+      
       res.json(updatedShelf);
     } catch (error) {
       console.error("Update shelf error:", error);
@@ -136,6 +184,30 @@ export function createShelvesRouter() {
       }
       
       await storage.deleteShelf(id);
+      
+      // Broadcast shelf update via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Prepare shelf update data
+          const shelfUpdateData = {
+            userId: userId,
+            shelfId: id,
+            operation: 'delete_shelf',
+            shelf: existingShelf,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Broadcast to user's personal shelf room
+          io.to(`user:shelves:${userId}`).emit('shelf:update', shelfUpdateData);
+          console.log(`[SHELF] Broadcasted shelf deletion to user ${userId} for shelf ${id}`);
+        }
+      } catch (broadcastError) {
+        console.error('[SHELF] Failed to broadcast shelf deletion:', broadcastError);
+        // Don't fail the request if broadcast fails
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Delete shelf error:", error);
@@ -167,6 +239,35 @@ export function createShelvesRouter() {
       }
       
       await storage.addBookToShelf(shelfId, bookId);
+      
+      // Broadcast shelf update via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Get updated shelf data to broadcast - get all user shelves with books and find the specific one
+          const allShelvesWithBooks = await storage.getShelvesWithBooks(userId);
+          const updatedShelf = allShelvesWithBooks.find(shelf => shelf.id === shelfId);
+          
+          // Prepare shelf update data
+          const shelfUpdateData = {
+            userId: userId,
+            shelfId: shelfId,
+            bookId: bookId,
+            operation: 'add_book',
+            shelf: updatedShelf,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Broadcast to user's personal shelf room
+          io.to(`user:shelves:${userId}`).emit('shelf:update', shelfUpdateData);
+          console.log(`[SHELF] Broadcasted shelf update to user ${userId} for shelf ${shelfId}`);
+        }
+      } catch (broadcastError) {
+        console.error('[SHELF] Failed to broadcast shelf update:', broadcastError);
+        // Don't fail the request if broadcast fails
+      }
+      
       res.json({ success: true, message: "Book added to shelf" });
     } catch (error) {
       console.error("Add book to shelf error:", error);
@@ -192,6 +293,35 @@ export function createShelvesRouter() {
       }
       
       await storage.removeBookFromShelf(shelfId, bookId);
+      
+      // Broadcast shelf update via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Get updated shelf data to broadcast - get all user shelves with books and find the specific one
+          const allShelvesWithBooks = await storage.getShelvesWithBooks(userId);
+          const updatedShelf = allShelvesWithBooks.find(shelf => shelf.id === shelfId);
+          
+          // Prepare shelf update data
+          const shelfUpdateData = {
+            userId: userId,
+            shelfId: shelfId,
+            bookId: bookId,
+            operation: 'remove_book',
+            shelf: updatedShelf,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Broadcast to user's personal shelf room
+          io.to(`user:shelves:${userId}`).emit('shelf:update', shelfUpdateData);
+          console.log(`[SHELF] Broadcasted shelf update to user ${userId} for shelf ${shelfId}`);
+        }
+      } catch (broadcastError) {
+        console.error('[SHELF] Failed to broadcast shelf update:', broadcastError);
+        // Don't fail the request if broadcast fails
+      }
+      
       res.json({ success: true, message: "Book removed from shelf" });
     } catch (error) {
       console.error("Remove book from shelf error:", error);

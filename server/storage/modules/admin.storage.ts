@@ -135,9 +135,14 @@ export class AdminStorageImpl implements AdminStorage {
           title: books.title,
           author: books.author,
           uploader: users.username,
+          uploaderFullName: users.fullName,
           uploadedAt: books.uploadedAt,
           coverImageUrl: books.coverImageUrl,
-          isActive: books.isActive
+          isActive: books.isActive,
+          genre: books.genre,
+          publishedYear: books.publishedYear,
+          rating: sql<number>`CAST(${books.rating} AS REAL)`.as('rating'),
+          fileSize: books.fileSize
         })
         .from(books)
         .leftJoin(users, eq(books.userId, users.id));

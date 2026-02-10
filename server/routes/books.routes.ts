@@ -5,6 +5,10 @@ import { storage } from "../storage";
 import { db } from "../storage/db";
 import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
 import { books as booksSchema, bookmarkCollections, bookmarkCollectionItems, bookmarks, fileUploads } from '@shared/schema';
+import multer from 'multer';
+import path from 'path';
+import type { Request } from 'express';
+import type { FileFilterCallback } from 'multer';
 
 export function createBooksRouter() {
   const router = Router();
@@ -847,6 +851,181 @@ export function createBooksRouter() {
     } catch (error) {
       console.error('Error fetching translations:', error);
       res.status(500).json({ error: 'Failed to fetch translations' });
+    }
+  });
+
+  // Upload a new book with file
+  router.post("/upload", authenticateToken, (req, res, next) => {
+    // Configure multer for book uploads
+    const storage = multer.diskStorage({
+      destination: function (req, file, cb) {
+        cb(null, 'uploads/books/');
+      },
+      filename: function (req, file, cb) {
+        // Generate unique filename with original extension
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const fileExt = path.extname(file.originalname).toLowerCase();
+        cb(null, file.fieldname + '-' + uniqueSuffix + fileExt);
+      }
+    });
+    
+    const upload = multer({
+      storage: storage,
+      limits: {
+        fileSize: 100 * 1024 * 1024 // 100MB limit
+      },
+      fileFilter: (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+        // Allow book files and images
+        const allowedTypes = [
+          'image/jpeg',
+          'image/png', 
+          'image/gif',
+          'image/webp',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+          'application/epub+zip', // .epub
+          'text/plain',
+          'application/fb2',
+          'application/x-fictionbook+xml',
+          'text/xml',
+          'application/octet-stream' // Generic binary (might be FB2)
+        ];
+        
+        // Also check file extension for FB2 files
+        const fileName = file.originalname.toLowerCase();
+        const isFB2File = fileName.endsWith('.fb2');
+        
+        if (allowedTypes.includes(file.mimetype) || isFB2File) {
+          cb(null, true);
+        } else {
+          cb(null, false);
+        }
+      }
+    });
+
+    const uploadMiddleware = upload.fields([
+      { name: 'coverImage', maxCount: 1 }, 
+      { name: 'bookFile', maxCount: 1 }
+    ]);
+    
+    uploadMiddleware(req, res, (err: any) => {
+      if (err) {
+        console.error("Multer error:", err);
+        if ((err as any).code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File size exceeds 100MB limit' });
+        }
+        if (err.message === 'Unexpected field') {
+          return res.status(400).json({ error: `Unexpected file field. Only 'coverImage' and 'bookFile' are allowed.` });
+        }
+        return res.status(400).json({ error: err.message || 'File upload error' });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const bookData = req.body;
+      
+      // Validate required fields
+      if (!bookData.title || !bookData.author) {
+        return res.status(400).json({ error: "Title and author are required" });
+      }
+      
+      // Prepare book data with file paths if files were uploaded
+      const currentUser = await storage.getUser((req as any).user.userId);
+      const isAdmin = currentUser?.accessLevel === 'admin' || currentUser?.accessLevel === 'moder';
+      
+      const newBookData: any = {
+        title: bookData.title,
+        author: bookData.author,
+        description: bookData.description || null,
+        genre: bookData.genre || null,
+        publishedYear: bookData.publishedYear ? parseInt(bookData.publishedYear) : null,
+        publishedAt: bookData.publishedAt ? new Date(bookData.publishedAt) : null,
+        isActive: isAdmin, // Books uploaded by admins/mods should be active by default, regular users' books are inactive
+        userId: (req as any).user.userId // Set the uploader ID
+      };
+      
+      // Handle cover image upload
+      if (files && files.coverImage && files.coverImage[0]) {
+        newBookData.coverImageUrl = '/uploads/books/' + files.coverImage[0].filename;
+      }
+      
+      // Handle book file upload
+      if (files && files.bookFile && files.bookFile[0]) {
+        const bookFile = files.bookFile[0];
+        newBookData.filePath = '/uploads/books/' + bookFile.filename;
+        newBookData.fileSize = bookFile.size;
+        newBookData.fileType = bookFile.mimetype;
+      }
+      
+      // Validate that at least a file path is provided
+      if (!newBookData.filePath) {
+        return res.status(400).json({ error: "Book file is required" });
+      }
+
+      const book = await storage.createBook(newBookData);
+
+      // Add book to user's "Загруженные" shelf
+      try {
+        const userId = (req as any).user.userId;
+        
+        // Find or create the "Загруженные" shelf for this user
+        let uploadedShelf = null;
+        const userShelves = await storage.getShelves(userId);
+        uploadedShelf = userShelves.find((shelf: any) => shelf.name === 'Загруженные');
+        
+        if (!uploadedShelf) {
+          // Create the "Загруженные" shelf if it doesn't exist
+          uploadedShelf = await storage.createShelf(userId, {
+            name: 'Загруженные',
+            description: 'Загруженные книги',
+            color: 'bg-blue-100 dark:bg-blue-900/20'
+          });
+          console.log('[SHELF] Created new "Загруженные" shelf for user:', userId);
+        } else {
+          console.log('[SHELF] Found existing "Загруженные" shelf for user:', userId);
+        }
+        
+        // Add the book to the "Загруженные" shelf
+        await storage.addBookToShelf(uploadedShelf.id, book.id);
+        console.log('[SHELF] Added book to "Загруженные" shelf:', book.id);
+      } catch (shelfError) {
+        console.error('[SHELF] Error adding book to "Загруженные" shelf:', shelfError);
+        // Don't fail the entire operation if shelf operation fails
+      }
+
+      // Create activity feed entry and broadcast via WebSocket
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          console.log('[STREAM] Broadcasting book creation:', book.id);
+
+          // Create activity data
+          const activityData = {
+            id: book.id,
+            type: 'book_creation',
+            entity_type: 'book',
+            entity_id: book.id,
+            title: book.title,
+            author: book.author,
+            created_at: book.createdAt,
+            timestamp: book.createdAt.toISOString()
+          };
+
+          // Broadcast to global stream
+          io.to('stream:global').emit('stream:new-activity', activityData);
+          console.log('[STREAM] ✓ Book creation broadcast sent');
+        }
+      } catch (broadcastError) {
+        console.error('[STREAM] Failed to broadcast book creation:', broadcastError);
+      }
+
+      res.status(201).json(book);
+    } catch (error) {
+      console.error("Upload book error:", error);
+      res.status(500).json({ error: "Failed to upload book" });
     }
   });
 

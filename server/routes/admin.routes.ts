@@ -803,16 +803,126 @@ export function createAdminRouter() {
   });
 
   // Admin: Create book
-  router.post("/books", authenticateToken, requireAdminOrModerator, async (req, res) => {
-    try {
-      const bookData = req.body;
+  router.post("/books", authenticateToken, requireAdminOrModerator, (req, res, next) => {
+    // Configure multer for book uploads (images and book files)
+    const storage = multer.diskStorage({
+      destination: function (req, file, cb) {
+        cb(null, 'uploads/books/');
+      },
+      filename: function (req, file, cb) {
+        // Generate unique filename with original extension
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const fileExt = path.extname(file.originalname).toLowerCase();
+        cb(null, file.fieldname + '-' + uniqueSuffix + fileExt);
+      }
+    });
+    
+    const bookUpload = multer({
+      storage: storage,
+      limits: {
+        fileSize: 100 * 1024 * 1024 // 100MB limit
+      },
+      fileFilter: (req, file, cb) => {
+        // Allow book files and images
+        const allowedTypes = [
+          'image/jpeg',
+          'image/png', 
+          'image/gif',
+          'image/webp',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+          'application/epub+zip', // .epub
+          'text/plain',
+          'application/fb2',
+          'application/x-fictionbook+xml',
+          'text/xml',
+          'application/octet-stream' // Generic binary (might be FB2)
+        ];
+        
+        // Also check file extension for FB2 files
+        const fileName = file.originalname.toLowerCase();
+        const isFB2File = fileName.endsWith('.fb2');
+        
+        if (allowedTypes.includes(file.mimetype) || isFB2File) {
+          cb(null, true);
+        } else {
+          cb(null, false);
+        }
+      }
+    });
 
+    const uploadMiddleware = bookUpload.fields([
+      { name: 'coverImage', maxCount: 1 }, 
+      { name: 'bookFile', maxCount: 1 }
+    ]);
+    
+    uploadMiddleware(req, res, (err) => {
+      if (err) {
+        console.error("Multer error:", err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File size exceeds 100MB limit' });
+        }
+        if (err.message === 'Unexpected field') {
+          return res.status(400).json({ error: `Unexpected file field. Only 'coverImage' and 'bookFile' are allowed.` });
+        }
+        return res.status(400).json({ error: err.message || 'File upload error' });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const bookData = req.body;
+      
       // Validate required fields
       if (!bookData.title || !bookData.author) {
         return res.status(400).json({ error: "Title and author are required" });
       }
+      
+      // Prepare book data with file paths if files were uploaded
+      const newBookData: any = {
+        title: bookData.title,
+        author: bookData.author,
+        description: bookData.description || null,
+        genre: bookData.genre || null,
+        publishedYear: bookData.publishedYear ? parseInt(bookData.publishedYear) : null,
+        publishedAt: bookData.publishedAt ? new Date(bookData.publishedAt) : null,
+        isActive: bookData.isActive !== undefined ? bookData.isActive === 'true' || bookData.isActive === true : true,
+        userId: (req as any).user.userId // Set the uploader ID
+      };
+      
+      // Handle cover image upload
+      if (files && files.coverImage && files.coverImage[0]) {
+        // The file is saved in 'uploads/books/' but accessed via '/uploads/'
+        newBookData.coverImageUrl = '/uploads/books/' + files.coverImage[0].filename;
+      }
+      
+      // Handle book file upload
+      if (files && files.bookFile && files.bookFile[0]) {
+        const bookFile = files.bookFile[0];
+        // The file is saved in 'uploads/books/' but accessed via '/uploads/'
+        newBookData.filePath = '/uploads/books/' + bookFile.filename;
+        newBookData.fileSize = bookFile.size;
+        newBookData.fileType = bookFile.mimetype;
+      }
+      
+      // Validate that at least a file path is provided (either existing or uploaded)
+      if (!newBookData.filePath && !bookData.filePath) {
+        return res.status(400).json({ error: "Book file is required" });
+      }
+      
+      // If no file was uploaded but filePath is provided in body, use it
+      if (!newBookData.filePath && bookData.filePath) {
+        newBookData.filePath = bookData.filePath;
+      }
+      
+      // If no cover image was uploaded but coverImageUrl is provided in body, use it
+      if (!newBookData.coverImageUrl && bookData.coverImageUrl) {
+        newBookData.coverImageUrl = bookData.coverImageUrl;
+      }
 
-      const book = await storage.createBook(bookData);
+      const book = await storage.createBook(newBookData);
 
       // Create activity feed entry and broadcast via WebSocket
       try {
@@ -878,9 +988,65 @@ export function createAdminRouter() {
 
   // Admin: Update book
   router.put("/books/:id", authenticateToken, requireAdminOrModerator, (req, res, next) => {
-    upload.fields([{ name: 'coverImage', maxCount: 1 }, { name: 'bookFile', maxCount: 1 }])(req, res, (err) => {
+    // Configure multer for book updates (images and book files)
+    const storage = multer.diskStorage({
+      destination: function (req, file, cb) {
+        cb(null, 'uploads/books/');
+      },
+      filename: function (req, file, cb) {
+        // Generate unique filename with original extension
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const fileExt = path.extname(file.originalname).toLowerCase();
+        cb(null, file.fieldname + '-' + uniqueSuffix + fileExt);
+      }
+    });
+    
+    const bookUpload = multer({
+      storage: storage,
+      limits: {
+        fileSize: 100 * 1024 * 1024 // 100MB limit
+      },
+      fileFilter: (req, file, cb) => {
+        // Allow book files and images
+        const allowedTypes = [
+          'image/jpeg',
+          'image/png', 
+          'image/gif',
+          'image/webp',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+          'application/epub+zip', // .epub
+          'text/plain',
+          'application/fb2',
+          'application/x-fictionbook+xml',
+          'text/xml',
+          'application/octet-stream' // Generic binary (might be FB2)
+        ];
+        
+        // Also check file extension for FB2 files
+        const fileName = file.originalname.toLowerCase();
+        const isFB2File = fileName.endsWith('.fb2');
+        
+        if (allowedTypes.includes(file.mimetype) || isFB2File) {
+          cb(null, true);
+        } else {
+          cb(null, false);
+        }
+      }
+    });
+
+    const uploadMiddleware = bookUpload.fields([
+      { name: 'coverImage', maxCount: 1 }, 
+      { name: 'bookFile', maxCount: 1 }
+    ]);
+    
+    uploadMiddleware(req, res, (err) => {
       if (err) {
         console.error("Multer error:", err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File size exceeds 100MB limit' });
+        }
         if (err.message === 'Unexpected field') {
           return res.status(400).json({ error: `Unexpected file field. Only 'coverImage' and 'bookFile' are allowed.` });
         }
@@ -935,8 +1101,8 @@ export function createAdminRouter() {
           }
         }
         
-        // Save new cover image path
-        updateData.coverImageUrl = '/uploads/' + files.coverImage[0].filename;
+        // Save new cover image path (in books subdirectory)
+        updateData.coverImageUrl = '/uploads/books/' + files.coverImage[0].filename;
       }
       
       // Handle book file update
@@ -956,8 +1122,8 @@ export function createAdminRouter() {
           }
         }
         
-        // Save new book file path and metadata
-        updateData.filePath = '/uploads/' + bookFile.filename;
+        // Save new book file path and metadata (in books subdirectory)
+        updateData.filePath = '/uploads/books/' + bookFile.filename;
         updateData.fileSize = bookFile.size;
         updateData.fileType = bookFile.mimetype;
       }
@@ -976,8 +1142,8 @@ export function createAdminRouter() {
         }
       }
       
-      const updatedBook = await storage.updateBookAdmin(id, updateData);
-      
+      const adminStorage = createAdminStorage(db);
+      const updatedBook = await adminStorage.updateBookAdmin(id, updateData);
       console.log("Storage update result:", updatedBook);
       console.log("Final isActive value:", updatedBook?.isActive);
       

@@ -21,6 +21,7 @@ import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
 import { booksApi, readerApi } from '@/lib/api';
 import { bookmarkCollectionsApi } from '@/lib/api';
+import { getFileUrl, getApiUrl } from '@/lib/config';
 import { CreateCollectionModal } from '@/components/CreateCollectionModal';
 import { BookmarkCollection } from '@/types/bookmarkCollections';
 import { useBookSplash } from '@/lib/bookSplashContext';
@@ -864,11 +865,11 @@ export default function Reader() {
     }
     
     if (selectedLanguage === 'original') {
-      setBookUrl(book.filePath ? `/${book.filePath}` : '');
+      setBookUrl(book.filePath ? getFileUrl(book.filePath) : '');
     } else {
-      setBookUrl(`/api/books/${bookId}/content/${selectedLanguage}`);
+      setBookUrl(getApiUrl(`/api/books/${bookId}/content/${selectedLanguage}`));
     }
-  }, [book, bookId, selectedLanguage]);
+  }, [book, bookId, selectedLanguage, getFileUrl, getApiUrl]);
   
   // Handle language change
   const handleLanguageChange = useCallback((newLanguage: string) => {

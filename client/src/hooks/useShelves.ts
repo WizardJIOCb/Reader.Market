@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { getCachedShelves, setCachedShelves, dataCache, isCachedDataStale } from '@/lib/dataCache';
+import { joinUserShelves, leaveUserShelves, onSocketEvent } from '@/lib/socket';
 
 export interface Shelf {
   id: string;
@@ -213,11 +214,16 @@ export function useShelves() {
       
       if (response.ok) {
         console.log(`Successfully added book ${bookId} to shelf ${shelfId}`);
-        // Update local state
+        // Update local state - check for duplicates before adding
         setShelves(prev => 
           prev.map(shelf => 
             shelf.id === shelfId 
-              ? { ...shelf, bookIds: [...(shelf.bookIds || []), bookId] } 
+              ? { 
+                  ...shelf, 
+                  bookIds: shelf.bookIds && shelf.bookIds.includes(bookId) 
+                    ? shelf.bookIds  // Already exists, don't add again
+                    : [...(shelf.bookIds || []), bookId] 
+                } 
               : shelf
           )
         );
@@ -284,6 +290,62 @@ export function useShelves() {
   // Load shelves when user changes
   useEffect(() => {
     fetchShelves();
+  }, [user]);
+
+  // Join/leave shelf WebSocket room and handle real-time updates when user authenticates
+  useEffect(() => {
+    if (user) {
+      // Join user's shelf room when user is authenticated
+      joinUserShelves();
+
+      // Listen for shelf updates
+      const cleanupShelfListener = onSocketEvent('shelf:update', (data) => {
+        console.log('[SHELF] Received real-time update:', data);
+        
+        setShelves(prevShelves => {
+          const operation = data.operation;
+          const shelfId = data.shelfId;
+
+          switch (operation) {
+            case 'add_book':
+              // Update the specific shelf by replacing it with the new data
+              return prevShelves.map(shelf => 
+                shelf.id === shelfId ? data.shelf : shelf
+              );
+              
+            case 'remove_book':
+              // Update the specific shelf by replacing it with the new data
+              return prevShelves.map(shelf => 
+                shelf.id === shelfId ? data.shelf : shelf
+              );
+              
+            case 'create_shelf':
+              // Add the new shelf to the list
+              return [...prevShelves, data.shelf];
+              
+            case 'update_shelf':
+              // Update the specific shelf
+              return prevShelves.map(shelf => 
+                shelf.id === shelfId ? data.shelf : shelf
+              );
+              
+            case 'delete_shelf':
+              // Remove the shelf from the list
+              return prevShelves.filter(shelf => shelf.id !== shelfId);
+              
+            default:
+              console.warn('Unknown shelf operation:', operation);
+              return prevShelves;
+          }
+        });
+      });
+
+      // Clean up when component unmounts or user changes
+      return () => {
+        leaveUserShelves();
+        cleanupShelfListener(); // Clean up the event listener
+      };
+    }
   }, [user]);
 
   return {

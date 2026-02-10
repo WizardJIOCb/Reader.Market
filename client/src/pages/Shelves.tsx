@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
+import { BookShelfOverlay } from '@/components/BookShelfOverlay';
 import { BookCard } from '@/components/BookCard';
 import { useAuth } from '@/lib/auth';
 import { PageHeader } from '@/components/PageHeader';
@@ -28,6 +29,12 @@ export default function Shelves() {
   const { user } = useAuth();
   const { shelves, loading, error, createShelf, updateShelf, deleteShelf, addBookToShelf, removeBookFromShelf } = useShelves();
   const { fetchBooksByIds } = useBooks();
+  
+  // Ref to keep track of current shelves to avoid stale closures
+  const shelvesRef = React.useRef(shelves);
+  React.useEffect(() => {
+    shelvesRef.current = shelves;
+  }, [shelves]);
   
   // Track page view for navigation logging
   usePageView('shelves');
@@ -176,14 +183,15 @@ export default function Shelves() {
   };
 
   const handleToggleShelf = async (shelfId: string, bookId: string | number, isAdded: boolean) => {
+    // Convert bookId to string if it's a number
+    const bookIdStr = typeof bookId === 'number' ? bookId.toString() : bookId;
+    
     try {
-      // Convert bookId to string if it's a number
-      const bookIdStr = typeof bookId === 'number' ? bookId.toString() : bookId;
-      
       if (isAdded) {
-        // Check if book is already in shelf
-        const shelf = shelves.find(s => s.id === shelfId);
-        if (shelf && shelf.bookIds?.includes(bookIdStr)) {
+        // Check if book is already in shelf using current state from ref
+        const currentShelf = shelvesRef.current.find(s => s.id === shelfId);
+        if (currentShelf && currentShelf.bookIds?.includes(bookIdStr)) {
+          console.log(`Book ${bookIdStr} is already on shelf ${shelfId}`);
           return;
         }
         
@@ -422,63 +430,79 @@ export default function Shelves() {
                     };
                     
                     return (
-                      <BookCard 
-                        key={book.id} 
-                        book={bookData} 
-                        variant="compact"
-                                                columns={2}
-                        readingProgress={readingProgress}
-                        onUpdateBook={(updatedBook) => {
-                          // Update the global search results to reflect the updated book
-                          setGlobalSearchResults(prev => 
-                            prev.map(b => b.id === updatedBook.id ? {
-                              ...b,
-                              ...updatedBook,
-                              reactions: [...(updatedBook.reactions || [])]
-                            } : { ...b })
-                          );
-                          
-                          // Update the shelfBooks state to reflect the updated book
-                          setShelfBooks(prev => {
-                            const newShelfBooks: {[key: string]: any[]} = {};
-                            // Create entirely new objects to ensure React detects changes
-                            Object.keys(prev).forEach(shelfId => {
-                              newShelfBooks[shelfId] = prev[shelfId].map(b => 
-                                b.id === updatedBook.id ? {
-                                  ...b,
-                                  ...updatedBook,
-                                  reactions: [...(updatedBook.reactions || [])]
-                                } : { ...b }
-                              );
+                      <div className="relative">
+                        <BookShelfOverlay
+                          bookId={book.id}
+                          shelves={shelves.map(s => ({
+                            id: s.id,
+                            userId: s.userId,
+                            name: s.name,
+                            description: s.description,
+                            color: s.color,
+                            bookIds: s.bookIds || [],
+                            createdAt: s.createdAt,
+                            updatedAt: s.updatedAt
+                          }))}
+                          onToggleShelf={handleToggleShelf}
+                        />
+                        <BookCard 
+                          key={book.id} 
+                          book={bookData} 
+                          variant="compact"
+                                                  columns={2}
+                          readingProgress={readingProgress}
+                          onUpdateBook={(updatedBook) => {
+                            // Update the global search results to reflect the updated book
+                            setGlobalSearchResults(prev => 
+                              prev.map(b => b.id === updatedBook.id ? {
+                                ...b,
+                                ...updatedBook,
+                                reactions: [...(updatedBook.reactions || [])]
+                              } : { ...b })
+                            );
+                            
+                            // Update the shelfBooks state to reflect the updated book
+                            setShelfBooks(prev => {
+                              const newShelfBooks: {[key: string]: any[]} = {};
+                              // Create entirely new objects to ensure React detects changes
+                              Object.keys(prev).forEach(shelfId => {
+                                newShelfBooks[shelfId] = prev[shelfId].map(b => 
+                                  b.id === updatedBook.id ? {
+                                    ...b,
+                                    ...updatedBook,
+                                    reactions: [...(updatedBook.reactions || [])]
+                                  } : { ...b }
+                                );
+                              });
+                              return newShelfBooks;
                             });
-                            return newShelfBooks;
-                          });
-                        }}
-                        addToShelfButton={
-                          <AddToShelfDialog 
-                            bookId={book.id}
-                            shelves={shelves.map(s => ({
-                              id: s.id,
-                              userId: s.userId,
-                              name: s.name,
-                              description: s.description,
-                              color: s.color,
-                              bookIds: s.bookIds || [],
-                              createdAt: s.createdAt,
-                              updatedAt: s.updatedAt
-                            }))}
-                            onToggleShelf={handleToggleShelf}
-                            trigger={
-                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
-                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                                </svg>
-                                <span className="truncate">{t('shelves:shelves')}</span>
-                              </Button>
-                            }
-                          />
-                        }
-                      />
+                          }}
+                          addToShelfButton={
+                            <AddToShelfDialog 
+                              bookId={book.id}
+                              shelves={shelves.map(s => ({
+                                id: s.id,
+                                userId: s.userId,
+                                name: s.name,
+                                description: s.description,
+                                color: s.color,
+                                bookIds: s.bookIds || [],
+                                createdAt: s.createdAt,
+                                updatedAt: s.updatedAt
+                              }))}
+                              onToggleShelf={handleToggleShelf}
+                              trigger={
+                                <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                  </svg>
+                                  <span className="truncate">{t('shelves:shelves')}</span>
+                                </Button>
+                              }
+                            />
+                          }
+                        />
+                      </div>
                     );
                   })
                 ) : (
@@ -540,62 +564,78 @@ export default function Shelves() {
                     };
                     
                     return (
-                      <BookCard 
-                        key={`book-${book.id}`}
-                        book={bookData} 
-                        variant="compact"
-                                                columns={2}
-                        readingProgress={readingProgress}
-                        onUpdateBook={(updatedBook) => {
-                          // Update the shelfBooks state to reflect the updated book
-                          setShelfBooks(prev => {
-                            const newShelfBooks: {[key: string]: any[]} = {};
-                            // Create entirely new objects to ensure React detects changes
-                            Object.keys(prev).forEach(shelfId => {
-                              newShelfBooks[shelfId] = prev[shelfId].map(b => 
-                                b.id === updatedBook.id ? {
-                                  ...b,
-                                  ...updatedBook,
-                                  reactions: [...(updatedBook.reactions || [])]
-                                } : { ...b }
-                              );
+                      <div className="relative">
+                        <BookShelfOverlay
+                          bookId={book.id}
+                          shelves={shelves.map(s => ({
+                            id: s.id,
+                            userId: s.userId,
+                            name: s.name,
+                            description: s.description,
+                            color: s.color,
+                            bookIds: s.bookIds || [],
+                            createdAt: s.createdAt,
+                            updatedAt: s.updatedAt
+                          }))}
+                          onToggleShelf={handleToggleShelf}
+                        />
+                        <BookCard 
+                          key={`book-${book.id}`}
+                          book={bookData} 
+                          variant="compact"
+                                                  columns={2}
+                          readingProgress={readingProgress}
+                          onUpdateBook={(updatedBook) => {
+                            // Update the shelfBooks state to reflect the updated book
+                            setShelfBooks(prev => {
+                              const newShelfBooks: {[key: string]: any[]} = {};
+                              // Create entirely new objects to ensure React detects changes
+                              Object.keys(prev).forEach(shelfId => {
+                                newShelfBooks[shelfId] = prev[shelfId].map(b => 
+                                  b.id === updatedBook.id ? {
+                                    ...b,
+                                    ...updatedBook,
+                                    reactions: [...(updatedBook.reactions || [])]
+                                  } : { ...b }
+                                );
+                              });
+                              return newShelfBooks;
                             });
-                            return newShelfBooks;
-                          });
-                          // Also update the global search results if this book is there
-                          setGlobalSearchResults(prev => 
-                            prev.map(b => b.id === updatedBook.id ? {
-                              ...b,
-                              ...updatedBook,
-                              reactions: [...(updatedBook.reactions || [])]
-                            } : { ...b })
-                          );
-                        }}
-                        addToShelfButton={
-                          <AddToShelfDialog 
-                            bookId={book.id}
-                            shelves={shelves.map(s => ({
-                              id: s.id,
-                              userId: s.userId,
-                              name: s.name,
-                              description: s.description,
-                              color: s.color,
-                              bookIds: s.bookIds || [],
-                              createdAt: s.createdAt,
-                              updatedAt: s.updatedAt
-                            }))}
-                            onToggleShelf={handleToggleShelf}
-                            trigger={
-                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
-                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                                </svg>
-                                <span className="truncate">{t('shelves:shelves')}</span>
-                              </Button>
-                            }
-                          />
-                        }
-                      />
+                            // Also update the global search results if this book is there
+                            setGlobalSearchResults(prev => 
+                              prev.map(b => b.id === updatedBook.id ? {
+                                ...b,
+                                ...updatedBook,
+                                reactions: [...(updatedBook.reactions || [])]
+                              } : { ...b })
+                            );
+                          }}
+                          addToShelfButton={
+                            <AddToShelfDialog 
+                              bookId={book.id}
+                              shelves={shelves.map(s => ({
+                                id: s.id,
+                                userId: s.userId,
+                                name: s.name,
+                                description: s.description,
+                                color: s.color,
+                                bookIds: s.bookIds || [],
+                                createdAt: s.createdAt,
+                                updatedAt: s.updatedAt
+                              }))}
+                              onToggleShelf={handleToggleShelf}
+                              trigger={
+                                <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                  </svg>
+                                  <span className="truncate">{t('shelves:shelves')}</span>
+                                </Button>
+                              }
+                            />
+                          }
+                        />
+                      </div>
                     );
                   })
                 ) : (
@@ -679,58 +719,74 @@ export default function Shelves() {
                     const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
                     
                     return (
-                      <BookCard 
-                        key={`book-${book.id}`}
-                        book={bookData} 
-                        variant="compact"
-                                                columns={2}
-                        readingProgress={readingProgress}
-                        onUpdateBook={(updatedBook) => {
-                          // Update the shelfBooks state to reflect the updated book
-                          setShelfBooks(prev => {
-                            const newShelfBooks: {[key: string]: any[]} = {};
-                            // Copy all existing shelves with fresh references
-                            Object.keys(prev).forEach(shelfId => {
-                              newShelfBooks[shelfId] = [...prev[shelfId]].map(book => ({ ...book }));
+                      <div className="relative">
+                        <BookShelfOverlay
+                          bookId={book.id}
+                          shelves={shelves.map(s => ({
+                            id: s.id,
+                            userId: s.userId,
+                            name: s.name,
+                            description: s.description,
+                            color: s.color,
+                            bookIds: s.bookIds || [],
+                            createdAt: s.createdAt,
+                            updatedAt: s.updatedAt
+                          }))}
+                          onToggleShelf={handleToggleShelf}
+                        />
+                        <BookCard 
+                          key={`book-${book.id}`}
+                          book={bookData} 
+                          variant="compact"
+                                                  columns={2}
+                          readingProgress={readingProgress}
+                          onUpdateBook={(updatedBook) => {
+                            // Update the shelfBooks state to reflect the updated book
+                            setShelfBooks(prev => {
+                              const newShelfBooks: {[key: string]: any[]} = {};
+                              // Copy all existing shelves with fresh references
+                              Object.keys(prev).forEach(shelfId => {
+                                newShelfBooks[shelfId] = [...prev[shelfId]].map(book => ({ ...book }));
+                              });
+                              // Update in the specific shelf
+                              if (newShelfBooks[shelf.id]) {
+                                newShelfBooks[shelf.id] = newShelfBooks[shelf.id].map(b => 
+                                  b.id === updatedBook.id ? {
+                                    ...b,
+                                    ...updatedBook,
+                                    reactions: [...(updatedBook.reactions || [])]
+                                  } : { ...b }
+                                );
+                              }
+                              return newShelfBooks;
                             });
-                            // Update in the specific shelf
-                            if (newShelfBooks[shelf.id]) {
-                              newShelfBooks[shelf.id] = newShelfBooks[shelf.id].map(b => 
-                                b.id === updatedBook.id ? {
-                                  ...b,
-                                  ...updatedBook,
-                                  reactions: [...(updatedBook.reactions || [])]
-                                } : { ...b }
-                              );
-                            }
-                            return newShelfBooks;
-                          });
-                        }}
-                        addToShelfButton={
-                          <AddToShelfDialog 
-                            bookId={book.id} // Pass the original ID
-                            shelves={shelves.map(s => ({
-                              id: s.id,
-                              userId: s.userId,
-                              name: s.name,
-                              description: s.description,
-                              color: s.color,
-                              bookIds: s.bookIds || [],
-                              createdAt: s.createdAt,
-                              updatedAt: s.updatedAt
-                            }))}
-                            onToggleShelf={handleToggleShelf}
-                            trigger={
-                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
-                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                                </svg>
-                                <span className="truncate">{t('shelves:shelves')}</span>
-                              </Button>
-                            }
-                          />
-                        }
-                      />
+                          }}
+                          addToShelfButton={
+                            <AddToShelfDialog 
+                              bookId={book.id} // Pass the original ID
+                              shelves={shelves.map(s => ({
+                                id: s.id,
+                                userId: s.userId,
+                                name: s.name,
+                                description: s.description,
+                                color: s.color,
+                                bookIds: s.bookIds || [],
+                                createdAt: s.createdAt,
+                                updatedAt: s.updatedAt
+                              }))}
+                              onToggleShelf={handleToggleShelf}
+                              trigger={
+                                <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                  </svg>
+                                  <span className="truncate">{t('shelves:shelves')}</span>
+                                </Button>
+                              }
+                            />
+                          }
+                        />
+                      </div>
                     );
                   })}
                 </div>

@@ -43,6 +43,16 @@ export interface SocketEvents {
   
   // Comment events
   'new-comment': (data: any) => void;
+  
+  // Shelf events
+  'shelf:update': (data: {
+    userId: string;
+    shelfId: string;
+    bookId?: string;
+    operation: 'add_book' | 'remove_book' | 'create_shelf' | 'update_shelf' | 'delete_shelf';
+    shelf: any;
+    timestamp: string;
+  }) => void;
 }
 
 export function initializeSocket(token?: string): Socket {
@@ -208,6 +218,19 @@ export function joinBookComments(bookId: string): void {
 export function leaveBookComments(bookId: string): void {
   if (socket?.connected) {
     socket.emit('leave:book-comments', bookId);
+  }
+}
+
+// Shelf helpers
+export function joinUserShelves(): void {
+  if (socket?.connected) {
+    socket.emit('join:user:shelves');
+  }
+}
+
+export function leaveUserShelves(): void {
+  if (socket?.connected) {
+    socket.emit('leave:user:shelves');
   }
 }
 

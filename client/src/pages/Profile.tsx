@@ -1308,8 +1308,7 @@ export default function Profile() {
                               } else {
                                 await removeBookFromShelf(shelfId, bookId);
                               }
-                              // Refresh profile data
-                              window.location.reload();
+                              // Real-time updates will handle the UI changes automatically
                             } catch (error) {
                               console.error('Error toggling shelf:', error);
                             }
@@ -1411,8 +1410,7 @@ export default function Profile() {
                                         } else {
                                           await removeBookFromShelf(shelfId, bookId);
                                         }
-                                        // Refresh profile data
-                                        window.location.reload();
+                                        // Real-time updates will handle the UI changes automatically
                                       } catch (error) {
                                         console.error('Error toggling shelf:', error);
                                       }
