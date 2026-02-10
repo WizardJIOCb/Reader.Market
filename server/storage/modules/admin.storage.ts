@@ -1,6 +1,7 @@
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { users, books, articles, bookChatMessages, bookmarkCollections, articleCategories, comments, reviews, bookmarks, readingStatistics, readingProgress, bookViewStatistics, shelfBooks, reactions } from '@shared/schema';
+import { users, books, articles, bookChatMessages, bookmarkCollections, articleCategories, comments, reviews, bookmarks, readingStatistics, readingProgress, bookViewStatistics, shelfBooks, reactions, groupBooks } from '@shared/schema';
 import { eq, desc, asc, sql, and, or, ilike, count } from 'drizzle-orm';
+import { BookFileManager } from '../../utils/book-file-manager';
 
 export interface AdminStorage {
   // Book admin operations
@@ -70,9 +71,24 @@ export class AdminStorageImpl implements AdminStorage {
 
   async deleteBookAdmin(id: string): Promise<boolean> {
     try {
+      // First, get the book to check if files exist
+      const [book] = await this.db.select({ coverImageUrl: books.coverImageUrl, filePath: books.filePath }).from(books).where(eq(books.id, id));
+      
       // Delete in the correct order to respect foreign key constraints
       
-      // 1. Delete reactions on comments and reviews for this book
+      // 1. Delete group associations (group_books table - from the error message)
+      await this.db.delete(shelfBooks).where(eq(shelfBooks.bookId, id));
+      
+      // 2. Delete group associations (from the error: group_books table)
+      await this.db.delete(groupBooks).where(eq(groupBooks.bookId, id));
+      
+      // 3. Delete book chat messages
+      await this.db.delete(bookChatMessages).where(eq(bookChatMessages.bookId, id));
+      
+      // 4. Delete reactions that directly reference the book
+      await this.db.delete(reactions).where(eq(reactions.bookId, id));
+      
+      // 5. Delete reactions on comments and reviews for this book
       const bookComments = await this.db.select({ id: comments.id }).from(comments).where(eq(comments.bookId, id));
       const bookReviews = await this.db.select({ id: reviews.id }).from(reviews).where(eq(reviews.bookId, id));
       
@@ -87,29 +103,36 @@ export class AdminStorageImpl implements AdminStorage {
         await this.db.delete(reactions).where(sql`${reactions.reviewId} IN (${sql.join(reviewIds.map(id => sql`${id}`), sql`, `)})`);
       }
 
-      // 2. Delete comments
+      // 6. Delete comments
       await this.db.delete(comments).where(eq(comments.bookId, id));
 
-      // 3. Delete reviews
+      // 7. Delete reviews
       await this.db.delete(reviews).where(eq(reviews.bookId, id));
 
-      // 4. Delete bookmarks
+      // 8. Delete bookmarks
       await this.db.delete(bookmarks).where(eq(bookmarks.bookId, id));
 
-      // 5. Delete reading statistics
+      // 9. Delete reading statistics
       await this.db.delete(readingStatistics).where(eq(readingStatistics.bookId, id));
 
-      // 6. Delete reading progress
+      // 10. Delete reading progress
       await this.db.delete(readingProgress).where(eq(readingProgress.bookId, id));
 
-      // 7. Delete book view statistics
+      // 11. Delete book view statistics
       await this.db.delete(bookViewStatistics).where(eq(bookViewStatistics.bookId, id));
 
-      // 8. Delete shelf associations
-      await this.db.delete(shelfBooks).where(eq(shelfBooks.bookId, id));
-
-      // 9. Finally delete the book itself
+      // 12. Finally delete the book itself
       const result = await this.db.delete(books).where(eq(books.id, id)).returning();
+      
+      // Delete associated files after successful DB deletion
+      if (result.length > 0) {
+        try {
+          BookFileManager.deleteBookFiles(id);
+        } catch (fileError) {
+          console.error("Error deleting book files:", fileError);
+          // Don't fail the operation if file deletion fails
+        }
+      }
 
       return result.length > 0;
     } catch (error) {
@@ -134,15 +157,19 @@ export class AdminStorageImpl implements AdminStorage {
           id: books.id,
           title: books.title,
           author: books.author,
+          description: books.description,
           uploader: users.username,
           uploaderFullName: users.fullName,
           uploadedAt: books.uploadedAt,
+          publishedAt: books.publishedAt,
+          filePath: books.filePath,
           coverImageUrl: books.coverImageUrl,
           isActive: books.isActive,
           genre: books.genre,
           publishedYear: books.publishedYear,
           rating: sql<number>`CAST(${books.rating} AS REAL)`.as('rating'),
-          fileSize: books.fileSize
+          fileSize: books.fileSize,
+          fileType: books.fileType
         })
         .from(books)
         .leftJoin(users, eq(books.userId, users.id));

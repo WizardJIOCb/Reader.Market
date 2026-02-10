@@ -1,13 +1,99 @@
 import { eq, and, desc, asc, sql, ilike, count } from "drizzle-orm";
 import { books, comments, reviews, shelfBooks, readingProgress } from "@shared/schema";
 import type { DB } from "../db";
+import { BookFileManager } from "../../utils/book-file-manager";
+import path from "path";
+import fs from "fs";
 
 export function createBooksStorage(db: DB) {
   return {
     async createBook(bookData: any): Promise<any> {
       try {
+        // Check if a book with the same title already exists (regardless of author)
+        const existingBook = await db.select()
+          .from(books)
+          .where(eq(books.title, bookData.title))
+          .limit(1);
+        
+        if (existingBook.length > 0) {
+          throw new Error(`A book with title "${bookData.title}" already exists`);
+        }
+        
         const result = await db.insert(books).values(bookData).returning();
-        return result[0];
+        const createdBook = result[0];
+        
+        // Rename uploaded files to use the book ID as the filename
+        if (createdBook.filePath) {
+          try {
+            // Extract the actual filename from the stored path
+            const originalFilename = path.basename(createdBook.filePath);
+            const uploadDir = path.dirname(createdBook.filePath).replace(/^\//, ''); // Remove leading slash
+            const tempFilePath = path.join(process.cwd(), uploadDir, originalFilename);
+            
+            console.log(`Attempting to rename book file:`);
+            console.log(`  - Book ID: ${createdBook.id}`);
+            console.log(`  - Original path: ${createdBook.filePath}`);
+            console.log(`  - Temp file path: ${tempFilePath}`);
+            console.log(`  - File exists at temp path: ${fs.existsSync(tempFilePath)}`);
+            
+            // Move the book file to use the book ID in the filename
+            const newFilePath = BookFileManager.moveBookFileFromTemp(
+              createdBook.id,
+              tempFilePath,
+              originalFilename
+            );
+            
+            console.log(`  - New file path: ${newFilePath}`);
+            
+            // Update the database record with the new file path
+            const updateResult = await db.update(books)
+              .set({ filePath: newFilePath })
+              .where(eq(books.id, createdBook.id))
+              .returning();
+            
+            createdBook.filePath = updateResult[0].filePath;
+          } catch (fileError) {
+            console.error("Error renaming book file:", fileError);
+            // Continue with original file path if renaming fails
+          }
+        }
+        
+        if (createdBook.coverImageUrl) {
+          try {
+            // Extract the actual filename from the stored path
+            const originalFilename = path.basename(createdBook.coverImageUrl);
+            const uploadDir = path.dirname(createdBook.coverImageUrl).replace(/^\//, ''); // Remove leading slash
+            const tempFilePath = path.join(process.cwd(), uploadDir, originalFilename);
+            
+            console.log(`Attempting to rename cover image:`);
+            console.log(`  - Book ID: ${createdBook.id}`);
+            console.log(`  - Original path: ${createdBook.coverImageUrl}`);
+            console.log(`  - Temp file path: ${tempFilePath}`);
+            console.log(`  - File exists at temp path: ${fs.existsSync(tempFilePath)}`);
+            
+            // Move the cover image to use the book ID in the filename
+            const newCoverPath = BookFileManager.moveCoverImageFromTemp(
+              createdBook.id,
+              tempFilePath,
+              originalFilename
+            );
+            
+            console.log(`  - New cover path: ${newCoverPath}`);
+            
+            // Update the database record with the new cover image path
+            const updateResult = await db.update(books)
+              .set({ coverImageUrl: newCoverPath })
+              .where(eq(books.id, createdBook.id))
+              .returning();
+            
+            createdBook.coverImageUrl = updateResult[0].coverImageUrl;
+          } catch (fileError) {
+            console.error("Error renaming cover image:", fileError);
+            // Continue with original cover path if renaming fails
+          }
+        }
+        
+        return createdBook;
       } catch (error) {
         console.error("Error creating book:", error);
         throw error;
@@ -119,6 +205,17 @@ export function createBooksStorage(db: DB) {
         
         // Perform the deletion
         const result = await db.delete(books).where(eq(books.id, id));
+        
+        // Delete associated files after successful DB deletion
+        if (result.rowCount && result.rowCount > 0) {
+          try {
+            BookFileManager.deleteBookFiles(id);
+          } catch (fileError) {
+            console.error("Error deleting book files:", fileError);
+            // Don't fail the operation if file deletion fails
+          }
+        }
+        
         return (result.rowCount || 0) > 0;
       } catch (error) {
         console.error("Error deleting book:", error);

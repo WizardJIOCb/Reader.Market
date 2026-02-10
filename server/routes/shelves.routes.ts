@@ -329,5 +329,24 @@ export function createShelvesRouter() {
     }
   });
 
+  // Check if a book is on user's shelves
+  router.get("/book/:bookId/on-shelf", authenticateToken, async (req, res) => {
+    console.log("Check if book is on shelf endpoint called");
+    try {
+      const { bookId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      const bookShelves = await storage.getBookShelves(bookId, userId);
+      
+      res.json({ 
+        isOnShelf: bookShelves.length > 0,
+        shelves: bookShelves.map((bs: any) => bs.shelf)
+      });
+    } catch (error) {
+      console.error("Check if book is on shelf error:", error);
+      res.status(500).json({ error: "Failed to check if book is on shelf" });
+    }
+  });
+
   return router;
 }

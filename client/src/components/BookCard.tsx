@@ -24,6 +24,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useBookSplash } from '@/lib/bookSplashContext';
 import { readerApi } from '@/lib/api';
 import { readingProgressCache } from '@/lib/readingProgressCache';
+import { useBookShelfStatus } from '@/hooks/useBookShelfStatus';
+import { AddToShelfDialog } from '@/components/AddToShelfDialog';
+import { useShelves } from '@/hooks/useShelves';
+
 
 interface BookCardProps {
   book: Book & { readingProgress?: any };
@@ -132,6 +136,7 @@ export const BookCard: React.FC<BookCardProps> = ({
   }, [book.genre, columns]);
   const { t } = useTranslation(['books']);
   const { user } = useAuth();
+  const { shelves, addBookToShelf, removeBookFromShelf } = useShelves();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { showSplash } = useBookSplash();
@@ -142,6 +147,13 @@ export const BookCard: React.FC<BookCardProps> = ({
     percentage: number;
     lastReadAt?: string;
   } | null>(null);
+  
+  // Use the shelf status hook to check if this book is on user's shelf
+  const bookId = React.useMemo(() => book.id.toString(), [book.id]);
+  const bookIds = React.useMemo(() => [bookId], [bookId]);
+  const { isBookOnShelf: checkBookOnShelf, loading: shelfStatusLoading, refreshBookStatus } = useBookShelfStatus(bookIds);
+  const isBookOnShelf = checkBookOnShelf(bookId);
+  
   // Format dates for display in DD.MM.YYYY format
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '';
@@ -399,10 +411,50 @@ export const BookCard: React.FC<BookCardProps> = ({
   };
 
   return (
-    <Card className={`${variant === 'compact' ? 'p-3' : 'p-2'} overflow-hidden hover:shadow-lg transition-shadow duration-300`}>
+    <Card className="relative overflow-hidden hover:shadow-lg transition-shadow duration-300" style={{ padding: variant === 'compact' ? '1rem' : '0.5rem' }}>
+      {/* Shelf Indicator - appears in top right corner of the entire book card */}
+      {user && (
+        <div className="absolute top-2 right-2 z-20">
+          <AddToShelfDialog
+            bookId={book.id.toString()}
+            shelves={shelves}
+            onToggleShelf={async (shelfId, bookId, isAdded) => {
+              try {
+                if (isAdded) {
+                  await addBookToShelf(shelfId, bookId);
+                } else {
+                  await removeBookFromShelf(shelfId, bookId);
+                }
+                
+                // Refresh the shelf status after the operation
+                await refreshBookStatus(bookId);
+              } catch (error) {
+                console.error('Error toggling book on shelf:', error);
+                toast({
+                  title: t('books:error'),
+                  description: t('books:shelfOperationFailed'),
+                  variant: "destructive",
+                });
+              }
+            }}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`p-1 h-auto w-auto rounded-full ${isBookOnShelf ? 'text-orange-500' : 'text-gray-700'}`}
+              >
+                <Bookmark 
+                  className={`w-4 h-4 ${isBookOnShelf ? 'fill-orange-500' : ''}`} 
+                  aria-label={isBookOnShelf ? t('books:bookOnShelf') : t('books:addBookToShelf')}
+                />
+              </Button>
+            }
+          />
+        </div>
+      )}
       {variant === 'compact' ? (
         // Compact layout: Cover on left, content on right
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" style={{ padding: variant === 'compact' ? '0' : '0' }}>
           {/* Top Row: Cover on left, Content on right */}
           <div className="flex gap-3">
             {/* Left: Cover */}
@@ -650,12 +702,12 @@ export const BookCard: React.FC<BookCardProps> = ({
               )}
                     
               {(book.rating !== undefined && book.rating !== null) ? (
-                <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm font-bold">
+                <div className="absolute top-2 right-8 bg-yellow-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm font-bold">
                   <Star className="w-3 h-3 fill-current" />
                   {typeof book.rating === 'number' ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
                 </div>
               ) : (
-                <div className="absolute top-2 right-2 bg-gray-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm">
+                <div className="absolute top-2 right-8 bg-gray-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm">
                   <Star className="w-3 h-3 fill-current" />
                   {t('books:noRating')}
                 </div>

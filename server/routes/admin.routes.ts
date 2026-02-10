@@ -9,6 +9,7 @@ import { eq, and, or, asc, desc, sql } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { BookFileManager } from '../utils/book-file-manager';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -807,7 +808,12 @@ export function createAdminRouter() {
     // Configure multer for book uploads (images and book files)
     const storage = multer.diskStorage({
       destination: function (req, file, cb) {
-        cb(null, 'uploads/books/');
+        // Save cover images to the covers directory, other files to books directory
+        if (file.fieldname === 'coverImage') {
+          cb(null, 'uploads/covers/');
+        } else {
+          cb(null, 'uploads/books/');
+        }
       },
       filename: function (req, file, cb) {
         // Generate unique filename with original extension
@@ -894,8 +900,8 @@ export function createAdminRouter() {
       
       // Handle cover image upload
       if (files && files.coverImage && files.coverImage[0]) {
-        // The file is saved in 'uploads/books/' but accessed via '/uploads/'
-        newBookData.coverImageUrl = '/uploads/books/' + files.coverImage[0].filename;
+        // The file is saved in 'uploads/covers/' but accessed via '/uploads/'
+        newBookData.coverImageUrl = '/uploads/covers/' + files.coverImage[0].filename;
       }
       
       // Handle book file upload
@@ -991,7 +997,12 @@ export function createAdminRouter() {
     // Configure multer for book updates (images and book files)
     const storage = multer.diskStorage({
       destination: function (req, file, cb) {
-        cb(null, 'uploads/books/');
+        // Save cover images to the covers directory, other files to books directory
+        if (file.fieldname === 'coverImage') {
+          cb(null, 'uploads/covers/');
+        } else {
+          cb(null, 'uploads/books/');
+        }
       },
       filename: function (req, file, cb) {
         // Generate unique filename with original extension
@@ -1101,8 +1112,13 @@ export function createAdminRouter() {
           }
         }
         
-        // Save new cover image path (in books subdirectory)
-        updateData.coverImageUrl = '/uploads/books/' + files.coverImage[0].filename;
+        // Move the uploaded file to the standardized location using the book ID
+        const newCoverPath = BookFileManager.moveCoverImageFromTemp(
+          id,
+          files.coverImage[0].path,
+          files.coverImage[0].originalname
+        );
+        updateData.coverImageUrl = newCoverPath;
       }
       
       // Handle book file update
@@ -1122,10 +1138,48 @@ export function createAdminRouter() {
           }
         }
         
-        // Save new book file path and metadata (in books subdirectory)
-        updateData.filePath = '/uploads/books/' + bookFile.filename;
+        // Move the uploaded file to the standardized location using the book ID
+        const newBookPath = BookFileManager.moveBookFileFromTemp(
+          id,
+          bookFile.path,
+          bookFile.originalname
+        );
+        updateData.filePath = newBookPath;
         updateData.fileSize = bookFile.size;
-        updateData.fileType = bookFile.mimetype;
+        
+        // Determine proper MIME type based on file extension if multer detected generic type
+        const fileExtension = path.extname(bookFile.originalname).toLowerCase();
+        if (bookFile.mimetype === 'application/octet-stream') {
+          // Map file extensions to proper MIME types
+          switch (fileExtension) {
+            case '.fb2':
+            case '.fb2.zip':
+              updateData.fileType = 'application/fb2';
+              break;
+            case '.epub':
+              updateData.fileType = 'application/epub+zip';
+              break;
+            case '.pdf':
+              updateData.fileType = 'application/pdf';
+              break;
+            case '.doc':
+              updateData.fileType = 'application/msword';
+              break;
+            case '.docx':
+              updateData.fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+              break;
+            case '.txt':
+              updateData.fileType = 'text/plain';
+              break;
+            case '.xml':
+              updateData.fileType = 'text/xml';
+              break;
+            default:
+              updateData.fileType = bookFile.mimetype;
+          }
+        } else {
+          updateData.fileType = bookFile.mimetype;
+        }
       }
       
       // Validate required fields if provided
@@ -1168,7 +1222,8 @@ export function createAdminRouter() {
         return res.status(404).json({ error: "Book not found" });
       }
 
-      const success = await storage.deleteBookAdmin(id);
+      const adminStorage = createAdminStorage(db);
+      const success = await adminStorage.deleteBookAdmin(id);
 
       if (!success) {
         return res.status(500).json({ error: "Failed to delete book" });

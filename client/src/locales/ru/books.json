@@ -121,6 +121,8 @@
   "downloadFile": "Скачать файл",
   "downloading": "Скачивание...",
   "downloadStarted": "Скачивание начато",
+  "fileLabel": "Файл",
+  "noFile": "Нет файла",
   "downloadComplete": "Файл скачан: {{filename}}",
   "failedToDownload": "Не удалось скачать файл",
   "currentBookInfo": "Информация о книге",

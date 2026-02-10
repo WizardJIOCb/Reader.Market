@@ -145,6 +145,7 @@ export interface IStorage {
   createShelf(userId: string, shelfData: any): Promise<any>;
   getShelves(userId: string): Promise<any[]>;
   getShelf(id: string): Promise<any | undefined>;
+  getBookShelves(bookId: string, userId: string): Promise<any[]>;
   updateShelf(id: string, shelfData: any): Promise<any>;
   deleteShelf(id: string): Promise<void>;
   addBookToShelf(shelfId: string, bookId: string): Promise<void>;
@@ -544,9 +545,26 @@ export class DBStorage implements IStorage {
         // Properly escape special characters for Cyrillic text
         const escapedQuery = query.replace(/[%_]/g, '\\$&');
         const searchPattern = '%' + escapedQuery + '%';
-        result = await db.select().from(books).where(
-          sql`is_active = true AND (title ILIKE ${searchPattern} OR author ILIKE ${searchPattern} OR description ILIKE ${searchPattern} OR genre ILIKE ${searchPattern})`
-        ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+        
+        // Check if the query is a numeric value (could be a publication year)
+        const isNumericQuery = /^\d+$/.test(query.trim());
+        let yearQuery: number | null = null;
+        if (isNumericQuery && query.trim().length === 4) { // Likely a year if it's 4 digits
+          yearQuery = parseInt(query.trim(), 10);
+        }
+        
+        // Build the search condition based on whether the query looks like a year
+        if (yearQuery) {
+          // If the query looks like a year, include publishedYear in the search
+          result = await db.select().from(books).where(
+            sql`is_active = true AND (title ILIKE ${searchPattern} OR author ILIKE ${searchPattern} OR description ILIKE ${searchPattern} OR genre ILIKE ${searchPattern} OR published_year = ${yearQuery})`
+          ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+        } else {
+          // Otherwise, search in all text fields except publishedYear
+          result = await db.select().from(books).where(
+            sql`is_active = true AND (title ILIKE ${searchPattern} OR author ILIKE ${searchPattern} OR description ILIKE ${searchPattern} OR genre ILIKE ${searchPattern})`
+          ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+        }
         
         // Additionally, for books with TXT files, search within the content
         // Get all active books to check their file types
@@ -1755,6 +1773,38 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting shelf:", error);
       return undefined;
+    }
+  }
+
+  async getBookShelves(bookId: string, userId: string): Promise<any[]> {
+    try {
+      const bookShelves = await db
+        .select({
+          id: shelfBooks.id,
+          shelfId: shelfBooks.shelfId,
+          bookId: shelfBooks.bookId,
+          addedAt: shelfBooks.addedAt,
+          shelf: {
+            id: shelves.id,
+            name: shelves.name,
+            description: shelves.description,
+            color: shelves.color,
+            userId: shelves.userId,
+            createdAt: shelves.createdAt,
+            updatedAt: shelves.updatedAt
+          }
+        })
+        .from(shelfBooks)
+        .leftJoin(shelves, eq(shelves.id, shelfBooks.shelfId))
+        .where(and(
+          eq(shelfBooks.bookId, bookId),
+          eq(shelves.userId, userId)
+        ));
+
+      return bookShelves;
+    } catch (error) {
+      console.error("Error getting book shelves:", error);
+      return [];
     }
   }
 

@@ -29,8 +29,8 @@ import { Search, Edit, Trash2, Plus, ChevronLeft, ChevronRight, Eye, EyeOff } fr
 import { adminBooksApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { BookEditDialog } from '@/components/BookEditDialog';
-import { BookUploadDialog } from '@/components/BookUploadDialog';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'wouter';
 
 interface Book {
   id: string;
@@ -64,6 +64,7 @@ interface Pagination {
 const BooksManagement = () => {
   const { t } = useTranslation(['admin', 'common']);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -81,7 +82,6 @@ const BooksManagement = () => {
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [bookToEdit, setBookToEdit] = useState<Book | null>(null);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   // Save pagination limit to localStorage
   useEffect(() => {
@@ -233,7 +233,7 @@ const BooksManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">{t('admin:books.title')}</h2>
-        <Button onClick={() => setUploadDialogOpen(true)}>
+        <Button onClick={() => setLocation('/add-book')}>
           <Plus className="w-4 h-4 mr-2" />
           {t('admin:books.addNewBook')}
         </Button>
@@ -442,10 +442,10 @@ const BooksManagement = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('admin:books.deleteBook')}</DialogTitle>
-            <DialogDescription>
-              {t('admin:books.deleteConfirmMessage')}
-            </DialogDescription>
           </DialogHeader>
+          <DialogDescription className="mb-4">
+            {t('admin:books.deleteConfirmMessage')}
+          </DialogDescription>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
               {t('admin:common.cancel')}
@@ -465,12 +465,7 @@ const BooksManagement = () => {
         onBookUpdated={fetchBooks}
       />
 
-      {/* Upload Dialog */}
-      <BookUploadDialog
-        open={uploadDialogOpen}
-        onOpenChange={setUploadDialogOpen}
-        onBookUploaded={fetchBooks}
-      />
+
     </div>
   );
 };

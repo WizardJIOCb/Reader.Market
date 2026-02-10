@@ -44,8 +44,17 @@ export function serveStatic(app: Express) {
             const booksSubdirPath = path.join(uploadsPath, 'books', sanitizedPath);
             fs.access(booksSubdirPath, fs.constants.F_OK, (booksErr) => {
               if (booksErr) {
-                // File does not exist in either location, continue with other middleware
-                next();
+                // File does not exist in books subdirectory, try the covers subdirectory
+                const coversSubdirPath = path.join(uploadsPath, 'covers', sanitizedPath);
+                fs.access(coversSubdirPath, fs.constants.F_OK, (coversErr) => {
+                  if (coversErr) {
+                    // File does not exist in either location, continue with other middleware
+                    next();
+                  } else {
+                    // File exists in covers subdirectory, send it
+                    res.sendFile(coversSubdirPath);
+                  }
+                });
               } else {
                 // File exists in books subdirectory, send it
                 res.sendFile(booksSubdirPath);

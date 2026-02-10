@@ -9,6 +9,7 @@ import multer from 'multer';
 import path from 'path';
 import type { Request } from 'express';
 import type { FileFilterCallback } from 'multer';
+import { BookFileManager } from '../utils/book-file-manager';
 
 export function createBooksRouter() {
   const router = Router();
@@ -188,7 +189,8 @@ export function createBooksRouter() {
       const userId = (req as any).user.userId;
       
       const progress = await storage.getReadingProgress(userId, bookId);
-      res.json(progress);
+      // Always return a JSON response, even if there's no progress
+      res.json(progress || null);
     } catch (error) {
       console.error("Get reading progress error:", error);
       res.status(500).json({ error: "Failed to get reading progress" });
@@ -202,7 +204,7 @@ export function createBooksRouter() {
       
       const progress = await storage.getReadingProgress(userId, bookId);
       
-      res.json(progress);
+      res.json(progress || null);
     } catch (error) {
       console.error("Get specific reading progress error:", error);
       res.status(500).json({ error: "Failed to get reading progress" });
@@ -859,7 +861,12 @@ export function createBooksRouter() {
     // Configure multer for book uploads
     const storage = multer.diskStorage({
       destination: function (req, file, cb) {
-        cb(null, 'uploads/books/');
+        // Save cover images to the covers directory, other files to books directory
+        if (file.fieldname === 'coverImage') {
+          cb(null, 'uploads/covers/');
+        } else {
+          cb(null, 'uploads/books/');
+        }
       },
       filename: function (req, file, cb) {
         // Generate unique filename with original extension
@@ -949,7 +956,7 @@ export function createBooksRouter() {
       
       // Handle cover image upload
       if (files && files.coverImage && files.coverImage[0]) {
-        newBookData.coverImageUrl = '/uploads/books/' + files.coverImage[0].filename;
+        newBookData.coverImageUrl = '/uploads/covers/' + files.coverImage[0].filename;
       }
       
       // Handle book file upload
@@ -957,7 +964,40 @@ export function createBooksRouter() {
         const bookFile = files.bookFile[0];
         newBookData.filePath = '/uploads/books/' + bookFile.filename;
         newBookData.fileSize = bookFile.size;
-        newBookData.fileType = bookFile.mimetype;
+        
+        // Determine proper MIME type based on file extension if multer detected generic type
+        const fileExtension = path.extname(bookFile.originalname).toLowerCase();
+        if (bookFile.mimetype === 'application/octet-stream') {
+          // Map file extensions to proper MIME types
+          switch (fileExtension) {
+            case '.fb2':
+            case '.fb2.zip':
+              newBookData.fileType = 'application/fb2';
+              break;
+            case '.epub':
+              newBookData.fileType = 'application/epub+zip';
+              break;
+            case '.pdf':
+              newBookData.fileType = 'application/pdf';
+              break;
+            case '.doc':
+              newBookData.fileType = 'application/msword';
+              break;
+            case '.docx':
+              newBookData.fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+              break;
+            case '.txt':
+              newBookData.fileType = 'text/plain';
+              break;
+            case '.xml':
+              newBookData.fileType = 'text/xml';
+              break;
+            default:
+              newBookData.fileType = bookFile.mimetype;
+          }
+        } else {
+          newBookData.fileType = bookFile.mimetype;
+        }
       }
       
       // Validate that at least a file path is provided

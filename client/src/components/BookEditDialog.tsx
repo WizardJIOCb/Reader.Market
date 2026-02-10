@@ -47,7 +47,7 @@ interface BookEditDialogProps {
 }
 
 export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: BookEditDialogProps) {
-  const { t } = useTranslation('admin');
+  const { t } = useTranslation(['admin', 'books', 'common']);
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -408,7 +408,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
                   value={formData.description}
                   onChange={handleChange}
                   disabled={saving}
-                  rows={4}
+                  rows={9}
                   placeholder={t('books.descriptionPlaceholder')}
                 />
               </div>
@@ -507,6 +507,21 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
                   <div>
                     <span className="text-muted-foreground">{t('books.fileSizeLabel')}:</span>{' '}
                     {(book.fileSize / (1024 * 1024)).toFixed(2)} MB
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t('books.fileLabel', 'File')}:</span>{' '}
+                    {book.filePath ? (
+                      <a 
+                        href={book.filePath} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        {t('books.downloadFile', 'Download File')}
+                      </a>
+                    ) : (
+                      t('books.noFile', 'No file')
+                    )}
                   </div>
                   <div>
                     <span className="text-muted-foreground">{t('books.uploadedBy')}:</span>{' '}

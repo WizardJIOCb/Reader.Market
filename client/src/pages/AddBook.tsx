@@ -106,7 +106,7 @@ export default function AddBook() {
       requestData.append('author', formData.author);
       requestData.append('description', formData.description);
       requestData.append('genre', formData.genre);
-      requestData.append('year', formData.year);
+      requestData.append('publishedYear', formData.year);
       if (formData.publishedAt) {
         requestData.append('publishedAt', formData.publishedAt);
       }
