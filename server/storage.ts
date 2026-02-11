@@ -3619,13 +3619,65 @@ export class DBStorage implements IStorage {
         // If reaction exists, remove it (toggle off)
         console.log('Removing existing reaction with ID:', existingReactions[0].id);
         await db.delete(reactions).where(eq(reactions.id, existingReactions[0].id));
-        return { removed: true, id: existingReactions[0].id };
+        
+        // Get updated reactions for this entity
+        let entityTypeId: string;
+        let entityType: 'comment' | 'review' | 'news' | 'book' | 'article';
+        
+        if (reactionData.bookId) {
+          entityTypeId = reactionData.bookId;
+          entityType = 'book';
+        } else if (reactionData.commentId) {
+          entityTypeId = reactionData.commentId;
+          entityType = 'comment';
+        } else if (reactionData.reviewId) {
+          entityTypeId = reactionData.reviewId;
+          entityType = 'review';
+        } else if (reactionData.newsId) {
+          entityTypeId = reactionData.newsId;
+          entityType = 'news';
+        } else if (reactionData.articleId) {
+          entityTypeId = reactionData.articleId;
+          entityType = 'article';
+        } else {
+          throw new Error('No entity ID provided for reaction');
+        }
+        
+        const updatedReactions = await this.getReactions(entityTypeId, entityType);
+        
+        return { removed: true, id: existingReactions[0].id, reactions: updatedReactions };
       } else {
         // If reaction doesn't exist, create it
         console.log('Inserting new reaction');
         const result = await db.insert(reactions).values(reactionData).returning();
         console.log('Created reaction:', result[0]);
-        return { created: true, reaction: result[0] };
+        
+        // Get updated reactions for this entity
+        let entityTypeId: string;
+        let entityType: 'comment' | 'review' | 'news' | 'book' | 'article';
+        
+        if (reactionData.bookId) {
+          entityTypeId = reactionData.bookId;
+          entityType = 'book';
+        } else if (reactionData.commentId) {
+          entityTypeId = reactionData.commentId;
+          entityType = 'comment';
+        } else if (reactionData.reviewId) {
+          entityTypeId = reactionData.reviewId;
+          entityType = 'review';
+        } else if (reactionData.newsId) {
+          entityTypeId = reactionData.newsId;
+          entityType = 'news';
+        } else if (reactionData.articleId) {
+          entityTypeId = reactionData.articleId;
+          entityType = 'article';
+        } else {
+          throw new Error('No entity ID provided for reaction');
+        }
+        
+        const updatedReactions = await this.getReactions(entityTypeId, entityType);
+        
+        return { created: true, reaction: result[0], reactions: updatedReactions };
       }
     } catch (error) {
       console.error("Error creating reaction:", error);

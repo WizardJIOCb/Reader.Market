@@ -31,7 +31,7 @@ import { usePageView } from '@/hooks/usePageView';
 export default function Library() {
   const { user } = useAuth();
   const { t } = useTranslation(['home', 'common']);
-  const { data, loading, error, refresh } = useMainPageData();
+  const { data, loading, error, refresh, updateBook } = useMainPageData();
   
   // Track page view for navigation logging
   usePageView('home');
@@ -109,7 +109,13 @@ export default function Library() {
     const genres = new Set<string>();
     [...data.popularBooks, ...data.recentlyReviewedBooks, ...data.newReleases, ...data.currentUserBooks].forEach(book => {
       if (book.genre) {
-        book.genre.split(',').forEach((g: string) => genres.add(g.trim()));
+        // Handle both string and array formats for genre
+        if (Array.isArray(book.genre)) {
+          book.genre.forEach((g: string) => genres.add(g.trim()));
+        } else {
+          // If not an array, treat as string
+          String(book.genre).split(',').forEach((g: string) => genres.add(g.trim()));
+        }
       }
     });
     return Array.from(genres);
@@ -179,13 +185,13 @@ export default function Library() {
               </Link>
             </div>
           </div>
-          
+                  
           {filteredPopularBooks.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4" style={{ direction: 'ltr' }}>
               {filteredPopularBooks.map((book) => {
                 // Find reading progress for this book
                 const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
-                
+                        
                 // Convert book data to match BookCard expectations
                 const bookData = {
                   ...book,
@@ -193,7 +199,7 @@ export default function Library() {
                   coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
                   genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                 };
-                
+                        
                 return (
                   <BookCard 
                     key={book.id} 
@@ -201,6 +207,10 @@ export default function Library() {
                     variant="compact"
                                         columns={2}
                     readingProgress={readingProgress}
+                    onUpdateBook={(updatedBook) => {
+                      // Update the specific book in all collections
+                      updateBook(updatedBook);
+                    }}
                   />
                 );
               })}
@@ -252,6 +262,10 @@ export default function Library() {
                           variant="compact"
                                               columns={2}
                           readingProgress={readingProgress}
+                          onUpdateBook={(updatedBook) => {
+                            // Update the specific book in all collections
+                            updateBook(updatedBook);
+                          }}
                         />
                       );
                     })}
@@ -281,13 +295,13 @@ export default function Library() {
               </Link>
             </div>
           </div>
-          
+                  
           {filteredRecentlyReviewedBooks.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ direction: 'ltr' }}>
               {filteredRecentlyReviewedBooks.map((book) => {
                 // Find reading progress for this book
                 const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
-                
+                        
                 // Convert book data to match BookCard expectations
                 const bookData = {
                   ...book,
@@ -295,7 +309,7 @@ export default function Library() {
                   coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
                   genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                 };
-                
+                        
                 return (
                   <BookCard 
                     key={book.id} 
@@ -303,6 +317,10 @@ export default function Library() {
                     variant="compact"
                                         columns={2}
                     readingProgress={readingProgress}
+                    onUpdateBook={(updatedBook) => {
+                      // Update the specific book in all collections
+                      updateBook(updatedBook);
+                    }}
                   />
                 );
               })}
@@ -355,6 +373,10 @@ export default function Library() {
                     variant="compact"
                                         columns={2}
                     readingProgress={readingProgress}
+                    onUpdateBook={(updatedBook) => {
+                      // Update the specific book in all collections
+                      updateBook(updatedBook);
+                    }}
                   />
                 );
               })}
@@ -403,6 +425,10 @@ export default function Library() {
                       variant="compact"
                                           columns={2}
                       readingProgress={readingProgress}
+                      onUpdateBook={(updatedBook) => {
+                        // Update the specific book in all collections
+                        updateBook(updatedBook);
+                      }}
                     />
                   );
                 })}

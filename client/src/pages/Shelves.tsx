@@ -445,11 +445,12 @@ export default function Shelves() {
                               reactions: [...(updatedBook.reactions || [])]
                             } : { ...b })
                           );
-                          
-                          // Update the shelfBooks state to reflect the updated book
+                                                    
+                          // Update the shelfBooks state to reflect the updated book across ALL shelves
                           setShelfBooks(prev => {
                             const newShelfBooks: {[key: string]: any[]} = {};
-                            // Create entirely new objects to ensure React detects changes
+                                                      
+                            // Update the book across all shelves
                             Object.keys(prev).forEach(shelfId => {
                               newShelfBooks[shelfId] = prev[shelfId].map(b => 
                                 b.id === updatedBook.id ? {
@@ -459,6 +460,7 @@ export default function Shelves() {
                                 } : { ...b }
                               );
                             });
+                                                      
                             return newShelfBooks;
                           });
                         }}
@@ -546,10 +548,11 @@ export default function Shelves() {
                           columns={2}
                           readingProgress={readingProgress}
                           onUpdateBook={(updatedBook) => {
-                            // Update the shelfBooks state to reflect the updated book
+                            // Update the shelfBooks state to reflect the updated book across ALL shelves
                             setShelfBooks(prev => {
                               const newShelfBooks: {[key: string]: any[]} = {};
-                              // Create entirely new objects to ensure React detects changes
+                              
+                              // Update the book across all shelves
                               Object.keys(prev).forEach(shelfId => {
                                 newShelfBooks[shelfId] = prev[shelfId].map(b => 
                                   b.id === updatedBook.id ? {
@@ -559,6 +562,7 @@ export default function Shelves() {
                                   } : { ...b }
                                 );
                               });
+                              
                               return newShelfBooks;
                             });
                             // Also update the global search results if this book is there
@@ -667,7 +671,7 @@ export default function Shelves() {
                         cardViewCount: book.cardViewCount,
                         readerOpenCount: book.readerOpenCount,
                         lastActivityDate: book.lastActivityDate,
-                        genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [], // Split genre string into array
+                        genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [], // Split genre string into array
                         year: book.publishedYear,
                         uploadedAt: book.uploadedAt, // Add upload date
                         publishedAt: book.publishedAt, // Add publication date
@@ -680,30 +684,38 @@ export default function Shelves() {
                     
                     return (
                       <BookCard 
+                        key={`shelf-${shelf.id}-book-${book.id}`}
                         book={bookData} 
                         variant="compact"
                         columns={2}
                         readingProgress={readingProgress}
                         onUpdateBook={(updatedBook) => {
-                          // Update the shelfBooks state to reflect the updated book
+                          // Update the shelfBooks state to reflect the updated book across ALL shelves
                           setShelfBooks(prev => {
                             const newShelfBooks: {[key: string]: any[]} = {};
-                            // Copy all existing shelves with fresh references
+                            
+                            // Update the book across all shelves
                             Object.keys(prev).forEach(shelfId => {
-                              newShelfBooks[shelfId] = [...prev[shelfId]].map(book => ({ ...book }));
-                            });
-                            // Update in the specific shelf
-                            if (newShelfBooks[shelf.id]) {
-                              newShelfBooks[shelf.id] = newShelfBooks[shelf.id].map(b => 
+                              newShelfBooks[shelfId] = prev[shelfId].map(b => 
                                 b.id === updatedBook.id ? {
                                   ...b,
                                   ...updatedBook,
                                   reactions: [...(updatedBook.reactions || [])]
                                 } : { ...b }
                               );
-                            }
+                            });
+                            
                             return newShelfBooks;
                           });
+                          
+                          // Also update the global search results if this book is there
+                          setGlobalSearchResults(prev => 
+                            prev.map(b => b.id === updatedBook.id ? {
+                              ...b,
+                              ...updatedBook,
+                              reactions: [...(updatedBook.reactions || [])]
+                            } : { ...b })
+                          );
                         }}
                         addToShelfButton={
                           <AddToShelfDialog 

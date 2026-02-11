@@ -108,10 +108,36 @@ export function useMainPageData() {
     fetchMainPageData();
   }, [user, shelves]);
 
+  // Function to update a specific book across all collections
+  const updateBook = (updatedBook: any) => {
+    setData(prevData => ({
+      ...prevData,
+      popularBooks: prevData.popularBooks.map(book => 
+        book.id.toString() === updatedBook.id.toString() ? updatedBook : book
+      ),
+      recentlyReviewedBooks: prevData.recentlyReviewedBooks.map(book => 
+        book.id.toString() === updatedBook.id.toString() ? updatedBook : book
+      ),
+      newReleases: prevData.newReleases.map(book => 
+        book.id.toString() === updatedBook.id.toString() ? updatedBook : book
+      ),
+      currentUserBooks: prevData.currentUserBooks.map(book => 
+        book.id.toString() === updatedBook.id.toString() ? updatedBook : book
+      ),
+      booksByGenre: prevData.booksByGenre.map(genreGroup => ({
+        ...genreGroup,
+        books: genreGroup.books.map(book => 
+          book.id.toString() === updatedBook.id.toString() ? updatedBook : book
+        )
+      }))
+    }));
+  };
+
   return {
     data,
     loading,
     error,
-    refresh: fetchMainPageData
+    refresh: fetchMainPageData,
+    updateBook
   };
 }

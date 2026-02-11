@@ -256,6 +256,69 @@ export function createBooksRouter() {
     }
   });
 
+  // Add reaction to a book
+  router.post("/:id/reactions", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user.userId;
+      const { emoji } = req.body;
+      
+      // Validate emoji
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      // Check if book exists
+      const book = await storage.getBook(id);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Create reaction
+      const reactionData = {
+        userId,
+        emoji,
+        bookId: id
+      };
+      
+      // Create reaction and get updated reactions list
+      const result = await storage.createReaction(reactionData);
+      
+      // Emit WebSocket event for reaction update
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Determine event type based on result
+          const eventType = result.created ? 'book-reaction-added' : 'book-reaction-removed';
+          
+          // Broadcast to book-specific room
+          io.to(`book-reactions:${id}`).emit(eventType, {
+            bookId: id,
+            emoji: emoji,
+            userId: userId,
+            reactions: result.reactions || [],
+            action: result.created ? 'added' : 'removed'
+          });
+          
+          console.log('[WEBSOCKET] Sent', eventType, 'event for book:', id);
+        }
+      } catch (wsError) {
+        console.error('[WEBSOCKET] Failed to broadcast reaction update:', wsError);
+        // Don't fail the operation if WebSocket broadcast fails
+      }
+      
+      // Return the updated reactions directly in the response
+      res.json({
+        ...result,
+        reactions: result.reactions || []
+      });
+    } catch (error) {
+      console.error("Add book reaction error:", error);
+      res.status(500).json({ error: "Failed to add reaction" });
+    }
+  });
+
   // Get detailed reactions for a book (with user information)
   router.get("/:id/reactions/detail", optionalAuthenticateToken, async (req, res) => {
     try {

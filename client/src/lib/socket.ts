@@ -53,6 +53,10 @@ export interface SocketEvents {
     shelf: any;
     timestamp: string;
   }) => void;
+  
+  // Book reaction events
+  'book-reaction-added': (data: { bookId: string; emoji: string; userId: string; reactions: any[]; action: string }) => void;
+  'book-reaction-removed': (data: { bookId: string; emoji: string; userId: string; reactions: any[]; action: string }) => void;
 }
 
 export function initializeSocket(token?: string): Socket {
@@ -231,6 +235,19 @@ export function joinUserShelves(): void {
 export function leaveUserShelves(): void {
   if (socket?.connected) {
     socket.emit('leave:user:shelves');
+  }
+}
+
+// Book reactions helpers
+export function joinBookReactions(bookId: string): void {
+  if (socket?.connected) {
+    socket.emit('join:book-reactions', bookId);
+  }
+}
+
+export function leaveBookReactions(bookId: string): void {
+  if (socket?.connected) {
+    socket.emit('leave:book-reactions', bookId);
   }
 }
 

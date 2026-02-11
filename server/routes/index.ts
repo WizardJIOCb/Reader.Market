@@ -138,6 +138,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.log(`[WEBSOCKET] User ${userId} left shelves room: ${roomName}`);
       }
     });
+    
+    // Join book-reactions room
+    socket.on('join:book-reactions', (bookId) => {
+      if (bookId) {
+        const roomName = `book-reactions:${bookId}`;
+        socket.join(roomName);
+        console.log(`[WEBSOCKET] User joined book-reactions room: ${roomName}`);
+      }
+    });
+    
+    // Leave book-reactions room
+    socket.on('leave:book-reactions', (bookId) => {
+      if (bookId) {
+        const roomName = `book-reactions:${bookId}`;
+        socket.leave(roomName);
+        console.log(`[WEBSOCKET] User left book-reactions room: ${roomName}`);
+      }
+    });
   });
   
   // Attach io to app so routes can access it
