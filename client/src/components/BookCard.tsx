@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Book } from '@/lib/mockData';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { onSocketEvent, joinBookReactions, leaveBookReactions } from '@/lib/socket';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -45,7 +46,7 @@ interface BookCardProps {
 
 export const BookCard: React.FC<BookCardProps> = ({ 
   book, 
-  variant = 'standard',
+  variant = 'compact', // Changed default to compact to match home page layout
   readingProgress,
   addToShelfButton,
   columns,
@@ -154,6 +155,11 @@ export const BookCard: React.FC<BookCardProps> = ({
   const { isBookOnShelf: checkBookOnShelf, loading: shelfStatusLoading, refreshBookStatus } = useBookShelfStatus(bookIds);
   const isBookOnShelf = checkBookOnShelf(bookId);
   
+  // Memoize the refresh function to prevent unnecessary re-renders
+  const memoizedRefreshBookStatus = useCallback(async (bookId: string) => {
+    await refreshBookStatus(bookId);
+  }, [refreshBookStatus]);
+  
   // Format dates for display in DD.MM.YYYY format
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '';
@@ -168,7 +174,19 @@ export const BookCard: React.FC<BookCardProps> = ({
   const uploadedAt = book.uploadedAt || book.createdAt;
   const publishedAt = book.publishedAt;
 
-  // Update local reactions when book changes
+  // Track if we've received a WebSocket update
+  const hasWebSocketUpdate = useRef(false);
+  
+  // Update localReactions when book.reactions prop changes, but only if we don't have more recent local data
+  useEffect(() => {
+    // Only update if we haven't received a WebSocket update since mounting
+    // This prevents WebSocket updates from being overwritten by stale prop data
+    if (!hasWebSocketUpdate.current) {
+      setLocalReactions(book.reactions || []);
+    }
+  }, [book.reactions, hasWebSocketUpdate.current]);
+
+  // Update local reactions when book changes (backup)
   React.useEffect(() => {
     setLocalReactions(book.reactions || []);
   }, [book]);
@@ -392,6 +410,127 @@ export const BookCard: React.FC<BookCardProps> = ({
     }
   };
 
+  // Add WebSocket listeners for book reactions
+  useEffect(() => {
+    
+    const socketCleanupAdded = onSocketEvent('book-reaction-added', (data: any) => {
+      if (data.bookId === book.id.toString()) {
+        
+        // Mark that we've received a WebSocket update
+        hasWebSocketUpdate.current = true;
+        
+        // Process raw reactions into the format expected by ReactionBar
+        // Group reactions by emoji and count them
+        const groupedReactions = (data.reactions || []).reduce((acc: {[key: string]: any}, reaction: any) => {
+          if (!acc[reaction.emoji]) {
+            acc[reaction.emoji] = {
+              emoji: reaction.emoji,
+              count: 0,
+              userReacted: false
+            };
+          }
+          
+          // Increment count
+          acc[reaction.emoji].count++;
+          
+          // Check if this reaction is from the current user
+          const token = localStorage.getItem('authToken');
+          if (token) {
+            try {
+              const decodedToken = JSON.parse(atob(token.split('.')[1]));
+              if (reaction.userId === decodedToken.userId) {
+                acc[reaction.emoji].userReacted = true;
+              }
+            } catch (e) {
+              // If token parsing fails, continue without userReacted info
+            }
+          }
+          
+          return acc;
+        }, {});
+        
+        // Convert to array format
+        const processedReactions: { emoji: string, count: number, userReacted: boolean }[] = Object.values(groupedReactions);
+        
+        setLocalReactions([...processedReactions]);
+        
+        // Also update parent component's state to keep it synchronized
+        if (onUpdateBook) {
+          // Create updated book object with new reactions
+          const updatedBook = {
+            ...book,
+            reactions: [...processedReactions]
+          };
+          onUpdateBook(updatedBook);
+        }
+      }
+    });
+
+    const socketCleanupRemoved = onSocketEvent('book-reaction-removed', (data: any) => {
+      if (data.bookId === book.id.toString()) {
+        
+        // Mark that we've received a WebSocket update
+        hasWebSocketUpdate.current = true;
+        
+        // Process raw reactions into the format expected by ReactionBar
+        // Group reactions by emoji and count them
+        const groupedReactions = (data.reactions || []).reduce((acc: {[key: string]: any}, reaction: any) => {
+          if (!acc[reaction.emoji]) {
+            acc[reaction.emoji] = {
+              emoji: reaction.emoji,
+              count: 0,
+              userReacted: false
+            };
+          }
+          
+          // Increment count
+          acc[reaction.emoji].count++;
+          
+          // Check if this reaction is from the current user
+          const token = localStorage.getItem('authToken');
+          if (token) {
+            try {
+              const decodedToken = JSON.parse(atob(token.split('.')[1]));
+              if (reaction.userId === decodedToken.userId) {
+                acc[reaction.emoji].userReacted = true;
+              }
+            } catch (e) {
+              // If token parsing fails, continue without userReacted info
+            }
+          }
+          
+          return acc;
+        }, {});
+        
+        // Convert to array format
+        const processedReactions: { emoji: string, count: number, userReacted: boolean }[] = Object.values(groupedReactions);
+        
+        setLocalReactions([...processedReactions]);
+        
+        // Also update parent component's state to keep it synchronized
+        if (onUpdateBook) {
+          // Create updated book object with new reactions
+          const updatedBook = {
+            ...book,
+            reactions: [...processedReactions]
+          };
+          onUpdateBook(updatedBook);
+        }
+      }
+    });
+
+    // Join book reactions room when component mounts
+    joinBookReactions(book.id.toString());
+
+    // Clean up when component unmounts
+    return () => {
+      socketCleanupAdded();
+      socketCleanupRemoved();
+      // Leave book reactions room when component unmounts
+      leaveBookReactions(book.id.toString());
+    };
+  }, [book.id]);
+
   // Handle Read button click with splash screen transition
   const handleReadClick = () => {
     // Show splash screen with book data
@@ -427,7 +566,7 @@ export const BookCard: React.FC<BookCardProps> = ({
                 }
                 
                 // Refresh the shelf status after the operation
-                await refreshBookStatus(bookId);
+                await memoizedRefreshBookStatus(bookId);
               } catch (error) {
                 console.error('Error toggling book on shelf:', error);
                 toast({
