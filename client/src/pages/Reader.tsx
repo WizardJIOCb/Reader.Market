@@ -931,6 +931,7 @@ export default function Reader() {
             title: bookData.title,
             author: bookData.author,
             coverImageUrl: bookData.coverImageUrl,
+            videoCoverUrl: bookData.videoCoverUrl,
             description: bookData.description,
             rating: bookData.rating,
           });

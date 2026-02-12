@@ -835,7 +835,8 @@ export default function BookDetail() {
       id: book.id,
       title: book.title,
       author: book.author,
-      coverImageUrl: book.videoCoverUrl || book.coverImageUrl, // Use video cover if available, otherwise image cover
+      coverImageUrl: book.coverImageUrl,
+      videoCoverUrl: book.videoCoverUrl,
       description: book.description,
       rating: book.rating,
     });

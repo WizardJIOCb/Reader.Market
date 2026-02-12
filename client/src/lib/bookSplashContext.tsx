@@ -26,6 +26,7 @@ interface BookData {
   title: string;
   author: string;
   coverImageUrl?: string;
+  videoCoverUrl?: string;
   description?: string;
   rating?: number;
 }
@@ -86,7 +87,22 @@ export function BookSplashProvider({ children }: { children: ReactNode }) {
         >
           <div className="text-center max-w-2xl mx-auto px-6">
             {/* Book cover */}
-            {book.coverImageUrl ? (
+            {book.videoCoverUrl ? (
+              <video 
+                src={book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`}
+                className="max-h-[40vh] max-w-[60vw] object-contain rounded-lg shadow-2xl mx-auto"
+                autoPlay
+                muted
+                loop
+                playsInline
+                onError={(e) => {
+                  console.error('Failed to load video cover:', book.videoCoverUrl);
+                  // Fallback to image if video fails
+                  const target = e.target as HTMLVideoElement;
+                  target.style.display = 'none';
+                }}
+              />
+            ) : book.coverImageUrl ? (
               <img 
                 src={book.coverImageUrl.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl}
                 alt={book.title}

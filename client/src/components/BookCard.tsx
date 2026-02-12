@@ -539,6 +539,7 @@ export const BookCard: React.FC<BookCardProps> = ({
       title: book.title,
       author: book.author,
       coverImageUrl: book.coverImage || book.coverImageUrl,
+      videoCoverUrl: book.videoCoverUrl,
       description: book.description,
       rating: book.rating,
     });
