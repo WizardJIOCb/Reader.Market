@@ -716,24 +716,40 @@ export const BookCard: React.FC<BookCardProps> = ({
             <div className="flex flex-wrap gap-1">
               {book.genre && book.genre.length > 0 ? (
                 <>
-                  {Array.isArray(book.genre) 
+                  {book.genre && Array.isArray(book.genre)
                     ? book.genre.slice(0, visibleGenreCount).map((genre: string, index: number) => (
-                        <Badge key={index} variant="secondary" className="text-xs flex-shrink-0" style={{ backgroundColor: '#ffe69e' }}>
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className={`text-xs flex-shrink-0 ${index === book.genre!.length - 1 ? 'mr-[-10px]' : ''}`}
+                          style={{ backgroundColor: '#ffe69e' }}
+                        >
                           {genre}
                         </Badge>
                       ))
-                    : book.genre && typeof book.genre === 'string' && book.genre.split(',').slice(0, visibleGenreCount).map((genre: string, index: number) => (
-                        <Badge key={index} variant="secondary" className="text-xs flex-shrink-0" style={{ backgroundColor: '#ffe69e' }}>
+                    : book.genre && typeof book.genre === 'string' && book.genre.split(',').slice(0, visibleGenreCount).map((genre: string, index: number, array) => (
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className={`text-xs flex-shrink-0 ${index === array.length - 1 ? 'mr-[-10px]' : ''}`}
+                          style={{ backgroundColor: '#ffe69e' }}
+                        >
                           {genre.trim()}
                         </Badge>
                       ))
                   }
-                  {((Array.isArray(book.genre) && book.genre.length > visibleGenreCount) || 
-                    (typeof book.genre === 'string' && book.genre.split(',').length > visibleGenreCount)) && (
-                    <Badge variant="secondary" className="text-xs flex-shrink-0" style={{ backgroundColor: '#ffe69e' }}>
+                  {((book.genre && Array.isArray(book.genre) && book.genre.length > visibleGenreCount) || 
+                    (book.genre && typeof book.genre === 'string' && book.genre.split(',').length > visibleGenreCount)) && (
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs flex-shrink-0 ${(Array.isArray(book.genre) 
+                        ? book.genre.length - 1 === visibleGenreCount
+                        : book.genre!.split(',').length - 1 === visibleGenreCount) ? 'mr-[-10px]' : ''}`}
+                      style={{ backgroundColor: '#ffe69e' }}
+                    >
                       +{Array.isArray(book.genre) 
                         ? book.genre.length - visibleGenreCount 
-                        : book.genre.split(',').length - visibleGenreCount}
+                        : book.genre!.split(',').length - visibleGenreCount}
                     </Badge>
                   )}
                 </>

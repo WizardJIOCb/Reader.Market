@@ -14,7 +14,7 @@ export interface Book {
   filePath?: string;
   fileSize?: number;
   fileType?: string;
-  genre?: string;
+  genre?: string | string[];
   publishedYear?: number;
   rating?: number;
   commentCount?: number;
