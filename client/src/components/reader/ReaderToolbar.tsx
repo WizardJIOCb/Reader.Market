@@ -448,9 +448,9 @@ export function ReaderToolbar({
 
       {/* Progress bar */}
       {settings.showProgressBar !== false && (
-        <div className="h-1 bg-muted">
+        <div className="h-1 bg-orange-200">
           <div
-            className="h-full bg-primary transition-all duration-300"
+            className="h-full bg-orange-500 transition-all duration-300"
             style={{ width: `${overallPercentage}%` }}
           />
         </div>

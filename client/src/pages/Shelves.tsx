@@ -414,7 +414,7 @@ export default function Shelves() {
                       title: book.title,
                       author: book.author,
                       description: book.description,
-                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl,
                       videoCoverUrl: book.videoCoverUrl,
                       rating: book.rating,
                       commentCount: book.commentCount,
@@ -519,7 +519,7 @@ export default function Shelves() {
                     const bookData = {
                       ...JSON.parse(JSON.stringify({
                         ...book,
-                        coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                        coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl,
                         genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                         shelfCount: book.shelfCount,
                         cardViewCount: book.cardViewCount,
@@ -666,7 +666,7 @@ export default function Shelves() {
                         title: book.title,
                         author: book.author,
                         description: book.description,
-                        coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl, // Pass the cover image URL
+                        coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl, // Pass the cover image URL
                         videoCoverUrl: book.videoCoverUrl,
                         rating: book.rating,
                         commentCount: book.commentCount,

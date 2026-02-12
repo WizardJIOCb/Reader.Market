@@ -79,13 +79,13 @@ export function ReaderProgressBar({
 
           {/* Progress fill */}
           <div
-            className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-300"
+            className="absolute top-0 left-0 h-full bg-orange-500 rounded-full transition-all duration-300"
             style={{ width: `${percentage}%` }}
           />
 
           {/* Current position indicator */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow-md border-2 border-background transition-all duration-300"
+            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-orange-600 rounded-full shadow-md border-2 border-background transition-all duration-300"
             style={{ left: `calc(${percentage}% - 8px)` }}
           />
 
@@ -138,7 +138,7 @@ export function CompactProgressBar({ percentage, className = '' }: CompactProgre
   return (
     <div className={`h-1 bg-muted rounded-full overflow-hidden ${className}`}>
       <div
-        className="h-full bg-primary transition-all duration-300"
+        className="h-full bg-orange-500 transition-all duration-300"
         style={{ width: `${percentage}%` }}
       />
     </div>
@@ -189,7 +189,7 @@ export function CircularProgress({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className="text-primary transition-all duration-300"
+          className="text-orange-500 transition-all duration-300"
         />
       </svg>
       {/* Percentage text */}

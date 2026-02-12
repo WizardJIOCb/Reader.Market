@@ -92,9 +92,13 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
               {collection.coverImageUrl ? (
                 <img 
                   src={
-                    (collection.coverImageUrl?.startsWith('http') 
+                    collection.coverImageUrl?.startsWith('http')
                       ? collection.coverImageUrl
-                      : `/${collection.coverImageUrl?.replace(/^\//, '')}`)}
+                      : collection.coverImageUrl
+                      ? collection.coverImageUrl.startsWith('/')
+                        ? collection.coverImageUrl
+                        : `/${collection.coverImageUrl}`
+                      : ''}
                   alt={collection.name}
                   className="w-12 h-12 rounded-lg object-cover shadow-sm"
                   onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -252,9 +256,13 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
               {collection.coverImageUrl ? (
                 <img 
                   src={
-                    (collection.coverImageUrl?.startsWith('http') 
+                    collection.coverImageUrl?.startsWith('http')
                       ? collection.coverImageUrl
-                      : `/${collection.coverImageUrl?.replace(/^\//, '')}`)}
+                      : collection.coverImageUrl
+                      ? collection.coverImageUrl.startsWith('/')
+                        ? collection.coverImageUrl
+                        : `/${collection.coverImageUrl}`
+                      : ''}
                   alt={collection.name}
                   className="w-full rounded-t-lg object-cover aspect-[2/3] hover:opacity-90 transition-opacity"
                   onError={(e: React.SyntheticEvent<HTMLImageElement>) => {

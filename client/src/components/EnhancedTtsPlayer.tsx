@@ -468,9 +468,9 @@ const EnhancedTtsPlayer: React.FC<EnhancedTtsPlayerProps> = ({
       {/* Progress bar */}
       {audioUrl && (
         <div className="space-y-2">
-          <div className="w-full bg-secondary rounded-full h-2">
+          <div className="w-full bg-orange-200 rounded-full h-2">
             <div 
-              className="bg-primary h-2 rounded-full transition-all duration-300"
+              className="bg-orange-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }}
             ></div>
           </div>

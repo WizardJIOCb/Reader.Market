@@ -623,9 +623,13 @@ export const BookCard: React.FC<BookCardProps> = ({
                   ) : (
                     <img 
                       src={
-                        (book.coverImageUrl?.startsWith('http') 
+                        book.coverImageUrl?.startsWith('http') 
                           ? book.coverImageUrl
-                          : `/${book.coverImageUrl?.replace(/^\//, '')}`)}
+                          : book.coverImageUrl
+                          ? book.coverImageUrl.startsWith('/') 
+                            ? book.coverImageUrl
+                            : `/${book.coverImageUrl}`
+                          : ''}
                       alt={book.title}
                       className="w-28 h-42 rounded-lg object-cover shadow-sm"
                       onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -861,9 +865,13 @@ export const BookCard: React.FC<BookCardProps> = ({
                 ) : (
                   <img 
                     src={
-                      (book.coverImageUrl?.startsWith('http') 
+                      book.coverImageUrl?.startsWith('http') 
                         ? book.coverImageUrl
-                        : `/${book.coverImageUrl?.replace(/^\//, '')}`)}
+                        : book.coverImageUrl
+                        ? book.coverImageUrl.startsWith('/') 
+                          ? book.coverImageUrl
+                          : `/${book.coverImageUrl}`
+                        : ''}
                     alt={book.title}
                     className="w-full rounded-t-lg object-cover aspect-[2/3] hover:opacity-90 transition-opacity"
                     onError={(e: React.SyntheticEvent<HTMLImageElement>) => {

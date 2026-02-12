@@ -398,7 +398,7 @@ export function AdminCollectionsPage() {
                           <img 
                             src={collection.coverImageUrl.startsWith('http') 
                               ? collection.coverImageUrl 
-                              : `/${collection.coverImageUrl.replace(/^\//, '')}`}
+                              : collection.coverImageUrl.startsWith('/') ? collection.coverImageUrl : `/${collection.coverImageUrl}`}
                             alt={collection.name}
                             className="w-10 h-10 rounded object-cover"
                           />

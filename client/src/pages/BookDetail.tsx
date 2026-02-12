@@ -972,7 +972,15 @@ export default function BookDetail() {
                   />
                 ) : book.coverImageUrl ? (
                   <img 
-                    src={book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl} 
+                    src={
+                      book.coverImageUrl?.startsWith('http')
+                        ? book.coverImageUrl
+                        : book.coverImageUrl
+                        ? book.coverImageUrl.startsWith('/')
+                          ? book.coverImageUrl
+                          : `/${book.coverImageUrl}`
+                        : ''
+                    } 
                     alt={book.title} 
                     className="w-full h-full object-cover"
                   />

@@ -88,7 +88,7 @@ export function BookSplashProvider({ children }: { children: ReactNode }) {
             {/* Book cover */}
             {book.coverImageUrl ? (
               <img 
-                src={book.coverImageUrl.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl} 
+                src={book.coverImageUrl.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl}
                 alt={book.title}
                 className="max-h-[40vh] max-w-[60vw] object-contain rounded-lg shadow-2xl mx-auto"
                 onError={(e) => {

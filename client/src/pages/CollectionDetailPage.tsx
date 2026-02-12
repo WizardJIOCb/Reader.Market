@@ -453,7 +453,7 @@ export function CollectionDetailPage() {
                           <img 
                             data-book-id={book.id}
                             data-fallback-image
-                            src={book.coverImageUrl?.startsWith('http') ? book.coverImageUrl : `/${book.coverImageUrl}`} 
+                            src={book.coverImageUrl?.startsWith('http') ? book.coverImageUrl : book.coverImageUrl?.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`} 
                             alt={book.title}
                             className="w-16 h-20 object-cover rounded shadow-sm"
                             style={{ display: 'none' }}
@@ -465,7 +465,7 @@ export function CollectionDetailPage() {
                         </div>
                       ) : book.coverImageUrl ? (
                         <img 
-                          src={book.coverImageUrl.startsWith('http') ? book.coverImageUrl : `/${book.coverImageUrl}`} 
+                          src={book.coverImageUrl.startsWith('http') ? book.coverImageUrl : book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`} 
                           alt={book.title}
                           className="w-16 h-20 object-cover rounded shadow-sm flex-shrink-0"
                           onError={(e) => {
@@ -576,7 +576,7 @@ export function CollectionDetailPage() {
                     <img 
                       data-book-title={group.bookInfo.title}
                       data-fallback-image-book
-                      src={group.bookInfo.coverImageUrl?.startsWith('http') ? group.bookInfo.coverImageUrl : `/${group.bookInfo.coverImageUrl}`}
+                      src={group.bookInfo.coverImageUrl?.startsWith('http') ? group.bookInfo.coverImageUrl : group.bookInfo.coverImageUrl?.startsWith('/') ? group.bookInfo.coverImageUrl : `/${group.bookInfo.coverImageUrl}`}
                       alt={group.bookInfo.title}
                       className="w-24 h-36 object-cover rounded"
                       style={{ display: 'none' }}
@@ -589,7 +589,7 @@ export function CollectionDetailPage() {
                   </div>
                 ) : group.bookInfo.coverImageUrl ? (
                   <img 
-                    src={group.bookInfo.coverImageUrl.startsWith('http') ? group.bookInfo.coverImageUrl : `/${group.bookInfo.coverImageUrl}`}
+                    src={group.bookInfo.coverImageUrl.startsWith('http') ? group.bookInfo.coverImageUrl : group.bookInfo.coverImageUrl.startsWith('/') ? group.bookInfo.coverImageUrl : `/${group.bookInfo.coverImageUrl}`}
                     alt={group.bookInfo.title}
                     className="w-24 h-36 object-cover rounded"
                     onError={(e) => {

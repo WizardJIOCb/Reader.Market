@@ -196,7 +196,7 @@ export default function Library() {
                 const bookData = {
                   ...book,
                   coverColor: '', // Not used since we have coverImage
-                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl,
                   videoCoverUrl: book.videoCoverUrl,
                   genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                 };
@@ -252,7 +252,7 @@ export default function Library() {
                       const bookData = {
                         ...book,
                         coverColor: '', // Not used since we have coverImage
-                        coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                        coverImage: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl,
                         genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                       };
                       
@@ -307,7 +307,7 @@ export default function Library() {
                 const bookData = {
                   ...book,
                   coverColor: '', // Not used since we have coverImage
-                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl,
                   videoCoverUrl: book.videoCoverUrl,
                   genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                 };
@@ -364,7 +364,7 @@ export default function Library() {
                 const bookData = {
                   ...book,
                   coverColor: '', // Not used since we have coverImage
-                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  coverImage: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl,
                   videoCoverUrl: book.videoCoverUrl,
                   genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                 };
@@ -417,7 +417,7 @@ export default function Library() {
                   const bookData = {
                     ...book,
                     coverColor: '', // Not used since we have coverImage
-                    coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                    coverImage: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl,
                     genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                   };
                   
