@@ -38,6 +38,7 @@ import { useAuth } from '@/lib/auth';
 import { booksApi } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 import { useBookSplash } from '@/lib/bookSplashContext';
+import { joinBookReactions, leaveBookReactions, onSocketEvent } from '@/lib/socket';
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -137,6 +138,7 @@ export default function BookDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false); // Added state for delete operation
   const [localReactions, setLocalReactions] = useState<Reaction[]>([]); // Added state for reactions
+  const recentlySubmittedReactions = useRef<Set<string>>(new Set()); // Track recently submitted reactions to prevent WebSocket conflicts
   
   // State for comments and reviews
   const [bookComments, setBookComments] = useState<Comment[]>([]);
@@ -466,6 +468,60 @@ export default function BookDetail() {
     
     fetchBookData();
   }, [bookId, user]);
+  
+  // Subscribe to book reaction updates via WebSocket
+  useEffect(() => {
+    if (bookId) {
+      // Join the book reactions room
+      joinBookReactions(bookId);
+      
+      // Listen for reaction updates
+      const cleanupReactionAdded = onSocketEvent('book-reaction-added', (data) => {
+        if (data.bookId === bookId) {
+          // Update both local reactions and book state when a reaction is added
+          // Only update if the reaction data is different from current state
+          setLocalReactions(prevReactions => {
+            if (JSON.stringify(prevReactions) !== JSON.stringify(data.reactions)) {
+              if (book) {
+                setBook({
+                  ...book,
+                  reactions: data.reactions
+                });
+              }
+              return data.reactions;
+            }
+            return prevReactions;
+          });
+        }
+      });
+      
+      const cleanupReactionRemoved = onSocketEvent('book-reaction-removed', (data) => {
+        if (data.bookId === bookId) {
+          // Update both local reactions and book state when a reaction is removed
+          // Only update if the reaction data is different from current state
+          setLocalReactions(prevReactions => {
+            if (JSON.stringify(prevReactions) !== JSON.stringify(data.reactions)) {
+              if (book) {
+                setBook({
+                  ...book,
+                  reactions: data.reactions
+                });
+              }
+              return data.reactions;
+            }
+            return prevReactions;
+          });
+        }
+      });
+      
+      // Cleanup function to leave the room and remove listeners
+      return () => {
+        leaveBookReactions(bookId);
+        cleanupReactionAdded();
+        cleanupReactionRemoved();
+      };
+    }
+  }, [bookId, book]);
   
   const handleAddComment = async () => {
     if (newComment.trim() && book) {
@@ -867,44 +923,9 @@ export default function BookDetail() {
       if (response.ok) {
         const result = await response.json();
         
-        // Optimistically update local state
-        setLocalReactions(prev => {
-          const existingIndex = prev.findIndex(r => r.emoji === emoji);
-          
-          if (result.action === 'added') {
-            if (existingIndex >= 0) {
-              // Increment count and mark as user reacted
-              const updated = [...prev];
-              updated[existingIndex] = {
-                ...updated[existingIndex],
-                count: updated[existingIndex].count + 1,
-                userReacted: true
-              };
-              return updated;
-            } else {
-              // Add new reaction
-              return [...prev, { emoji, count: 1, userReacted: true }];
-            }
-          } else {
-            // Removed reaction
-            if (existingIndex >= 0) {
-              const updated = [...prev];
-              if (updated[existingIndex].count > 1) {
-                updated[existingIndex] = {
-                  ...updated[existingIndex],
-                  count: updated[existingIndex].count - 1,
-                  userReacted: false
-                };
-                return updated;
-              } else {
-                // Remove reaction completely
-                return prev.filter((_, i) => i !== existingIndex);
-              }
-            }
-          }
-          
-          return prev;
-        });
+        // Just wait for the WebSocket event to update the state
+        // The optimistic update has been removed to prevent conflicts
+        // The WebSocket event will update the state after the API call completes
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add reaction');
@@ -1065,6 +1086,7 @@ export default function BookDetail() {
                 {/* Book Reactions - after description and genres */}
                 <div className="mb-4">
                   <ReactionBar 
+                    key={`reaction-bar-${book.id}-${localReactions.map(r => r.emoji).sort().join('-')}-${localReactions.reduce((sum, r) => sum + r.count, 0)}`}
                     reactions={localReactions} 
                     onReact={handleBookReact}
                     bookId={book.id}

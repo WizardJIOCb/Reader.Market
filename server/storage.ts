@@ -1072,7 +1072,7 @@ export class DBStorage implements IStorage {
       }
       
       // Fetch the books again with updated ratings
-      const updatedBooksResult = await db.select().from(books).where(sql`LOWER(genre) LIKE LOWER('%' || ${genre} || '%')`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      const updatedBooksResult = await db.select().from(books).where(sql`is_active = true AND LOWER(genre) LIKE LOWER('%' || ${genre} || '%')`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
       
       // For each book, get the comment and review counts
       const resultWithCounts = await Promise.all(updatedBooksResult.map(async (book) => {
