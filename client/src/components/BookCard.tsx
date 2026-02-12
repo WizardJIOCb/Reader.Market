@@ -977,12 +977,20 @@ export const BookCard: React.FC<BookCardProps> = ({
                 <div className="flex flex-wrap gap-1 mb-3">
                   {Array.isArray(book.genre) 
                     ? book.genre.map((genre, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className={`text-xs ${book.genre && index === book.genre.length - 1 ? 'mr-[-10px]' : ''}`}
+                        >
                           {genre}
                         </Badge>
                       ))
-                    : book.genre && typeof book.genre === 'string' && book.genre.split(',').map((genre, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
+                    : book.genre && typeof book.genre === 'string' && book.genre.split(',').map((genre, index, arr) => (
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className={`text-xs ${index === arr.length - 1 ? 'mr-[-10px]' : ''}`}
+                        >
                           {genre.trim()}
                         </Badge>
                       ))
