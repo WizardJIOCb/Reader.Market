@@ -275,15 +275,9 @@ export default function BookDetail() {
       return;
     }
     
-    // Special handling: if no user, don't block future executions
-    if (!user) {
-      // Remove book from fetching set to allow re-execution when user loads
-      isFetchingRef.current.delete(bookId);
-      return;
-    }
-    
     // For authenticated users, use user+book combination tracking
-    const userBookKey = `${bookId}-${user.id}`;
+    // For non-authenticated users, just use the bookId
+    const userBookKey = user ? `${bookId}-${user.id}` : `${bookId}-anonymous`;
     
     if (effectRunRef.current.has(userBookKey)) {
       return;
