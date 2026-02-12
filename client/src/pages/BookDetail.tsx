@@ -993,7 +993,10 @@ export default function BookDetail() {
               
               {/* Buttons positioned under the cover image */}
               <div className="p-4 flex flex-col gap-3">
-                <Button className="gap-2 w-full" onClick={handleReadNow}>
+                <Button className="gap-2 w-full text-black" onClick={handleReadNow}
+                  style={{ backgroundColor: '#ffe3af', border: '1px solid #979797' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#ffd995'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffe3af'}>
                   <Play className="w-4 h-4" />
                   {t('books:readNow')}
                 </Button>
@@ -1020,7 +1023,10 @@ export default function BookDetail() {
                   shelves={shelves}
                   onToggleShelf={handleToggleShelf}
                   trigger={
-                    <Button variant="outline" className="gap-2 w-full">
+                    <Button variant="outline" className="gap-2 w-full"
+                      style={{ backgroundColor: '#ffedb2', border: '1px solid #979797' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#ffe499'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffedb2'}>
                       <Plus className="w-4 h-4" />
                       {t('books:addToMyShelves')}
                     </Button>
@@ -1030,8 +1036,8 @@ export default function BookDetail() {
                 {/* Delete button - only show if the current user is the uploader */}
                 {book.userId === user?.id && (
                   <Button 
-                    variant="destructive" 
-                    className="gap-2 w-full"
+                    variant="outline" 
+                    className="gap-2 w-full border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                     onClick={handleDeleteBook}
                     disabled={isDeleting}
                   >
@@ -1050,7 +1056,7 @@ export default function BookDetail() {
                 
                 <div className="flex flex-wrap gap-2 mb-4">
                   {book.genre && book.genre.split(',').map((g, index) => (
-                    <Badge key={index} variant="secondary">
+                    <Badge key={index} variant="secondary" className="text-xs" style={{ backgroundColor: '#ffe69e' }}>
                       {g.trim()}
                     </Badge>
                   ))}
@@ -1143,7 +1149,7 @@ export default function BookDetail() {
         {/* Tabs for Comments and Reviews */}
         <Card>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3" style={{ backgroundColor: '#ffedbb' }}>
               <TabsTrigger value="comments">{t('books:commentCount')} ({totalCommentCount})</TabsTrigger>
               <TabsTrigger value="reviews">{t('books:reviewCount')} ({bookReviews.length})</TabsTrigger>
               <TabsTrigger value="articles" className="gap-2">
@@ -1153,7 +1159,6 @@ export default function BookDetail() {
                 </span>
               </TabsTrigger>
             </TabsList>
-            
             {/* Comments Tab */}
             <TabsContent value="comments" className="mt-0">
               <CardContent className="pt-4">
