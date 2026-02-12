@@ -88,20 +88,43 @@ export function BookSplashProvider({ children }: { children: ReactNode }) {
           <div className="text-center max-w-2xl mx-auto px-6">
             {/* Book cover */}
             {book.videoCoverUrl ? (
-              <video 
-                src={book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`}
-                className="max-h-[40vh] max-w-[60vw] object-contain rounded-lg shadow-2xl mx-auto"
-                autoPlay
-                muted
-                loop
-                playsInline
-                onError={(e) => {
-                  console.error('Failed to load video cover:', book.videoCoverUrl);
-                  // Fallback to image if video fails
-                  const target = e.target as HTMLVideoElement;
-                  target.style.display = 'none';
-                }}
-              />
+              <div className="mx-auto">
+                {/* Placeholder image shown initially */}
+                {book.coverImageUrl && (
+                  <img 
+                    src={book.coverImageUrl.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl}
+                    alt={book.title}
+                    className="max-h-[40vh] max-w-[60vw] object-contain rounded-lg shadow-2xl mx-auto"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                )}
+                {/* Video cover loaded behind the image */}
+                <video 
+                  src={book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`}
+                  className="max-h-[40vh] max-w-[60vw] object-contain rounded-lg shadow-2xl mx-auto"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  onError={(e) => {
+                    console.error('Failed to load video cover:', book.videoCoverUrl);
+                    // If video fails, show image
+                    const target = e.target as HTMLVideoElement;
+                    target.style.display = 'none';
+                  }}
+                  onLoadedData={(e) => {
+                    // When video loads, hide the placeholder image
+                    const videoElement = e.target as HTMLVideoElement;
+                    const parentDiv = videoElement.parentElement;
+                    if (parentDiv) {
+                      const imgElements = parentDiv.querySelectorAll('img');
+                      imgElements.forEach(img => (img as HTMLElement).style.display = 'none');
+                    }
+                  }}
+                />
+              </div>
             ) : book.coverImageUrl ? (
               <img 
                 src={book.coverImageUrl.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl}

@@ -979,13 +979,41 @@ export default function BookDetail() {
               {/* Book Cover */}
               <div className="h-96 relative flex-shrink-0">
                 {book.videoCoverUrl ? (
-                  <video 
-                    src={book.videoCoverUrl?.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl?.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`} 
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    muted
-                    loop
-                  />
+                  <div className="relative w-full h-full">
+                    {/* Placeholder image shown initially */}
+                    {book.coverImageUrl && (
+                      <img 
+                        src={
+                          book.coverImageUrl?.startsWith('http')
+                            ? book.coverImageUrl
+                            : book.coverImageUrl
+                            ? book.coverImageUrl.startsWith('/')
+                              ? book.coverImageUrl
+                              : `/${book.coverImageUrl}`
+                            : ''
+                        } 
+                        alt={book.title} 
+                        className="w-full h-full object-cover absolute inset-0"
+                      />
+                    )}
+                    {/* Video cover loaded behind the image */}
+                    <video 
+                      src={book.videoCoverUrl?.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl?.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`} 
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      muted
+                      loop
+                      onLoadedData={(e) => {
+                        // When video loads, hide the placeholder image
+                        const videoElement = e.target as HTMLVideoElement;
+                        const parentDiv = videoElement.parentElement;
+                        if (parentDiv) {
+                          const imgElements = parentDiv.querySelectorAll('img');
+                          imgElements.forEach(img => (img as HTMLElement).style.display = 'none');
+                        }
+                      }}
+                    />
+                  </div>
                 ) : book.coverImageUrl ? (
                   <img 
                     src={

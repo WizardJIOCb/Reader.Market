@@ -433,6 +433,20 @@ export function CollectionDetailPage() {
                     <div className="flex items-start gap-3">
                       {book.videoCoverUrl ? (
                         <div className="relative w-16 h-20 flex-shrink-0">
+                          {/* Placeholder image shown initially */}
+                          {book.coverImageUrl && (
+                            <img 
+                              data-book-id={book.id}
+                              src={book.coverImageUrl?.startsWith('http') ? book.coverImageUrl : book.coverImageUrl?.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`} 
+                              alt={book.title}
+                              className="w-16 h-20 object-cover rounded shadow-sm absolute inset-0"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          )}
+                          {/* Video cover loaded behind the image */}
                           <video 
                             src={book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`}
                             className="w-16 h-20 object-cover rounded shadow-sm absolute inset-0"
@@ -441,25 +455,18 @@ export function CollectionDetailPage() {
                             loop
                             onError={(e) => {
                               console.error('Video failed to load:', book.videoCoverUrl);
-                              // Fallback to image cover if video fails
+                              // If video fails, show image
                               const videoElement = e.target as HTMLVideoElement;
                               videoElement.style.display = 'none';
-                              const imageElement = document.querySelector(`[data-book-id='${book.id}'][data-fallback-image]`);
-                              if (imageElement) {
-                                imageElement.setAttribute('style', 'display: block !important;');
-                              }
                             }}
-                          />
-                          <img 
-                            data-book-id={book.id}
-                            data-fallback-image
-                            src={book.coverImageUrl?.startsWith('http') ? book.coverImageUrl : book.coverImageUrl?.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`} 
-                            alt={book.title}
-                            className="w-16 h-20 object-cover rounded shadow-sm"
-                            style={{ display: 'none' }}
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
+                            onLoadedData={(e) => {
+                              // When video loads, hide the placeholder image
+                              const videoElement = e.target as HTMLVideoElement;
+                              const parentDiv = videoElement.parentElement;
+                              if (parentDiv) {
+                                const imgElements = parentDiv.querySelectorAll('img:not([data-book-id])');
+                                imgElements.forEach(img => (img as HTMLElement).style.display = 'none');
+                              }
                             }}
                           />
                         </div>
@@ -556,6 +563,21 @@ export function CollectionDetailPage() {
               <div className="flex items-start gap-4 mb-6">
                 {group.bookInfo.videoCoverUrl ? (
                   <div className="relative w-24 h-36">
+                    {/* Placeholder image shown initially */}
+                    {group.bookInfo.coverImageUrl && (
+                      <img 
+                        data-book-title={group.bookInfo.title}
+                        src={group.bookInfo.coverImageUrl?.startsWith('http') ? group.bookInfo.coverImageUrl : group.bookInfo.coverImageUrl?.startsWith('/') ? group.bookInfo.coverImageUrl : `/${group.bookInfo.coverImageUrl}`}
+                        alt={group.bookInfo.title}
+                        className="w-24 h-36 object-cover rounded absolute inset-0"
+                        onError={(e) => {
+                          console.error('Image failed to load:', group.bookInfo.coverImageUrl);
+                          // @ts-ignore
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    )}
+                    {/* Video cover loaded behind the image */}
                     <video 
                       src={group.bookInfo.videoCoverUrl.startsWith('http') ? group.bookInfo.videoCoverUrl : group.bookInfo.videoCoverUrl.startsWith('/') ? group.bookInfo.videoCoverUrl : `/${group.bookInfo.videoCoverUrl}`}
                       className="w-24 h-36 object-cover rounded absolute inset-0"
@@ -564,26 +586,18 @@ export function CollectionDetailPage() {
                       loop
                       onError={(e) => {
                         console.error('Video failed to load:', group.bookInfo.videoCoverUrl);
-                        // Fallback to image cover if video fails
+                        // If video fails, show image
                         const videoElement = e.target as HTMLVideoElement;
                         videoElement.style.display = 'none';
-                        const imageElement = document.querySelector(`[data-book-title='${group.bookInfo.title}'][data-fallback-image-book]`);
-                        if (imageElement) {
-                          imageElement.setAttribute('style', 'display: block !important;');
-                        }
                       }}
-                    />
-                    <img 
-                      data-book-title={group.bookInfo.title}
-                      data-fallback-image-book
-                      src={group.bookInfo.coverImageUrl?.startsWith('http') ? group.bookInfo.coverImageUrl : group.bookInfo.coverImageUrl?.startsWith('/') ? group.bookInfo.coverImageUrl : `/${group.bookInfo.coverImageUrl}`}
-                      alt={group.bookInfo.title}
-                      className="w-24 h-36 object-cover rounded"
-                      style={{ display: 'none' }}
-                      onError={(e) => {
-                        console.error('Image failed to load:', group.bookInfo.coverImageUrl);
-                        // @ts-ignore
-                        e.target.style.display = 'none';
+                      onLoadedData={(e) => {
+                        // When video loads, hide the placeholder image
+                        const videoElement = e.target as HTMLVideoElement;
+                        const parentDiv = videoElement.parentElement;
+                        if (parentDiv) {
+                          const imgElements = parentDiv.querySelectorAll('img:not([data-book-title])');
+                          imgElements.forEach(img => (img as HTMLElement).style.display = 'none');
+                        }
                       }}
                     />
                   </div>

@@ -602,25 +602,54 @@ export const BookCard: React.FC<BookCardProps> = ({
               <div className="relative cursor-pointer">
                 {(book.videoCoverUrl || book.coverImageUrl) ? (
                   book.videoCoverUrl ? (
-                    <video
-                      src={
-                        book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`
-                      }
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      className="w-28 h-42 rounded-lg object-cover shadow-sm"
-                      onError={(e: React.SyntheticEvent<HTMLVideoElement>) => {
-                        console.error('Failed to load video cover:', book.videoCoverUrl);
-                        // Fallback to image if video fails
-                        const target = e.target as HTMLVideoElement;
-                        target.style.display = 'none';
-                      }}
-                      onLoadedData={() => {
-                        // Video loaded successfully
-                      }}
-                    />
+                    <div className="relative w-28 h-42">
+                      {/* Placeholder image shown initially */}
+                      {book.coverImageUrl && (
+                        <img 
+                          src={
+                            book.coverImageUrl?.startsWith('http') 
+                              ? book.coverImageUrl
+                              : book.coverImageUrl
+                              ? book.coverImageUrl.startsWith('/') 
+                                ? book.coverImageUrl
+                                : `/${book.coverImageUrl}`
+                              : ''}
+                          alt={book.title}
+                          className="w-28 h-42 object-cover rounded-lg shadow-sm absolute inset-0"
+                          onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                            console.error('Failed to load cover image:', book.coverImageUrl);
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      )}
+                      {/* Video cover loaded behind the image */}
+                      <video
+                        src={
+                          book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`
+                        }
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className="w-28 h-42 object-cover rounded-lg shadow-sm"
+                        onError={(e: React.SyntheticEvent<HTMLVideoElement>) => {
+                          console.error('Failed to load video cover:', book.videoCoverUrl);
+                          // If video fails, show image
+                          const target = e.target as HTMLVideoElement;
+                          target.style.display = 'none';
+                        }}
+                        onLoadedData={(e: React.SyntheticEvent<HTMLVideoElement>) => {
+                          // When video loads, hide the placeholder image
+                          const videoElement = e.target as HTMLVideoElement;
+                          const parentDiv = videoElement.parentElement;
+                          if (parentDiv) {
+                            const imgElements = parentDiv.querySelectorAll('img');
+                            imgElements.forEach(img => img.style.display = 'none');
+                          }
+                        }}
+                      />
+                    </div>
                   ) : (
                     <img 
                       src={
@@ -844,25 +873,54 @@ export const BookCard: React.FC<BookCardProps> = ({
             <div className="relative cursor-pointer">
               {(book.videoCoverUrl || book.coverImageUrl) ? (
                 book.videoCoverUrl ? (
-                  <video
-                    src={
-                      book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`
-                    }
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="w-full rounded-t-lg object-cover aspect-[2/3] hover:opacity-90 transition-opacity"
-                    onError={(e: React.SyntheticEvent<HTMLVideoElement>) => {
-                      console.error('Failed to load video cover:', book.videoCoverUrl);
-                      // Fallback to image if video fails
-                      const target = e.target as HTMLVideoElement;
-                      target.style.display = 'none';
-                    }}
-                    onLoadedData={() => {
-                      // Video loaded successfully
-                    }}
-                  />
+                  <div className="relative w-full aspect-[2/3]">
+                    {/* Placeholder image shown initially */}
+                    {book.coverImageUrl && (
+                      <img 
+                        src={
+                          book.coverImageUrl?.startsWith('http') 
+                            ? book.coverImageUrl
+                            : book.coverImageUrl
+                            ? book.coverImageUrl.startsWith('/') 
+                              ? book.coverImageUrl
+                              : `/${book.coverImageUrl}`
+                            : ''}
+                        alt={book.title}
+                        className="w-full h-full object-cover rounded-t-lg aspect-[2/3] hover:opacity-90 transition-opacity absolute inset-0"
+                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                          console.error('Failed to load cover image:', book.coverImageUrl);
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                        }}
+                      />
+                    )}
+                    {/* Video cover loaded behind the image */}
+                    <video
+                      src={
+                        book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`
+                      }
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="w-full h-full object-cover rounded-t-lg aspect-[2/3] hover:opacity-90 transition-opacity"
+                      onError={(e: React.SyntheticEvent<HTMLVideoElement>) => {
+                        console.error('Failed to load video cover:', book.videoCoverUrl);
+                        // If video fails, show image
+                        const target = e.target as HTMLVideoElement;
+                        target.style.display = 'none';
+                      }}
+                      onLoadedData={(e: React.SyntheticEvent<HTMLVideoElement>) => {
+                        // When video loads, hide the placeholder image
+                        const videoElement = e.target as HTMLVideoElement;
+                        const parentDiv = videoElement.parentElement;
+                        if (parentDiv) {
+                          const imgElements = parentDiv.querySelectorAll('img');
+                          imgElements.forEach(img => img.style.display = 'none');
+                        }
+                      }}
+                    />
+                  </div>
                 ) : (
                   <img 
                     src={
