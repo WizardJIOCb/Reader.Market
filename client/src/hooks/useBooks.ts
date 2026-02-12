@@ -9,6 +9,8 @@ export interface Book {
   author: string;
   description?: string;
   coverImageUrl?: string;
+  videoCoverUrl?: string;
+  reactions?: any[];
   filePath?: string;
   fileSize?: number;
   fileType?: string;
@@ -24,6 +26,8 @@ export interface Book {
   updatedAt: string;
   uploadedAt?: string;
   publishedAt?: string;
+  shelfCount?: number;
+  ratingCount?: number;
 }
 
 export interface UseBookReturn {

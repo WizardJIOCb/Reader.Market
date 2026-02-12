@@ -46,6 +46,7 @@ interface Book {
   author: string;
   description?: string;
   coverImageUrl?: string;
+  videoCoverUrl?: string;
   filePath?: string;
   fileSize?: number;
   fileType?: string;
@@ -778,7 +779,7 @@ export default function BookDetail() {
       id: book.id,
       title: book.title,
       author: book.author,
-      coverImageUrl: book.coverImageUrl,
+      coverImageUrl: book.videoCoverUrl || book.coverImageUrl, // Use video cover if available, otherwise image cover
       description: book.description,
       rating: book.rating,
     });
@@ -961,7 +962,15 @@ export default function BookDetail() {
             <div className="w-full md:w-64 flex flex-col">
               {/* Book Cover */}
               <div className="h-96 relative flex-shrink-0">
-                {book.coverImageUrl ? (
+                {book.videoCoverUrl ? (
+                  <video 
+                    src={book.videoCoverUrl?.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl?.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`} 
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    muted
+                    loop
+                  />
+                ) : book.coverImageUrl ? (
                   <img 
                     src={book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl} 
                     alt={book.title} 

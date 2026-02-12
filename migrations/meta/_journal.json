@@ -120,6 +120,13 @@
       "when": 1770654664261,
       "tag": "0016_robust_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1770904805152,
+      "tag": "0017_add_video_cover_to_books",
+      "breakpoints": true
     }
   ]
 }

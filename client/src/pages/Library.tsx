@@ -197,6 +197,7 @@ export default function Library() {
                   ...book,
                   coverColor: '', // Not used since we have coverImage
                   coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  videoCoverUrl: book.videoCoverUrl,
                   genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                 };
                         
@@ -307,6 +308,7 @@ export default function Library() {
                   ...book,
                   coverColor: '', // Not used since we have coverImage
                   coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  videoCoverUrl: book.videoCoverUrl,
                   genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                 };
                         
@@ -363,6 +365,7 @@ export default function Library() {
                   ...book,
                   coverColor: '', // Not used since we have coverImage
                   coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                  videoCoverUrl: book.videoCoverUrl,
                   genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
                 };
                 

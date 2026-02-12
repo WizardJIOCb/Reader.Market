@@ -7,7 +7,7 @@ import { Play, Pause, RotateCcw, Settings, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TtsSettings {
-  provider: 'rhvoice' | 'piper' | 'windows';
+  provider: 'rhvoice' | 'piper' | 'windows' | 'mimikastudio';
   voice: string;
   rate: number;
   lang: 'ru' | 'en';
@@ -351,6 +351,7 @@ const TtsComponent: React.FC<TtsComponentProps> = ({
               <SelectItem value="piper">Piper</SelectItem>
               <SelectItem value="rhvoice">RHVoice</SelectItem>
               <SelectItem value="windows">Windows</SelectItem>
+              <SelectItem value="mimikastudio">MimikaStudio</SelectItem>
             </SelectContent>
           </Select>
         </div>

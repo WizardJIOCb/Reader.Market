@@ -32,6 +32,7 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
   });
   const [file, setFile] = useState<File | null>(null);
   const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [videoCover, setVideoCover] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
@@ -126,6 +127,41 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
       });
     }
   };
+  
+  const handleVideoCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      
+      // Validate file type
+      const allowedTypes = ['video/mp4', 'video/webm', 'video/avi', 'video/mov', 'video/wmv', 'video/mpeg'];
+      const fileName = selectedFile.name.toLowerCase();
+      const isVideoFile = ['.mp4', '.webm', '.avi', '.mov', '.wmv', '.mpeg'].some(ext => fileName.endsWith(ext));
+      
+      if (!allowedTypes.includes(selectedFile.type) && !isVideoFile) {
+        setErrors((prev) => ({
+          ...prev,
+          videoCover: 'Invalid file type. Only MP4, WebM, AVI, MOV, WMV, and MPEG are allowed.',
+        }));
+        return;
+      }
+      
+      // Validate file size (50MB max)
+      if (selectedFile.size > 50 * 1024 * 1024) {
+        setErrors((prev) => ({
+          ...prev,
+          videoCover: 'File size must be less than 50MB.',
+        }));
+        return;
+      }
+      
+      setVideoCover(selectedFile);
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.videoCover;
+        return newErrors;
+      });
+    }
+  };
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -178,6 +214,9 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
       }
       if (coverImage) {
         requestData.append('coverImage', coverImage);
+      }
+      if (videoCover) {
+        requestData.append('videoCover', videoCover);
       }
 
       const response = await booksApi.uploadBook(requestData);
@@ -345,6 +384,33 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
             </div>
             {errors.coverImage && (
               <p className="text-sm text-destructive">{errors.coverImage}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Video Cover (optional)</Label>
+            <div className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors relative">
+              <input
+                type="file"
+                accept="video/*"
+                onChange={handleVideoCoverChange}
+                disabled={uploading}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <div className="flex flex-col items-center justify-center gap-2">
+                <Upload className="w-8 h-8 text-muted-foreground" />
+                <div className="text-center">
+                  <p className="text-sm font-medium">
+                    {videoCover ? videoCover.name : 'Upload video cover'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    MP4, WebM, AVI, MOV, WMV, MPEG (max 50MB)
+                  </p>
+                </div>
+              </div>
+            </div>
+            {errors.videoCover && (
+              <p className="text-sm text-destructive">{errors.videoCover}</p>
             )}
           </div>
 

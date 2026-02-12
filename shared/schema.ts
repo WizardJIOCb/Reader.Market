@@ -42,6 +42,7 @@ export const books = pgTable("books", {
   author: text("author").notNull(),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
+  videoCoverUrl: text("video_cover_url"),
   filePath: text("file_path"),
   fileSize: integer("file_size"),
   fileType: text("file_type"),

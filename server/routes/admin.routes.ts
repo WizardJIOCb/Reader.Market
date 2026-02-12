@@ -805,11 +805,11 @@ export function createAdminRouter() {
 
   // Admin: Create book
   router.post("/books", authenticateToken, requireAdminOrModerator, (req, res, next) => {
-    // Configure multer for book uploads (images and book files)
+    // Configure multer for book uploads (images, videos and book files)
     const storage = multer.diskStorage({
       destination: function (req, file, cb) {
-        // Save cover images to the covers directory, other files to books directory
-        if (file.fieldname === 'coverImage') {
+        // Save cover images/videos to the covers directory, other files to books directory
+        if (file.fieldname === 'coverImage' || file.fieldname === 'videoCover') {
           cb(null, 'uploads/covers/');
         } else {
           cb(null, 'uploads/books/');
@@ -829,12 +829,18 @@ export function createAdminRouter() {
         fileSize: 100 * 1024 * 1024 // 100MB limit
       },
       fileFilter: (req, file, cb) => {
-        // Allow book files and images
+        // Allow book files, images, and videos
         const allowedTypes = [
           'image/jpeg',
           'image/png', 
           'image/gif',
           'image/webp',
+          'video/mp4',
+          'video/webm',
+          'video/avi',
+          'video/mov',
+          'video/wmv',
+          'video/mpeg',
           'application/pdf',
           'application/msword',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
@@ -846,11 +852,12 @@ export function createAdminRouter() {
           'application/octet-stream' // Generic binary (might be FB2)
         ];
         
-        // Also check file extension for FB2 files
+        // Also check file extension for FB2 files and video files
         const fileName = file.originalname.toLowerCase();
         const isFB2File = fileName.endsWith('.fb2');
+        const isVideoFile = ['.mp4', '.webm', '.avi', '.mov', '.wmv', '.mpeg'].some(ext => fileName.endsWith(ext));
         
-        if (allowedTypes.includes(file.mimetype) || isFB2File) {
+        if (allowedTypes.includes(file.mimetype) || isFB2File || isVideoFile) {
           cb(null, true);
         } else {
           cb(null, false);
@@ -860,6 +867,7 @@ export function createAdminRouter() {
 
     const uploadMiddleware = bookUpload.fields([
       { name: 'coverImage', maxCount: 1 }, 
+      { name: 'videoCover', maxCount: 1 },
       { name: 'bookFile', maxCount: 1 }
     ]);
     
@@ -870,7 +878,7 @@ export function createAdminRouter() {
           return res.status(400).json({ error: 'File size exceeds 100MB limit' });
         }
         if (err.message === 'Unexpected field') {
-          return res.status(400).json({ error: `Unexpected file field. Only 'coverImage' and 'bookFile' are allowed.` });
+          return res.status(400).json({ error: `Unexpected file field. Only 'coverImage', 'videoCover', and 'bookFile' are allowed.` });
         }
         return res.status(400).json({ error: err.message || 'File upload error' });
       }
@@ -902,6 +910,12 @@ export function createAdminRouter() {
       if (files && files.coverImage && files.coverImage[0]) {
         // The file is saved in 'uploads/covers/' but accessed via '/uploads/'
         newBookData.coverImageUrl = '/uploads/covers/' + files.coverImage[0].filename;
+      }
+      
+      // Handle video cover upload
+      if (files && files.videoCover && files.videoCover[0]) {
+        // The file is saved in 'uploads/covers/' but accessed via '/uploads/'
+        newBookData.videoCoverUrl = '/uploads/covers/' + files.videoCover[0].filename;
       }
       
       // Handle book file upload
@@ -994,11 +1008,11 @@ export function createAdminRouter() {
 
   // Admin: Update book
   router.put("/books/:id", authenticateToken, requireAdminOrModerator, (req, res, next) => {
-    // Configure multer for book updates (images and book files)
+    // Configure multer for book updates (images, videos and book files)
     const storage = multer.diskStorage({
       destination: function (req, file, cb) {
-        // Save cover images to the covers directory, other files to books directory
-        if (file.fieldname === 'coverImage') {
+        // Save cover images/videos to the covers directory, other files to books directory
+        if (file.fieldname === 'coverImage' || file.fieldname === 'videoCover') {
           cb(null, 'uploads/covers/');
         } else {
           cb(null, 'uploads/books/');
@@ -1018,12 +1032,18 @@ export function createAdminRouter() {
         fileSize: 100 * 1024 * 1024 // 100MB limit
       },
       fileFilter: (req, file, cb) => {
-        // Allow book files and images
+        // Allow book files, images, and videos
         const allowedTypes = [
           'image/jpeg',
           'image/png', 
           'image/gif',
           'image/webp',
+          'video/mp4',
+          'video/webm',
+          'video/avi',
+          'video/mov',
+          'video/wmv',
+          'video/mpeg',
           'application/pdf',
           'application/msword',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
@@ -1035,11 +1055,12 @@ export function createAdminRouter() {
           'application/octet-stream' // Generic binary (might be FB2)
         ];
         
-        // Also check file extension for FB2 files
+        // Also check file extension for FB2 files and video files
         const fileName = file.originalname.toLowerCase();
         const isFB2File = fileName.endsWith('.fb2');
+        const isVideoFile = ['.mp4', '.webm', '.avi', '.mov', '.wmv', '.mpeg'].some(ext => fileName.endsWith(ext));
         
-        if (allowedTypes.includes(file.mimetype) || isFB2File) {
+        if (allowedTypes.includes(file.mimetype) || isFB2File || isVideoFile) {
           cb(null, true);
         } else {
           cb(null, false);
@@ -1049,6 +1070,7 @@ export function createAdminRouter() {
 
     const uploadMiddleware = bookUpload.fields([
       { name: 'coverImage', maxCount: 1 }, 
+      { name: 'videoCover', maxCount: 1 },
       { name: 'bookFile', maxCount: 1 }
     ]);
     
@@ -1059,7 +1081,7 @@ export function createAdminRouter() {
           return res.status(400).json({ error: 'File size exceeds 100MB limit' });
         }
         if (err.message === 'Unexpected field') {
-          return res.status(400).json({ error: `Unexpected file field. Only 'coverImage' and 'bookFile' are allowed.` });
+          return res.status(400).json({ error: `Unexpected file field. Only 'coverImage', 'videoCover', and 'bookFile' are allowed.` });
         }
         return res.status(400).json({ error: err.message || 'File upload error' });
       }
@@ -1119,6 +1141,30 @@ export function createAdminRouter() {
           files.coverImage[0].originalname
         );
         updateData.coverImageUrl = newCoverPath;
+      }
+      
+      // Handle video cover update
+      if (files && files.videoCover && files.videoCover[0]) {
+        // Delete old video cover if it exists
+        if (book.videoCoverUrl) {
+          const oldVideoCoverPath = path.join(process.cwd(), book.videoCoverUrl);
+          if (fs.existsSync(oldVideoCoverPath)) {
+            try {
+              fs.unlinkSync(oldVideoCoverPath);
+            } catch (error) {
+              console.error("Error deleting old video cover:", error);
+              // Don't fail the update if old video cover deletion fails
+            }
+          }
+        }
+        
+        // Move the uploaded file to the standardized location using the book ID
+        const newVideoCoverPath = BookFileManager.moveCoverImageFromTemp( // Reusing the same method since it moves to covers
+          id,
+          files.videoCover[0].path,
+          files.videoCover[0].originalname
+        );
+        updateData.videoCoverUrl = newVideoCoverPath;
       }
       
       // Handle book file update

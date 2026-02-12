@@ -35,6 +35,9 @@ interface TtsConfig {
   rhvoiceBinPath: string;
   piperBinPath: string;
   piperModelsDir: string;
+  mimikaStudioApiUrl: string;
+  mimikaStudioApiKey: string;
+  mimikaStudioModelsDir: string;
   updatedAt: string;
 }
 
@@ -608,6 +611,7 @@ const TtsAdminSettings: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="piper">Piper</SelectItem>
                   <SelectItem value="rhvoice">RHVoice</SelectItem>
+                  <SelectItem value="mimikastudio">MimikaStudio</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -682,6 +686,19 @@ const TtsAdminSettings: React.FC = () => {
                 onCheckedChange={() => toggleProvider('rhvoice')}
               />
             </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <Label className="text-base">MimikaStudio</Label>
+                <p className="text-sm text-muted-foreground">
+                  Продвинутый движок TTS с возможностью клонирования голоса
+                </p>
+              </div>
+              <Switch
+                checked={config.enabledProviders && config.enabledProviders.includes('mimikastudio')}
+                onCheckedChange={() => toggleProvider('mimikastudio')}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -707,6 +724,30 @@ const TtsAdminSettings: React.FC = () => {
                 value={typeof config.rhvoiceBinPath === 'string' ? config.rhvoiceBinPath : ''}
                 onChange={(e) => setConfig({ ...config, rhvoiceBinPath: e.target.value })}
                 placeholder="/usr/bin/RHVoice-test"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>API URL MimikaStudio</Label>
+              <Input
+                value={typeof config.mimikaStudioApiUrl === 'string' ? config.mimikaStudioApiUrl : ''}
+                onChange={(e) => setConfig({ ...config, mimikaStudioApiUrl: e.target.value })}
+                placeholder="http://localhost:8000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>API ключ MimikaStudio</Label>
+              <Input
+                value={typeof config.mimikaStudioApiKey === 'string' ? config.mimikaStudioApiKey : ''}
+                onChange={(e) => setConfig({ ...config, mimikaStudioApiKey: e.target.value })}
+                placeholder="API ключ (необязательно)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Директория моделей MimikaStudio</Label>
+              <Input
+                value={typeof config.mimikaStudioModelsDir === 'string' ? config.mimikaStudioModelsDir : ''}
+                onChange={(e) => setConfig({ ...config, mimikaStudioModelsDir: e.target.value })}
+                placeholder="C:\opt\mimikastudio\models"
               />
             </div>
           </div>

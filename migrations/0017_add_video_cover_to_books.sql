@@ -1,0 +1,1 @@
+ALTER TABLE "books" ADD COLUMN "video_cover_url" text;

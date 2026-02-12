@@ -945,12 +945,18 @@ export function createBooksRouter() {
         fileSize: 100 * 1024 * 1024 // 100MB limit
       },
       fileFilter: (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
-        // Allow book files and images
+        // Allow book files, images, and videos
         const allowedTypes = [
           'image/jpeg',
           'image/png', 
           'image/gif',
           'image/webp',
+          'video/mp4',
+          'video/webm',
+          'video/avi',
+          'video/mov',
+          'video/wmv',
+          'video/mpeg',
           'application/pdf',
           'application/msword',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
@@ -962,11 +968,12 @@ export function createBooksRouter() {
           'application/octet-stream' // Generic binary (might be FB2)
         ];
         
-        // Also check file extension for FB2 files
+        // Also check file extension for FB2 files and video files
         const fileName = file.originalname.toLowerCase();
         const isFB2File = fileName.endsWith('.fb2');
+        const isVideoFile = ['.mp4', '.webm', '.avi', '.mov', '.wmv', '.mpeg'].some(ext => fileName.endsWith(ext));
         
-        if (allowedTypes.includes(file.mimetype) || isFB2File) {
+        if (allowedTypes.includes(file.mimetype) || isFB2File || isVideoFile) {
           cb(null, true);
         } else {
           cb(null, false);
@@ -976,6 +983,7 @@ export function createBooksRouter() {
 
     const uploadMiddleware = upload.fields([
       { name: 'coverImage', maxCount: 1 }, 
+      { name: 'videoCover', maxCount: 1 },
       { name: 'bookFile', maxCount: 1 }
     ]);
     
@@ -1020,6 +1028,11 @@ export function createBooksRouter() {
       // Handle cover image upload
       if (files && files.coverImage && files.coverImage[0]) {
         newBookData.coverImageUrl = '/uploads/covers/' + files.coverImage[0].filename;
+      }
+      
+      // Handle video cover upload
+      if (files && files.videoCover && files.videoCover[0]) {
+        newBookData.videoCoverUrl = '/uploads/covers/' + files.videoCover[0].filename;
       }
       
       // Handle book file upload

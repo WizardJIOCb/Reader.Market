@@ -415,6 +415,7 @@ export default function Shelves() {
                       author: book.author,
                       description: book.description,
                       coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
+                      videoCoverUrl: book.videoCoverUrl,
                       rating: book.rating,
                       commentCount: book.commentCount,
                       reviewCount: book.reviewCount,
@@ -427,6 +428,8 @@ export default function Shelves() {
                       uploadedAt: book.uploadedAt,
                       publishedAt: book.publishedAt,
                       reactions: book.reactions || [], // Add reactions data
+                      createdAt: book.createdAt || new Date().toISOString(),
+                      updatedAt: book.updatedAt || new Date().toISOString(),
                     };
                     
                     return (
@@ -664,6 +667,7 @@ export default function Shelves() {
                         author: book.author,
                         description: book.description,
                         coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl, // Pass the cover image URL
+                        videoCoverUrl: book.videoCoverUrl,
                         rating: book.rating,
                         commentCount: book.commentCount,
                         reviewCount: book.reviewCount,
@@ -675,7 +679,9 @@ export default function Shelves() {
                         year: book.publishedYear,
                         uploadedAt: book.uploadedAt, // Add upload date
                         publishedAt: book.publishedAt, // Add publication date
-                        reactions: book.reactions || [] // Add reactions data
+                        reactions: book.reactions || [], // Add reactions data
+                        createdAt: book.createdAt || new Date().toISOString(),
+                        updatedAt: book.updatedAt || new Date().toISOString()
                       }))
                     };
                     

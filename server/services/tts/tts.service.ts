@@ -12,7 +12,7 @@ import { join, basename } from 'path';
 import { tmpdir } from 'os';
 
 // Types
-export type TtsProviderId = 'rhvoice' | 'piper' | 'windows';
+export type TtsProviderId = 'rhvoice' | 'piper' | 'windows' | 'mimikastudio';
 export type TtsLanguage = 'ru' | 'en';
 export type TtsFormat = 'mp3' | 'ogg';
 
@@ -350,16 +350,20 @@ class PiperProvider implements TtsProvider {
   }
 }
 
-// Import Windows TTS provider
+// Import Windows and MimikaStudio TTS providers
 // @ts-ignore
 import WindowsTtsProvider from './windows-tts-provider.cjs';
+
+// @ts-ignore
+import MimikaStudioProvider from './mimikastudio-tts-provider';
 
 // Main TTS Service
 export class TtsService {
   private providers: Record<TtsProviderId, TtsProvider> = {
     rhvoice: new RhvoiceProvider(),
     piper: new PiperProvider(),
-    windows: new WindowsTtsProvider()
+    windows: new WindowsTtsProvider(),
+    mimikastudio: new MimikaStudioProvider()
   };
   
   async getConfig() {
@@ -412,6 +416,9 @@ export class TtsService {
       rhvoiceBinPath: dbRecord.rhvoiceBinPath !== undefined ? dbRecord.rhvoiceBinPath : dbRecord.rhvoice_bin_path,
       piperBinPath: dbRecord.piperBinPath !== undefined ? dbRecord.piperBinPath : dbRecord.piper_bin_path,
       piperModelsDir: dbRecord.piperModelsDir !== undefined ? dbRecord.piperModelsDir : dbRecord.piper_models_dir,
+      mimikaStudioApiUrl: dbRecord.mimikaStudioApiUrl || dbRecord.mimika_studio_api_url || '',
+      mimikaStudioApiKey: dbRecord.mimikaStudioApiKey || dbRecord.mimika_studio_api_key || '',
+      mimikaStudioModelsDir: dbRecord.mimikaStudioModelsDir || dbRecord.mimika_studio_models_dir || '',
       createdAt: dbRecord.createdAt !== undefined ? dbRecord.createdAt : dbRecord.created_at,
       updatedAt: dbRecord.updatedAt !== undefined ? dbRecord.updatedAt : dbRecord.updated_at
     };
@@ -424,13 +431,13 @@ export class TtsService {
         result.enabledProviders = JSON.parse(result.enabledProviders);
       } catch (e) {
         // If parsing fails, default to both providers enabled
-        result.enabledProviders = ['rhvoice', 'piper'];
+        result.enabledProviders = ['rhvoice', 'piper', 'mimikastudio'];
       }
     }
     
     // Ensure enabledProviders is always an array
     if (!Array.isArray(result.enabledProviders)) {
-      result.enabledProviders = ['rhvoice', 'piper'];
+      result.enabledProviders = ['rhvoice', 'piper', 'mimikastudio'];
     }
     
     // Ensure boolean fields are properly handled
@@ -440,6 +447,61 @@ export class TtsService {
     
     console.log('TTS Service: Final result:', result);
     return result;
+  }
+  
+  async updateConfig(configData: any) {
+    console.log('TTS Service: updateConfig called with:', configData);
+    
+    try {
+      // Get the current config to ensure we have the record
+      const currentConfig = await db.select().from(ttsConfig).where(eq(ttsConfig.id, 'default')).limit(1);
+      
+      // Prepare the update data
+      const updateData: any = {
+        tts_enabled: configData.ttsEnabled,
+        enabled_providers: Array.isArray(configData.enabledProviders) ? JSON.stringify(configData.enabledProviders) : JSON.stringify(['rhvoice', 'piper', 'mimikastudio']),
+        default_provider: configData.defaultProvider,
+        default_lang: configData.defaultLang,
+        default_voice_ru: configData.defaultVoiceRu,
+        default_voice_en: configData.defaultVoiceEn,
+        default_rate: configData.defaultRate,
+        min_rate: configData.minRate,
+        max_rate: configData.maxRate,
+        chunk_min_chars: configData.chunkMinChars,
+        chunk_max_chars: configData.chunkMaxChars,
+        audio_format: configData.audioFormat,
+        mp3_bitrate: configData.mp3Bitrate,
+        queue_concurrency: configData.queueConcurrency,
+        cache_max_gb: configData.cacheMaxGb,
+        cache_ttl_days: configData.cacheTtlDays,
+        rhvoice_bin_path: configData.rhvoiceBinPath,
+        piper_bin_path: configData.piperBinPath,
+        piper_models_dir: configData.piperModelsDir,
+        mimika_studio_api_url: configData.mimikaStudioApiUrl || '',
+        mimika_studio_api_key: configData.mimikaStudioApiKey || '',
+        mimika_studio_models_dir: configData.mimikaStudioModelsDir || '',
+        updated_at: new Date()
+      };
+      
+      if (currentConfig[0]) {
+        // Update existing config
+        await db.update(ttsConfig).set(updateData).where(eq(ttsConfig.id, 'default'));
+        console.log('TTS Service: Config updated successfully');
+      } else {
+        // Insert new config with id 'default'
+        await db.insert(ttsConfig).values({
+          ...updateData,
+          id: 'default'
+        });
+        console.log('TTS Service: Config inserted successfully');
+      }
+      
+      // Return the updated config
+      return await this.getConfig();
+    } catch (error) {
+      console.error('TTS Service: Error updating config:', error);
+      throw error;
+    }
   }
   
   async listVoices(providerId: TtsProviderId, lang: TtsLanguage) {

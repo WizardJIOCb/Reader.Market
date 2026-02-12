@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Book } from '@/lib/mockData';
+import { Book } from '@/hooks/useBooks';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { onSocketEvent, joinBookReactions, leaveBookReactions } from '@/lib/socket';
 import { Badge } from '@/components/ui/badge';
@@ -276,7 +276,7 @@ export const BookCard: React.FC<BookCardProps> = ({
         
         // Optimistically update local state
         setLocalReactions(prev => {
-          const existingIndex = prev.findIndex(r => r.emoji === emoji);
+          const existingIndex = prev.findIndex((r: any) => r.emoji === emoji);
           
           if (result.action === 'added') {
             if (existingIndex >= 0) {
@@ -305,7 +305,7 @@ export const BookCard: React.FC<BookCardProps> = ({
                 return updated;
               } else {
                 // Remove reaction completely
-                return prev.filter((_, i) => i !== existingIndex);
+                return prev.filter((_: any, i: number) => i !== existingIndex);
               }
             }
           }
@@ -599,25 +599,47 @@ export const BookCard: React.FC<BookCardProps> = ({
             {/* Left: Cover */}
             <Link href={`/book/${book.id}`} className="flex-shrink-0">
               <div className="relative cursor-pointer">
-                {(book.coverImage || book.coverImageUrl) ? (
-                  <img 
-                    src={
-                      ((book.coverImage || book.coverImageUrl)?.startsWith('http') 
-                        ? (book.coverImage || book.coverImageUrl)
-                        : `/${(book.coverImage || book.coverImageUrl)?.replace(/^\//, '')}`)}
-                    alt={book.title}
-                    className="w-28 h-42 rounded-lg object-cover shadow-sm"
-                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                      console.error('Failed to load cover image:', book.coverImage || book.coverImageUrl);
-                      // Fallback to default image if the cover image fails to load
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none'; // Hide the broken image
-                      target.onerror = null; // Prevent infinite loop
-                    }}
-                    onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                      // Image loaded successfully
-                    }}
-                  />
+                {(book.videoCoverUrl || book.coverImageUrl) ? (
+                  book.videoCoverUrl ? (
+                    <video
+                      src={
+                        book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`
+                      }
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="w-28 h-42 rounded-lg object-cover shadow-sm"
+                      onError={(e: React.SyntheticEvent<HTMLVideoElement>) => {
+                        console.error('Failed to load video cover:', book.videoCoverUrl);
+                        // Fallback to image if video fails
+                        const target = e.target as HTMLVideoElement;
+                        target.style.display = 'none';
+                      }}
+                      onLoadedData={() => {
+                        // Video loaded successfully
+                      }}
+                    />
+                  ) : (
+                    <img 
+                      src={
+                        (book.coverImageUrl?.startsWith('http') 
+                          ? book.coverImageUrl
+                          : `/${book.coverImageUrl?.replace(/^\//, '')}`)}
+                      alt={book.title}
+                      className="w-28 h-42 rounded-lg object-cover shadow-sm"
+                      onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                        console.error('Failed to load cover image:', book.coverImageUrl);
+                        // Fallback to default image if the cover image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none'; // Hide the broken image
+                        target.onerror = null; // Prevent infinite loop
+                      }}
+                      onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                        // Image loaded successfully
+                      }}
+                    />
+                  )
                 ) : (
                   <div className="w-28 h-42 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center shadow-sm">
                     <BookOpen className="w-8 h-8 text-gray-400" />
@@ -815,42 +837,58 @@ export const BookCard: React.FC<BookCardProps> = ({
         <>
           <Link href={`/book/${book.id}`}>
             <div className="relative cursor-pointer">
-              {(book.coverImage || book.coverImageUrl) ? (
-                <img 
-                  src={
-                    ((book.coverImage || book.coverImageUrl)?.startsWith('http') 
-                      ? (book.coverImage || book.coverImageUrl)
-                      : `/${(book.coverImage || book.coverImageUrl)?.replace(/^\//, '')}`)}
-                  alt={book.title}
-                  className="w-full rounded-t-lg object-cover aspect-[2/3] hover:opacity-90 transition-opacity"
-                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                    console.error('Failed to load cover image:', book.coverImage || book.coverImageUrl);
-                    // Fallback to default image if the cover image fails to load
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none'; // Hide the broken image
-                    target.onerror = null; // Prevent infinite loop
-                  }}
-                  onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                    // Image loaded successfully
-                  }}
-                />
+              {(book.videoCoverUrl || book.coverImageUrl) ? (
+                book.videoCoverUrl ? (
+                  <video
+                    src={
+                      book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`
+                    }
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full rounded-t-lg object-cover aspect-[2/3] hover:opacity-90 transition-opacity"
+                    onError={(e: React.SyntheticEvent<HTMLVideoElement>) => {
+                      console.error('Failed to load video cover:', book.videoCoverUrl);
+                      // Fallback to image if video fails
+                      const target = e.target as HTMLVideoElement;
+                      target.style.display = 'none';
+                    }}
+                    onLoadedData={() => {
+                      // Video loaded successfully
+                    }}
+                  />
+                ) : (
+                  <img 
+                    src={
+                      (book.coverImageUrl?.startsWith('http') 
+                        ? book.coverImageUrl
+                        : `/${book.coverImageUrl?.replace(/^\//, '')}`)}
+                    alt={book.title}
+                    className="w-full rounded-t-lg object-cover aspect-[2/3] hover:opacity-90 transition-opacity"
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                      console.error('Failed to load cover image:', book.coverImageUrl);
+                      // Fallback to default image if the cover image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none'; // Hide the broken image
+                      target.onerror = null; // Prevent infinite loop
+                    }}
+                    onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                      // Image loaded successfully
+                    }}
+                  />
+                )
               ) : (
                 <div className="w-full rounded-t-lg bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center aspect-[2/3] hover:opacity-90 transition-opacity">
                   <BookOpen className="w-12 h-12 text-gray-400" />
                 </div>
               )}
-                    
-              {(book.rating !== undefined && book.rating !== null) ? (
-                <div className="absolute top-2 right-8 bg-yellow-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm font-bold">
+              {(book.rating !== undefined && book.rating !== null && typeof book.rating === 'number' && book.rating > 0) ? (
+                <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm font-bold">
                   <Star className="w-3 h-3 fill-current" />
-                  {typeof book.rating === 'number' ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
+                  {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
                 </div>
-              ) : (
-                <div className="absolute top-2 right-8 bg-gray-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm">
-                  <Star className="w-3 h-3 fill-current" />
-                  {t('books:noRating')}
-                </div>
-              )}
+              ) : null}
             </div>
           </Link>
           

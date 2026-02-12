@@ -24,6 +24,7 @@ interface Book {
   author: string;
   description: string;
   coverImageUrl: string;
+  videoCoverUrl: string;
   filePath: string;
   fileSize: number;
   fileType: string;
@@ -57,6 +58,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
     publishedAt: '',
   });
   const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [videoCover, setVideoCover] = useState<File | null>(null);
   const [bookFile, setBookFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -74,6 +76,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
         publishedAt: book.publishedAt ? book.publishedAt.split('T')[0] : '',
       });
       setCoverImage(null);
+      setVideoCover(null);
       setBookFile(null);
       setErrors({});
     }
@@ -116,6 +119,39 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
       setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors.coverImage;
+        return newErrors;
+      });
+    }
+  };
+  
+  const handleVideoCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      const allowedTypes = ['video/mp4', 'video/webm', 'video/avi', 'video/mov', 'video/wmv', 'video/mpeg'];
+      const fileName = file.name.toLowerCase();
+      const isVideoFile = ['.mp4', '.webm', '.avi', '.mov', '.wmv', '.mpeg'].some(ext => fileName.endsWith(ext));
+      
+      if (!allowedTypes.includes(file.type) && !isVideoFile) {
+        setErrors((prev) => ({
+          ...prev,
+          videoCover: t('books.invalidVideoType', { defaultMessage: 'Invalid file type. Only MP4, WebM, AVI, MOV, WMV, and MPEG are allowed.' }),
+        }));
+        return;
+      }
+      
+      if (file.size > 50 * 1024 * 1024) {
+        setErrors((prev) => ({
+          ...prev,
+          videoCover: t('books.videoSizeError', { defaultMessage: 'File size must be less than 50MB.' }),
+        }));
+        return;
+      }
+      
+      setVideoCover(file);
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.videoCover;
         return newErrors;
       });
     }
@@ -272,6 +308,9 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
       }
       if (coverImage) {
         requestData.append('coverImage', coverImage);
+      }
+      if (videoCover) {
+        requestData.append('videoCover', videoCover);
       }
       if (bookFile) {
         requestData.append('bookFile', bookFile);
@@ -446,6 +485,47 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
                     </div>
                     {errors.coverImage && (
                       <p className="text-sm text-destructive mt-1">{errors.coverImage}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t('books.videoCover', { defaultMessage: 'Video Cover' })}</Label>
+                <div className="flex items-center gap-4">
+                  {book.videoCoverUrl && (
+                    <video
+                      src={book.videoCoverUrl}
+                      controls
+                      className="w-20 h-28 object-cover rounded border"
+                      onError={(e) => {
+                        console.error('Error loading video cover:', e);
+                      }}
+                    />
+                  )}
+                  <div className="flex-1">
+                    <div className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors relative">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={handleVideoCoverChange}
+                        disabled={saving}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Upload className="w-8 h-8 text-muted-foreground" />
+                        <div className="text-center">
+                          <p className="text-sm font-medium">
+                            {videoCover ? videoCover.name : t('books.uploadNewVideoCover', { defaultMessage: 'Upload video cover' })}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {t('books.videoFormats', { defaultMessage: 'MP4, WebM, AVI, MOV, WMV, MPEG (max 50MB)' })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    {errors.videoCover && (
+                      <p className="text-sm text-destructive mt-1">{errors.videoCover}</p>
                     )}
                   </div>
                 </div>
