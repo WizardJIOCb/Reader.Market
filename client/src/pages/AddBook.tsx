@@ -30,6 +30,7 @@ export default function AddBook() {
   
   const [file, setFile] = useState<File | null>(null);
   const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [videoCover, setVideoCover] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -123,6 +124,11 @@ export default function AddBook() {
         
       } else {
         
+      }
+      
+      // Add video cover if selected
+      if (videoCover) {
+        requestData.append('videoCover', videoCover);
       }
       
       const response = await booksApi.uploadBook(requestData);
@@ -298,6 +304,37 @@ export default function AddBook() {
                 {coverImage && (
                   <p className="text-sm text-muted-foreground mt-2">
                     {t('books:fileSelected')}: {coverImage.name} ({(coverImage.size / 1024).toFixed(2)} KB)
+                  </p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label>{t('books:videoCover')}</Label>
+                <div className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors relative">
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/ogg"
+                    onChange={(e) => e.target.files && e.target.files[0] && setVideoCover(e.target.files[0])}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <Upload className="w-10 h-10 text-muted-foreground" />
+                    <div className="text-center">
+                      <p className="font-medium">
+                        {videoCover ? videoCover.name : t('books:selectVideoCoverPrompt')}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {t('books:supportedVideoFormats')}
+                      </p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm">
+                      {t('books:selectVideoCover')}
+                    </Button>
+                  </div>
+                </div>
+                {videoCover && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {t('books:fileSelected')}: {videoCover.name} ({(videoCover.size / 1024 / 1024).toFixed(2)} MB)
                   </p>
                 )}
               </div>
