@@ -108,14 +108,14 @@ router.get("/last-actions", async (req, res) => {
 });
 
 // Admin endpoints for managing activities
-router.delete("/activities/:entityId", authenticateToken, requireAdminOrModerator, async (req, res) => {
+router.delete("/activities/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
   try {
-    const { entityId } = req.params;
+    const { id } = req.params;
 
     await db
       .update(activityFeed)
       .set({ deletedAt: new Date() })
-      .where(eq(activityFeed.entityId, entityId));
+      .where(eq(activityFeed.id, id));
 
     res.json({ message: 'Activity hidden successfully' });
   } catch (error) {
@@ -124,16 +124,16 @@ router.delete("/activities/:entityId", authenticateToken, requireAdminOrModerato
   }
 });
 
-router.put("/activities/:entityId", authenticateToken, requireAdminOrModerator, async (req, res) => {
+router.put("/activities/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
   try {
-    const { entityId } = req.params;
+    const { id } = req.params;
     const { action } = req.body;
 
     if (action === 'unhide') {
       await db
         .update(activityFeed)
         .set({ deletedAt: null })
-        .where(eq(activityFeed.entityId, entityId));
+        .where(eq(activityFeed.id, id));
       
       res.json({ message: 'Activity restored successfully' });
     } else {

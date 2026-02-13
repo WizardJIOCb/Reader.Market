@@ -38,7 +38,7 @@ import { useAuth } from '@/lib/auth';
 import { booksApi } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 import { useBookSplash } from '@/lib/bookSplashContext';
-import { joinBookReactions, leaveBookReactions, onSocketEvent } from '@/lib/socket';
+import { joinBookReactions, leaveBookReactions, onSocketEvent, joinStreamGlobal, leaveStreamGlobal } from '@/lib/socket';
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -144,6 +144,10 @@ export default function BookDetail() {
   const [bookComments, setBookComments] = useState<Comment[]>([]);
   const [bookReviews, setBookReviews] = useState<Review[]>([]);
   const [totalCommentCount, setTotalCommentCount] = useState<number>(0);
+  const [commentsVersion, setCommentsVersion] = useState(0); // Force update for comments
+  
+  // Force re-render function
+  const forceCommentsUpdate = () => setCommentsVersion(v => v + 1);
   
   // State for new comment/review
   const [newComment, setNewComment] = useState('');
@@ -469,6 +473,9 @@ export default function BookDetail() {
       // Join the book reactions room
       joinBookReactions(bookId);
       
+      // Also join stream:global to receive reaction updates from /stream page
+      joinStreamGlobal();
+      
       // Listen for reaction updates
       const cleanupReactionAdded = onSocketEvent('book-reaction-added', (data) => {
         if (data.bookId === bookId) {
@@ -508,11 +515,60 @@ export default function BookDetail() {
         }
       });
       
+      // Listen for comment reaction updates from stream (e.g., when reaction added in /stream)
+      const cleanupStreamReactionUpdate = onSocketEvent('stream:reaction-update', (data) => {
+        console.log('[BookDetail] Received stream:reaction-update:', data);
+        console.log('[BookDetail] Comparing bookId:', data.bookId, '===', bookId, '=', data.bookId === bookId);
+        
+        // Check if this reaction update is for a comment on this specific book
+        if (data.entityType === 'comment' && data.commentId && String(data.bookId) === bookId) {
+          console.log('[BookDetail] Updating comment reactions for comment:', data.commentId);
+          // Update the comment's reactions in bookComments
+          setBookComments(prevComments => {
+            if (!Array.isArray(prevComments)) return prevComments;
+            console.log('[BookDetail] Looking for comment in bookComments, id:', data.commentId);
+            console.log('[BookDetail] bookComments sample:', prevComments.slice(0, 2).map(c => ({ id: c.id, content: c.content?.substring(0, 30) })));
+            const updatedComments = prevComments.map(comment => {
+              console.log('[BookDetail] Comparing comment.id:', comment.id, '=== data.commentId:', data.commentId, '=', comment.id === data.commentId);
+              if (comment.id === data.commentId || comment.id === data.entityId) {
+                return {
+                  ...comment,
+                  reactions: data.reactions,
+                  reaction_count: data.reactions.reduce((sum: number, r: any) => sum + r.count, 0)
+                };
+              }
+              return comment;
+            });
+            return updatedComments;
+          });
+          // Force re-render after state update
+          forceCommentsUpdate();
+        }
+        // Also handle review reaction updates for this book
+        if (data.entityType === 'review' && data.entityId && String(data.bookId) === bookId) {
+          setBookReviews(prevReviews => {
+            if (!Array.isArray(prevReviews)) return prevReviews;
+            const updatedReviews = prevReviews.map(review => {
+              if (review.id === data.entityId) {
+                return {
+                  ...review,
+                  reactions: data.reactions
+                };
+              }
+              return review;
+            });
+            return updatedReviews;
+          });
+        }
+      });
+      
       // Cleanup function to leave the room and remove listeners
       return () => {
         leaveBookReactions(bookId);
+        leaveStreamGlobal();
         cleanupReactionAdded();
         cleanupReactionRemoved();
+        cleanupStreamReactionUpdate();
       };
     }
   }, [bookId, book]);

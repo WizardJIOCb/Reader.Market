@@ -10,6 +10,7 @@ import path from 'path';
 import type { Request } from 'express';
 import type { FileFilterCallback } from 'multer';
 import { BookFileManager } from '../utils/book-file-manager';
+import { createBookActivity, createCommentActivity, createReviewActivity } from '../streamHelpers';
 
 export function createBooksRouter() {
   const router = Router();
@@ -560,43 +561,42 @@ export function createBooksRouter() {
         }));
       }
       
-      // Broadcast the new comment via WebSocket
+      // Create activity feed entry and broadcast via WebSocket
       try {
-        if ((req.app as any).io) {
-          const io = (req.app as any).io;
-          
-          // Get the user who made the comment
-          const user = await storage.getUser(userId);
-          
-          // Prepare comment data for broadcast
-          const commentData = {
-            ...commentWithAttachments,
-            username: user?.username,
-            fullName: user?.fullName,
-            avatarUrl: user?.avatarUrl
-          };
-          
-          // Emit to book-specific room
+        const user = await storage.getUser(userId);
+        const io = (req.app as any).io;
+        
+        // Prepare comment data for broadcast to book-specific room
+        const commentData = {
+          ...commentWithAttachments,
+          username: user?.username,
+          fullName: user?.fullName,
+          avatarUrl: user?.avatarUrl
+        };
+        
+        // Emit to book-specific room
+        if (io) {
           io.to(`book-comments:${bookId}`).emit('new-comment', commentData);
-          
-          // Emit to global stream
-          io.to('stream:global').emit('stream:activity', {
-            type: 'comment',
-            entityId: commentWithAttachments.id,
-            userId: userId,
-            metadata: {
-              content_preview: content.substring(0, 100),
-              book_id: bookId,
-              book_title: book.title
-            },
-            createdAt: commentWithAttachments.createdAt
-          });
-          
-          console.log('[STREAM] Comment broadcast sent');
         }
-      } catch (broadcastError) {
-        console.error('[STREAM] Failed to broadcast comment:', broadcastError);
-        // Don't fail the request if broadcast fails
+        
+        // Create activity entry and broadcast to global stream
+        await createCommentActivity(
+          commentWithAttachments.id,
+          content,
+          userId,
+          user?.username || user?.fullName || 'Anonymous',
+          undefined, // targetUserId
+          undefined, // newsId
+          undefined, // newsTitle
+          bookId,
+          book.title,
+          io
+        );
+        
+        console.log('[STREAM] Comment activity created and broadcasted successfully:', commentWithAttachments.id);
+      } catch (streamError) {
+        console.error('[STREAM] Failed to create comment activity:', streamError);
+        // Don't fail the request if stream activity creation fails
       }
       
       res.status(201).json(commentWithAttachments);
@@ -773,30 +773,40 @@ export function createBooksRouter() {
         }
       }
       
-      // Broadcast the new review via WebSocket
+      // Create activity feed entry and broadcast via WebSocket
       try {
-        if ((req.app as any).io) {
-          const io = (req.app as any).io;
-          
-          // Get the user who made the review
-          const user = await storage.getUser(userId);
-          
-          // Prepare review data for broadcast
-          const reviewData = {
-            ...newReview,
-            username: user?.username,
-            fullName: user?.fullName,
-            avatarUrl: user?.avatarUrl
-          };
-          
-          // Emit to book-specific room
+        const user = await storage.getUser(userId);
+        const io = (req.app as any).io;
+        
+        // Prepare review data for broadcast to book-specific room
+        const reviewData = {
+          ...newReview,
+          username: user?.username,
+          fullName: user?.fullName,
+          avatarUrl: user?.avatarUrl
+        };
+        
+        // Emit to book-specific room
+        if (io) {
           io.to(`book-reviews:${bookId}`).emit('new-review', reviewData);
-          
-          console.log('[STREAM] Review broadcast sent');
         }
-      } catch (broadcastError) {
-        console.error('[STREAM] Failed to broadcast review:', broadcastError);
-        // Don't fail the request if broadcast fails
+        
+        // Create activity entry and broadcast to global stream
+        await createReviewActivity(
+          newReview.id,
+          content,
+          rating || 0,
+          userId,
+          user?.username || user?.fullName || 'Anonymous',
+          bookId,
+          book.title,
+          io
+        );
+        
+        console.log('[STREAM] Review activity created and broadcasted successfully:', newReview.id);
+      } catch (streamError) {
+        console.error('[STREAM] Failed to create review activity:', streamError);
+        // Don't fail the request if stream activity creation fails
       }
       
       res.status(201).json(newReview);
@@ -1135,28 +1145,23 @@ export function createBooksRouter() {
 
       // Create activity feed entry and broadcast via WebSocket
       try {
-        if ((req.app as any).io) {
-          const io = (req.app as any).io;
-          console.log('[STREAM] Broadcasting book creation:', book.id);
-
-          // Create activity data
-          const activityData = {
-            id: book.id,
-            type: 'book_creation',
-            entity_type: 'book',
-            entity_id: book.id,
-            title: book.title,
-            author: book.author,
-            created_at: book.createdAt,
-            timestamp: book.createdAt.toISOString()
-          };
-
-          // Broadcast to global stream
-          io.to('stream:global').emit('stream:new-activity', activityData);
-          console.log('[STREAM] ✓ Book creation broadcast sent');
-        }
-      } catch (broadcastError) {
-        console.error('[STREAM] Failed to broadcast book creation:', broadcastError);
+        const user = await storage.getUser((req as any).user.userId);
+        const io = (req.app as any).io;
+        
+        await createBookActivity(
+          book.id,
+          book.title,
+          book.author,
+          (req as any).user.userId,
+          user?.username || user?.fullName || 'Anonymous',
+          book.coverImageUrl || null,
+          io
+        );
+        
+        console.log('[STREAM] Book activity created and broadcasted successfully:', book.id);
+      } catch (streamError) {
+        console.error('[STREAM] Failed to create book activity:', streamError);
+        // Don't fail the request if stream activity creation fails
       }
 
       res.status(201).json(book);

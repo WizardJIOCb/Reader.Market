@@ -460,21 +460,21 @@ export default function StreamPage() {
       queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'shelves'] });
     };
 
-    const handleActivityDeleted = (data: { entityId: string }) => {
+    const handleActivityDeleted = (data: { id: string }) => {
       
       
       // Remove the activity from all query caches
-      // Check both entityId and id fields to handle both regular activities and user actions
+      // Use the activity ID to filter out the deleted activity
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'global'], (oldData = []) => {
-        return oldData.filter(a => a.entityId !== data.entityId && a.id !== data.entityId);
+        return oldData.filter(a => a.id !== data.id);
       });
       
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'personal'], (oldData = []) => {
-        return oldData.filter(a => a.entityId !== data.entityId && a.id !== data.entityId);
+        return oldData.filter(a => a.id !== data.id);
       });
       
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'shelves', filters], (oldData = []) => {
-        return oldData.filter(a => a.entityId !== data.entityId && a.id !== data.entityId);
+        return oldData.filter(a => a.id !== data.id);
       });
       
       // Also remove from last-actions cache
@@ -482,7 +482,7 @@ export default function StreamPage() {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          activities: (oldData.activities || []).filter((a: any) => a.entityId !== data.entityId && a.id !== data.entityId)
+          activities: (oldData.activities || []).filter((a: any) => a.id !== data.id)
         };
       });
     };

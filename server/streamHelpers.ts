@@ -15,33 +15,63 @@ interface NewsActivityMetadata {
   excerpt?: string;
   authorId: string;
   authorName?: string;
+  author_name?: string;
+  author_avatar?: string;
+  content_preview?: string;
+  view_count?: number;
+  comment_count?: number;
+  reaction_count?: number;
+  reactions?: any[];
 }
 
 interface BookActivityMetadata {
   title: string;
   authorName?: string;
+  author_name?: string;
   coverUrl?: string;
+  cover_url?: string;
   uploaderId: string;
   uploaderName?: string;
+  uploader_name?: string;
+  uploader_avatar?: string;
+  genre?: string;
+  average_rating?: number;
+  reaction_count?: number;
+  comment_count?: number;
+  review_count?: number;
+  reactions?: any[];
 }
 
 interface CommentActivityMetadata {
   content: string;
+  content_preview?: string;
   authorId: string;
-  authorName?: string;
+  author_name?: string;
+  author_avatar?: string;
   newsId?: string;
+  news_id?: string;
   newsTitle?: string;
+  news_title?: string;
   bookId?: string;
+  book_id?: string;
   bookTitle?: string;
+  book_title?: string;
+  reactions?: any[];
 }
 
 interface ReviewActivityMetadata {
   content: string;
+  content_preview?: string;
   rating?: number;
   authorId: string;
   authorName?: string;
+  author_name?: string;
+  author_avatar?: string;
   bookId: string;
+  book_id?: string;
   bookTitle?: string;
+  book_title?: string;
+  reactions?: any[];
 }
 
 type ActivityMetadata = NewsActivityMetadata | BookActivityMetadata | CommentActivityMetadata | ReviewActivityMetadata;
@@ -157,8 +187,13 @@ export async function createNewsActivity(
     metadata: {
       title,
       excerpt,
+      content_preview: excerpt,
       authorId,
-      authorName
+      authorName,
+      author_name: authorName,
+      view_count: 0,
+      comment_count: 0,
+      reaction_count: 0
     },
     io
   });
@@ -184,9 +219,12 @@ export async function createBookActivity(
     metadata: {
       title,
       authorName,
+      author_name: authorName,
       coverUrl,
+      cover_url: coverUrl,
       uploaderId,
-      uploaderName
+      uploaderName,
+      uploader_name: uploaderName
     },
     io
   });
@@ -207,6 +245,33 @@ export async function createCommentActivity(
   bookTitle: string | undefined,
   io?: SocketIOServer
 ): Promise<void> {
+  // Fetch reactions for this comment to include in activity metadata
+  let reactions: any[] = [];
+  try {
+    const rawReactions = await storage.getReactions(commentId, 'comment');
+    
+    // Group and aggregate reactions by emoji
+    const groupedReactions: Record<string, any[]> = {};
+    rawReactions.forEach((reaction: any) => {
+      const emoji = reaction.emoji;
+      if (!groupedReactions[emoji]) {
+        groupedReactions[emoji] = [];
+      }
+      groupedReactions[emoji].push(reaction);
+    });
+    
+    // Create aggregated reactions array
+    Object.entries(groupedReactions).forEach(([emoji, reactionList]: [string, any[]]) => {
+      reactions.push({
+        emoji,
+        count: reactionList.length,
+        userReacted: false // We don't know current user at creation time
+      });
+    });
+  } catch (error) {
+    console.error('[STREAM] Error fetching comment reactions:', error);
+  }
+
   await createActivity({
     type: 'comment',
     entityId: commentId,
@@ -215,12 +280,14 @@ export async function createCommentActivity(
     bookId,
     metadata: {
       content,
+      content_preview: content,
       authorId,
-      authorName,
+      author_name: authorName,
       newsId,
-      newsTitle,
+      news_title: newsTitle,
       bookId,
-      bookTitle
+      book_title: bookTitle,
+      reactions
     },
     io
   });
@@ -239,6 +306,33 @@ export async function createReviewActivity(
   bookTitle: string,
   io?: SocketIOServer
 ): Promise<void> {
+  // Fetch reactions for this review to include in activity metadata
+  let reactions: any[] = [];
+  try {
+    const rawReactions = await storage.getReactions(reviewId, 'review');
+    
+    // Group and aggregate reactions by emoji
+    const groupedReactions: Record<string, any[]> = {};
+    rawReactions.forEach((reaction: any) => {
+      const emoji = reaction.emoji;
+      if (!groupedReactions[emoji]) {
+        groupedReactions[emoji] = [];
+      }
+      groupedReactions[emoji].push(reaction);
+    });
+    
+    // Create aggregated reactions array
+    Object.entries(groupedReactions).forEach(([emoji, reactionList]: [string, any[]]) => {
+      reactions.push({
+        emoji,
+        count: reactionList.length,
+        userReacted: false
+      });
+    });
+  } catch (error) {
+    console.error('[STREAM] Error fetching review reactions:', error);
+  }
+
   await createActivity({
     type: 'review',
     entityId: reviewId,
@@ -246,11 +340,13 @@ export async function createReviewActivity(
     bookId,
     metadata: {
       content,
+      content_preview: content,
       rating,
       authorId,
-      authorName,
+      author_name: authorName,
       bookId,
-      bookTitle
+      book_title: bookTitle,
+      reactions
     },
     io
   });
@@ -295,7 +391,7 @@ export async function deleteActivity(
     // Broadcast deletion via WebSocket
     if (io) {
       io.to('stream:global').emit('stream:activity-deleted', {
-        entityId
+        id: entityId
       });
     }
   } catch (error) {

@@ -80,17 +80,18 @@ export function createCommentsRouter() {
           console.log('[Reaction Endpoint] Adding reaction');
           await storage.addBookCommentReaction(userId, commentId, emoji);
           action = 'added';
+        }
         
-          // Get updated reactions to include total count
-          const updatedReactions = await storage.getCommentReactions(commentId, userId);
-          const totalReactionCount = updatedReactions.reduce((sum, r) => sum + r.count, 0);
+        // Get updated reactions after add or remove
+        const updatedReactions = await storage.getCommentReactions(commentId, userId);
+        const totalReactionCount = updatedReactions.reduce((sum, r) => sum + r.count, 0);
         
-          // Log reaction activity (only when added)
-          try {
-            console.log('[Comment Reaction] ENABLE_LAST_ACTIONS_TRACKING:', process.env.ENABLE_LAST_ACTIONS_TRACKING);
-            if (process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
-              console.log('[Comment Reaction] Logging reaction activity for comment:', commentId);
-              console.log('[Comment Reaction] Comment found:', !!comment, comment?.bookId, comment?.articleId);
+        // Log reaction activity (only when added)
+        try {
+          console.log('[Comment Reaction] ENABLE_LAST_ACTIONS_TRACKING:', process.env.ENABLE_LAST_ACTIONS_TRACKING);
+          if (process.env.ENABLE_LAST_ACTIONS_TRACKING === 'true') {
+            console.log('[Comment Reaction] Logging reaction activity for comment:', commentId);
+            console.log('[Comment Reaction] Comment found:', !!comment, comment?.bookId, comment?.articleId);
             
               if (comment) {
                 let targetTitle = 'Unknown';
@@ -174,33 +175,75 @@ export function createCommentsRouter() {
             console.error('[Comment Reaction] Failed to log activity:', activityError);
             // Don't fail the reaction if activity logging fails
           }
+        
+        // Get updated reactions
+        let reactions;
+        try {
+          reactions = await storage.getCommentReactions(commentId, userId);
+          console.log("[Reaction Endpoint] Final reactions:", reactions);
+        } catch (error) {
+          console.error("Error retrieving final reactions:", error);
+          return res.status(500).json({ error: "Failed to retrieve reactions" });
         }
+        
+        const responsePayload = { action, reactions };
+        console.log("[Reaction Endpoint] About to send response:", responsePayload);
+        
+        // Broadcast reaction update via WebSocket for real-time UI updates
+        try {
+          if ((req.app as any).io) {
+            const io = (req.app as any).io;
+            
+            // Group reactions by emoji for the stream
+            const groupedReactions: Record<string, any[]> = {};
+            reactions.forEach((reaction: any) => {
+              const emoji = reaction.emoji;
+              if (!groupedReactions[emoji]) {
+                groupedReactions[emoji] = [];
+              }
+              groupedReactions[emoji].push(reaction);
+            });
+            
+            // Create aggregated reactions array for stream
+            const streamReactions: any[] = [];
+            Object.entries(groupedReactions).forEach(([emoji, reactionList]: [string, any[]]) => {
+              streamReactions.push({
+                emoji,
+                count: reactionList.length,
+                userReacted: reactionList.some((r: any) => r.userId === userId)
+              });
+            });
+            
+            // Emit reaction update to stream rooms
+            io.to('stream:global').emit('stream:reaction-update', {
+              commentId: commentId,
+              entityId: commentId,
+              entityType: 'comment',
+              bookId: comment?.bookId || null,
+              articleId: comment?.articleId || null,
+              reactions: streamReactions,
+              action
+            });
+            
+            console.log('[Comment Reaction] Broadcasted stream:reaction-update');
+          }
+        } catch (wsError) {
+          console.error('[Comment Reaction] Failed to broadcast reaction update:', wsError);
+          // Don't fail the request if WebSocket broadcast fails
+        }
+        
+        // Set headers explicitly
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'no-cache');
+        
+        // Send the response
+        res.status(200).json(responsePayload);
+        
+        console.log("[Reaction Endpoint] Response sent successfully");
       } catch (reactionError) {
         console.error("Error processing comment reaction:", reactionError);
         return res.status(500).json({ error: "Failed to process reaction" });
       }
-    
-      // Get updated reactions
-      let reactions;
-      try {
-        reactions = await storage.getCommentReactions(commentId, userId);
-        console.log("[Reaction Endpoint] Final reactions:", reactions);
-      } catch (error) {
-        console.error("Error retrieving final reactions:", error);
-        return res.status(500).json({ error: "Failed to retrieve reactions" });
-      }
-      
-      const responsePayload = { action, reactions };
-      console.log("[Reaction Endpoint] About to send response:", responsePayload);
-      
-      // Set headers explicitly
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-cache');
-      
-      // Send the response
-      res.status(200).json(responsePayload);
-      
-      console.log("[Reaction Endpoint] Response sent successfully");
     } catch (error) {
       console.error("[Reaction Endpoint] Outer error in toggle comment reaction:", error);
       // Ensure we send JSON even in outer catch block

@@ -19,7 +19,7 @@ import { AttachmentButton } from '@/components/AttachmentButton';
 import { AttachmentPreview } from '@/components/AttachmentPreview';
 import { AttachmentDisplay } from '@/components/AttachmentDisplay';
 import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
-import { onSocketEvent, getSocket, joinBookComments, leaveBookComments } from '@/lib/socket';
+import { onSocketEvent, getSocket, joinBookComments, leaveBookComments, joinStreamGlobal, leaveStreamGlobal } from '@/lib/socket';
 
 interface Reaction {
   emoji: string;
@@ -825,9 +825,23 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
     console.log('Main useEffect running, bookId:', bookId);
     const cachedCommentsEntry = dataCache.comments[bookId];
     if (cachedCommentsEntry) {
-      // Preserve existing comments to avoid losing locally added ones during re-mount
+      // Preserve existing comments and reactions to avoid losing locally updated ones
       setComments(prevComments => {
         const cachedComments = cachedCommentsEntry.data;
+        
+        // Merge cached comments with current state, preserving any locally updated reactions
+        const mergedComments = cachedComments.map((cachedComment: any) => {
+          // Find the same comment in current state to get updated reactions
+          const currentComment = prevComments.find((c: any) => c.id === cachedComment.id);
+          if (currentComment && currentComment.reactions) {
+            // Use reactions from current state (may have been updated via WebSocket)
+            return {
+              ...cachedComment,
+              reactions: currentComment.reactions
+            };
+          }
+          return cachedComment;
+        }) as Comment[];
         
         // Find comments that were added locally (not in cache)
         const localComments = prevComments.filter((localComment: any) => 
@@ -837,8 +851,8 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
         console.log('Main useEffect: Cached comments count:', cachedComments.length);
         console.log('Main useEffect: Local comments to preserve:', localComments.length);
         
-        // Combine local comments with cached comments to maintain newest-first order
-        const allComments = [...localComments, ...cachedComments];
+        // Combine local comments with merged cached comments to maintain newest-first order
+        const allComments = [...localComments, ...mergedComments];
         console.log('Main useEffect: Final comments count after merge:', allComments.length);
         
         return allComments;
@@ -921,6 +935,8 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
 
     // Join the book-comments room
     joinBookComments(bookId);
+    // Also join stream:global to receive reaction updates from /stream
+    joinStreamGlobal();
 
     // Listen for new comments
     const cleanupSocket = onSocketEvent('new-comment', (commentData: any) => {
@@ -1036,12 +1052,49 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       }
     });
 
+    // Listen for reaction updates from stream (e.g., when reaction added in /stream)
+    const cleanupReactionUpdate = onSocketEvent('stream:reaction-update', (data: any) => {
+      console.log('[CommentsSection] Received stream:reaction-update:', data);
+      
+      // Check if this reaction update is for a comment on this book
+      if (data.entityType === 'comment' && data.commentId && data.bookId === bookId) {
+        console.log('[CommentsSection] Updating reactions for comment:', data.commentId);
+        
+        // Update the comment's reactions in the comments tree
+        setComments(prevComments => {
+          const updateReactionsInTree = (comments: Comment[]): Comment[] => {
+            return comments.map(comment => {
+              if (comment.id === data.commentId) {
+                console.log('[CommentsSection] Found comment to update, old reactions:', comment.reactions?.length);
+                return {
+                  ...comment,
+                  reactions: data.reactions,
+                  reaction_count: data.reactions.reduce((sum: number, r: any) => sum + r.count, 0)
+                };
+              }
+              if (comment.replies && comment.replies.length > 0) {
+                return {
+                  ...comment,
+                  replies: updateReactionsInTree(comment.replies)
+                };
+              }
+              return comment;
+            });
+          };
+          
+          return updateReactionsInTree(prevComments);
+        });
+      }
+    });
+
     return () => {
       console.log('WebSocket useEffect cleanup, bookId:', bookId);
       // Leave the book-comments room when component unmounts
       leaveBookComments(bookId);
-      // Clean up the event listener
+      leaveStreamGlobal();
+      // Clean up the event listeners
       cleanupSocket();
+      cleanupReactionUpdate();
     };
   }, [bookId, onCommentsCountChange]);
 

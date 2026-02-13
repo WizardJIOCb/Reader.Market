@@ -156,6 +156,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.log(`[WEBSOCKET] User left book-reactions room: ${roomName}`);
       }
     });
+    
+    // Join stream:global room for cross-page reaction updates
+    socket.on('join:stream:global', () => {
+      socket.join('stream:global');
+      console.log(`[WEBSOCKET] User joined stream:global room`);
+    });
+    
+    // Leave stream:global room
+    socket.on('leave:stream:global', () => {
+      socket.leave('stream:global');
+      console.log(`[WEBSOCKET] User left stream:global room`);
+    });
   });
   
   // Attach io to app so routes can access it
@@ -169,7 +181,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.use("/api/comments", createCommentsRouter());
   app.use("/api/reviews", createReviewsRouter());
   app.use("/api/bookmarks", createBookmarksRouter());
-    app.use("/api/bookmark-collections", createBookmarkCollectionsRouter());
+  app.use("/api/bookmark-collections", createBookmarkCollectionsRouter());
   app.use("/api/news", createNewsRouter());
   app.use("/api/messages", createMessagingRouter());
   app.use("/api/conversations", createConversationsRouter());

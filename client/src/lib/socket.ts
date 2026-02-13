@@ -57,6 +57,9 @@ export interface SocketEvents {
   // Book reaction events
   'book-reaction-added': (data: { bookId: string; emoji: string; userId: string; reactions: any[]; action: string }) => void;
   'book-reaction-removed': (data: { bookId: string; emoji: string; userId: string; reactions: any[]; action: string }) => void;
+  
+  // Stream reaction events (for syncing reactions across pages)
+  'stream:reaction-update': (data: { commentId?: string; entityId: string; entityType: string; bookId?: string; articleId?: string; reactions: any[]; action: string }) => void;
 }
 
 export function initializeSocket(token?: string): Socket {
@@ -235,6 +238,19 @@ export function joinUserShelves(): void {
 export function leaveUserShelves(): void {
   if (socket?.connected) {
     socket.emit('leave:user:shelves');
+  }
+}
+
+// Stream helpers - for receiving reaction updates across pages
+export function joinStreamGlobal(): void {
+  if (socket?.connected) {
+    socket.emit('join:stream:global');
+  }
+}
+
+export function leaveStreamGlobal(): void {
+  if (socket?.connected) {
+    socket.emit('leave:stream:global');
   }
 }
 

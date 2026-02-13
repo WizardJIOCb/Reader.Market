@@ -10,7 +10,7 @@ import { Link } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiCall } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ReactionBar } from "@/components/ReactionBar";
 import { useAuth } from "@/lib/auth";
 
@@ -39,6 +39,21 @@ export function ActivityCard({ activity }: ActivityCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isReacting, setIsReacting] = useState(false);
   
+  // Local state for reactions to enable immediate UI updates
+  const [localReactions, setLocalReactions] = useState(activity.metadata?.reactions || []);
+  
+  // Sync local state when activity prop changes (from WebSocket updates)
+  // Use JSON.stringify for deep comparison of reactions array
+  const [lastSyncedReactions, setLastSyncedReactions] = useState<string>('');
+  
+  useEffect(() => {
+    const currentReactionsStr = JSON.stringify(activity.metadata?.reactions || []);
+    if (currentReactionsStr !== lastSyncedReactions) {
+      setLocalReactions(activity.metadata?.reactions || []);
+      setLastSyncedReactions(currentReactionsStr);
+    }
+  }, [activity.metadata?.reactions, activity.id, lastSyncedReactions]);
+  
   // Debug logging for news comments
   if (activity.type === 'comment') {
     
@@ -52,12 +67,12 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
   // Delete activity mutation with optimistic updates
   const deleteActivityMutation = useMutation({
-    mutationFn: async (entityId: string) => {
-      return await apiCall(`/api/stream/activities/${entityId}`, {
+    mutationFn: async (activityId: string) => {
+      return await apiCall(`/api/stream/activities/${activityId}`, {
         method: 'DELETE'
       });
     },
-    onMutate: async (entityId: string) => {
+    onMutate: async (activityId: string) => {
       // Cancel any outgoing refetches to avoid overwriting our optimistic update
       await queryClient.cancelQueries({ queryKey: ['api', 'stream', 'global'] });
       await queryClient.cancelQueries({ queryKey: ['api', 'stream', 'personal'] });
@@ -70,11 +85,11 @@ export function ActivityCard({ activity }: ActivityCardProps) {
       
       // Optimistically remove the activity from all caches
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'global'], (old = []) => {
-        return old.filter(a => a.entityId !== entityId);
+        return old.filter(a => a.id !== activityId);
       });
       
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'personal'], (old = []) => {
-        return old.filter(a => a.entityId !== entityId);
+        return old.filter(a => a.id !== activityId);
       });
       
       // Update all shelf query variations
@@ -83,7 +98,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
         if (!old || !Array.isArray(old)) {
           return old;
         }
-        return old.filter(a => a.entityId !== entityId);
+        return old.filter(a => a.id !== activityId);
       });
       
       // Return context with snapshots for potential rollback
@@ -126,7 +141,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await deleteActivityMutation.mutateAsync(activity.entityId);
+      await deleteActivityMutation.mutateAsync(activity.id);
     } finally {
       setIsDeleting(false);
     }
@@ -147,11 +162,9 @@ export function ActivityCard({ activity }: ActivityCardProps) {
       if (activity.type === 'news') {
         endpoint = `/api/news/${activity.entityId}/reactions`;
       } else if (activity.type === 'comment') {
-        endpoint = '/api/reactions';
-        body.commentId = activity.entityId;
+        endpoint = `/api/comments/${activity.entityId}/reaction`;
       } else if (activity.type === 'review') {
-        endpoint = '/api/reactions';
-        body.reviewId = activity.entityId;
+        endpoint = `/api/reviews/${activity.entityId}/reaction`;
       } else if (activity.type === 'book') {
         endpoint = `/api/books/${activity.bookId}/reactions`;
       } else {
@@ -171,6 +184,52 @@ export function ActivityCard({ activity }: ActivityCardProps) {
         const errorText = await response.text();
         console.error('[ActivityCard] Failed to add reaction:', errorText);
         throw new Error('Failed to add reaction');
+      }
+      
+      // Parse response and update local reactions immediately
+      try {
+        const data = await response.json();
+        if (data.reactions) {
+          // Force immediate update with new reference
+          const newReactions = [...data.reactions];
+          setLocalReactions(newReactions);
+          
+          // Also update React Query cache directly for global stream
+          queryClient.setQueryData<any[]>(['api', 'stream', 'global'], (old) => {
+            if (!old || !Array.isArray(old)) return old;
+            return old.map(act => {
+              if (act.id === activity.id || act.entityId === activity.entityId) {
+                return {
+                  ...act,
+                  metadata: {
+                    ...act.metadata,
+                    reactions: newReactions
+                  }
+                };
+              }
+              return act;
+            });
+          });
+          
+          // Update personal stream cache
+          queryClient.setQueryData<any[]>(['api', 'stream', 'personal'], (old) => {
+            if (!old || !Array.isArray(old)) return old;
+            return old.map(act => {
+              if (act.id === activity.id || act.entityId === activity.entityId) {
+                return {
+                  ...act,
+                  metadata: {
+                    ...act.metadata,
+                    reactions: newReactions
+                  }
+                };
+              }
+              return act;
+            });
+          });
+        }
+      } catch (parseError) {
+        console.error('[ActivityCard] Failed to parse reaction response:', parseError);
       }
       
       // The WebSocket will handle updating the UI via stream:reaction-update event
@@ -233,7 +292,7 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             {/* Interactive reaction bar */}
             <div className="mt-3 pt-3 border-t border-border/50">
               <ReactionBar 
-                reactions={metadata.reactions || []} 
+                reactions={localReactions} 
                 onReact={handleReact}
                 newsId={activity.entityId}
               />

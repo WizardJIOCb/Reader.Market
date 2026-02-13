@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
 import { requireAdminOrModerator } from '../middleware/admin-auth';
 import { storage } from '../storage';
+import { createCommentActivity } from '../streamHelpers';
 
 export function createNewsRouter() {
   const router = Router();
@@ -74,6 +75,31 @@ export function createNewsRouter() {
         content: content.trim(),
         attachments: req.body.attachments || []
       });
+      
+      // Create activity feed entry and broadcast via WebSocket
+      try {
+        const user = await storage.getUser((req.user as any).userId);
+        const newsItem = await storage.getNews(newsId);
+        const io = (req.app as any).io;
+        
+        await createCommentActivity(
+          comment.id,
+          content.trim(),
+          (req.user as any).userId,
+          user?.username || user?.fullName || 'Anonymous',
+          undefined, // targetUserId
+          newsId,
+          newsItem?.title,
+          undefined, // bookId
+          undefined, // bookTitle
+          io
+        );
+        
+        console.log('[STREAM] News comment activity created and broadcasted successfully:', comment.id);
+      } catch (streamError) {
+        console.error('[STREAM] Failed to create news comment activity:', streamError);
+        // Don't fail the request if stream activity creation fails
+      }
       
       res.status(201).json(comment);
     } catch (error) {

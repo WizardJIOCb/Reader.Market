@@ -10,6 +10,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { BookFileManager } from '../utils/book-file-manager';
+import { createNewsActivity } from '../streamHelpers';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -55,58 +56,22 @@ export function createAdminRouter() {
       // Create activity feed entry and broadcast via WebSocket only if published
       if (published) {
         try {
-          console.log('[STREAM DEBUG] Starting activity broadcast for news:', newsItem.id);
-          console.log('[STREAM DEBUG] Socket.IO instance available:', !!(req.app as any).io);
-          
           const user = await storage.getUser(userId);
+          const io = (req.app as any).io;
           
-          console.log('[STREAM DEBUG] User found:', !!user, user ? user.username : 'N/A');
+          await createNewsActivity(
+            newsItem.id,
+            title,
+            userId,
+            user?.username || user?.fullName || 'Anonymous',
+            content.substring(0, 200),
+            io
+          );
           
-          if (user && (req.app as any).io) {
-            console.log('[STREAM DEBUG] Broadcasting directly to stream:global room...');
-            
-            const io = (req.app as any).io;
-            
-            // Check room status
-            const globalRoom = io.sockets.adapter.rooms.get('stream:global');
-            console.log('[STREAM DEBUG] stream:global room size:', globalRoom ? globalRoom.size : 0);
-            if (globalRoom && globalRoom.size > 0) {
-              console.log('[STREAM DEBUG] Socket IDs in global room:', Array.from(globalRoom));
-            }
-            
-            // Create activity data with snake_case field names
-            const activityData = {
-              id: newsItem.id,
-              type: 'news',
-              entityId: newsItem.id,
-              userId: userId,
-              metadata: {
-                title: title,
-                content_preview: content.substring(0, 200),
-                author_id: userId,
-                author_name: user.username || user.fullName || 'Anonymous',
-                author_avatar: user.avatarUrl || null,
-                view_count: 0,
-                comment_count: 0,
-                reaction_count: 0
-              },
-              createdAt: newsItem.createdAt
-            };
-            
-            console.log('[STREAM DEBUG] Activity data:', activityData);
-            
-            // Broadcast to global stream
-            io.to('stream:global').emit('stream:new-activity', activityData);
-            console.log('\x1b[32m%s\x1b[0m', '[STREAM DEBUG] ✓ Direct broadcast sent to stream:global');
-          } else {
-            console.warn('[STREAM DEBUG] Missing requirements for broadcast:', {
-              hasUser: !!user,
-              hasIo: !!(req.app as any).io
-            });
-          }
+          console.log('[STREAM] News activity created and broadcasted successfully:', newsItem.id);
         } catch (streamError) {
-          console.error('[STREAM] Failed to broadcast news activity:', streamError);
-          // Don't fail the request if stream activity broadcast fails
+          console.error('[STREAM] Failed to create news activity:', streamError);
+          // Don't fail the request if stream activity creation fails
         }
       }
       

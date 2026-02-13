@@ -197,7 +197,7 @@ export function createReviewsRouter() {
   });
 
   // Toggle reaction on a review
-  router.post("/api/reviews/:reviewId/reaction", authenticateToken, async (req, res) => {
+  router.post("/:reviewId/reaction", authenticateToken, async (req, res) => {
     try {
       const userId = (req as any).user.userId;
       const { reviewId } = req.params;
@@ -291,6 +291,52 @@ export function createReviewsRouter() {
       
       // Return updated reactions
       const updatedReactions = await storage.getReviewReactions(reviewId, userId);
+      
+      // Get review to find bookId for WebSocket broadcast
+      const review = await storage.getReviewById(reviewId);
+      const reviewBookId = review?.bookId || null;
+      
+      // Broadcast reaction update via WebSocket for real-time UI updates
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Group reactions by emoji for the stream
+          const groupedReactions: Record<string, any[]> = {};
+          updatedReactions.forEach((reaction: any) => {
+            const emoji = reaction.emoji;
+            if (!groupedReactions[emoji]) {
+              groupedReactions[emoji] = [];
+            }
+            groupedReactions[emoji].push(reaction);
+          });
+          
+          // Create aggregated reactions array for stream
+          const streamReactions: any[] = [];
+          Object.entries(groupedReactions).forEach(([emoji, reactionList]: [string, any[]]) => {
+            streamReactions.push({
+              emoji,
+              count: reactionList.length,
+              userReacted: reactionList.some((r: any) => r.userId === userId)
+            });
+          });
+          
+          // Emit reaction update to stream rooms
+          io.to('stream:global').emit('stream:reaction-update', {
+            entityId: reviewId,
+            entityType: 'review',
+            bookId: reviewBookId,
+            reactions: streamReactions,
+            action: existingReaction ? 'removed' : 'added'
+          });
+          
+          console.log('[Review Reaction] Broadcasted stream:reaction-update');
+        }
+      } catch (wsError) {
+        console.error('[Review Reaction] Failed to broadcast reaction update:', wsError);
+        // Don't fail the request if WebSocket broadcast fails
+      }
+      
       res.json({ reactions: updatedReactions });
     } catch (error) {
       console.error("Toggle review reaction error:", error);
@@ -299,7 +345,7 @@ export function createReviewsRouter() {
   });
 
   // Get detailed reactions for a review
-  router.get("/api/reviews/:reviewId/reactions", optionalAuthenticateToken, async (req, res) => {
+  router.get("/:reviewId/reactions", optionalAuthenticateToken, async (req, res) => {
     try {
       const { reviewId } = req.params;
       
