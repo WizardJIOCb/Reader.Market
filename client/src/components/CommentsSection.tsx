@@ -829,21 +829,38 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
       setComments(prevComments => {
         const cachedComments = cachedCommentsEntry.data;
         
-        // Merge cached comments with current state, preserving any locally updated reactions
+        // Merge cached comments with current state, preserving any locally updated replies
         const mergedComments = cachedComments.map((cachedComment: any) => {
-          // Find the same comment in current state to get updated reactions
+          // Find the same comment in current state
           const currentComment = prevComments.find((c: any) => c.id === cachedComment.id);
-          if (currentComment && currentComment.reactions) {
-            // Use reactions from current state (may have been updated via WebSocket)
+          if (currentComment) {
+            // Preserve locally added replies by comparing reply counts and content
+            const currentReplyIds = new Set((currentComment.replies || []).map((r: any) => r.id));
+            const cachedReplyIds = new Set((cachedComment.replies || []).map((r: any) => r.id));
+            
+            // Find new replies that are in current but not in cached
+            const newReplies = (currentComment.replies || []).filter((r: any) => !cachedReplyIds.has(r.id));
+            
+            // If there are new replies, merge them
+            if (newReplies.length > 0) {
+              return {
+                ...cachedComment,
+                replies: [...(cachedComment.replies || []), ...newReplies],
+                replyCount: currentComment.replyCount || cachedComment.replyCount,
+                reactions: currentComment.reactions || cachedComment.reactions
+              };
+            }
+            
+            // Otherwise, preserve reactions from current state
             return {
               ...cachedComment,
-              reactions: currentComment.reactions
+              reactions: currentComment.reactions || cachedComment.reactions
             };
           }
           return cachedComment;
         }) as Comment[];
         
-        // Find comments that were added locally (not in cache)
+        // Find comments that were added locally (not in cache) - as root comments
         const localComments = prevComments.filter((localComment: any) => 
           !cachedComments.some((cachedComment: any) => cachedComment.id === localComment.id)
         );
@@ -982,7 +999,17 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
               });
               
               // Add reply to the correct parent using the recursive function
-              return prevComments.map(c => addReplyToParent(c, commentData.parentCommentId, commentData));
+              const updatedComments = prevComments.map(c => addReplyToParent(c, commentData.parentCommentId, commentData));
+              
+              // Check if parent had replies loaded - if not, fetch them
+              const parentComment = prevComments.find(c => c.id === commentData.parentCommentId);
+              if (parentComment && (!parentComment.replies || parentComment.replies.length === 0)) {
+                // Parent didn't have replies loaded, fetch them now
+                console.log('Parent comment has no replies loaded, fetching existing replies:', commentData.parentCommentId);
+                fetchReplies(commentData.parentCommentId).catch(err => console.error('Error fetching replies:', err));
+              }
+              
+              return updatedComments;
             } else {
               console.log('Adding root comment via WebSocket:', {
                 commentId: commentData.id,
@@ -1226,10 +1253,12 @@ export function CommentsSection({ bookId, onCommentsCountChange }: CommentsProps
   const addReplyToParent = (comment: Comment, parentId: string, newReply: Comment): Comment => {
     // If this is the target parent, add the new reply
     if (comment.id === parentId) {
+      // Ensure replies array exists - if parent has no replies loaded yet, create the array
+      const existingReplies = comment.replies || [];
       return {
         ...comment,
         replyCount: (comment.replyCount || 0) + 1,
-        replies: [...(comment.replies || []), newReply]
+        replies: [...existingReplies, newReply]
       };
     }
     
