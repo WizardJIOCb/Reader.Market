@@ -699,7 +699,7 @@ export const BookCard: React.FC<BookCardProps> = ({
             {/* Right: Content (Title, Authors, Description) */}
             <div className="flex-1 min-w-0">
               <Link href={`/book/${book.id}`}>
-                <h3 className="font-serif font-bold text-base line-clamp-1">{book.title}</h3>
+                <h3 style={{ marginTop: '-4px' }} className="font-serif font-bold text-base line-clamp-1">{book.title}</h3>
               </Link>
               <p className="text-muted-foreground font-bold text-xs line-clamp-1 mb-1">
                 {book.author}
