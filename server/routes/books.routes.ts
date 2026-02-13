@@ -924,8 +924,8 @@ export function createBooksRouter() {
     // Configure multer for book uploads
     const storage = multer.diskStorage({
       destination: function (req, file, cb) {
-        // Save cover images to the covers directory, other files to books directory
-        if (file.fieldname === 'coverImage') {
+        // Save cover images and video covers to the covers directory, other files to books directory
+        if (file.fieldname === 'coverImage' || file.fieldname === 'videoCover') {
           cb(null, 'uploads/covers/');
         } else {
           cb(null, 'uploads/books/');
@@ -953,6 +953,7 @@ export function createBooksRouter() {
           'image/webp',
           'video/mp4',
           'video/webm',
+          'video/ogg',
           'video/avi',
           'video/mov',
           'video/wmv',
@@ -971,7 +972,7 @@ export function createBooksRouter() {
         // Also check file extension for FB2 files and video files
         const fileName = file.originalname.toLowerCase();
         const isFB2File = fileName.endsWith('.fb2');
-        const isVideoFile = ['.mp4', '.webm', '.avi', '.mov', '.wmv', '.mpeg'].some(ext => fileName.endsWith(ext));
+        const isVideoFile = ['.mp4', '.webm', '.ogg', '.avi', '.mov', '.wmv', '.mpeg'].some(ext => fileName.endsWith(ext));
         
         if (allowedTypes.includes(file.mimetype) || isFB2File || isVideoFile) {
           cb(null, true);
@@ -1031,7 +1032,10 @@ export function createBooksRouter() {
       }
       
       // Handle video cover upload
+      let tempVideoCoverPath = null;
       if (files && files.videoCover && files.videoCover[0]) {
+        tempVideoCoverPath = 'uploads/covers/' + files.videoCover[0].filename;
+        // Temporary URL - will be updated after book creation
         newBookData.videoCoverUrl = '/uploads/covers/' + files.videoCover[0].filename;
       }
       
@@ -1082,7 +1086,24 @@ export function createBooksRouter() {
       }
 
       const book = await storage.createBook(newBookData);
-
+      
+      // If there's a video cover, rename it to the proper format using the book ID
+      if (tempVideoCoverPath) {
+        try {
+          const originalFilename = path.basename(tempVideoCoverPath);
+          const newVideoCoverPath = BookFileManager.moveCoverImageFromTemp(book.id, tempVideoCoverPath, originalFilename);
+          
+          // Update the book's videoCoverUrl in the database
+          await db.update(booksSchema).set({ videoCoverUrl: newVideoCoverPath }).where(eq(booksSchema.id, book.id));
+          
+          // Update the book object to return the correct URL
+          book.videoCoverUrl = newVideoCoverPath;
+        } catch (error) {
+          console.error('Error renaming video cover file:', error);
+          // Don't fail the entire operation if file rename fails
+        }
+      }
+      
       // Add book to user's "Загруженные" shelf
       try {
         const userId = (req as any).user.userId;

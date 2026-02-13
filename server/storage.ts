@@ -344,7 +344,7 @@ export interface IStorage {
   
   // Article-tag associations
   attachTagsToArticle(articleId: string, tagNames: string[]): Promise<void>;
-  getArticleTags(articleId: string): Promise<ArticleTag[]>;
+  getArticleTagsByArticleId(articleId: string): Promise<ArticleTag[]>;
   getArticleStatsByCategory(): Promise<any[]>;
   updateArticleCommentsCount(articleId: string, count: number): Promise<void>;
 }
@@ -9375,7 +9375,7 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async getArticleTags(articleId: string): Promise<ArticleTag[]> {
+  async getArticleTagsByArticleId(articleId: string): Promise<ArticleTag[]> {
     try {
       return await db.select({
         id: articleTags.id,
@@ -9814,7 +9814,7 @@ export class DBStorage implements IStorage {
       }
       
       // Get tags
-      const tags = await this.getArticleTags(article.id);
+      const tags = await this.getArticleTagsByArticleId(article.id);
       
       // Get attached books
       const attachedBooks = await this.getArticleAttachedBooks(article.id);

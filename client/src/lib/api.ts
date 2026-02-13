@@ -69,19 +69,9 @@ export const booksApi = {
   }),
   getBookStats: (bookId: string) => apiCall(`/api/books/${bookId}/stats`),
   // Use direct backend URL for delete to bypass Vite proxy which can have issues with DELETE requests
-  deleteBook: (bookId: string) => {
-    const token = localStorage.getItem('authToken');
-    // In development, bypass Vite proxy for DELETE requests
-    const apiUrl = import.meta.env.DEV 
-      ? `http://localhost:5001/api/books/${bookId}`
-      : `/api/books/${bookId}`;
-    return fetch(apiUrl, {
-      method: 'DELETE',
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
-    });
-  },
+  deleteBook: (bookId: string) => apiCall(`/api/admin/books/${bookId}`, {
+    method: 'DELETE',
+  }),
 };
 
 export const shelvesApi = {
