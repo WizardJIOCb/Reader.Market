@@ -30,10 +30,12 @@ interface BookActivityMetadata {
   author_name?: string;
   coverUrl?: string;
   cover_url?: string;
+  videoCoverUrl?: string;
   uploaderId: string;
   uploaderName?: string;
   uploader_name?: string;
   uploader_avatar?: string;
+  uploader_rating?: number;
   genre?: string;
   average_rating?: number;
   reaction_count?: number;
@@ -47,6 +49,7 @@ interface CommentActivityMetadata {
   content_preview?: string;
   authorId: string;
   author_name?: string;
+  username?: string;
   author_avatar?: string;
   newsId?: string;
   news_id?: string;
@@ -56,6 +59,7 @@ interface CommentActivityMetadata {
   book_id?: string;
   bookTitle?: string;
   book_title?: string;
+  parentCommentId?: string;
   reactions?: any[];
 }
 
@@ -209,6 +213,9 @@ export async function createBookActivity(
   uploaderId: string,
   uploaderName: string,
   coverUrl: string,
+  videoCoverUrl?: string,
+  uploaderAvatar?: string,
+  uploaderRating?: number,
   io?: SocketIOServer
 ): Promise<void> {
   await createActivity({
@@ -222,9 +229,12 @@ export async function createBookActivity(
       author_name: authorName,
       coverUrl,
       cover_url: coverUrl,
+      videoCoverUrl,
       uploaderId,
       uploaderName,
-      uploader_name: uploaderName
+      uploader_name: uploaderName,
+      uploader_avatar: uploaderAvatar,
+      uploader_rating: uploaderRating
     },
     io
   });
@@ -243,6 +253,8 @@ export async function createCommentActivity(
   newsTitle: string | undefined,
   bookId: string | undefined,
   bookTitle: string | undefined,
+  parentCommentId: string | undefined,
+  authorAvatar: string | undefined,
   io?: SocketIOServer
 ): Promise<void> {
   // Fetch reactions for this comment to include in activity metadata
@@ -283,10 +295,13 @@ export async function createCommentActivity(
       content_preview: content,
       authorId,
       author_name: authorName,
+      username: authorName, // Use same value for username
+      author_avatar: authorAvatar,
       newsId,
       news_title: newsTitle,
       bookId,
       book_title: bookTitle,
+      parentCommentId,
       reactions
     },
     io

@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, bookmarkCollections, bookmarkCollectionItems, collectionBooks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg, subscriptions, ttsConfig, ttsCache, ttsJobs, articleCategories, articleTags, articles, articleTagLinks, articleBooks, articleViews, articleReadLater, activityFeed, type Article, type InsertArticle, type ArticleCategory, type InsertArticleCategory, type ArticleTag, type InsertArticleTag } from "@shared/schema";
-import { eq, and, inArray, desc, asc, sql, or, ilike, like, isNull, ne, count } from "drizzle-orm";
+import { eq, and, inArray, desc, asc, sql, or, ilike, like, isNull, isNotNull, ne, count } from "drizzle-orm";
 import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
 import { 
   calculateUserRatingWeight, 
@@ -6203,6 +6203,7 @@ export class DBStorage implements IStorage {
   async getGlobalActivities(limit: number = 50, offset: number = 0, before?: string): Promise<any[]> {
     try {
       // Query the activity_feed table directly and filter out soft-deleted records
+      // Also filter out reply activities - only return root comments
       const queryBuilder = db.select({
         id: activityFeed.id,
         activityType: activityFeed.activityType,
@@ -6221,10 +6222,38 @@ export class DBStorage implements IStorage {
       .leftJoin(users, eq(activityFeed.userId, users.id))
       .where(isNull(activityFeed.deletedAt)) // Filter out soft-deleted activities
       .orderBy(desc(activityFeed.createdAt))
-      .limit(limit)
+      .limit(limit * 2) // Get more to filter out replies
       .offset(offset);
       
-      const activities = await queryBuilder;
+      const allActivities = await queryBuilder;
+      
+      // Get all comment IDs to check if they have parents
+      const commentIds = allActivities
+        .filter((a: any) => a.activityType === 'comment')
+        .map((a: any) => a.entityId);
+      
+      // Query comments table to find which ones have parents
+      const parentCommentIds = new Set<string>();
+      if (commentIds.length > 0) {
+        const commentsWithParents = await db.select({ id: comments.id })
+          .from(comments)
+          .where(and(
+            inArray(comments.id, commentIds),
+            isNotNull(comments.parentCommentId)
+          ));
+        commentsWithParents.forEach((c: any) => parentCommentIds.add(c.id));
+      }
+      
+      // Filter out reply activities - only show root comments in stream
+      const activities = allActivities.filter((activity: any) => {
+        if (activity.activityType === 'comment') {
+          // Check if this comment has a parent (is a reply)
+          if (parentCommentIds.has(activity.entityId)) {
+            return false;
+          }
+        }
+        return true;
+      }).slice(0, limit);
       
       // Fetch reactions for comments and reviews
       const commentAndReviewIds = activities
@@ -6266,34 +6295,55 @@ export class DBStorage implements IStorage {
       }
       
       // Format the results to match expected structure
-      return activities.map(activity => {
+      const activitiesWithReplies = await Promise.all(activities.map(async (activity) => {
         // Get reactions for this activity if it's a comment or review
         const activityReactions = (activity.activityType === 'comment' || activity.activityType === 'review')
           ? reactionsMap[activity.entityId] || []
           : [];
         
+        // For comments, fetch replies if this is a root comment (no parentCommentId in metadata)
+        let replies: any[] = [];
+        let replyCount = 0;
+        const activityMetadata = (activity.metadata as Record<string, any>) || {};
+        const parentCommentId: string | null = activityMetadata.parentCommentId || null;
+        
+        if (activity.activityType === 'comment' && !parentCommentId) {
+          // Don't fetch replies here - will be loaded lazily on demand
+          // Just set reply count if available
+          try {
+            const countResult = await this.countBookCommentReplies(activity.entityId);
+            replyCount = countResult || 0;
+          } catch (e) {
+            console.error("Error counting replies for comment", activity.entityId, e);
+          }
+        }
+        
         // Ensure metadata has required fields for frontend compatibility
-        const metadata = {
-          ...activity.metadata,
+        const metadata: Record<string, any> = {
+          ...(activityMetadata || {}),
+          // For comments
+          parentCommentId,
+          replies,
+          reply_count: replyCount, // frontend expects reply_count
           // For comments and reviews - use fetched reactions
           reactions: activityReactions,
           // For comments
-          content_preview: activity.metadata?.content_preview || activity.metadata?.content || '',
-          author_name: activity.metadata?.author_name || activity.userFullName || activity.userUsername || 'Unknown',
-          author_avatar: activity.metadata?.author_avatar || activity.userAvatarUrl || null,
+          content_preview: activityMetadata.content_preview || activityMetadata.content || '',
+          author_name: activityMetadata.author_name || activity.userFullName || activity.userUsername || 'Unknown',
+          author_avatar: activityMetadata.author_avatar || activity.userAvatarUrl || null,
           // For books
-          cover_url: activity.metadata?.cover_url || activity.metadata?.coverUrl || '',
-          uploader_name: activity.metadata?.uploader_name || activity.metadata?.uploaderName || '',
+          cover_url: activityMetadata.cover_url || activityMetadata.coverUrl || '',
+          uploader_name: activityMetadata.uploader_name || activityMetadata.uploaderName || '',
           // For news
-          view_count: activity.metadata?.view_count || 0,
-          comment_count: activity.metadata?.comment_count || 0,
+          view_count: activityMetadata.view_count || 0,
+          comment_count: activityMetadata.comment_count || 0,
           reaction_count: activityReactions.reduce((sum: number, r: any) => sum + (r.count || 0), 0),
           // For news comments
-          news_title: activity.metadata?.news_title || activity.metadata?.newsTitle || '',
-          news_id: activity.metadata?.news_id || activity.metadata?.newsId || '',
+          news_title: activityMetadata.news_title || activityMetadata.newsTitle || '',
+          news_id: activityMetadata.news_id || activityMetadata.newsId || '',
           // For book comments and reviews
-          book_title: activity.metadata?.book_title || activity.metadata?.bookTitle || '',
-          book_id: activity.metadata?.book_id || activity.metadata?.bookId || ''
+          book_title: activityMetadata.book_title || activityMetadata.bookTitle || '',
+          book_id: activityMetadata.book_id || activityMetadata.bookId || ''
         };
         
         return {
@@ -6309,7 +6359,9 @@ export class DBStorage implements IStorage {
           author_name: activity.userFullName || activity.userUsername || 'Unknown',
           author_avatar: activity.userAvatarUrl || null
         };
-      });
+      }));
+      
+      return activitiesWithReplies;
     } catch (error) {
       console.error("Error getting global activities:", error);
       return [];

@@ -584,12 +584,14 @@ export function createBooksRouter() {
           commentWithAttachments.id,
           content,
           userId,
-          user?.username || user?.fullName || 'Anonymous',
+          user?.fullName || user?.username || 'Anonymous',
           undefined, // targetUserId
           undefined, // newsId
           undefined, // newsTitle
           bookId,
           book.title,
+          parentCommentId,
+          user?.avatarUrl || undefined,
           io
         );
         
@@ -603,6 +605,22 @@ export function createBooksRouter() {
     } catch (error) {
       console.error("Add book comment error:", error);
       res.status(500).json({ error: "Failed to add comment to book" });
+    }
+  });
+
+  // Get book comment replies (lazy load on demand)
+  router.get("/comments/:commentId/replies", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get book comment replies endpoint called for comment ID:", req.params.commentId);
+    try {
+      const { commentId } = req.params;
+      const currentUserId = (req as any).user?.userId;
+      
+      const replies = await storage.getBookCommentReplies(commentId, currentUserId);
+      
+      res.json(replies);
+    } catch (error) {
+      console.error("Get book comment replies error:", error);
+      res.status(500).json({ error: "Failed to fetch book comment replies" });
     }
   });
 
@@ -1154,7 +1172,10 @@ export function createBooksRouter() {
           book.author,
           (req as any).user.userId,
           user?.username || user?.fullName || 'Anonymous',
-          book.coverImageUrl || null,
+          book.coverImageUrl || undefined,
+          book.videoCoverUrl || undefined,
+          user?.avatarUrl || undefined,
+          user?.profileRating ? parseFloat(user.profileRating.toString()) : undefined,
           io
         );
         

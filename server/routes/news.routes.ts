@@ -92,6 +92,7 @@ export function createNewsRouter() {
           newsItem?.title,
           undefined, // bookId
           undefined, // bookTitle
+          undefined, // parentCommentId
           io
         );
         

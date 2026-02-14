@@ -33,7 +33,7 @@ interface ReactionDetail {
 
 interface ReactionBarProps {
   reactions: Reaction[];
-  onReact: (emoji: string) => void | Promise<void>;
+  onReact: (emoji: string, commentId?: string) => void | Promise<void>;
   commentId?: string;
   reviewId?: string;
   newsId?: string;
@@ -167,8 +167,8 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
     });
     
     // Simply call the onReact handler provided by the parent component
-    // The parent component handles the API call and UI updates
-    await onReact(emoji);
+    // Pass commentId if available so parent knows which comment to react to
+    await onReact(emoji, commentId);
   };
   
   const handleReactionHover = (emoji: string) => {

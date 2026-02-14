@@ -45,6 +45,8 @@
     "profile_comment_reaction": "Reacted to profile comment",
     "book_reaction": "Reacted to book"
   },
+  "reply": "Reply",
+  "writeReply": "Write a reply",
   "by": "by",
   "in": "in",
   "added": "added",

@@ -42,6 +42,7 @@ export default function StreamPage() {
   const [filters, setFilters] = useState<ShelfFiltersData>({ selectedShelf: null, selectedBooks: [] });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const socketRef = useRef<any>(null);
+  const [, setForceUpdate] = useState(0); // Force re-render after WebSocket updates
   
   // Load showMyActivity state from localStorage or use defaults
   const loadShowMyActivityFromStorage = (): Record<string, boolean> => {
@@ -198,9 +199,71 @@ export default function StreamPage() {
                            activeTab === 'last-actions' ? lastActions :
                            shelfActivities;
   
+  // Build a map of parent comment IDs to detect which comments have nested replies
+  // API now returns replies inside metadata.replies, but we also need to filter old duplicate replies
+  const parentCommentIds = new Set<string>();
+  const repliesByParentId: Record<string, any[]> = {};
+  
+  currentActivities.forEach(activity => {
+    // Check if this activity is a reply (has parentCommentId in metadata)
+    const parentId = activity.metadata?.parentCommentId;
+    if (activity.type === 'comment' && parentId) {
+      parentCommentIds.add(parentId);
+      if (!repliesByParentId[parentId]) {
+        repliesByParentId[parentId] = [];
+      }
+      repliesByParentId[parentId].push(activity);
+    }
+  });
+  
+  // Filter out reply activities - they will only show as nested inside parent comments
+  // Hide comments that have parentCommentId (they are replies and will be shown nested)
+  const activitiesWithoutReplies = currentActivities.filter(activity => {
+    if (activity.type === 'comment' && activity.metadata?.parentCommentId) {
+      return false;
+    }
+    return true;
+  });
+  
+  // Add replies to parent comments - merge API replies with detected replies
+  const activitiesWithReplies = activitiesWithoutReplies.map(activity => {
+    if (activity.type === 'comment') {
+      // First, use replies from API if available
+      let allReplies: any[] = activity.metadata?.replies || [];
+      
+      // Add any additional replies we detected that aren't in API response
+      const additionalReplies = repliesByParentId[activity.id] || [];
+      const existingIds = new Set(allReplies.map((r: any) => r.id));
+      const newReplies = additionalReplies.filter((r: any) => !existingIds.has(r.id));
+      allReplies = [...allReplies, ...newReplies];
+      
+      // If we have replies, update the activity
+      if (allReplies.length > 0) {
+        return {
+          ...activity,
+          metadata: {
+            ...activity.metadata,
+            replies: allReplies,
+            reply_count: allReplies.length,
+            parentCommentId: null // Ensure root comments have null parentCommentId
+          }
+        };
+      }
+      
+      return {
+        ...activity,
+        metadata: {
+          ...activity.metadata,
+          parentCommentId: activity.metadata?.parentCommentId || null
+        }
+      };
+    }
+    return activity;
+  });
+  
   // Apply activity type filtering
   const selectedTypeFilters = activityTypeFilters[activeTab] || [];
-  let filteredActivities = currentActivities.filter(activity => 
+  let filteredActivities = activitiesWithReplies.filter(activity => 
     selectedTypeFilters.includes(activity.type as ActivityType)
   );
   
@@ -390,21 +453,238 @@ export default function StreamPage() {
 
     // Listen for new activities
     const handleNewActivity = (activity: Activity) => {
-      
-      
-      
+      console.log('[StreamPage] handleNewActivity:', activity.id, 'type:', activity.type, 'parentCommentId:', activity.metadata?.parentCommentId);
       if (activity.type === 'comment') {
         
         
       }
       
+      // Check if this is a reply (has parentCommentId)
+      const isReply = activity.metadata?.parentCommentId;
+      
+      console.log('[StreamPage] isReply:', isReply, 'activity type:', activity.type);
+      
+      if (activity.type === 'comment' && isReply) {
+        // This is a reply - need to add it to the parent comment and move parent up
+        const parentCommentId = activity.metadata.parentCommentId;
+        
+        console.log('[StreamPage] Processing reply, parentCommentId:', parentCommentId);
+        console.log('[StreamPage] Activity entityId:', activity.entityId);
+        
+        // Update global stream: find parent and add reply to it
+        // Parent is found by entityId (comment ID) matching parentCommentId
+        queryClient.setQueryData<Activity[]>(['api', 'stream', 'global'], (oldData = []) => {
+          console.log('[StreamPage] Looking for parent:', parentCommentId);
+          console.log('[StreamPage] Current stream activities details:', oldData.map(a => ({id: a.id, entityId: a.entityId, type: a.type, hasReplies: !!a.metadata?.replies?.length})));
+          console.log('[StreamPage] Current stream activities:', oldData.map(a => ({id: a.id, entityId: a.entityId, type: a.type})));
+          
+          // Helper function to find and update nested reply recursively
+          const findAndUpdateNestedReply = (
+            activities: Activity[],
+            targetId: string,
+            newReply: Activity
+          ): { found: boolean; updated: Activity[] } => {
+            for (let i = 0; i < activities.length; i++) {
+              const activity = activities[i];
+              
+              // Check if this activity is the parent - STRICT check with entityId first
+              const parentEntityId = activity.entityId || activity.id;
+              const isExactMatch = parentEntityId === targetId;
+              
+              if (activity.type === 'comment' && isExactMatch) {
+                console.log('[StreamPage] Found EXACT parent match:', parentEntityId, '===', targetId);
+                const parentReplies = activity.metadata?.replies || [];
+                console.log('[StreamPage] Adding reply to parent, reply content:', (newReply as any).content || (newReply as any).metadata?.content, 'author:', newReply.metadata?.author_name);
+                
+                // Check if reply already exists in this activity's replies (top-level)
+                if (parentReplies.some((r: any) => r.id === newReply.id)) {
+                  console.log('[StreamPage] Reply already exists in parent, skipping');
+                  return { found: true, updated: activities };
+                }
+                
+                // Also check nested replies for duplicates
+                const hasNestedDuplicate = (replies: any[]): boolean => {
+                  for (const r of replies) {
+                    if (r.id === newReply.id) return true;
+                    if (r.replies && r.replies.length > 0 && hasNestedDuplicate(r.replies)) return true;
+                  }
+                  return false;
+                };
+                if (hasNestedDuplicate(parentReplies)) {
+                  console.log('[StreamPage] Reply already exists in nested replies, skipping');
+                  return { found: true, updated: activities };
+                }
+                
+                const updatedActivity: Activity = {
+                  ...activity,
+                  // Add top-level replies for ActivityCard rendering - use UPDATED parentReplies
+                  // Also update parent's replyCount for nested rendering
+                  replyCount: (activity.metadata?.reply_count || 0) + 1,
+                  replies: [...parentReplies, {
+                    ...newReply,
+                    // Flatten content and metadata fields to top level for display
+                    content: (newReply as any).content || (newReply as any).metadata?.content || (newReply as any).metadata?.content_preview,
+                    author_name: newReply.metadata?.author_name,
+                    username: newReply.metadata?.username,
+                    author: newReply.metadata?.author_name || newReply.metadata?.username,
+                    avatarUrl: newReply.metadata?.author_avatar,
+                    author_avatar: newReply.metadata?.author_avatar,
+                    // Add top-level replies for nested rendering
+                    replies: (newReply as any).metadata?.replies || [],
+                    replyCount: (newReply as any).metadata?.reply_count || 0
+                  }],
+                  metadata: {
+                    ...activity.metadata,
+                    replies: [...parentReplies, {
+                      ...newReply,
+                      // Flatten content and metadata fields to top level for display
+                      content: (newReply as any).content || (newReply as any).metadata?.content || (newReply as any).metadata?.content_preview,
+                      author_name: newReply.metadata?.author_name,
+                      username: newReply.metadata?.username,
+                      author: newReply.metadata?.author_name || newReply.metadata?.username,
+                      avatarUrl: newReply.metadata?.author_avatar,
+                      author_avatar: newReply.metadata?.author_avatar,
+                      // Add top-level replies for nested rendering
+                      replies: (newReply as any).metadata?.replies || [],
+                      replyCount: (newReply as any).metadata?.reply_count || 0
+                    }],
+                    reply_count: (activity.metadata?.reply_count || 0) + 1
+                  }
+                } as Activity;
+                
+                return {
+                  found: true,
+                  updated: [
+                    ...activities.slice(0, i),
+                    updatedActivity,
+                    ...activities.slice(i + 1)
+                  ]
+                };
+              }
+              
+              // Check nested replies
+              if (activity.metadata?.replies && activity.metadata.replies.length > 0) {
+                console.log('[StreamPage] Checking nested replies for activity:', activity.entityId, 'replies count:', activity.metadata.replies.length);
+                // Log all nested reply IDs for debugging
+                activity.metadata.replies.forEach((r: any, idx: number) => {
+                  console.log('[StreamPage] Nested reply', idx, 'id:', r.id, 'entityId:', r.entityId);
+                });
+                const result = findAndUpdateNestedReply(
+                  activity.metadata.replies,
+                  targetId,
+                  newReply
+                );
+                
+                if (result.found) {
+                  // Return updated parent with updated nested replies
+                  // IMPORTANT: Also update top-level replies for ActivityCard rendering
+                  return {
+                    found: true,
+                    updated: [
+                      ...activities.slice(0, i),
+                      {
+                        ...activity,
+                        // Also update top-level replies
+                        replies: result.updated,
+                        metadata: {
+                          ...activity.metadata,
+                          replies: result.updated
+                        }
+                      } as Activity,
+                      ...activities.slice(i + 1)
+                    ]
+                  };
+                }
+              }
+            }
+            
+            return { found: false, updated: activities };
+          };
+          
+          // Try to find and update parent in nested replies
+          const result = findAndUpdateNestedReply(oldData, parentCommentId, activity);
+          
+          if (result.found) {
+            console.log('[StreamPage] Found parent in nested replies');
+            return result.updated;
+          } else {
+            console.log('[StreamPage] Parent NOT found anywhere for:', parentCommentId);
+          }
+          
+          // Fallback: check root level
+          const parentIndex = oldData.findIndex(a => 
+            a.type === 'comment' && (a.entityId === parentCommentId || a.id === parentCommentId)
+          );
+          console.log('[StreamPage] Parent index:', parentIndex);
+          
+          if (parentIndex !== -1) {
+            const parent = oldData[parentIndex];
+            console.log('[StreamPage] Found parent, current replies:', parent.metadata?.replies?.length || 0);
+            const parentReplies = parent.metadata?.replies || [];
+            
+            if (parentReplies.some((r: any) => r.id === activity.id)) {
+              return oldData;
+            }
+            
+            const updatedParent = {
+              ...parent,
+              // Add top-level replies for ActivityCard rendering - use UPDATED array
+              // Also update parent's replyCount for nested rendering
+              replyCount: (parent.metadata?.reply_count || 0) + 1,
+              replies: [...parentReplies, {
+                ...activity,
+                // Flatten content and metadata fields to top level for display
+                content: (activity as any).content || (activity as any).metadata?.content || (activity as any).metadata?.content_preview,
+                author_name: activity.metadata?.author_name,
+                username: activity.metadata?.username,
+                author: activity.metadata?.author_name || activity.metadata?.username,
+                avatarUrl: activity.metadata?.author_avatar,
+                author_avatar: activity.metadata?.author_avatar,
+                // Add top-level replies for nested rendering
+                replies: (activity as any).metadata?.replies || [],
+                replyCount: (activity as any).metadata?.reply_count || 0
+              }],
+              metadata: {
+                ...parent.metadata,
+                reply_count: (parent.metadata?.reply_count || 0) + 1,
+                replies: [...parentReplies, {
+                  ...activity,
+                  // Flatten content and metadata fields to top level for display
+                  content: (activity as any).content || (activity as any).metadata?.content || (activity as any).metadata?.content_preview,
+                  author_name: activity.metadata?.author_name,
+                  username: activity.metadata?.username,
+                  author: activity.metadata?.author_name || activity.metadata?.username,
+                  avatarUrl: activity.metadata?.author_avatar,
+                  author_avatar: activity.metadata?.author_avatar,
+                  // Add top-level replies for nested rendering
+                  replies: (activity as any).metadata?.replies || [],
+                  replyCount: (activity as any).metadata?.reply_count || 0
+                }],
+              }
+            };
+            
+            const newData = oldData.filter((_, i) => i !== parentIndex);
+            return [updatedParent, ...newData];
+          } else {
+            console.log('[StreamPage] Parent not found in stream, skipping this reply for now');
+            // Don't add as root - wait for parent to appear first
+            return oldData;
+          }
+        });
+        
+        return;
+      }
+      
       // Update the appropriate query cache based on active tab
       // Global stream - always update
+      console.log('[StreamPage] Adding as root comment, checking duplicates');
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'global'], (oldData = []) => {
         // Check if activity already exists to avoid duplicates
         if (oldData.some(a => a.id === activity.id)) {
+          console.log('[StreamPage] Root comment already exists, skipping:', activity.id);
           return oldData;
         }
+        console.log('[StreamPage] Adding new root comment to stream:', activity.id);
         return [activity, ...oldData];
       });
       
@@ -449,7 +729,8 @@ export default function StreamPage() {
         });
       }
       
-
+      // Force re-render to ensure nested replies are properly displayed
+      setForceUpdate(n => n + 1);
     };
 
     const handleActivityUpdated = (data: { entityId: string; metadata: any }) => {
@@ -484,6 +765,68 @@ export default function StreamPage() {
           ...oldData,
           activities: (oldData.activities || []).filter((a: any) => a.id !== data.id)
         };
+      });
+    };
+
+    // Handler for comment reaction updates (including nested replies in /stream)
+    const handleCommentReactionUpdate = (data: { commentId: string; reactions: any[]; action: string }) => {
+      console.log('[STREAM PAGE] Received comment-reaction-updated:', data);
+      
+      // Update the global stream cache
+      queryClient.setQueryData<Activity[]>(['api', 'stream', 'global'], (oldData = []) => {
+        return oldData.map(activity => {
+          // Check if this activity has the comment
+          if (activity.entityId === data.commentId) {
+            return {
+              ...activity,
+              metadata: {
+                ...activity.metadata,
+                reactions: data.reactions
+              }
+            };
+          }
+          
+          // Also check if this is a comment activity with replies that include this comment
+          if (activity.type === 'comment' && activity.metadata?.replies) {
+            const updatedReplies = (activity.metadata.replies || []).map((reply: any) => {
+              if (reply.id === data.commentId) {
+                return { ...reply, reactions: data.reactions };
+              }
+              // Also check nested replies
+              if (reply.replies) {
+                return {
+                  ...reply,
+                  replies: (reply.replies || []).map((nestedReply: any) => {
+                    if (nestedReply.id === data.commentId) {
+                      return { ...nestedReply, reactions: data.reactions };
+                    }
+                    return nestedReply;
+                  })
+                };
+              }
+              return reply;
+            });
+            return { ...activity, metadata: { ...activity.metadata, replies: updatedReplies } };
+          }
+          
+          return activity;
+        });
+      });
+      
+      // Also update personal stream cache
+      queryClient.setQueryData<Activity[]>(['api', 'stream', 'personal'], (oldData = []) => {
+        return oldData.map(activity => {
+          if (activity.entityId === data.commentId) {
+            return {
+              ...activity,
+              metadata: {
+                ...activity.metadata,
+                reactions: data.reactions
+              }
+            };
+          }
+          return activity;
+        });
       });
     };
 
@@ -626,6 +969,7 @@ export default function StreamPage() {
     socket.on('stream:reaction-update', handleReactionUpdate);
     socket.on('stream:counter-update', handleCounterUpdate);
     socket.on('stream:last-action', handleLastAction);
+    socket.on('comment-reaction-updated', handleCommentReactionUpdate);
 
     // Cleanup
     return () => {
@@ -636,6 +980,7 @@ export default function StreamPage() {
       socket.off('stream:reaction-update', handleReactionUpdate);
       socket.off('stream:counter-update', handleCounterUpdate);
       socket.off('stream:last-action', handleLastAction);
+      socket.off('comment-reaction-updated', handleCommentReactionUpdate);
       
       // Leave tab-specific rooms only - NEVER leave global room or last-actions room
       // Global room and last-actions room should stay active to receive updates even when on other tabs
@@ -749,7 +1094,10 @@ export default function StreamPage() {
               </div>
             ) : (
               filteredActivities.map((activity: any) => (
-                <ActivityCard key={activity.id} activity={activity} />
+                <ActivityCard 
+                  key={activity.id} 
+                  activity={activity}
+                />
               ))
             )}
           </div>

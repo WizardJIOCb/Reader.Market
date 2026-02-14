@@ -437,6 +437,27 @@ export function createArticlesRouter() {
       
       // Get updated reactions
       const reactions = await commentsService.getCommentReactions(commentId, userId);
+      
+      // Emit WebSocket event for reaction update
+      try {
+        if ((req.app as any).io) {
+          const io = (req.app as any).io;
+          
+          // Broadcast to all clients listening for comment reactions
+          io.emit('comment-reaction-updated', {
+            commentId,
+            emoji,
+            userId,
+            reactions,
+            action
+          });
+          
+          console.log('[WEBSOCKET] Sent comment-reaction-updated event for comment:', commentId);
+        }
+      } catch (wsError) {
+        console.error('[WEBSOCKET] Failed to broadcast comment reaction update:', wsError);
+      }
+      
       res.json({ action, reactions });
     } catch (error) {
       console.error("Toggle article comment reaction error:", error);
