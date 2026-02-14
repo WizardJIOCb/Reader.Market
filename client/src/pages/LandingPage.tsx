@@ -70,12 +70,12 @@ const LandingPage = () => {
     };
   }, []);
   
-  // Fetch popular books
+  // Fetch popular books (latest 4 books like in Search)
   useEffect(() => {
     const fetchPopularBooks = async () => {
       try {
         setLoadingBooks(true);
-        const response = await fetch('/api/popular-books');
+        const response = await fetch('/api/books/search?q=&sortBy=createdAt&sortDir=desc');
         if (response.ok) {
           const books = await response.json();
           setPopularBooks(books.slice(0, 4)); // Take first 4 books
@@ -190,6 +190,52 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Gradient transition between Hero and Popular Books */}
+      <div className="h-24 bg-gradient-to-b from-black to-background"></div>
+
+      {/* Popular Books Section - moved here after Hero */}
+      <section className="py-10">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold font-serif mb-4">{t('landing:popularBooksTitle')}</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              {t('landing:popularBooksSubtitle')}
+            </p>
+          </div>
+          
+          {loadingBooks ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">{t('common:loading')}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-4">
+              {popularBooks.length > 0 ? (
+                popularBooks.map((book) => (
+                  <BookCard key={book.id} book={book} variant="compact" columns={2} />
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-muted-foreground">{t('home:noPopularBooks')}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {!loadingBooks && popularBooks.length > 0 && (
+            <div className="text-center mt-8">
+              <Link href="/home">
+                <Button size="lg" variant="outline">
+                  {t('landing:viewAllBooks')}
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Gradient transition between Popular Books and How It Works */}
+      <div className="h-16 bg-gradient-to-b from-background to-[#f7f4f0]"></div>
+
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 bg-[#f7f4f0]">
         <div className="container mx-auto px-4">
@@ -300,48 +346,14 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Popular Books Section */}
-      <section className="py-10">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold font-serif mb-4">{t('landing:popularBooksTitle')}</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              {t('landing:popularBooksSubtitle')}
-            </p>
-          </div>
-          
-          {loadingBooks ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">{t('common:loading')}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-              {popularBooks.length > 0 ? (
-                popularBooks.map((book) => (
-                  <BookCard key={book.id} book={book} variant="compact" columns={2} />
-                ))
-              ) : (
-                <div className="col-span-full text-center py-8">
-                  <p className="text-muted-foreground">{t('home:noPopularBooks')}</p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {!loadingBooks && popularBooks.length > 0 && (
-            <div className="text-center mt-8">
-              <Link href="/home">
-                <Button size="lg" variant="outline">
-                  {t('landing:viewAllBooks')}
-                </Button>
-              </Link>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* Gradient transition between How It Works and News */}
+      <div className="h-16 bg-gradient-to-b from-[#f7f4f0] to-muted"></div>
 
       {/* News Section */}
       <NewsBlock limit={3} showViewAllButton={true} />
+
+      {/* Gradient transition between News and AI Capabilities */}
+      <div className="h-16 bg-gradient-to-b from-muted to-background"></div>
 
       {/* AI Capabilities Section */}
       <section className="py-20">
@@ -505,6 +517,9 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Gradient transition between Format Support and Transparency */}
+      <div className="h-16 bg-gradient-to-b from-[#f7f4f0] to-background"></div>
+
       {/* Transparency Section */}
       <section className="py-20">
         <div className="container mx-auto px-4 max-w-3xl text-center">
@@ -525,6 +540,9 @@ const LandingPage = () => {
           </a>
         </div>
       </section>
+
+      {/* Gradient transition between Transparency and Final CTA */}
+      <div className="h-16 bg-gradient-to-b from-background to-primary"></div>
 
       {/* Final CTA Section */}
       <section className="py-20 bg-primary text-primary-foreground">
