@@ -168,7 +168,8 @@ export function createArticlesRouter() {
       // Assuming there's a method to create articles
       const article = await articlesService.createArticle({
         ...req.body,
-        authorUserId: currentUserId
+        authorUserId: currentUserId,
+        status: 'published'
       });
       
       res.json(article);
@@ -178,15 +179,30 @@ export function createArticlesRouter() {
     }
   });
 
-  // Authenticated: Update article
+  // Authenticated: Update article (author or admin/moderator only)
   router.put("/:id", authenticateToken, async (req, res) => {
     console.log("Update article endpoint called for ID:", req.params.id);
     try {
       const { id } = req.params;
       const currentUserId = (req as any).user?.userId;
+      const userRole = (req as any).user?.accessLevel;
       const articlesService = createArticlesService(db);
       
-      // Assuming there's a method to update articles
+      // Get the article first to check ownership
+      const existingArticle = await articlesService.getArticleById(id);
+      if (!existingArticle) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      // Check if user is the author or admin/moderator
+      const isAuthor = existingArticle.authorUserId === currentUserId;
+      const isAdminOrModerator = userRole === 'admin' || userRole === 'moderator';
+      
+      if (!isAuthor && !isAdminOrModerator) {
+        return res.status(403).json({ error: "You don't have permission to edit this article" });
+      }
+      
+      // Update the article
       const article = await articlesService.updateArticle(id, req.body);
       
       res.json(article);

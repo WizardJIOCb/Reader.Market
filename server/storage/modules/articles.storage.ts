@@ -114,9 +114,20 @@ export class ArticlesService implements ArticlesServiceInterface {
 
   async createArticle(articleData: any): Promise<any> {
     try {
+      // Generate slug if not provided
+      let slug = articleData.slug;
+      if (!slug && articleData.title) {
+        slug = articleData.title
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+      }
+      
       const result = await this.database
         .insert(articles)
-        .values(articleData)
+        .values({ ...articleData, slug })
         .returning();
       
       return result[0];

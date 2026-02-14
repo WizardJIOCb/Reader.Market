@@ -34,6 +34,8 @@
   },
   "editor": {
     "createArticle": "Create Article",
+    "editArticle": "Edit Article",
+    "updateArticle": "Update Article",
     "basicInfo": "Basic Information",
     "title": "Title",
     "titlePlaceholder": "Article title",
@@ -52,11 +54,18 @@
     "excerptPlaceholder": "Brief summary of the article",
     "coverImage": "Cover Image URL",
     "coverImagePlaceholder": "https://example.com/image.jpg",
+    "uploadCover": "Upload Cover",
+    "selectCover": "Choose File",
+    "changeCover": "Change Cover",
+    "or": "or",
     "tags": "Tags",
-    "tagsPlaceholder": "Add tags separated by commas",
+    "tagsPlaceholder": "Add tag",
     "publish": "Publish",
     "saveDraft": "Save Draft",
     "preview": "Preview",
+    "status": "Status",
+    "published": "Published",
+    "draft": "Draft",
     "titleRequired": "Title is required",
     "contentRequired": "Content is required",
     "sections": {
@@ -165,7 +174,7 @@
     }
   },
   "admin": {
-    "title": "Articles Management",
+    "title": "Articles",
     "categories": "Categories",
     "manageCategories": "Manage Categories",
     "createCategory": "Create Category",

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -57,10 +58,14 @@ interface Article {
 export function ArticleDetailPage() {
   const { slug } = useParams();
   const { t, i18n } = useTranslation(['articles', 'common']);
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
-  const [user, setUser] = useState<{ id: string; username: string } | null>(null);
+  
+  // For backward compatibility - get user from localStorage if needed
+  const [legacyUser, setLegacyUser] = useState<{ id: string; username: string } | null>(null);
+  const [legacyUserLoaded, setLegacyUserLoaded] = useState(false);
 
   useEffect(() => {
     // Get user from localStorage (temporary solution)
@@ -68,11 +73,12 @@ export function ArticleDetailPage() {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        setUser({ id: payload.userId, username: payload.username });
+        setLegacyUser({ id: payload.userId, username: payload.username });
       } catch (e) {
         console.error('Error parsing token:', e);
       }
     }
+    setLegacyUserLoaded(true);
 
     const loadArticle = async () => {
       try {
@@ -111,7 +117,7 @@ export function ArticleDetailPage() {
   }, [slug]);
 
   const toggleSaveArticle = async () => {
-    if (!article || !user) return;
+    if (!article || !legacyUser) return;
     
     try {
       const endpoint = `/api/articles/${article.id}/read-later`;
@@ -173,7 +179,20 @@ export function ArticleDetailPage() {
     );
   }
 
-  const isOwner = user?.id === article.author.id;
+  // Wait for auth to be ready before showing edit button
+  const isAuthReady = !authLoading && legacyUserLoaded;
+  
+  const isOwner = isAuthReady && (
+    legacyUser?.id === article?.author?.id || 
+    authUser?.id === article?.author?.id ||
+    legacyUser?.id === (article as any)?.authorUserId ||
+    authUser?.id === (article as any)?.authorUserId
+  );
+  const isAdminOrModerator = isAuthReady && (
+    authUser?.accessLevel === 'admin' || 
+    authUser?.accessLevel === 'moderator'
+  );
+  const canEdit = isOwner || isAdminOrModerator;
   const isPublished = article.status === 'published';
 
   return (
@@ -191,6 +210,16 @@ export function ArticleDetailPage() {
         {/* Article header */}
         <header className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-4">{article.title}</h1>
+          
+          {article.coverImageUrl && (
+            <div className="mb-6">
+              <img 
+                src={article.coverImageUrl} 
+                alt="" 
+                className="w-full max-h-80 object-cover rounded-lg"
+              />
+            </div>
+          )}
           
           <div className="flex flex-wrap items-center gap-4 mb-6 text-muted-foreground">
             <div className="flex items-center gap-2">
@@ -259,9 +288,9 @@ export function ArticleDetailPage() {
               {t('articles:share')}
             </Button>
             
-            {isOwner && (
+            {canEdit && (
               <Button variant="outline" asChild>
-                <Link href={`/articles/${article.slug}/edit`}>
+                <Link href={`/articles/edit/${article.slug}`}>
                   <Edit className="mr-2 h-4 w-4" />
                   {t('common:edit')}
                 </Link>

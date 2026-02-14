@@ -34,6 +34,8 @@
   },
   "editor": {
     "createArticle": "Создать статью",
+    "editArticle": "Редактировать статью",
+    "updateArticle": "Обновить статью",
     "basicInfo": "Основная информация",
     "title": "Заголовок",
     "titlePlaceholder": "Заголовок статьи",
@@ -52,11 +54,18 @@
     "excerptPlaceholder": "Краткое описание статьи",
     "coverImage": "URL обложки",
     "coverImagePlaceholder": "https://example.com/image.jpg",
+    "uploadCover": "Загрузить обложку",
+    "selectCover": "Выбрать файл",
+    "changeCover": "Заменить обложку",
+    "or": "или",
     "tags": "Теги",
-    "tagsPlaceholder": "Добавьте теги через запятую",
+    "tagsPlaceholder": "Добавьте тег",
     "publish": "Опубликовать",
     "saveDraft": "Сохранить черновик",
     "preview": "Предварительный просмотр",
+    "status": "Статус",
+    "published": "Опубликовано",
+    "draft": "Черновик",
     "titleRequired": "Заголовок обязателен",
     "contentRequired": "Содержание обязательно",
     "sections": {
@@ -165,7 +174,7 @@
     }
   },
   "admin": {
-    "title": "Управление статьями",
+    "title": "Статьи",
     "categories": "Категории",
     "manageCategories": "Управление категориями",
     "createCategory": "Создать категорию",

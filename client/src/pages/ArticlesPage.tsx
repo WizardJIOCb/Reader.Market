@@ -35,7 +35,8 @@ import {
   Smile,
   Send,
   Quote,
-  ChevronUp
+  ChevronUp,
+  Edit
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
@@ -786,6 +787,7 @@ interface Article {
   slug: string;
   excerpt: string | null;
   contentJson?: any; // Add contentJson for full article view
+  coverImageUrl?: string | null;
   author?: {
     id: string;
     username: string;
@@ -2470,7 +2472,18 @@ export function ArticlesPage() {
                   <div>
                   </div>
                   
-                  <h1 className="text-3xl font-bold mb-1">{singleArticle.title}</h1>
+                  <div className="flex items-start justify-between gap-4">
+                    <h1 className="text-3xl font-bold mb-1">{singleArticle.title}</h1>
+                    {(user?.id === singleArticle.author?.id || user?.accessLevel === 'admin' || user?.accessLevel === 'moderator') && (
+                      <Link 
+                        href={`/articles/edit/${singleArticle.slug}`}
+                        className="flex-shrink-0 p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                        title={t('common:edit')}
+                      >
+                        <Edit className="h-5 w-5" />
+                      </Link>
+                    )}
+                  </div>
                   
                   {singleArticle.section && (
                     <p className="text-sm text-muted-foreground mb-3">
@@ -2969,13 +2982,34 @@ export function ArticlesPage() {
                     return (
                       <div 
                         key={article.id} 
-                        className="w-full p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
+                        className="w-full p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex items-start gap-3"
                         onClick={() => handleArticleSelect(article.id)}
                       >
+                        {article.coverImageUrl && (
+                          <div className="flex-shrink-0">
+                            <img 
+                              src={article.coverImageUrl} 
+                              alt="" 
+                              className="object-cover rounded-lg" style={{ width: 'calc(var(--spacing) * 27)', height: 'calc(var(--spacing) * 27)' }}
+                            />
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-foreground truncate">
-                            {article.title}
-                          </h3>
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="font-semibold text-foreground truncate">
+                              {article.title}
+                            </h3>
+                            {(user?.id === article.author?.id || user?.accessLevel === 'admin' || user?.accessLevel === 'moderator') && (
+                              <Link 
+                                href={`/articles/edit/${article.slug}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                                title={t('common:edit')}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Link>
+                            )}
+                          </div>
                           <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               {article.author?.avatarUrl ? (
@@ -3004,7 +3038,7 @@ export function ArticlesPage() {
                             )}
                           </div>
                           {article.excerpt && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            <p className="text-sm text-muted-foreground mt-1 line-clamp-3">
                               {article.excerpt}
                             </p>
                           )}
@@ -3123,13 +3157,34 @@ export function ArticlesPage() {
                     articles.filter(article => article.isReadLater).map((article: Article) => (
                       <div 
                         key={`favorite-${article.id}`} 
-                        className="p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4"
+                        className="p-3 rounded-lg border border-gray-200 hover:bg-[#fbf2d0] hover:shadow-sm transition-all cursor-pointer flex items-start gap-3"
                         onClick={() => handleArticleSelect(article.id)}
                       >
+                        {article.coverImageUrl && (
+                          <div className="flex-shrink-0">
+                            <img 
+                              src={article.coverImageUrl} 
+                              alt="" 
+                              className="object-cover rounded-lg" style={{ width: 'calc(var(--spacing) * 27)', height: 'calc(var(--spacing) * 27)' }}
+                            />
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-foreground truncate">
-                            {article.title}
-                          </h3>
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="font-semibold text-foreground truncate">
+                              {article.title}
+                            </h3>
+                            {(user?.id === article.author?.id || user?.accessLevel === 'admin' || user?.accessLevel === 'moderator') && (
+                              <Link 
+                                href={`/articles/edit/${article.slug}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                                title={t('common:edit')}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Link>
+                            )}
+                          </div>
                           <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               {article.author?.avatarUrl ? (
@@ -3158,7 +3213,7 @@ export function ArticlesPage() {
                             )}
                           </div>
                           {article.excerpt && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            <p className="text-sm text-muted-foreground mt-1 line-clamp-3">
                               {article.excerpt}
                             </p>
                           )}

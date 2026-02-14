@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, Upload, X } from 'lucide-react';
+import { fileUploadManager, type UploadedFile } from '@/lib/fileUploadManager';
 
 interface ArticleCategory {
   id: string;
@@ -29,6 +32,7 @@ interface ArticleFormData {
   contentJson: any;
   section: string;  // New enum field
   format: string;       // New enum field
+  status: string;
 
   tags: string[];
   lang: string;
@@ -39,6 +43,7 @@ interface ArticleFormData {
 export function ArticleEditorPage() {
   const { t } = useTranslation(['articles', 'common']);
   const [location] = useLocation();
+  const { user } = useAuth();
   
   // Determine if we're in edit mode
   const isEditMode = location.startsWith('/articles/edit/');
@@ -52,7 +57,7 @@ export function ArticleEditorPage() {
     contentJson: null,
     section: '',
     format: '',
-
+    status: 'published',
     tags: [],
     lang: 'ru'
   });
@@ -62,6 +67,8 @@ export function ArticleEditorPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditMode); // Loading when editing
   const [error, setError] = useState<string | null>(null);
+    const [coverUploading, setCoverUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Load categories
   useEffect(() => {
@@ -133,7 +140,16 @@ export function ArticleEditorPage() {
         throw new Error('Failed to load article');
       }
       
-      const article = await response.json();
+      const data = await response.json();
+      const article = data.article || data;
+      
+      // Check permission: user must be author or admin/moderator
+      const isAuthor = article.authorUserId === user?.id;
+      const isAdminOrModerator = user?.accessLevel === 'admin' || user?.accessLevel === 'moderator';
+      
+      if (!isAuthor && !isAdminOrModerator) {
+        throw new Error("You don't have permission to edit this article");
+      }
       
       // Populate form with existing data
       setFormData({
@@ -141,7 +157,7 @@ export function ArticleEditorPage() {
         contentJson: article.contentJson,
         section: article.section || '',
         format: article.format || '',
-
+        status: article.status || 'published',
         tags: article.tags || [],
         lang: article.lang || 'ru',
         coverImageUrl: article.coverImageUrl,
@@ -196,11 +212,11 @@ export function ArticleEditorPage() {
           contentJson: formData.contentJson,
           section: formData.section || null,
           format: formData.format || null,
-
+          status: formData.status,
           tags: formData.tags,
           lang: formData.lang,
-          coverImageUrl: formData.coverImageUrl,
-          excerpt: formData.excerpt
+          coverImageUrl: formData.coverImageUrl ?? null,
+          excerpt: formData.excerpt ?? null
         })
       });
       
@@ -211,12 +227,35 @@ export function ArticleEditorPage() {
       
       const result = await response.json();
       // Redirect to the article using article ID in query parameter
-      window.location.href = `/articles?article=${result.article.id}`;
+      const savedArticleId = result.article?.id || result.id;
+      window.location.href = `/articles?article=${savedArticleId}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCoverUploading(true);
+    try {
+      const uploaded = await fileUploadManager.uploadFile(file, undefined, 'article');
+      setFormData(prev => ({ ...prev, coverImageUrl: uploaded.url }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload cover image');
+    } finally {
+      setCoverUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveCover = () => {
+    setFormData(prev => ({ ...prev, coverImageUrl: undefined }));
   };
 
   const handleAddTag = () => {
@@ -337,6 +376,20 @@ export function ArticleEditorPage() {
                 </div>
                 
                 <div>
+                  <Label htmlFor="status">{t('articles:editor.status')}</Label>
+                  <div className="flex items-center gap-3 mt-2">
+                    <Switch
+                      id="status"
+                      checked={formData.status === 'published'}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, status: checked ? 'published' : 'draft' }))}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {formData.status === 'published' ? t('articles:editor.published') : t('articles:editor.draft')}
+                    </span>
+                  </div>
+                </div>
+                
+                <div>
                   <Label htmlFor="tags">{t('articles:editor.tags')}</Label>
                   <div className="flex gap-2 mb-2">
                     <Input
@@ -395,8 +448,77 @@ export function ArticleEditorPage() {
                   />
                 </div>
                 
-                <div>
-                  <Label htmlFor="coverImageUrl">{t('articles:editor.coverImage')}</Label>
+                <div className="space-y-2">
+                  <Label>{t('articles:editor.coverImage')}</Label>
+                  
+                  {formData.coverImageUrl ? (
+                    <div className="space-y-2">
+                      <div className="relative mt-2 border rounded-lg overflow-hidden inline-block">
+                        <img 
+                          src={formData.coverImageUrl} 
+                          alt="Cover preview" 
+                          className="max-h-48 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRemoveCover}
+                          className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1 hover:bg-destructive/80"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleCoverUpload}
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          id="cover-upload-change"
+                        />
+                        <label 
+                          htmlFor="cover-upload-change" 
+                          className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-input bg-background rounded-md hover:bg-accent hover:text-accent-foreground"
+                        >
+                          {coverUploading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4" />
+                          )}
+                          <span className="text-sm">
+                            {coverUploading ? t('common:uploading') : t('articles:editor.changeCover')}
+                          </span>
+                        </label>
+                        <span className="text-sm text-muted-foreground">{t('articles:editor.or')}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 mt-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleCoverUpload}
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        className="hidden"
+                        id="cover-upload"
+                      />
+                      <label 
+                        htmlFor="cover-upload" 
+                        className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-input bg-background rounded-md hover:bg-accent hover:text-accent-foreground"
+                      >
+                        {coverUploading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                        <span className="text-sm">
+                          {coverUploading ? t('common:uploading') : t('articles:editor.selectCover')}
+                        </span>
+                      </label>
+                      <span className="text-sm text-muted-foreground">{t('articles:editor.or')}</span>
+                    </div>
+                  )}
+                  
                   <Input
                     id="coverImageUrl"
                     value={formData.coverImageUrl || ''}

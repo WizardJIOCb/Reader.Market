@@ -10,12 +10,34 @@ import path from 'path';
 
 export function createUploadsRouter() {
   // Configure multer for attachment uploads
+const getUploadDestination = (entityType?: string): string => {
+  let uploadDir: string;
+  
+  switch (entityType) {
+    case 'article':
+      uploadDir = path.join(process.cwd(), 'uploads', 'articles');
+      break;
+    case 'book':
+      uploadDir = path.join(process.cwd(), 'uploads', 'books');
+      break;
+    case 'cover':
+      uploadDir = path.join(process.cwd(), 'uploads', 'covers');
+      break;
+    default:
+      uploadDir = path.join(process.cwd(), 'uploads', 'attachments', 'temp');
+  }
+  
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  
+  return uploadDir;
+};
+
 const attachmentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'uploads', 'attachments', 'temp');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
+    const entityType = req.body.entityType;
+    const uploadDir = getUploadDestination(entityType);
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
