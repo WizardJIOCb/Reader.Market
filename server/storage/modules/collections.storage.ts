@@ -223,6 +223,7 @@ export function createCollectionsService() {
             author: books.author,
             description: books.description,
             coverImageUrl: books.coverImageUrl,
+            videoCoverUrl: books.videoCoverUrl,
             filePath: books.filePath,
             fileSize: books.fileSize,
             fileType: books.fileType,

@@ -164,6 +164,7 @@ export class AdminStorageImpl implements AdminStorage {
           publishedAt: books.publishedAt,
           filePath: books.filePath,
           coverImageUrl: books.coverImageUrl,
+          videoCoverUrl: books.videoCoverUrl,
           isActive: books.isActive,
           genre: books.genre,
           publishedYear: books.publishedYear,

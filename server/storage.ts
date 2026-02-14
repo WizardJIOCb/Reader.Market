@@ -5886,6 +5886,7 @@ export class DBStorage implements IStorage {
         title: books.title,
         author: books.author,
         coverImageUrl: books.coverImageUrl,
+        videoCoverUrl: books.videoCoverUrl,
       })
         .from(groupBooks)
         .innerJoin(books, eq(groupBooks.bookId, books.id))
@@ -9294,6 +9295,7 @@ export class DBStorage implements IStorage {
         title: books.title,
         author: books.author,
         coverImageUrl: books.coverImageUrl,
+        videoCoverUrl: books.videoCoverUrl,
         role: articleBooks.role,
         sortOrder: articleBooks.sortOrder
       })

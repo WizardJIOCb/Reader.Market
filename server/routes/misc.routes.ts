@@ -19,6 +19,7 @@ export function createMiscRouter() {
           title: books.title,
           author: books.author,
           coverImageUrl: books.coverImageUrl,
+          videoCoverUrl: books.videoCoverUrl,
           description: books.description,
           genre: books.genre,
           rating: books.rating,
