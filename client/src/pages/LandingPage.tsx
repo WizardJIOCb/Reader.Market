@@ -194,7 +194,7 @@ const LandingPage = () => {
       <div className="h-24 bg-gradient-to-b from-black to-background"></div>
 
       {/* Popular Books Section - moved here after Hero */}
-      <section className="py-10">
+      <section className="py-10 bg-background">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold font-serif mb-4">{t('landing:popularBooksTitle')}</h2>
@@ -231,10 +231,8 @@ const LandingPage = () => {
             </div>
           )}
         </div>
-      </section>
-
-      {/* Gradient transition between Popular Books and How It Works */}
-      <div className="h-16 bg-gradient-to-b from-background to-[#f7f4f0]"></div>
+      </section>      
+      
 
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 bg-[#f7f4f0]">
@@ -353,7 +351,7 @@ const LandingPage = () => {
       <NewsBlock limit={3} showViewAllButton={true} />
 
       {/* Gradient transition between News and AI Capabilities */}
-      <div className="h-16 bg-gradient-to-b from-muted to-background"></div>
+      <div className="h-16 bg-gradient-to-b from-muted"></div>
 
       {/* AI Capabilities Section */}
       <section className="py-20">
