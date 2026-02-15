@@ -440,6 +440,17 @@ export default function BookDetail() {
               
               if (!trackResponse.ok) {
                 console.error('Failed to track book view:', await trackResponse.json());
+              } else {
+                // Update the book state to reflect the incremented view count
+                setBook(prevBook => {
+                  if (prevBook) {
+                    return {
+                      ...prevBook,
+                      cardViewCount: (prevBook.cardViewCount || 0) + 1
+                    };
+                  }
+                  return prevBook;
+                });
               }
             } catch (trackErr) {
               console.error('Error tracking book view:', trackErr);

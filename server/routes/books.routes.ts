@@ -131,7 +131,7 @@ export function createBooksRouter() {
       const { viewType } = req.body;
       const userId = (req as any).user?.userId;
 
-      await storage.incrementBookViewCount(id, 'detail_view');
+      await storage.incrementBookViewCount(id, viewType || 'card_view');
       res.status(204).send();
     } catch (error) {
       console.error("Track book view error:", error);
