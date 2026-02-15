@@ -257,14 +257,15 @@ export default function Hero() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="mt-16 pt-16 border-t border-white/5"
           >
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-8">
+            <div className="flex flex-wrap justify-center gap-4 sm:grid sm:grid-cols-5 sm:gap-8">
               {stats.map((stat, index) => (
-                <AnimatedStat
-                  key={stat.label}
-                  value={stat.value}
-                  label={stat.label}
-                  delay={0.5 + index * 0.1}
-                />
+                <div key={stat.label} className="w-[30%] sm:w-auto">
+                  <AnimatedStat
+                    value={stat.value}
+                    label={stat.label}
+                    delay={0.5 + index * 0.1}
+                  />
+                </div>
               ))}
             </div>
           </motion.div>

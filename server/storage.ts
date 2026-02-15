@@ -4972,7 +4972,6 @@ export class DBStorage implements IStorage {
     try {
       const result = await db.select({ count: sql<number>`COUNT(*)`.as('count') })
         .from(news)
-        .where(eq(news.published, true))
         .execute();
         
       return parseInt(String(result[0]?.count) || '0');
