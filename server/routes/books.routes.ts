@@ -11,6 +11,7 @@ import type { Request } from 'express';
 import type { FileFilterCallback } from 'multer';
 import { BookFileManager } from '../utils/book-file-manager';
 import { createBookActivity, createCommentActivity, createReviewActivity } from '../streamHelpers';
+import { getBookChatOnlineUsers } from '../bookChatState';
 
 export function createBooksRouter() {
   const router = Router();
@@ -235,6 +236,49 @@ export function createBooksRouter() {
     } catch (error) {
       console.error("Update reading progress error:", error);
       res.status(500).json({ error: "Failed to update reading progress" });
+    }
+  });
+
+  // ==================== BOOK CHAT API ====================
+
+  // Get chat messages for a book
+  router.get("/:bookId/chat", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      
+      // Check if book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      const messages = await storage.getBookChatMessages(bookId, limit, offset);
+      res.json(messages);
+    } catch (error) {
+      console.error("Get book chat messages error:", error);
+      res.status(500).json({ error: "Failed to get chat messages" });
+    }
+  });
+
+  // Get online users reading a book (for chat)
+  router.get("/:bookId/chat/online", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      
+      // Check if book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Get online users from WebSocket tracking
+      const onlineUsers = getBookChatOnlineUsers(bookId);
+      res.json(onlineUsers);
+    } catch (error) {
+      console.error("Get online users error:", error);
+      res.status(500).json({ error: "Failed to get online users" });
     }
   });
 

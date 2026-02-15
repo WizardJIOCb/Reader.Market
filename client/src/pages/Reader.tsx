@@ -1723,7 +1723,7 @@ export default function Reader() {
       setUploadingFiles(true);
       try {
         const { fileUploadManager } = await import('@/lib/fileUploadManager');
-        const uploadPromises = attachments.map(file => fileUploadManager.uploadFile(file));
+        const uploadPromises = attachments.map(file => fileUploadManager.uploadFile(file, undefined, 'book-chat', bookId));
         const uploads = await Promise.all(uploadPromises);
         
         attachmentUrls = uploads.map(u => u.url);
@@ -3324,13 +3324,13 @@ export default function Reader() {
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 navigator.clipboard.writeText(selectedText.text);
-                toastRef.current({ title: t('common.copied') });
+                toastRef.current({ title: t('copied') });
                 window.getSelection()?.removeAllRanges();
                 setShowSelectionPopover(false);
                 setSelectedText(null);
               }}
             >
-              {t('common.copy')}
+              {t('copy')}
             </Button>
             <Button
               size="sm"
