@@ -579,6 +579,20 @@ export default function Reader() {
     const socket = getSocket();
     if (socket?.connected) {
       joinBookChat(bookId);
+      // Immediately add current user to online list (race condition fix)
+      if (user) {
+        setOnlineUsers(prev => {
+          if (!prev.find(u => u.id === user.id)) {
+            return [...prev, {
+              id: user.id,
+              username: user.username,
+              avatarUrl: user.avatarUrl,
+              readingPosition: undefined
+            }];
+          }
+          return prev;
+        });
+      }
     }
     
     // Load online users helper (used by presence update handlers)
@@ -646,7 +660,7 @@ export default function Reader() {
       cleanupDeleteMessage();
       cleanupTyping();
     };
-  }, [bookId, activePanel, user?.id]);
+  }, [bookId, activePanel, user]);
   
   // Load messages and users when chat panel is opened
   useEffect(() => {
@@ -668,22 +682,40 @@ export default function Reader() {
       }
     };
     
-    // Load online users
+    // Load online users - ensure current user is included
     const loadOnlineUsers = async () => {
       try {
         const response = await readerApi.getOnlineUsers(bookId);
         if (response.ok) {
           const data = await response.json();
+          // Ensure current user is in the list (might not be returned by server if race condition)
+          if (user && !data.find((u: any) => u.id === user.id)) {
+            data.unshift({
+              id: user.id,
+              username: user.username,
+              avatarUrl: user.avatarUrl,
+              readingPosition: undefined
+            });
+          }
           setOnlineUsers(data);
         }
       } catch (e) {
         console.error('Failed to load online users:', e);
+        // Fallback: add current user locally if API fails
+        if (user) {
+          setOnlineUsers([{
+            id: user.id,
+            username: user.username,
+            avatarUrl: user.avatarUrl,
+            readingPosition: undefined
+          }]);
+        }
       }
     };
     
     loadChatMessages();
     loadOnlineUsers();
-  }, [bookId, activePanel]);
+  }, [bookId, activePanel, user]);
   
   // NEW: Send reading position updates via WebSocket
   useEffect(() => {
