@@ -21,6 +21,7 @@ export interface Book {
   genre: string | string[]; // Can be string (from API) or array (from mock)
   publishedYear?: number;
   rating?: number;
+  slug?: string; // SEO-friendly URL slug
   commentCount?: number;
   reviewCount?: number;
   shelfCount?: number;

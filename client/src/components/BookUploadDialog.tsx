@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { booksApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { generateSlug } from '@/lib/slug-utils';
 import { Upload } from 'lucide-react';
 
 interface BookUploadDialogProps {
@@ -29,6 +30,7 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
     genre: '',
     year: new Date().getFullYear().toString(),
     publishedAt: '',
+    slug: '',
   });
   const [file, setFile] = useState<File | null>(null);
   const [coverImage, setCoverImage] = useState<File | null>(null);
@@ -39,8 +41,12 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error for this field
+    setFormData((prev) => {
+      if (name === 'title' && prev.slug === '') {
+        return { ...prev, [name]: value, slug: generateSlug(value) };
+      }
+      return { ...prev, [name]: value };
+    });
     if (errors[name]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -178,6 +184,12 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
       newErrors.bookFile = 'Book file is required';
     }
 
+    if (formData.slug && formData.slug.trim()) {
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(formData.slug)) {
+        newErrors.slug = 'Slug can only contain lowercase letters, numbers, and hyphens';
+      }
+    }
+
     if (formData.year) {
       const year = parseInt(formData.year);
       const currentYear = new Date().getFullYear();
@@ -209,6 +221,9 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
       if (formData.publishedAt) {
         requestData.append('publishedAt', formData.publishedAt);
       }
+      if (formData.slug.trim()) {
+        requestData.append('slug', formData.slug.trim());
+      }
       if (file) {
         requestData.append('bookFile', file);
       }
@@ -235,6 +250,7 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
           genre: '',
           year: new Date().getFullYear().toString(),
           publishedAt: '',
+          slug: '',
         });
         setFile(null);
         setCoverImage(null);
@@ -331,6 +347,25 @@ export function BookUploadDialog({ open, onOpenChange, onBookUploaded }: BookUpl
               />
               {errors.year && (
                 <p className="text-sm text-destructive">{errors.year}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="slug">URL Slug (optional)</Label>
+              <Input
+                id="slug"
+                name="slug"
+                value={formData.slug}
+                onChange={handleChange}
+                disabled={uploading}
+                placeholder="Auto-generated from title"
+                className={errors.slug ? 'border-destructive' : ''}
+              />
+              {errors.slug && (
+                <p className="text-sm text-destructive">{errors.slug}</p>
+              )}
+              {formData.slug && (
+                <p className="text-xs text-muted-foreground">URL: /book/{formData.slug}</p>
               )}
             </div>
 

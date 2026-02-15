@@ -54,6 +54,7 @@ interface Book {
   genre?: string;
   publishedYear?: number;
   rating?: number;
+  slug?: string; // SEO-friendly URL slug
   commentCount?: number;
   reviewCount?: number;
   shelfCount?: number;
@@ -902,8 +903,10 @@ export default function BookDetail() {
       rating: book.rating,
     });
     // Navigate after delay to let splash appear and be visible
+    // Prioritize slug if available, otherwise use UUID
+    const bookIdentifier = (book as any).slug ? (book as any).slug : book.id;
     setTimeout(() => {
-      setLocation(`/read/${book.id}/1`);
+      setLocation(`/read/${bookIdentifier}`);
     }, 400);
   };
 

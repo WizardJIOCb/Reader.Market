@@ -545,8 +545,10 @@ export const BookCard: React.FC<BookCardProps> = ({
     });
     
     // Navigate to reader after a short delay to allow splash to appear
+    // Prioritize slug if available, otherwise use UUID
+    const bookIdentifier = (book as any).slug ? (book as any).slug : book.id.toString();
     setTimeout(() => {
-      setLocation(`/read/${book.id}/1`);
+      setLocation(`/read/${bookIdentifier}`);
     }, 400);
   };
 

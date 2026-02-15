@@ -41,6 +41,7 @@ export const books = pgTable("books", {
   title: text("title").notNull(),
   author: text("author").notNull(),
   description: text("description"),
+  slug: varchar("slug", { length: 255 }).unique(), // SEO-friendly URL slug (e.g., 'warhammer-40000')
   coverImageUrl: text("cover_image_url"),
   videoCoverUrl: text("video_cover_url"),
   filePath: text("file_path"),

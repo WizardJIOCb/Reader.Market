@@ -417,6 +417,7 @@ export default function Shelves() {
                       coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl,
                       videoCoverUrl: book.videoCoverUrl,
                       rating: book.rating,
+                      slug: (book as any).slug,
                       commentCount: book.commentCount,
                       reviewCount: book.reviewCount,
                       shelfCount: book.shelfCount,
@@ -669,6 +670,7 @@ export default function Shelves() {
                         coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? (book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`) : book.coverImageUrl, // Pass the cover image URL
                         videoCoverUrl: book.videoCoverUrl,
                         rating: book.rating,
+                        slug: book.slug,
                         commentCount: book.commentCount,
                         reviewCount: book.reviewCount,
                         shelfCount: book.shelfCount,

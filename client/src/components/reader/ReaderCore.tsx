@@ -777,66 +777,88 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
           setCurrentChapter(chapter);
           onChapterChange?.(chapter);
           
-          // Wait for pagination to complete
+          // Wait for pagination to complete with proper sequencing
           await new Promise(resolve => setTimeout(resolve, 50));
           await new Promise(resolve => requestAnimationFrame(() => {
             requestAnimationFrame(() => resolve(undefined));
           }));
-          await new Promise(resolve => setTimeout(resolve, 150));
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
         
-        const pages = pagesRef.current;
-        if (pages.length === 0) {
-          return false;
-        }
-        
-        // Calculate approximate page based on character offset proportion
-        // First, strip HTML from chapter content to get plain text length
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = chapter.content;
-        const plainText = tempDiv.textContent || '';
-        const totalChars = plainText.length;
-        
-        if (totalChars === 0) {
-          setCurrentPage(0);
-          return false;
-        }
-        
-        // Estimate which page based on character position
-        const ratio = charOffset / totalChars;
-        const estimatedPage = Math.floor(ratio * pages.length);
-        const startPage = Math.max(0, estimatedPage - 1); // Start searching from one page before
-        
-        // Normalize highlight text for searching
-        const highlightText = textToHighlight
-          .replace(/\s+/g, ' ')
-          .trim()
-          .toLowerCase();
-        
-        // Search from estimated page outward to find exact match
-        for (let offset = 0; offset < pages.length; offset++) {
-          // Check pages around the estimated position
-          const pagesToCheck = [startPage + offset, startPage - offset - 1];
+        // Use retry logic to ensure pagination is ready
+        const attemptRestore = async (attempt = 0): Promise<boolean> => {
+          const maxAttempts = 5;
+          const pages = pagesRef.current;
           
-          for (const pageIdx of pagesToCheck) {
-            if (pageIdx < 0 || pageIdx >= pages.length) continue;
-            
+          if (!pages || pages.length === 0) {
+            if (attempt < maxAttempts) {
+              console.log(`[OFFSET-RESTORE] Waiting for pagination (attempt ${attempt + 1}/${maxAttempts})`);
+              await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+              return attemptRestore(attempt + 1);
+            }
+            console.warn('[OFFSET-RESTORE] Pagination not ready after max attempts');
+            return false;
+          }
+          
+          // IMPORTANT: Use page map directly to find exact page containing the offset
+          // This is more accurate than ratio-based estimation
+          let targetPage = pages.findIndex(p => charOffset >= p.startChar && charOffset < p.endChar);
+          
+          // If exact match not found, find closest page
+          if (targetPage === -1) {
+            // Check if offset is at the end of the last page
+            const lastPage = pages[pages.length - 1];
+            if (charOffset >= lastPage.startChar && charOffset <= lastPage.endChar) {
+              targetPage = pages.length - 1;
+            } else if (charOffset < pages[0].startChar) {
+              // Offset before first page
+              targetPage = 0;
+            } else {
+              // Find the page with the closest startChar that doesn't exceed the offset
+              let best = 0;
+              for (let i = 0; i < pages.length; i++) {
+                if (pages[i].startChar <= charOffset) {
+                  best = i;
+                }
+              }
+              targetPage = best;
+            }
+            console.log(`[OFFSET-RESTORE] Offset ${charOffset} not in exact range, using closest page ${targetPage}`);
+          }
+          
+          console.log(`[OFFSET-RESTORE] Restoring to page ${targetPage} for charOffset ${charOffset} (page range: ${pages[targetPage].startChar}-${pages[targetPage].endChar})`);
+          
+          // If highlight text is provided, verify it's on the target page
+          if (textToHighlight && textToHighlight.trim()) {
+            const highlightText = textToHighlight.replace(/\s+/g, ' ').trim().toLowerCase();
             const pageTempDiv = document.createElement('div');
-            pageTempDiv.innerHTML = pages[pageIdx].html;
-            const pageText = (pageTempDiv.textContent || '')
-              .replace(/\s+/g, ' ')
-              .toLowerCase();
+            pageTempDiv.innerHTML = pages[targetPage].html;
+            const pageText = (pageTempDiv.textContent || '').replace(/\s+/g, ' ').toLowerCase();
             
-            if (pageText.includes(highlightText)) {
-              setCurrentPage(pageIdx);
-              return true;
+            if (!pageText.includes(highlightText)) {
+              // Search nearby pages for the text
+              const searchRadius = 3;
+              for (let offset = 1; offset <= searchRadius; offset++) {
+                for (const checkPage of [targetPage + offset, targetPage - offset]) {
+                  if (checkPage >= 0 && checkPage < pages.length) {
+                    pageTempDiv.innerHTML = pages[checkPage].html;
+                    const checkText = (pageTempDiv.textContent || '').replace(/\s+/g, ' ').toLowerCase();
+                    if (checkText.includes(highlightText)) {
+                      console.log(`[OFFSET-RESTORE] Found highlight text on page ${checkPage} instead of ${targetPage}`);
+                      targetPage = checkPage;
+                      break;
+                    }
+                  }
+                }
+              }
             }
           }
-        }
+          
+          setCurrentPage(targetPage);
+          return true;
+        };
         
-        // Fallback to estimated page if text not found
-        setCurrentPage(Math.min(estimatedPage, pages.length - 1));
-        return false;
+        return attemptRestore();
       },
       [content, currentChapter, onChapterChange]
     );

@@ -33,6 +33,7 @@ interface Book {
   genre?: string;
   publishedYear?: number;
   rating?: number;
+  slug?: string; // SEO-friendly URL slug
   // Date fields for book display
   uploadedAt?: string; // ISO date string
   publishedAt?: string; // ISO date string

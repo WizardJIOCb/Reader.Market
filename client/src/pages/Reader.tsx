@@ -89,7 +89,14 @@ const READER_SETTINGS_KEY = 'reader-settings';
 const BOOKMARKS_KEY = 'reader-bookmarks';
 
 export default function Reader() {
-  const [match, params] = useRoute('/read/:bookId/:position');
+  // Support both /read/:bookId and /read/:bookId/:chapterId routes
+  const [match1, params1] = useRoute('/read/:bookId/:chapterId');
+  const [match2, params2] = useRoute('/read/:bookId');
+  
+  // Use whichever route matched
+  const params = match1 ? params1 : (match2 ? params2 : null);
+  const match = match1 || match2;
+  
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const { t } = useTranslation(['common', 'collections']);
@@ -106,6 +113,7 @@ export default function Reader() {
   
   const readerRef = useRef<ReaderCoreHandle>(null);
   const toastRef = useRef(safeToast);
+  const restoreTargetRef = useRef<any>(null);
   
   // Book state
   const [book, setBook] = useState<Book | null>(null);
@@ -307,6 +315,7 @@ export default function Reader() {
   const progressSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const settingsSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadDoneRef = useRef(false);
+  const isRestoringPositionRef = useRef(true); // Start as TRUE to block saves during initial load
   
   // Settings
   const [settings, setSettings] = useState<ReaderSettings>(() => {
@@ -322,7 +331,8 @@ export default function Reader() {
   });
   
   const bookId = params?.bookId || '';
-  const positionParam = params?.position || '';
+  // Handle both routes: with and without chapterId
+  const positionParam = (params && 'chapterId' in params) ? (params as any).chapterId : '';
   
   // Parse URL search parameters for bookmark navigation
   const urlParams = new URLSearchParams(window.location.search);
@@ -334,7 +344,7 @@ export default function Reader() {
   
   // Load bookmarks from API (authenticated) or localStorage (guest)
   useEffect(() => {
-    if (!bookId) return;
+    if (!book?.id) return;
     
     const loadBookmarks = async () => {
       const authToken = localStorage.getItem('authToken');
@@ -570,7 +580,7 @@ export default function Reader() {
   
   // Load chat messages and setup WebSocket listeners when chat panel opens
   useEffect(() => {
-    if (!bookId) return;
+    if (!book?.id) return;
     
     const authToken = localStorage.getItem('authToken');
     if (!authToken) return; // Chat requires authentication
@@ -750,12 +760,12 @@ export default function Reader() {
     
     const loadProgressAndSettings = async () => {
       try {
-        // Load reading progress
+        // Load reading progress from API (but DON'T overwrite localStorage - we do that in handleReaderReady)
         const progressResponse = await readerApi.getProgress(bookId);
         if (progressResponse.ok) {
           const progress = await progressResponse.json();
-          // Store for later use when reader is ready
-          localStorage.setItem(`reading-progress-${bookId}`, JSON.stringify(progress));
+          console.log('[INIT] Loaded progress from API (not caching to preserve locator v2):', progress);
+          // DON'T store to localStorage here - let handleReaderReady handle the merge
         }
         
         // Load settings
@@ -790,7 +800,7 @@ export default function Reader() {
       }
       
       // Debounced save to API for authenticated users
-      if (user && bookId) {
+      if (user && book?.id) {
         if (settingsSaveTimeoutRef.current) {
           clearTimeout(settingsSaveTimeoutRef.current);
         }
@@ -810,15 +820,15 @@ export default function Reader() {
   // Save reading progress on unmount and page unload
   useEffect(() => {
     const saveProgressToApi = () => {
-      if (user && bookId) {
-        const savedProgress = localStorage.getItem(`reading-progress-${bookId}`);
+      if (user && book?.id) {
+        const savedProgress = localStorage.getItem(`reading-progress-${book.id}`);
         if (savedProgress) {
           try {
             const progress = JSON.parse(savedProgress);
             const token = localStorage.getItem('authToken');
             if (token) {
               // Use fetch with keepalive for reliable delivery during page unload
-              fetch(`/api/books/${bookId}/reading-progress`, {
+              fetch(`/api/books/${book.id}/reading-progress`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
@@ -850,8 +860,8 @@ export default function Reader() {
       }
       
       // Final save to API on unmount (for SPA navigation)
-      if (user && bookId) {
-        const savedProgress = localStorage.getItem(`reading-progress-${bookId}`);
+      if (user && book?.id) {
+        const savedProgress = localStorage.getItem(`reading-progress-${book.id}`);
         if (savedProgress) {
           try {
             const progress = JSON.parse(savedProgress);
@@ -867,16 +877,16 @@ export default function Reader() {
   // Fetch available translations
   useEffect(() => {
     const fetchTranslations = async () => {
-      if (!bookId) return;
+      if (!book?.id) return;
       
       try {
-        const response = await fetch(`/api/books/${bookId}/translations`);
+        const response = await fetch(`/api/books/${book.id}/translations`);
         if (response.ok) {
           const data = await response.json();
           setAvailableLanguages(data.filter((t: any) => t.status === 'completed'));
           
           // Load saved language preference
-          const savedLang = localStorage.getItem(`reader_language_${bookId}`);
+          const savedLang = localStorage.getItem(`reader_language_${book.id}`);
           if (savedLang && (savedLang === 'original' || data.some((t: any) => t.language === savedLang && t.status === 'completed'))) {
             setSelectedLanguage(savedLang);
           }
@@ -912,7 +922,7 @@ export default function Reader() {
     
     // Update language
     setSelectedLanguage(newLanguage);
-    localStorage.setItem(`reader_language_${bookId}`, newLanguage);
+    localStorage.setItem(`reader_language_${book.id}`, newLanguage);
     
     // Show toast
     toast({
@@ -973,7 +983,7 @@ export default function Reader() {
         const token = localStorage.getItem('authToken');
         if (token && !readerOpenTrackedRef.current.has(bookId)) {
           readerOpenTrackedRef.current.add(bookId);
-          fetch(`/api/books/${bookId}/track-view`, {
+          fetch(`/api/books/${bookData.id}/track-view`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -1004,6 +1014,7 @@ export default function Reader() {
   
   // Reader callbacks
   const handleReaderReady = useCallback(async (content: BookContent) => {
+    console.log('[READER] handleReaderReady called, isRestoring:', isRestoringPositionRef.current);
     setBookContent(content);
     if (content.chapters.length > 0) {
       setCurrentChapter(content.chapters[0]);
@@ -1011,6 +1022,7 @@ export default function Reader() {
     
     // Restore reading progress - try API first (for authenticated users), then localStorage
     const restoreProgress = async () => {
+      console.log('[PROGRESS] restoreProgress called');
       // Skip progress restoration if we're navigating from a bookmark
       if (pendingBookmarkNavigation) {
         console.log('[PROGRESS] Skipping progress restoration due to pending bookmark navigation');
@@ -1019,29 +1031,97 @@ export default function Reader() {
       
       let progress = null;
       
-      // Try to load from API for authenticated users
-      if (user && bookId) {
+      // First, try to load from localStorage (may have newer locator v2)
+      let localProgress = null;
+      let actualBookId: string | null = null; // UUID of the book
+      
+      // Try to get UUID from book state first
+      if (book?.id) {
+        actualBookId = book.id;
+      }
+      
+      // If book not loaded yet, try to get UUID from API
+      if (!actualBookId && user) {
         try {
           const response = await readerApi.getProgress(bookId);
           if (response.ok) {
-            progress = await response.json();
-            // Cache to localStorage
-            localStorage.setItem(`reading-progress-${bookId}`, JSON.stringify(progress));
+            const apiProgress = await response.json();
+            actualBookId = apiProgress.bookId; // Get UUID from API response
+            console.log('[PROGRESS] Got book UUID from API:', actualBookId);
+          }
+        } catch (e) {
+          console.error('Failed to get book UUID from API:', e);
+        }
+      }
+      
+      // Use UUID if available, otherwise use slug
+      const storageKey = actualBookId ? `reading-progress-${actualBookId}` : `reading-progress-${bookId}`;
+      
+      try {
+        const savedProgress = localStorage.getItem(storageKey);
+        console.log('[PROGRESS] Loading from localStorage, key:', storageKey);
+        console.log('[PROGRESS] Raw localStorage data:', savedProgress);
+        if (savedProgress) {
+          localProgress = JSON.parse(savedProgress);
+          console.log('[PROGRESS] Parsed localStorage:', localProgress);
+        }
+      } catch (e) {
+        console.error('Failed to load progress from localStorage:', e);
+      }
+      
+      // Then try to load from API for authenticated users
+      if (user && book?.id) {
+        try {
+          const response = await readerApi.getProgress(bookId);
+          if (response.ok) {
+            const apiProgress = await response.json();
+            console.log('[PROGRESS] Loaded from API:', apiProgress);
+            
+            // If localStorage has locator v2 and it's newer, prefer it over API
+            if (localProgress?.locator?.v === 2 && localProgress.locator.updatedAt) {
+              const localTime = new Date(localProgress.locator.updatedAt).getTime();
+              const apiTime = apiProgress.updatedAt ? new Date(apiProgress.updatedAt).getTime() : 0;
+              
+              if (localTime > apiTime) {
+                console.log('[PROGRESS] Using localStorage (newer locator v2, local:', new Date(localProgress.locator.updatedAt), 'api:', new Date(apiProgress.updatedAt), ')');
+                progress = localProgress;
+              } else {
+                console.log('[PROGRESS] Using API data (newer, api:', new Date(apiProgress.updatedAt), 'local:', new Date(localProgress.locator.updatedAt), ')');
+                progress = apiProgress;
+                // DON'T cache API data - it will overwrite our good locator v2
+              }
+            } else if (localProgress) {
+              // localStorage exists but no locator v2 - check if it's old format and clear
+              if (!localProgress.locator || localProgress.locator.v !== 2) {
+                console.log('[PROGRESS] Old format in localStorage, using API data');
+                progress = apiProgress;
+              } else {
+                // Has locator v2 but no updatedAt - use it anyway
+                console.log('[PROGRESS] Using localStorage (has locator v2, no timestamp)');
+                progress = localProgress;
+              }
+            } else {
+              // No localStorage at all - use API data
+              console.log('[PROGRESS] No localStorage, using API data');
+              progress = apiProgress;
+            }
           }
         } catch (e) {
           console.error('Failed to load progress from API:', e);
         }
       }
-          
-      // Fallback to localStorage
-      if (!progress) {
-        try {
-          const savedProgress = localStorage.getItem(`reading-progress-${bookId}`);
-          if (savedProgress) {
-            progress = JSON.parse(savedProgress);
-          }
-        } catch (e) {
-          console.error('Failed to load progress from localStorage:', e);
+      
+      // If no API data but have localStorage, use it
+      if (!progress && localProgress) {
+        // Check if it's old format and clear
+        if (!localProgress.locator || localProgress.locator.v !== 2) {
+          console.log('[PROGRESS] Old format detected, clearing for fresh start');
+          const storageKey = actualBookId ? `reading-progress-${actualBookId}` : `reading-progress-${bookId}`;
+          localStorage.removeItem(storageKey);
+          progress = null; // Force fresh start
+        } else {
+          console.log('[PROGRESS] Using localStorage (no API response)');
+          progress = localProgress;
         }
       }
           
@@ -1053,27 +1133,49 @@ export default function Reader() {
         const locator: ReadingLocatorV2 | undefined =
           (progress.locator && progress.locator.v === 2) ? progress.locator : undefined;
       
-        if (locator && typeof locator.charOffsetInBook === 'number') {
-          // Use precise locator v2 restoration
-          setTimeout(() => {
-            const p = readerRef.current?.goToCharOffset(locator.charOffsetInBook, {
-              anchorText: locator.anchorText,
-              chapterIndexHint: locator.chapterIndex,
-              pageHintInChapter: locator.pageHintInChapter,
-            });
-            p?.catch(() => {});
-          }, 150);
+        if (locator && typeof locator.charOffsetInChapter === 'number') {
+          // Restore using chapter-relative character offset (stable across reloads)
+          // Use anchorText for verification if available
+          console.log('[PROGRESS] Using locator v2 for restoration:', {
+            chapterIndex: locator.chapterIndex,
+            charOffsetInChapter: locator.charOffsetInChapter,
+            charOffsetInBook: locator.charOffsetInBook,
+            pageHint: locator.pageHintInChapter,
+            hasAnchor: !!locator.anchorText
+          });
+          
+          // Flag is already TRUE from initial mount
+          console.log('[PROGRESS] Restoration flag already set, starting restoration');
+          
+          setTimeout(async () => {
+            console.log('[PROGRESS] Starting goToChapterAtOffset');
+            const success = await readerRef.current?.goToChapterAtOffset(
+              locator.chapterIndex, 
+              locator.charOffsetInChapter, 
+              locator.anchorText || '' // Pass anchor text for verification
+            );
+            console.log('[PROGRESS] goToChapterAtOffset completed, success:', success);
+            
+            // Clear flag after restoration is complete with longer delay
+            // This ensures we don't save intermediate positions during chapter change + pagination
+            setTimeout(() => {
+              isRestoringPositionRef.current = false;
+              console.log('[PROGRESS] Restoration flag set to FALSE, re-enabling position saving');
+            }, 1500); // Increased to 1500ms to ensure all position changes complete
+          }, 300);
           return;
         }
             
         // Fallback to legacy restoration
         // First go to chapter, then after pagination completes, go to specific page
+        console.log('[PROGRESS] Using legacy restoration (no locator v2)', progress);
         setTimeout(() => {
           readerRef.current?.goToChapter(progress.chapterIndex);
               
           // After chapter change and pagination, restore page position
           // Use pageInChapter if available (correct chapter-local page), otherwise fall back to percentage
           if (typeof progress.pageInChapter === 'number') {
+            console.log('[PROGRESS] Using pageInChapter:', progress.pageInChapter);
             setTimeout(() => {
               const position: Position = {
                 charOffset: 0,
@@ -1083,19 +1185,48 @@ export default function Reader() {
                 percentage: progress.percentage || 0,
               };
               readerRef.current?.goToPosition(position);
+              
+              // Clear restoration flag after legacy restoration
+              setTimeout(() => {
+                isRestoringPositionRef.current = false;
+                console.log('[PROGRESS] Legacy restoration complete, re-enabling position saving');
+              }, 1000);
             }, 300);
-          } else if (typeof progress.percentage === 'number') {
+          } else if (progress.percentage != null) {
             // Fallback to percentage-based restoration
+            // Convert to number if it's a string from API
+            const percentageNum = typeof progress.percentage === 'string' 
+              ? parseFloat(progress.percentage) 
+              : progress.percentage;
+            console.log('[PROGRESS] Using percentage:', percentageNum);
+            
             setTimeout(() => {
               const p = readerRef.current?.goToChapterAtOffset(
                 progress.chapterIndex, 
-                Math.floor((progress.percentage || 0) * 100),
+                Math.floor(percentageNum * 100),
                 ''
               );
               p?.catch(() => {});
+              
+              // Clear restoration flag after percentage restoration
+              setTimeout(() => {
+                isRestoringPositionRef.current = false;
+                console.log('[PROGRESS] Percentage restoration complete, re-enabling position saving');
+              }, 1000);
             }, 300);
+          } else {
+            // No page or percentage info - just clear the flag after chapter loads
+            console.log('[PROGRESS] No page/percentage info, clearing flag after chapter load');
+            setTimeout(() => {
+              isRestoringPositionRef.current = false;
+              console.log('[PROGRESS] Chapter-only restoration complete, re-enabling position saving');
+            }, 1000);
           }
         }, 200);
+      } else {
+        // No saved progress - clear restoration flag immediately
+        console.log('[PROGRESS] No saved progress found, clearing restoration flag');
+        isRestoringPositionRef.current = false;
       }
     };
     
@@ -1121,7 +1252,8 @@ export default function Reader() {
       chapterIndex: position.chapterIndex,
       pageInChapter: position.pageInChapter,
       percentage: position.percentage,
-      charOffset: position.charOffset
+      charOffset: position.charOffset,
+      isRestoring: isRestoringPositionRef.current
     });
     
     setCurrentPosition(position);
@@ -1150,11 +1282,25 @@ export default function Reader() {
       console.log('[POSITION] Total overall pages:', totPagesOverall);
     }
     
+    // Skip saving during position restoration to prevent overwriting the target position
+    if (isRestoringPositionRef.current) {
+      console.log('[POSITION] Skipping save during restoration');
+      return;
+    }
+    
     // Save progress to localStorage immediately
     // Store OVERALL pages, not chapter pages
     const chapterStartOffset = bookContent?.chapters?.[position.chapterIndex]?.startOffset ?? 0;
     const charOffsetInBook = position.charOffset;
     const charOffsetInChapter = Math.max(0, charOffsetInBook - chapterStartOffset);
+
+    console.log('[POSITION] Saving position:', {
+      charOffsetInBook,
+      chapterStartOffset,
+      charOffsetInChapter,
+      chapterIndex: position.chapterIndex,
+      pageInChapter: position.pageInChapter
+    });
 
     const locator: ReadingLocatorV2 = {
       v: 2,
@@ -1188,10 +1334,13 @@ export default function Reader() {
       totalPagesInChapter: position.totalPagesInChapter,
       locator,
     };
-    localStorage.setItem(`reading-progress-${bookId}`, JSON.stringify(progressData));
+    const storageKey = `reading-progress-${book?.id}`;
+    console.log('[POSITION] Saving to localStorage with key:', storageKey);
+    console.log('[POSITION] Saving to localStorage:', progressData);
+    localStorage.setItem(storageKey, JSON.stringify(progressData));
     
     // Save to API for authenticated users with debouncing
-    if (user && bookId) {
+    if (user && book?.id) {
       // Clear any pending timeout
       if (progressSaveTimeoutRef.current) {
         clearTimeout(progressSaveTimeoutRef.current);
@@ -1472,6 +1621,29 @@ export default function Reader() {
   
   const handleChapterChange = useCallback((chapter: Chapter) => {
     setCurrentChapter(chapter);
+
+    // Restore position if we just changed to the target chapter
+    if (restoreTargetRef.current && restoreTargetRef.current.chapterIndex === chapter.index) {
+      setTimeout(() => {
+        const target = restoreTargetRef.current;
+        // If we only have percentage, use goToChapterAtOffset to restore based on percentage
+        if (target.percentage > 0 && target.pageInChapter === 0) {
+          const charOffset = Math.floor((target.percentage / 100) * chapter.plainText.length);
+          readerRef.current?.goToChapterAtOffset(chapter.index, charOffset, '');
+        } else {
+          // Use explicit page position
+          const position: Position = {
+            charOffset: 0,
+            chapterIndex: target.chapterIndex,
+            pageInChapter: target.pageInChapter,
+            totalPagesInChapter: target.totalPagesInChapter,
+            percentage: target.percentage,
+          };
+          readerRef.current?.goToPosition(position);
+        }
+        restoreTargetRef.current = null; // Clear after restoration
+      }, 100);
+    }
   }, []);
   
   const handleReaderError = useCallback((err: Error) => {
@@ -1804,7 +1976,7 @@ export default function Reader() {
   const handleChatInputChange = useCallback((value: string) => {
     setChatInput(value);
     
-    if (!bookId) return;
+    if (!book?.id) return;
     
     // Start typing indicator
     startBookChatTyping(bookId);
@@ -2051,10 +2223,20 @@ export default function Reader() {
       return;
     }
     
+    if (!book) {
+      console.log('[RESTORE] Book data not loaded');
+      toastRef.current({
+        title: "Ошибка",
+        description: "Данные книги не загружены",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     // Get fresh data from localStorage
     try {
       const bookId = params?.bookId || '';
-      const savedProgress = localStorage.getItem(`reading-progress-${bookId}`);
+      const savedProgress = localStorage.getItem(`reading-progress-${book.id}`);
       if (!savedProgress) {
         console.log('[RESTORE] No saved position found');
         toastRef.current({

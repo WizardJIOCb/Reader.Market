@@ -40,6 +40,28 @@ const hasValidRating = (book: any): boolean => {
          Number(book.rating) !== 0; // Treat 0 as no rating
 };
 
+// Helper function to resolve slug to UUID
+const resolveBookIdOrSlug = async (idOrSlug: string): Promise<string> => {
+  // Check if it's already a UUID
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+  if (isUuid) {
+    return idOrSlug;
+  }
+  
+  // Try to find by slug
+  try {
+    const result = await db.select({ id: books.id }).from(books).where(eq(books.slug, idOrSlug)).limit(1);
+    if (result[0]) {
+      return result[0].id;
+    }
+  } catch (error) {
+    console.error('Error resolving slug to UUID:', error);
+  }
+  
+  // If not found, return the original value (might be invalid UUID which will fail in DB query)
+  return idOrSlug;
+};
+
 // SortOption type for book sorting
 type SortOption = 'views' | 'readerOpens' | 'rating' | 'comments' | 'reviews';
 
@@ -449,8 +471,14 @@ export class DBStorage implements IStorage {
 
   async getBook(id: string, userId?: string): Promise<any | undefined> {
     try {
-      console.log(`Getting book with ID: ${id}`);
-      const result = await db.select().from(books).where(eq(books.id, id));
+      console.log(`Getting book with ID or slug: ${id}`);
+      let result = await db.select().from(books).where(eq(books.id, id));
+      if (!result || result.length === 0) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        if (!isUuid) {
+          result = await db.select().from(books).where(eq(books.slug, id));
+        }
+      }
       console.log(`Database result for book ${id}:`, result[0]);
       if (result[0]) {
         // Get comment count using Drizzle ORM

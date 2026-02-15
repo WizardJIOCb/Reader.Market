@@ -906,6 +906,11 @@ export function createAdminRouter() {
       if (!newBookData.coverImageUrl && bookData.coverImageUrl) {
         newBookData.coverImageUrl = bookData.coverImageUrl;
       }
+      
+      // Handle slug field if provided
+      if (bookData.slug && bookData.slug.length > 0) {
+        newBookData.slug = bookData.slug.trim().toLowerCase();
+      }
 
       const book = await storage.createBook(newBookData);
 
@@ -1076,6 +1081,7 @@ export function createAdminRouter() {
       if (req.body.title) updateData.title = req.body.title;
       if (req.body.author) updateData.author = req.body.author;
       if (req.body.description !== undefined) updateData.description = req.body.description;
+      if (req.body.slug !== undefined) updateData.slug = req.body.slug ? req.body.slug.trim().toLowerCase() : null;
       if (req.body.genre !== undefined) updateData.genre = req.body.genre;
       if (req.body.publishedYear) updateData.publishedYear = parseInt(req.body.publishedYear);
       if (req.body.publishedAt) updateData.publishedAt = new Date(req.body.publishedAt);

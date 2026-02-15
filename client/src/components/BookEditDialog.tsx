@@ -53,6 +53,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
     title: '',
     author: '',
     description: '',
+    slug: '',
     genre: '',
     publishedYear: '',
     publishedAt: '',
@@ -71,6 +72,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
         title: book.title || '',
         author: book.author || '',
         description: book.description || '',
+        slug: (book as any).slug || '',
         genre: book.genre || '',
         publishedYear: book.publishedYear?.toString() || '',
         publishedAt: book.publishedAt ? book.publishedAt.split('T')[0] : '',
@@ -299,6 +301,9 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
       requestData.append('title', formData.title);
       requestData.append('author', formData.author);
       requestData.append('description', formData.description);
+      if (formData.slug) {
+        requestData.append('slug', formData.slug);
+      }
       requestData.append('genre', formData.genre);
       if (formData.publishedYear) {
         requestData.append('publishedYear', formData.publishedYear);
@@ -394,6 +399,18 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
                   {errors.author && (
                     <p className="text-sm text-destructive">{errors.author}</p>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="slug">URL Slug (optional)</Label>
+                  <Input
+                    id="slug"
+                    name="slug"
+                    value={formData.slug}
+                    onChange={handleChange}
+                    disabled={saving}
+                    placeholder="warhammer-40000"
+                  />
                 </div>
 
                 <div className="space-y-2">

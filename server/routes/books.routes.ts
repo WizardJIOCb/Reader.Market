@@ -13,6 +13,25 @@ import { BookFileManager } from '../utils/book-file-manager';
 import { createBookActivity, createCommentActivity, createReviewActivity } from '../streamHelpers';
 import { getBookChatOnlineUsers } from '../bookChatState';
 
+// Helper function to resolve book ID or slug to UUID
+async function resolveBookId(idOrSlug: string): Promise<string> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+  if (isUuid) {
+    return idOrSlug;
+  }
+  
+  try {
+    const result = await db.select({ id: booksSchema.id }).from(booksSchema).where(eq(booksSchema.slug, idOrSlug)).limit(1);
+    if (result[0]) {
+      return result[0].id;
+    }
+  } catch (error) {
+    console.error('Error resolving slug to UUID:', error);
+  }
+  
+  return idOrSlug;
+}
+
 export function createBooksRouter() {
   const router = Router();
 
@@ -158,7 +177,7 @@ export function createBooksRouter() {
   // Get reader settings for a book
   router.get("/:bookId/reader-settings", authenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const userId = (req as any).user.userId;
 
       // Placeholder response - implement with actual storage method
@@ -172,7 +191,7 @@ export function createBooksRouter() {
   // Update reader settings for a book
   router.put("/:bookId/reader-settings", authenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const userId = (req as any).user.userId;
       const { theme, fontSize, fontFamily, lineHeight, margin, ...otherSettings } = req.body;
 
@@ -187,7 +206,7 @@ export function createBooksRouter() {
   // Get reading progress for a book
   router.get("/:bookId/reading-progress", authenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const userId = (req as any).user.userId;
       
       const progress = await storage.getReadingProgress(userId, bookId);
@@ -202,7 +221,8 @@ export function createBooksRouter() {
   // Get reading progress for a specific user and book (public endpoint for comments)
   router.get("/:bookId/reading-progress/:userId", optionalAuthenticateToken, async (req, res) => {
     try {
-      const { bookId, userId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
+      const { userId } = req.params;
       
       const progress = await storage.getReadingProgress(userId, bookId);
       
@@ -216,7 +236,7 @@ export function createBooksRouter() {
   // Update reading progress for a book (upsert)
   router.put("/:bookId/reading-progress", authenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const userId = (req as any).user.userId;
       const { currentPage, totalPages, percentage, chapterIndex, pageInChapter, totalPagesInChapter, locator } = req.body;
       
@@ -244,7 +264,7 @@ export function createBooksRouter() {
   // Get chat messages for a book
   router.get("/:bookId/chat", optionalAuthenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
       
@@ -265,7 +285,7 @@ export function createBooksRouter() {
   // Get online users reading a book (for chat)
   router.get("/:bookId/chat/online", optionalAuthenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       
       // Check if book exists
       const book = await storage.getBook(bookId);
@@ -386,7 +406,7 @@ export function createBooksRouter() {
   // Get all bookmarks for a book
   router.get("/:bookId/bookmarks", authenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const userId = (req as any).user.userId;
       
       const bookmarksList = await storage.getBookmarks(userId, bookId);
@@ -401,7 +421,7 @@ export function createBooksRouter() {
   // Create a bookmark
   router.post("/:bookId/bookmarks", authenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const userId = (req as any).user.userId;
       const { title, chapterIndex, percentage, selectedText, pageInChapter, collectionId } = req.body;
       
@@ -460,7 +480,7 @@ export function createBooksRouter() {
   router.get("/:bookId/articles", optionalAuthenticateToken, async (req, res) => {
     console.log("Get articles by book endpoint called for book ID:", req.params.bookId);
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const currentUserId = (req as any).user?.userId;
       
       const result = await storage.getArticlesByBook({
@@ -481,7 +501,7 @@ export function createBooksRouter() {
   // Add a comment to a book
   router.post('/:bookId/comments', authenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const userId = (req as any).user.userId;
       const { content, parentCommentId, quotedText, attachments } = req.body;
       
@@ -671,7 +691,7 @@ export function createBooksRouter() {
   // Get comments for a book
   router.get('/:bookId/comments', optionalAuthenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const currentUserId = (req as any).user?.userId;
       
       // Verify that the book exists
@@ -736,7 +756,8 @@ export function createBooksRouter() {
   // Get user review for a book
   router.get('/:bookId/user-review/:userId', optionalAuthenticateToken, async (req, res) => {
     try {
-      const { bookId, userId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
+      const { userId } = req.params;
       
       // Verify that the book exists
       const book = await storage.getBook(bookId);
@@ -757,7 +778,7 @@ export function createBooksRouter() {
   // Create a new review for a book
   router.post('/:bookId/reviews', authenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const userId = (req as any).user.userId;
       const { content, rating, parentReviewId, quotedText, attachments } = req.body;
       
@@ -881,7 +902,7 @@ export function createBooksRouter() {
   // Get all reviews for a book
   router.get('/:bookId/reviews', optionalAuthenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       const currentUserId = (req as any).user?.userId;
       
       // Verify that the book exists
@@ -903,7 +924,7 @@ export function createBooksRouter() {
   // Get comment count for a book
   router.get('/:bookId/comments/count', optionalAuthenticateToken, async (req, res) => {
     try {
-      const { bookId } = req.params;
+      const bookId = await resolveBookId(req.params.bookId);
       
       // Verify that the book exists
       const book = await storage.getBook(bookId);
@@ -1150,6 +1171,11 @@ export function createBooksRouter() {
         } else {
           newBookData.fileType = bookFile.mimetype;
         }
+      }
+      
+      // Handle slug field if provided
+      if (bookData.slug && bookData.slug.length > 0) {
+        newBookData.slug = bookData.slug.trim().toLowerCase();
       }
       
       // Validate that at least a file path is provided

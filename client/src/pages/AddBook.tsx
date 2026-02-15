@@ -23,6 +23,7 @@ export default function AddBook() {
     title: '',
     author: '',
     description: '',
+    slug: '',
     genre: '',
     year: new Date().getFullYear().toString(),
     publishedAt: '',
@@ -106,6 +107,9 @@ export default function AddBook() {
       requestData.append('title', formData.title);
       requestData.append('author', formData.author);
       requestData.append('description', formData.description);
+      if (formData.slug) {
+        requestData.append('slug', formData.slug);
+      }
       requestData.append('genre', formData.genre);
       requestData.append('publishedYear', formData.year);
       if (formData.publishedAt) {
@@ -225,6 +229,19 @@ export default function AddBook() {
                     placeholder={t('books:authorPlaceholder')}
                     required
                   />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="slug">URL Slug (опционально)</Label>
+                  <Input
+                    id="slug"
+                    name="slug"
+                    value={formData.slug}
+                    onChange={handleChange}
+                    placeholder="warhammer-40000"
+                    title="Человеко-читаемый URL (используется вместо ID)"
+                  />
+                  <p className="text-xs text-muted-foreground">Оставьте пустым, чтобы использовать ID книги</p>
                 </div>
                 
                 <div className="space-y-2">

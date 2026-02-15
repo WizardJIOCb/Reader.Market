@@ -158,6 +158,7 @@ export class AdminStorageImpl implements AdminStorage {
           title: books.title,
           author: books.author,
           description: books.description,
+          slug: books.slug,
           uploader: users.username,
           uploaderFullName: users.fullName,
           uploadedAt: books.uploadedAt,

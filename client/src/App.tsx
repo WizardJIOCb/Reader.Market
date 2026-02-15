@@ -66,6 +66,7 @@ function Router() {
       <Route path="/stream" component={StreamPage} />
       <Route path="/users" component={PublicUsers} />
       <Route path="/book/:bookId" component={BookDetail} />
+      <Route path="/read/:bookId" component={Reader} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
       <Route path="/news" component={NewsListPage} />
       <Route path="/news/:id" component={NewsDetailPage} />
