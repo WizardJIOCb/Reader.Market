@@ -161,7 +161,7 @@ export default function Navigation({ scrollY }: NavigationProps) {
             <Link href="/register">
               <Button
                 size="sm"
-                className="bg-primary hover:bg-primary/90 text-white font-medium"
+                className="bg-primary hover:bg-primary/90 text-black font-medium"
               >
                 {t('getStarted')}
               </Button>
@@ -273,7 +273,7 @@ export default function Navigation({ scrollY }: NavigationProps) {
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button className="w-full justify-center bg-primary hover:bg-primary/90" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full justify-center bg-primary hover:bg-primary/90 text-black" onClick={() => setIsOpen(false)}>
                     {t('getStarted')}
                   </Button>
                 </Link>
