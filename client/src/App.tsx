@@ -54,7 +54,8 @@ import { apiCall } from "@/lib/api";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={LandingPage} />
+      <Route path="/" component={CoolLandingPage} />
+      <Route path="/old" component={LandingPage} />
       <Route path="/early" component={LandingPage} />
       <Route path="/landing" component={OldLandingPage} />
       <Route path="/home" component={Library} />
@@ -160,7 +161,7 @@ function App() {
   // Check if current page is reader or messages (don't show footer on these pages)
   const isReaderPage = location.startsWith('/read/');
   const isMessagesPage = location.startsWith('/messages');
-  const isCoolPage = location === '/cool';
+  const isCoolPage = location === '/' || location === '/cool';
   
   // Initialize WebSocket connection (works for both authenticated and unauthenticated users)
   useEffect(() => {

@@ -1,17 +1,122 @@
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles, BookOpen, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
 import { useTranslation } from 'react-i18next';
 
+interface PlatformStats {
+  users: number;
+  books: number;
+  articles: number;
+  activities: number;
+  news: number;
+}
+
+// Animated counter hook
+function useAnimatedCounter(end: number, duration: number = 2000, startAnimation: boolean = true) {
+  const [count, setCount] = useState(0);
+  const countRef = useRef(0);
+  const startTimeRef = useRef<number | null>(null);
+  
+  useEffect(() => {
+    if (!startAnimation || end === 0) {
+      setCount(end);
+      return;
+    }
+    
+    countRef.current = 0;
+    startTimeRef.current = null;
+    
+    const animate = (timestamp: number) => {
+      if (!startTimeRef.current) {
+        startTimeRef.current = timestamp;
+      }
+      
+      const progress = Math.min((timestamp - startTimeRef.current) / duration, 1);
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      const currentCount = Math.floor(easeOutQuart * end);
+      
+      if (currentCount !== countRef.current) {
+        countRef.current = currentCount;
+        setCount(currentCount);
+      }
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setCount(end);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [end, duration, startAnimation]);
+  
+  return count;
+}
+
+// Animated stat component
+function AnimatedStat({ value, label, delay }: { value: number | null; label: string; delay: number }) {
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+  const animatedValue = useAnimatedCounter(value || 0, 2000, shouldAnimate && value !== null);
+  
+  useEffect(() => {
+    if (value !== null) {
+      const timer = setTimeout(() => setShouldAnimate(true), delay * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [value, delay]);
+  
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+      className="text-center"
+    >
+      <div className="text-3xl sm:text-4xl font-bold text-gradient mb-1">
+        {value === null ? '...' : formatNumber(animatedValue)}
+      </div>
+      <div className="text-sm text-muted-foreground">{label}</div>
+    </motion.div>
+  );
+}
+
 export default function Hero() {
   const { t } = useTranslation('landing');
+  const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const apiUrl = import.meta.env.DEV
+          ? 'http://localhost:5001/api/stats/platform'
+          : '/api/stats/platform';
+        const response = await fetch(apiUrl);
+        if (response.ok) {
+          const data = await response.json();
+          setPlatformStats(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch platform stats:', error);
+      }
+    };
+    fetchStats();
+  }, []);
 
   const stats = [
-    { value: '10K+', label: t('statsActiveReaders') },
-    { value: '50K+', label: t('statsBooksProcessed') },
-    { value: '1M+', label: t('statsAISummaries') },
-    { value: '4.9', label: t('statsUserRating') },
+    { value: platformStats?.users ?? null, label: t('statsActiveReaders') },
+    { value: platformStats?.books ?? null, label: t('statsBooks') },
+    { value: platformStats?.articles ?? null, label: t('statsArticles') },
+    { value: platformStats?.news ?? null, label: t('statsNews') },
+    { value: platformStats?.activities ?? null, label: t('statsActivities') },
   ];
 
   return (
@@ -152,20 +257,14 @@ export default function Hero() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="mt-16 pt-16 border-t border-white/5"
           >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-8">
               {stats.map((stat, index) => (
-                <motion.div
+                <AnimatedStat
                   key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 + index * 0.1 }}
-                  className="text-center"
-                >
-                  <div className="text-3xl sm:text-4xl font-bold text-gradient mb-1">
-                    {stat.value}
-                  </div>
-                  <div className="text-sm text-muted-foreground">{stat.label}</div>
-                </motion.div>
+                  value={stat.value}
+                  label={stat.label}
+                  delay={0.5 + index * 0.1}
+                />
               ))}
             </div>
           </motion.div>

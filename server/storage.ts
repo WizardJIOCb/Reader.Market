@@ -252,6 +252,7 @@ export interface IStorage {
   getUsersWithStats(limit: number, offset: number): Promise<any[]>;
   getRecentActivity(limit: number): Promise<any[]>;
   getNewsCountSince(date: Date): Promise<number>;
+  getNewsCount(): Promise<number>;
   getCommentsCountSince(date: Date): Promise<number>;
   getReviewsCountSince(date: Date): Promise<number>;
   
@@ -4922,6 +4923,61 @@ export class DBStorage implements IStorage {
       return parseInt(String(result[0]?.count) || '0');
     } catch (error) {
       console.error("Error getting users count:", error);
+      return 0;
+    }
+  }
+
+  async getBooksCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`COUNT(*)`.as('count') })
+        .from(books)
+        .where(sql`is_active = true`)
+        .execute();
+        
+      return parseInt(String(result[0]?.count) || '0');
+    } catch (error) {
+      console.error("Error getting books count:", error);
+      return 0;
+    }
+  }
+
+  async getArticlesCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`COUNT(*)`.as('count') })
+        .from(articles)
+        .where(eq(articles.status, 'published'))
+        .execute();
+        
+      return parseInt(String(result[0]?.count) || '0');
+    } catch (error) {
+      console.error("Error getting articles count:", error);
+      return 0;
+    }
+  }
+
+  async getActivitiesCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`COUNT(*)`.as('count') })
+        .from(activityFeed)
+        .execute();
+        
+      return parseInt(String(result[0]?.count) || '0');
+    } catch (error) {
+      console.error("Error getting activities count:", error);
+      return 0;
+    }
+  }
+
+  async getNewsCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql<number>`COUNT(*)`.as('count') })
+        .from(news)
+        .where(eq(news.published, true))
+        .execute();
+        
+      return parseInt(String(result[0]?.count) || '0');
+    } catch (error) {
+      console.error("Error getting news count:", error);
       return 0;
     }
   }

@@ -9,6 +9,30 @@ import { eq, and, or, asc, desc, sql } from 'drizzle-orm';
 export function createStatsRouter() {
   const router = Router();
 
+  // Public: Get platform statistics for landing page
+  router.get("/platform", async (req, res) => {
+    try {
+      const [usersCount, booksCount, articlesCount, activitiesCount, newsCount] = await Promise.all([
+        storage.getUsersCount(),
+        storage.getBooksCount(),
+        storage.getArticlesCount(),
+        storage.getActivitiesCount(),
+        storage.getNewsCount()
+      ]);
+      
+      res.json({
+        users: usersCount,
+        books: booksCount,
+        articles: articlesCount,
+        activities: activitiesCount,
+        news: newsCount
+      });
+    } catch (error) {
+      console.error("Get platform stats error:", error);
+      res.status(500).json({ error: "Failed to get platform statistics" });
+    }
+  });
+
   // Get user statistics (open to all users)
   router.get("/api/users/:userId/statistics", optionalAuthenticateToken, async (req, res) => {
     console.log("Get user statistics endpoint called");
