@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, BookOpen, Home, Users, Search, FolderOpen, FileText, User, MessageSquare, Newspaper } from 'lucide-react';
+import { Menu, X, BookOpen, Home, Users, Search, FolderOpen, FileText, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Link } from 'wouter';
 
 interface NavigationProps {
   scrollY: number;
@@ -10,7 +11,6 @@ interface NavigationProps {
 const navItems = [
   { name: 'Home', href: '#home', icon: Home },
   { name: 'Books', href: '#books', icon: BookOpen },
-  { name: 'Articles', href: '#articles', icon: Newspaper },
   { name: 'How It Works', href: '#how-it-works', icon: FileText },
   { name: 'Features', href: '#features', icon: Search },
   { name: 'Collections', href: '#collections', icon: FolderOpen },
@@ -66,31 +66,25 @@ export default function Navigation({ scrollY }: NavigationProps) {
           </nav>
 
           {/* Desktop Actions */}
-          <div className="hidden lg:flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground relative"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-[10px] font-bold text-background rounded-full flex items-center justify-center">
-                3
-              </span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <User className="w-4 h-4 mr-2" />
-              Sign In
-            </Button>
-            <Button
-              size="sm"
-              className="bg-primary hover:bg-primary/90 text-white font-medium"
-            >
-              Get Started
-            </Button>
+          <div className="hidden lg:flex items-center gap-3">
+            <Link href="/login">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <User className="w-4 h-4 mr-2" />
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button
+                size="sm"
+                className="bg-primary hover:bg-primary/90 text-white font-medium"
+              >
+                Get Started
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -133,28 +127,18 @@ export default function Navigation({ scrollY }: NavigationProps) {
                   {item.name}
                 </motion.a>
               ))}
-              <motion.a
-                href="#messages"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: navItems.length * 0.05 }}
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <MessageSquare className="w-5 h-5" />
-                Messages
-                <span className="ml-auto w-5 h-5 bg-accent text-[10px] font-bold text-background rounded-full flex items-center justify-center">
-                  3
-                </span>
-              </motion.a>
               <div className="pt-4 space-y-2">
-                <Button variant="outline" className="w-full justify-center">
-                  <User className="w-4 h-4 mr-2" />
-                  Sign In
-                </Button>
-                <Button className="w-full justify-center bg-primary hover:bg-primary/90">
-                  Get Started — Free
-                </Button>
+                <Link href="/login">
+                  <Button variant="outline" className="w-full justify-center" onClick={() => setIsOpen(false)}>
+                    <User className="w-4 h-4 mr-2" />
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button className="w-full justify-center bg-primary hover:bg-primary/90" onClick={() => setIsOpen(false)}>
+                    Get Started — Free
+                  </Button>
+                </Link>
               </div>
             </nav>
           </motion.div>

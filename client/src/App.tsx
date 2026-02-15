@@ -44,6 +44,7 @@ import { AdminArticlesPage } from "@/pages/admin/AdminArticlesPage";
 import { AdminCategoriesPage } from "@/pages/admin/AdminCategoriesPage";
 import { AdminCollectionsPage } from "@/pages/admin/AdminCollectionsPage";
 import GitHistoryPage from "@/pages/GitHistoryPage";
+import CoolLandingPage from "@/pages/CoolLandingPage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
@@ -89,6 +90,7 @@ function Router() {
       <Route path="/admin/rating-system" component={RatingSystemSettings} />
       <Route path="/admin/user-rating-system" component={UserRatingSystemSettings} />
       <Route path="/git-to-gpt" component={GitHistoryPage} />
+      <Route path="/cool" component={CoolLandingPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -158,6 +160,7 @@ function App() {
   // Check if current page is reader or messages (don't show footer on these pages)
   const isReaderPage = location.startsWith('/read/');
   const isMessagesPage = location.startsWith('/messages');
+  const isCoolPage = location === '/cool';
   
   // Initialize WebSocket connection (works for both authenticated and unauthenticated users)
   useEffect(() => {
@@ -181,11 +184,11 @@ function App() {
               <WebSocketDebugger />
               <div className="flex flex-col min-h-screen">
                 <Toaster />
-                <Navbar />
-                <main className="flex-1 pt-14">
+                {!isCoolPage && <Navbar />}
+                <main className={`flex-1${isCoolPage ? '' : ' pt-14'}`}>
                   <Router />
                 </main>
-                {!isReaderPage && !isMessagesPage && <Footer />}
+                {!isReaderPage && !isMessagesPage && !isCoolPage && <Footer />}
               </div>
             </MessageNotificationProvider>
           </StreamNotificationsProvider>
