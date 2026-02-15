@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { MessageSquare, Eye, Heart, ArrowRight, Calendar, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
+import { useTranslation } from 'react-i18next';
 
 export default function LatestNews() {
+  const { t, i18n } = useTranslation('landing');
   const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +33,8 @@ export default function LatestNews() {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '';
     try {
-      return new Date(dateStr).toLocaleDateString('ru-RU', {
+      const locale = i18n.language === 'ru' ? 'ru-RU' : 'en-US';
+      return new Date(dateStr).toLocaleDateString(locale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -59,11 +62,11 @@ export default function LatestNews() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-            <span className="text-white">Latest</span>{' '}
-            <span className="text-gradient">News</span>
+            <span className="text-white">{t('latest')}</span>{' '}
+            <span className="text-gradient">{t('news')}</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Stay updated with our latest announcements and features
+            {t('latestNewsSubtitle')}
           </p>
         </motion.div>
 
@@ -139,7 +142,7 @@ export default function LatestNews() {
         {/* Empty State */}
         {!loading && news.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-muted-foreground text-lg">No news available yet</p>
+            <p className="text-muted-foreground text-lg">{t('noNewsAvailable')}</p>
           </div>
         )}
 
@@ -157,7 +160,7 @@ export default function LatestNews() {
                 variant="outline"
                 className="border-white/20 hover:bg-white/5 px-8"
               >
-                View All News
+                {t('viewAllNews')}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>

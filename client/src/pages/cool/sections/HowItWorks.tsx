@@ -9,59 +9,62 @@ import {
   Star, 
   Users 
 } from 'lucide-react';
-
-const steps = [
-  {
-    icon: Sparkles,
-    title: 'Read with AI assistance',
-    description: 'Get summaries, key ideas, and explanations as you read.',
-    color: 'from-purple-500 to-purple-600',
-  },
-  {
-    icon: Search,
-    title: 'Search available books',
-    description: 'Find books already in our community library.',
-    color: 'from-blue-500 to-blue-600',
-  },
-  {
-    icon: Upload,
-    title: 'Upload your book',
-    description: 'Add your own books to your personal library (multiple formats supported).',
-    color: 'from-green-500 to-green-600',
-  },
-  {
-    icon: Lightbulb,
-    title: 'Remember more & discover',
-    description: 'Save insights and get recommendations based on what you actually read.',
-    color: 'from-yellow-500 to-orange-500',
-  },
-  {
-    icon: Bookmark,
-    title: 'Bookmarks & Collections',
-    description: 'Create personal book collections and manage bookmarks for easy access.',
-    color: 'from-pink-500 to-rose-500',
-  },
-  {
-    icon: MessageSquare,
-    title: 'In-book Chat',
-    description: 'Discuss books in real-time with other readers right within the text.',
-    color: 'from-cyan-500 to-blue-500',
-  },
-  {
-    icon: Star,
-    title: 'Book Ratings',
-    description: 'Rate books on a 10-point scale and view community ratings.',
-    color: 'from-amber-500 to-orange-500',
-  },
-  {
-    icon: Users,
-    title: 'User Ratings',
-    description: 'Give and receive feedback on other readers based on their activity.',
-    color: 'from-indigo-500 to-purple-500',
-  },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function HowItWorks() {
+  const { t } = useTranslation('landing');
+
+  const steps = [
+    {
+      icon: Sparkles,
+      title: t('step1Title'),
+      description: t('step1Description'),
+      color: 'from-purple-500 to-purple-600',
+    },
+    {
+      icon: Search,
+      title: t('step2Title'),
+      description: t('step2Description'),
+      color: 'from-blue-500 to-blue-600',
+    },
+    {
+      icon: Upload,
+      title: t('step3Title'),
+      description: t('step3Description'),
+      color: 'from-green-500 to-green-600',
+    },
+    {
+      icon: Lightbulb,
+      title: t('step4Title'),
+      description: t('step4Description'),
+      color: 'from-yellow-500 to-orange-500',
+    },
+    {
+      icon: Bookmark,
+      title: t('step5Title'),
+      description: t('step5Description'),
+      color: 'from-pink-500 to-rose-500',
+    },
+    {
+      icon: MessageSquare,
+      title: t('step6Title'),
+      description: t('step6Description'),
+      color: 'from-cyan-500 to-blue-500',
+    },
+    {
+      icon: Star,
+      title: t('step7Title'),
+      description: t('step7Description'),
+      color: 'from-amber-500 to-orange-500',
+    },
+    {
+      icon: Users,
+      title: t('step8Title'),
+      description: t('step8Description'),
+      color: 'from-indigo-500 to-purple-500',
+    },
+  ];
+
   return (
     <section id="how-it-works" className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background */}
@@ -85,11 +88,11 @@ export default function HowItWorks() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-            <span className="text-white">How It</span>{' '}
-            <span className="text-gradient">Works</span>
+            <span className="text-white">{t('howIt')}</span>{' '}
+            <span className="text-gradient">{t('works')}</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Eight simple steps to enhance your reading experience with AI-powered insights
+            {t('howItWorksSubtitle')}
           </p>
         </motion.div>
 

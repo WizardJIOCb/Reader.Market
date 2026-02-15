@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { BookOpen, ArrowRight, Mail, Phone, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
+import { useTranslation } from 'react-i18next';
 
 const socialLinks = [
   { name: 'Telegram', href: 'https://t.me/WizardJIOCb', icon: MessageCircle },
@@ -12,34 +13,36 @@ const socialLinks = [
   { name: 'GitHub', href: 'https://github.com/WizardJIOCb', icon: MessageCircle },
 ];
 
-const footerLinks = [
-  {
-    title: 'Product',
-    links: [
-      { name: 'Features', href: '#features' },
-      { name: 'How It Works', href: '#how-it-works' },
-      { name: 'Roadmap', href: '#collections' },
-    ],
-  },
-  {
-    title: 'Community',
-    links: [
-      { name: 'Books', route: '/home' },
-      { name: 'Users', route: '/users' },
-      { name: 'Collections', route: '/collections' },
-      { name: 'Articles', route: '/articles' },
-    ],
-  },
-  {
-    title: 'Support',
-    links: [
-      { name: 'News', route: '/news' },
-      { name: 'Contact Us', href: 'mailto:contact@reader.market' },
-    ],
-  },
-];
-
 export default function Footer() {
+  const { t } = useTranslation('landing');
+
+  const footerLinks = [
+    {
+      title: t('footerProduct'),
+      links: [
+        { name: t('footerFeatures'), href: '#features' },
+        { name: t('footerHowItWorks'), href: '#how-it-works' },
+        { name: t('footerRoadmap'), href: '#collections' },
+      ],
+    },
+    {
+      title: t('footerCommunity'),
+      links: [
+        { name: t('footerBooks'), route: '/home' },
+        { name: t('footerUsers'), route: '/users' },
+        { name: t('footerCollections'), route: '/collections' },
+        { name: t('footerArticles'), route: '/articles' },
+      ],
+    },
+    {
+      title: t('footerSupport'),
+      links: [
+        { name: t('footerNews'), route: '/news' },
+        { name: t('footerContactUs'), href: 'mailto:contact@reader.market' },
+      ],
+    },
+  ];
+
   return (
     <footer className="relative overflow-hidden">
       {/* CTA Section */}
@@ -61,14 +64,14 @@ export default function Footer() {
             transition={{ duration: 0.6 }}
           >
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-              <span className="text-white">Start reading smarter.</span>
+              <span className="text-white">{t('startReadingSmarter')}</span>
               <br />
               <span className="text-gradient">
-                Turn books into knowledge with AI.
+                {t('turnBooksIntoKnowledge')}
               </span>
             </h2>
             <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
-              Join thousands of readers who are already enjoying AI-enhanced book experiences
+              {t('ctaDescription')}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/register">
@@ -77,7 +80,7 @@ export default function Footer() {
                   className="group bg-primary hover:bg-primary/90 text-white font-semibold px-8 py-6 text-lg rounded-xl glow-purple"
                 >
                   <BookOpen className="w-5 h-5 mr-2" />
-                  Get Started — Free
+                  {t('getStarted')}
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
@@ -105,7 +108,7 @@ export default function Footer() {
                 </span>
               </motion.a>
               <p className="text-muted-foreground mb-6 max-w-sm">
-                An early-stage product actively developed and shaped based on user feedback.
+                {t('footerDescription')}
               </p>
               
               {/* Contact */}
@@ -115,14 +118,14 @@ export default function Footer() {
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white transition-colors"
                 >
                   <Mail className="w-4 h-4" />
-                  Email
+                  {t('email')}
                 </a>
                 <a
                   href="tel:+79264769929"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white transition-colors"
                 >
                   <Phone className="w-4 h-4" />
-                  Phone
+                  {t('phone')}
                 </a>
               </div>
 
@@ -180,10 +183,10 @@ export default function Footer() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">
-                &copy; 2026 Reader.Market. All rights reserved.
+                &copy; {t('footerCopyright')}
               </p>
               <p className="text-sm text-muted-foreground">
-                Made with love for book lovers
+                {t('footerMadeWith')}
               </p>
             </div>
           </div>

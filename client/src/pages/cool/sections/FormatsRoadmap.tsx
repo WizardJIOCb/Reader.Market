@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { FileText, Check, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const supportedFormats = [
   { name: 'PDF', icon: 'PDF', available: true },
@@ -16,6 +17,8 @@ const comingSoonFormats = [
 ];
 
 export default function FormatsRoadmap() {
+  const { t } = useTranslation('landing');
+
   return (
     <section id="collections" className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background */}
@@ -38,11 +41,11 @@ export default function FormatsRoadmap() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-            <span className="text-white">Formats &</span>{' '}
-            <span className="text-gradient">Roadmap</span>
+            <span className="text-white">{t('formatsAnd')}</span>{' '}
+            <span className="text-gradient">{t('roadmap')}</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Wide format support with more coming soon
+            {t('formatsSubtitle')}
           </p>
         </motion.div>
 
@@ -60,7 +63,7 @@ export default function FormatsRoadmap() {
                   <Check className="w-5 h-5 text-green-500" />
                 </div>
                 <h3 className="text-2xl font-bold text-white">
-                  Currently Supported
+                  {t('currentlySupported')}
                 </h3>
               </div>
 
@@ -99,7 +102,7 @@ export default function FormatsRoadmap() {
                   <Clock className="w-5 h-5 text-amber-500" />
                 </div>
                 <h3 className="text-2xl font-bold text-white">
-                  Coming Soon
+                  {t('comingSoon')}
                 </h3>
               </div>
 
@@ -125,7 +128,7 @@ export default function FormatsRoadmap() {
 
               <div className="mt-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
                 <p className="text-sm text-amber-400 text-center">
-                  Have a format you'd like us to support? Let us know!
+                  {t('formatRequestText')}
                 </p>
               </div>
             </div>

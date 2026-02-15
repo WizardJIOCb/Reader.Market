@@ -4,6 +4,7 @@ import { Star, MessageCircle, Eye, BookOpen, Library, Heart, Flame, Frown, Thumb
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'wouter';
+import { useTranslation } from 'react-i18next';
 
 const reactionIconMap: Record<string, React.ElementType> = {
   '❤️': Heart,
@@ -23,6 +24,7 @@ const reactionIconMap: Record<string, React.ElementType> = {
 const PLACEHOLDER_COVER = 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=400&h=600&fit=crop';
 
 export default function PopularBooks() {
+  const { t } = useTranslation('landing');
   const [books, setBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,11 +66,11 @@ export default function PopularBooks() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-            <span className="text-white">Popular</span>{' '}
-            <span className="text-gradient">Books</span>
+            <span className="text-white">{t('popular')}</span>{' '}
+            <span className="text-gradient">{t('books')}</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Most read and highly rated books from our community of passionate readers
+            {t('popularBooksSubtitle')}
           </p>
         </motion.div>
 
@@ -91,9 +93,10 @@ export default function PopularBooks() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
+                className="h-full"
               >
-                <div className="group relative bg-gradient-card rounded-2xl overflow-hidden border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-purple">
-                  <div className="flex flex-col sm:flex-row">
+                <div className="group relative h-full bg-gradient-card rounded-2xl overflow-hidden border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-purple">
+                  <div className="flex flex-col sm:flex-row h-full">
                     {/* Book Cover */}
                     <div className="relative w-full sm:w-48 h-64 sm:h-auto flex-shrink-0 overflow-hidden">
                       <motion.img
@@ -115,7 +118,7 @@ export default function PopularBooks() {
                     </div>
 
                     {/* Book Info */}
-                    <div className="flex-1 p-5 sm:p-6">
+                    <div className="flex-1 p-5 sm:p-6 flex flex-col">
                       {/* Title & Author */}
                       <h3 className="text-xl font-bold text-white mb-2 group-hover:text-gradient transition-all line-clamp-1">
                         {book.title}
@@ -201,13 +204,13 @@ export default function PopularBooks() {
                       )}
 
                       {/* Progress & Actions */}
-                      <div className="space-y-3">
+                      <div className="space-y-3 mt-auto">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Progress</span>
+                          <span className="text-muted-foreground">{t('progress')}</span>
                           <span className="text-muted-foreground">
                             {book.readingProgress?.percentage > 0
                               ? `${Math.round(book.readingProgress.percentage)}%`
-                              : "Haven't started yet"}
+                              : t('notStartedYet')}
                           </span>
                         </div>
                         <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -223,7 +226,7 @@ export default function PopularBooks() {
                               className="flex-1 bg-primary hover:bg-primary/90 text-white"
                             >
                               <BookOpen className="w-4 h-4 mr-2" />
-                              Read
+                              {t('read')}
                             </Button>
                           </Link>
                           <Link href={`/book/${book.id}`}>
@@ -232,7 +235,7 @@ export default function PopularBooks() {
                               variant="outline"
                               className="border-white/20 hover:bg-white/5"
                             >
-                              Details
+                              {t('details')}
                             </Button>
                           </Link>
                         </div>
@@ -248,7 +251,7 @@ export default function PopularBooks() {
         {/* Empty State */}
         {!loading && books.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-muted-foreground text-lg">No books available yet</p>
+            <p className="text-muted-foreground text-lg">{t('noBooksAvailable')}</p>
           </div>
         )}
 
@@ -267,7 +270,7 @@ export default function PopularBooks() {
                 variant="outline"
                 className="border-white/20 hover:bg-white/5 px-8"
               >
-                View All Books
+                {t('viewAllBooks')}
                 <BookOpen className="w-4 h-4 ml-2" />
               </Button>
             </Link>

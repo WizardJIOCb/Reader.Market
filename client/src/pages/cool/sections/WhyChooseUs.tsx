@@ -1,46 +1,49 @@
 import { motion } from 'framer-motion';
 import { Brain, Library, Shield, BookOpen, MessageCircle, Star } from 'lucide-react';
-
-const reasons = [
-  {
-    icon: Brain,
-    title: 'Built for understanding',
-    subtitle: 'Not just reading pages',
-    description: 'Focus on comprehension and retention rather than just completing books. Our AI helps you truly understand the material.',
-  },
-  {
-    icon: Library,
-    title: 'Your personal library',
-    subtitle: 'Upload & manage',
-    description: 'Upload, manage and analyze your own books, shelves, articles, and documents in one centralized place.',
-  },
-  {
-    icon: Shield,
-    title: 'Privacy-first',
-    subtitle: 'Fast AI processing',
-    description: 'Your books are processed securely with respect for your privacy. We never share your personal data.',
-  },
-  {
-    icon: BookOpen,
-    title: 'Ideal for non-fiction',
-    subtitle: 'Deep reading support',
-    description: 'Designed specifically for content that requires comprehension and analysis, not just casual reading.',
-  },
-  {
-    icon: MessageCircle,
-    title: 'Live Discussions',
-    subtitle: 'Community engagement',
-    description: 'Join live discussions about books with other readers and share insights in real-time.',
-  },
-  {
-    icon: Star,
-    title: 'Book Ratings & Reviews',
-    subtitle: 'Discover quality content',
-    description: 'Rate books you\'ve read and access community ratings to discover the best content.',
-  },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function WhyChooseUs() {
+  const { t } = useTranslation('landing');
+
+  const reasons = [
+    {
+      icon: Brain,
+      title: t('benefit1Title'),
+      subtitle: t('benefit1Subtitle'),
+      description: t('benefit1Description'),
+    },
+    {
+      icon: Library,
+      title: t('benefit2Title'),
+      subtitle: t('benefit2Subtitle'),
+      description: t('benefit2Description'),
+    },
+    {
+      icon: Shield,
+      title: t('benefit3Title'),
+      subtitle: t('benefit3Subtitle'),
+      description: t('benefit3Description'),
+    },
+    {
+      icon: BookOpen,
+      title: t('benefit4Title'),
+      subtitle: t('benefit4Subtitle'),
+      description: t('benefit4Description'),
+    },
+    {
+      icon: MessageCircle,
+      title: t('benefit5Title'),
+      subtitle: t('benefit5Subtitle'),
+      description: t('benefit5Description'),
+    },
+    {
+      icon: Star,
+      title: t('benefit6Title'),
+      subtitle: t('benefit6Subtitle'),
+      description: t('benefit6Description'),
+    },
+  ];
+
   return (
     <section className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background */}
@@ -63,11 +66,11 @@ export default function WhyChooseUs() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-            <span className="text-white">Why</span>{' '}
+            <span className="text-white">{t('why')}</span>{' '}
             <span className="text-gradient">Reader.market</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Built specifically for understanding and retention
+            {t('whyReaderMarketSubtitle')}
           </p>
         </motion.div>
 

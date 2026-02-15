@@ -1,34 +1,37 @@
 import { motion } from 'framer-motion';
 import { BookOpen, GraduationCap, Briefcase, Brain, Check } from 'lucide-react';
-
-const audiences = [
-  {
-    icon: BookOpen,
-    title: 'Non-fiction readers',
-    description: 'Dive deeper into complex topics with AI-powered insights and summaries.',
-    features: ['Chapter summaries', 'Key concept extraction', 'Quick reference'],
-  },
-  {
-    icon: GraduationCap,
-    title: 'Students & lifelong learners',
-    description: 'Accelerate your learning and retain more information from every book.',
-    features: ['Study aids', 'Note organization', 'Progress tracking'],
-  },
-  {
-    icon: Briefcase,
-    title: 'Professionals who read to grow',
-    description: 'Stay ahead in your field with efficient knowledge absorption.',
-    features: ['Industry insights', 'Skill development', 'Time efficiency'],
-  },
-  {
-    icon: Brain,
-    title: 'People who want to remember',
-    description: 'Transform reading into lasting knowledge with our retention tools.',
-    features: ['Spaced repetition', 'Smart bookmarks', 'Review reminders'],
-  },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function TargetAudience() {
+  const { t } = useTranslation('landing');
+
+  const audiences = [
+    {
+      icon: BookOpen,
+      title: t('audience1Title'),
+      description: t('audience1Description'),
+      features: [t('audience1Feature1'), t('audience1Feature2'), t('audience1Feature3')],
+    },
+    {
+      icon: GraduationCap,
+      title: t('audience2Title'),
+      description: t('audience2Description'),
+      features: [t('audience2Feature1'), t('audience2Feature2'), t('audience2Feature3')],
+    },
+    {
+      icon: Briefcase,
+      title: t('audience3Title'),
+      description: t('audience3Description'),
+      features: [t('audience3Feature1'), t('audience3Feature2'), t('audience3Feature3')],
+    },
+    {
+      icon: Brain,
+      title: t('audience4Title'),
+      description: t('audience4Description'),
+      features: [t('audience4Feature1'), t('audience4Feature2'), t('audience4Feature3')],
+    },
+  ];
+
   return (
     <section id="users" className="py-24 lg:py-32 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
@@ -41,11 +44,11 @@ export default function TargetAudience() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-            <span className="text-white">Who It Is</span>{' '}
-            <span className="text-gradient">For</span>
+            <span className="text-white">{t('whoItIs')}</span>{' '}
+            <span className="text-gradient">{t('for')}</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Perfect for readers who want to maximize their learning
+            {t('whoIsItForSubtitle')}
           </p>
         </motion.div>
 

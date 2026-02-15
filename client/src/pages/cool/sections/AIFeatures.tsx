@@ -1,34 +1,37 @@
 import { motion } from 'framer-motion';
 import { FileText, Lightbulb, Zap, Compass } from 'lucide-react';
-
-const features = [
-  {
-    icon: FileText,
-    title: 'Concise Chapter Summaries',
-    description: 'Get AI-generated summaries of each chapter to quickly grasp key concepts without missing important details.',
-    gradient: 'from-purple-500 to-indigo-500',
-  },
-  {
-    icon: Lightbulb,
-    title: 'Key Ideas & Insights',
-    description: 'Extract important concepts and insights from your books automatically, organized for easy reference.',
-    gradient: 'from-amber-500 to-orange-500',
-  },
-  {
-    icon: Zap,
-    title: 'Understand Complex Books Faster',
-    description: 'AI assistance helps you comprehend difficult material more efficiently with explanations and context.',
-    gradient: 'from-cyan-500 to-blue-500',
-  },
-  {
-    icon: Compass,
-    title: 'Personalized Recommendations',
-    description: 'Receive book suggestions based on your reading history, preferences, and learning goals.',
-    gradient: 'from-pink-500 to-rose-500',
-  },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function AIFeatures() {
+  const { t } = useTranslation('landing');
+
+  const features = [
+    {
+      icon: FileText,
+      title: t('feature1Title'),
+      description: t('feature1Description'),
+      gradient: 'from-purple-500 to-indigo-500',
+    },
+    {
+      icon: Lightbulb,
+      title: t('feature2Title'),
+      description: t('feature2Description'),
+      gradient: 'from-amber-500 to-orange-500',
+    },
+    {
+      icon: Zap,
+      title: t('feature3Title'),
+      description: t('feature3Description'),
+      gradient: 'from-cyan-500 to-blue-500',
+    },
+    {
+      icon: Compass,
+      title: t('feature4Title'),
+      description: t('feature4Description'),
+      gradient: 'from-pink-500 to-rose-500',
+    },
+  ];
+
   return (
     <section id="features" className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background Gradient */}
@@ -58,16 +61,16 @@ export default function AIFeatures() {
           >
             <Zap className="w-4 h-4 text-accent" />
             <span className="text-sm font-medium text-muted-foreground">
-              Powered by Advanced AI
+              {t('poweredByAdvancedAI')}
             </span>
           </motion.div>
 
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-            <span className="text-white">What AI Helps</span>{' '}
-            <span className="text-gradient">You Do</span>
+            <span className="text-white">{t('whatAIHelps')}</span>{' '}
+            <span className="text-gradient">{t('youDo')}</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Powerful AI features to enhance your reading experience and maximize your learning
+            {t('aiCapabilitiesSubtitle')}
           </p>
         </motion.div>
 
