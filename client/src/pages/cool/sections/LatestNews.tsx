@@ -92,7 +92,7 @@ export default function LatestNews() {
                 className="group"
               >
                 <Link href={`/news/${item.id}`}>
-                  <div className="h-full p-6 rounded-2xl bg-gradient-card border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-purple flex flex-col cursor-pointer">
+                  <div className="h-full p-6 rounded-2xl bg-gradient-card border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-green flex flex-col cursor-pointer">
                     {/* Title */}
                     <h3 className="text-xl font-bold text-white mb-3 group-hover:text-gradient transition-all line-clamp-2">
                       {item.title}

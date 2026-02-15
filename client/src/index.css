@@ -153,7 +153,7 @@
   --card-foreground: 0 0% 98%;
   --popover: 220 20% 8%;
   --popover-foreground: 0 0% 98%;
-  --primary: 265 85% 60%;
+  --primary: 160 85% 40%;
   --primary-foreground: 0 0% 100%;
   --secondary: 220 15% 15%;
   --secondary-foreground: 0 0% 98%;
@@ -165,7 +165,7 @@
   --destructive-foreground: 0 0% 98%;
   --border: 220 15% 18%;
   --input: 220 15% 18%;
-  --ring: 265 85% 60%;
+  --ring: 160 85% 40%;
   --radius: 0.75rem;
   font-family: 'Inter', sans-serif;
 }
@@ -176,21 +176,21 @@
 }
 
 .cool-theme .text-gradient {
-  background: linear-gradient(135deg, hsl(265 85% 70%) 0%, hsl(35 95% 55%) 100%);
+  background: linear-gradient(135deg, hsl(160 85% 50%) 0%, hsl(35 95% 55%) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-.cool-theme .text-gradient-purple {
-  background: linear-gradient(135deg, hsl(265 85% 70%) 0%, hsl(290 85% 65%) 100%);
+.cool-theme .text-gradient-green {
+  background: linear-gradient(135deg, hsl(160 85% 50%) 0%, hsl(140 70% 45%) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .cool-theme .bg-gradient-hero {
-  background: radial-gradient(ellipse at top, hsl(265 50% 15%) 0%, transparent 50%),
+  background: radial-gradient(ellipse at top, hsl(160 50% 12%) 0%, transparent 50%),
               radial-gradient(ellipse at bottom right, hsl(35 50% 15%) 0%, transparent 40%),
               hsl(220 25% 5%);
 }
@@ -199,7 +199,8 @@
   background: linear-gradient(145deg, hsl(220 20% 10%) 0%, hsl(220 20% 6%) 100%);
 }
 
-.cool-theme .glow-purple { box-shadow: 0 0 40px -10px hsl(265 85% 60% / 0.4); }
+.cool-theme .glow-green { box-shadow: 0 0 40px -10px hsl(160 85% 40% / 0.4); }
+.cool-theme .glow-purple { box-shadow: 0 0 40px -10px hsl(160 85% 40% / 0.4); }
 .cool-theme .glow-orange { box-shadow: 0 0 40px -10px hsl(35 95% 55% / 0.4); }
 
 .cool-theme .glass {

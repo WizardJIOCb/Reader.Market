@@ -19,7 +19,7 @@ export default function HowItWorks() {
       icon: Sparkles,
       title: t('step1Title'),
       description: t('step1Description'),
-      color: 'from-purple-500 to-purple-600',
+      color: 'from-emerald-500 to-emerald-600',
     },
     {
       icon: Search,
@@ -43,7 +43,7 @@ export default function HowItWorks() {
       icon: Bookmark,
       title: t('step5Title'),
       description: t('step5Description'),
-      color: 'from-pink-500 to-rose-500',
+      color: 'from-emerald-500 to-green-600',
     },
     {
       icon: MessageSquare,
@@ -61,7 +61,7 @@ export default function HowItWorks() {
       icon: Users,
       title: t('step8Title'),
       description: t('step8Description'),
-      color: 'from-indigo-500 to-purple-500',
+      color: 'from-teal-500 to-emerald-500',
     },
   ];
 
@@ -108,7 +108,7 @@ export default function HowItWorks() {
             >
               <div className="group relative h-full">
                 {/* Card */}
-                <div className="relative h-full p-6 rounded-2xl bg-gradient-card border border-white/5 hover:border-primary/30 transition-all duration-500 group-hover:glow-purple">
+                <div className="relative h-full p-6 rounded-2xl bg-gradient-card border border-white/5 hover:border-primary/30 transition-all duration-500 group-hover:glow-green">
                   {/* Step Number */}
                   <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
                     {index + 1}

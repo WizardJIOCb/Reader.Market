@@ -10,7 +10,7 @@ export default function AIFeatures() {
       icon: FileText,
       title: t('feature1Title'),
       description: t('feature1Description'),
-      gradient: 'from-purple-500 to-indigo-500',
+      gradient: 'from-emerald-500 to-teal-500',
     },
     {
       icon: Lightbulb,
@@ -28,7 +28,7 @@ export default function AIFeatures() {
       icon: Compass,
       title: t('feature4Title'),
       description: t('feature4Description'),
-      gradient: 'from-pink-500 to-rose-500',
+      gradient: 'from-emerald-500 to-green-600',
     },
   ];
 
@@ -84,7 +84,7 @@ export default function AIFeatures() {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
             >
-              <div className="group relative h-full p-8 rounded-2xl bg-gradient-card border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-purple overflow-hidden">
+              <div className="group relative h-full p-8 rounded-2xl bg-gradient-card border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-green overflow-hidden">
                 {/* Background Glow */}
                 <div className={`absolute -top-20 -right-20 w-40 h-40 rounded-full bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-10 blur-3xl transition-opacity duration-500`} />
 

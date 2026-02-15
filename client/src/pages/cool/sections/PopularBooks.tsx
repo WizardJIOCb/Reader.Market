@@ -95,7 +95,7 @@ export default function PopularBooks() {
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 className="h-full"
               >
-                <div className="group relative h-full bg-gradient-card rounded-2xl overflow-hidden border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-purple">
+                <div className="group relative h-full bg-gradient-card rounded-2xl overflow-hidden border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-green">
                   <div className="flex flex-col sm:flex-row h-full">
                     {/* Book Cover */}
                     <div className="relative w-full sm:w-48 h-64 sm:h-auto flex-shrink-0 overflow-hidden">
@@ -261,7 +261,7 @@ export default function PopularBooks() {
                           <Link href={`/read/${book.id}`}>
                             <Button
                               size="sm"
-                              className="flex-1 bg-primary hover:bg-primary/90 text-white"
+                              className="flex-1 bg-primary hover:bg-primary/90 text-black"
                             >
                               <BookOpen className="w-4 h-4 mr-2" />
                               {t('read')}

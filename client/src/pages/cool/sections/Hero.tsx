@@ -126,7 +126,7 @@ export default function Hero() {
             <Link href="/register">
               <Button
                 size="lg"
-                className="group bg-primary hover:bg-primary/90 text-white font-semibold px-8 py-6 text-lg rounded-xl glow-purple transition-all"
+                className="group bg-primary hover:bg-primary/90 text-white font-semibold px-8 py-6 text-lg rounded-xl glow-green transition-all"
               >
                 <BookOpen className="w-5 h-5 mr-2" />
                 {t('getStarted')}

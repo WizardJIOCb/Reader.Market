@@ -84,7 +84,7 @@ export default function WhyChooseUs() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.08 }}
             >
-              <div className="group h-full p-6 rounded-2xl bg-gradient-card border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-purple">
+              <div className="group h-full p-6 rounded-2xl bg-gradient-card border border-white/5 hover:border-primary/30 transition-all duration-500 hover:glow-green">
                 {/* Icon */}
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-colors">
                   <reason.icon className="w-6 h-6 text-primary" />
