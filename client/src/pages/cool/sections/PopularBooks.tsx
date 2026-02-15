@@ -99,14 +99,52 @@ export default function PopularBooks() {
                   <div className="flex flex-col sm:flex-row h-full">
                     {/* Book Cover */}
                     <div className="relative w-full sm:w-48 h-64 sm:h-auto flex-shrink-0 overflow-hidden">
-                      <motion.img
-                        src={book.coverImageUrl || PLACEHOLDER_COVER}
-                        alt={book.title}
-                        className="w-full h-full object-cover"
-                        whileHover={{ scale: 1.05 }}
-                        transition={{ duration: 0.4 }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent sm:bg-gradient-to-r" />
+                      {book.videoCoverUrl ? (
+                        <div className="relative w-full h-full">
+                          {/* Placeholder image shown initially */}
+                          {book.coverImageUrl && (
+                            <img 
+                              src={book.coverImageUrl.startsWith('http') ? book.coverImageUrl : book.coverImageUrl.startsWith('/') ? book.coverImageUrl : `/${book.coverImageUrl}`}
+                              alt={book.title}
+                              className="w-full h-full object-cover absolute inset-0"
+                              onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          )}
+                          {/* Video cover */}
+                          <video
+                            src={book.videoCoverUrl.startsWith('http') ? book.videoCoverUrl : book.videoCoverUrl.startsWith('/') ? book.videoCoverUrl : `/${book.videoCoverUrl}`}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            className="w-full h-full object-cover"
+                            onError={(e: React.SyntheticEvent<HTMLVideoElement>) => {
+                              const target = e.target as HTMLVideoElement;
+                              target.style.display = 'none';
+                            }}
+                            onLoadedData={(e: React.SyntheticEvent<HTMLVideoElement>) => {
+                              const videoElement = e.target as HTMLVideoElement;
+                              const parentDiv = videoElement.parentElement;
+                              if (parentDiv) {
+                                const imgElements = parentDiv.querySelectorAll('img');
+                                imgElements.forEach(img => (img as HTMLElement).style.display = 'none');
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <motion.img
+                          src={book.coverImageUrl || PLACEHOLDER_COVER}
+                          alt={book.title}
+                          className="w-full h-full object-cover"
+                          whileHover={{ scale: 1.05 }}
+                          transition={{ duration: 0.4 }}
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent sm:bg-gradient-to-r pointer-events-none" />
 
                       {/* Rating Badge */}
                       {book.rating && (
