@@ -44,6 +44,7 @@ import { createLoggingConfigRouter } from "./logging-config.routes";
 import { createBookTranslationsRouter } from "./book-translations.routes";
 import { createLogAnalyticsRouter } from "./log-analytics.routes";
 import { createAdminGeneralRouter } from "./admin-general.routes";
+import { createOAuthRoutes } from "../oauth/routes";
 
 import { type Server } from "http";
 
@@ -392,6 +393,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.use("/api/groups", createChannelMessagesRouter()); // Channel messages routes
   app.use("/api/notifications", createNotificationsRouter());
   app.use("/api/uploads", createUploadsRouter());
+  
+  // OAuth routes (mounted at root for /auth/* paths)
+  app.use(createOAuthRoutes(app));
   
   // More route modules will be added here as we migrate them
   return httpServer;
