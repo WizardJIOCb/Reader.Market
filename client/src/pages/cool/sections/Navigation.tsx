@@ -148,24 +148,49 @@ export default function Navigation({ scrollY }: NavigationProps) {
             */}
             
 
-            <Link href="/login">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <User className="w-4 h-4 mr-2" />
-                {t('signIn')}
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button
-                size="sm"
-                className="bg-primary hover:bg-primary/90 text-black font-medium"
-              >
-                {t('getStarted')}
-              </Button>
-            </Link>
+            {user ? (
+              <Link href={`/profile/${user.username}`}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.fullName || user.username}
+                      className="w-6 h-6 rounded-full mr-2 object-cover"
+                    />
+                  ) : (
+                    <User className="w-4 h-4 mr-2" />
+                  )}
+                  <span className="max-w-[100px] truncate">
+                    {user.fullName || user.username}
+                  </span>
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    {t('signIn')}
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button
+                    size="sm"
+                    className="bg-primary hover:bg-primary/90 text-black font-medium"
+                  >
+                    {t('getStarted')}
+                  </Button>
+                </Link>
+              </>
+            )}
 
             {/* Language Switcher */}
             <DropdownMenu>
@@ -266,17 +291,40 @@ export default function Navigation({ scrollY }: NavigationProps) {
                 </motion.a>
               ))}
               <div className="pt-4 space-y-2">
-                <Link href="/login">
-                  <Button variant="outline" className="w-full justify-center" onClick={() => setIsOpen(false)}>
-                    <User className="w-4 h-4 mr-2" />
-                    {t('signIn')}
-                  </Button>
-                </Link>
-                <Link href="/register">
-                  <Button className="w-full justify-center bg-primary hover:bg-primary/90 text-black" onClick={() => setIsOpen(false)}>
-                    {t('getStarted')}
-                  </Button>
-                </Link>
+                {user ? (
+                  <Link href={`/profile/${user.username}`}>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-center"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      {user.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={user.fullName || user.username}
+                          className="w-5 h-5 rounded-full mr-2 object-cover"
+                        />
+                      ) : (
+                        <User className="w-4 h-4 mr-2" />
+                      )}
+                      {user.fullName || user.username}
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link href="/login">
+                      <Button variant="outline" className="w-full justify-center" onClick={() => setIsOpen(false)}>
+                        <User className="w-4 h-4 mr-2" />
+                        {t('signIn')}
+                      </Button>
+                    </Link>
+                    <Link href="/register">
+                      <Button className="w-full justify-center bg-primary hover:bg-primary/90 text-black" onClick={() => setIsOpen(false)}>
+                        {t('getStarted')}
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </nav>
           </motion.div>

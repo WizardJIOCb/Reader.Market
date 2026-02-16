@@ -149,5 +149,10 @@
   "footerCopyright": "2026 Reader.Market. Все права защищены.",
   "footerMadeWith": "Сделано с любовью для книголюбов",
   "email": "Почта",
-  "phone": "Телефон"
+  "phone": "Телефон",
+  "joinCommunity": "Присоединяйтесь к сообществу",
+  "continueWithGoogle": "Войти через Google",
+  "continueWithVK": "Войти через VK",
+  "or": "или",
+  "registerWithEmail": "зарегистрироваться по email"
 }
