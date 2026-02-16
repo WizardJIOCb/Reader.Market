@@ -40,8 +40,8 @@ export default function AuthCallback() {
             // Trigger auth context update and wait for it to complete
             await refreshUser();
             
-            // Redirect to stream page after auth state is updated
-            navigate('/stream');
+            // Redirect to home page after auth state is updated
+            navigate('/home');
           })
           .catch(err => {
             console.error('Failed to fetch user data:', err);

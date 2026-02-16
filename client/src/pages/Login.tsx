@@ -23,7 +23,7 @@ export default function Login() {
     
     const result = await login(username, password);
     if (result.success) {
-      navigate('/stream');
+      navigate('/home');
     } else {
       setError(result.message || t('auth:invalidCredentials'));
     }
