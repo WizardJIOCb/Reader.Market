@@ -99,7 +99,7 @@ export default function LatestNews() {
                     </h3>
 
                     {/* Excerpt */}
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-3 flex-grow">
+                    <p style={{ flexGrow: 0.8 }} className="text-sm text-muted-foreground mb-4 line-clamp-3 flex-grow">
                       {getExcerpt(item.content)}
                     </p>
 
