@@ -230,11 +230,10 @@ export function Navbar() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Link 
-                      href={`/profile/${user.username}`} 
+                    <Link
+                      href={`/profile/${user.username}`}
                       className={`flex items-center gap-1 text-sm transition-colors cursor-pointer ${isActive('/profile', false) ? 'text-[#f1680c] hover:text-[#236a1a]' : 'text-[#263542] hover:text-[#1d49ab]'}`}
                       aria-current={isActive('/profile', false) ? 'page' : undefined}
-                      title={`${t('navigation:profile')}: ${user.fullName || user.username}`}
                     >
                       <User className="w-4 h-4" />
                       <span className={`${hideTextItems ? 'hidden' : 'hidden sm:inline'}`}>{t('navigation:profile')}</span>
