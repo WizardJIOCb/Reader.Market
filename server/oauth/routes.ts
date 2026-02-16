@@ -1,6 +1,5 @@
 import { Router, Express } from 'express';
 import passport from 'passport';
-import jwt from 'jsonwebtoken';
 import { createState, validateAndConsumeState, generateCodeVerifier, generateCodeChallenge } from './stateManager';
 import { oauthService } from './OAuthService';
 import { getVKAuthUrl, exchangeVKCode, getVKUserInfo } from './providers/vkOAuth';
@@ -10,6 +9,7 @@ import { setupGoogleStrategy } from './strategies/googleStrategy';
 import { setupDiscordStrategy } from './strategies/discordStrategy';
 import { setupTwitterStrategy } from './strategies/twitterStrategy';
 import { storage } from '../storage';
+import { generateToken } from '../utils/jwt-utils';
 import type { OAuthProvider } from '../config/oauth';
 import type { Request, Response } from 'express';
 
@@ -17,11 +17,6 @@ import type { Request, Response } from 'express';
 setupGoogleStrategy();
 setupDiscordStrategy();
 setupTwitterStrategy();
-
-// Helper to generate JWT token
-function generateToken(userId: string): string {
-  return jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '7d' });
-}
 
 // Helper to create registration activity and broadcast via WebSocket
 async function createRegistrationActivity(app: Express, user: any) {
@@ -112,12 +107,16 @@ router.get('/auth/callback/google', async (req: Request, res: Response) => {
         refreshToken: authData.refreshToken,
       });
 
+      if (!user) {
+        return res.redirect('/login?error=oauth_failed');
+      }
+
       // Create registration activity for new users
       if (isNewUser) {
         await createRegistrationActivity(app, user);
       }
 
-      const token = generateToken(user.id);
+      const token = generateToken({ userId: user.id });
       res.redirect(`/auth/callback?token=${token}`);
     } catch (error) {
       console.error('Google OAuth error:', error);
@@ -155,12 +154,16 @@ router.get('/auth/callback/discord', async (req: Request, res: Response) => {
         refreshToken: authData.refreshToken,
       });
 
+      if (!user) {
+        return res.redirect('/login?error=oauth_failed');
+      }
+
       // Create registration activity for new users
       if (isNewUser) {
         await createRegistrationActivity(app, user);
       }
 
-      const token = generateToken(user.id);
+      const token = generateToken({ userId: user.id });
       res.redirect(`/auth/callback?token=${token}`);
     } catch (error) {
       console.error('Discord OAuth error:', error);
@@ -198,12 +201,16 @@ router.get('/auth/callback/twitter', async (req: Request, res: Response) => {
         accessToken: authData.accessToken,
       });
 
+      if (!user) {
+        return res.redirect('/login?error=oauth_failed');
+      }
+
       // Create registration activity for new users
       if (isNewUser) {
         await createRegistrationActivity(app, user);
       }
 
-      const token = generateToken(user.id);
+      const token = generateToken({ userId: user.id });
       res.redirect(`/auth/callback?token=${token}`);
     } catch (error) {
       console.error('Twitter OAuth error:', error);
@@ -286,12 +293,16 @@ router.get('/auth/callback/vk', async (req: Request, res: Response) => {
       tokenExpiresAt,
     });
 
+    if (!user) {
+      return res.redirect('/login?error=oauth_failed');
+    }
+
     // Create registration activity for new users
     if (isNewUser) {
       await createRegistrationActivity(app, user);
     }
 
-    const token = generateToken(user.id);
+    const token = generateToken({ userId: user.id });
     res.redirect(`/auth/callback?token=${token}`);
   } catch (error) {
     console.error('VK OAuth error:', error);
@@ -339,12 +350,16 @@ router.get('/auth/callback/yandex', async (req: Request, res: Response) => {
       tokenExpiresAt,
     });
 
+    if (!user) {
+      return res.redirect('/login?error=oauth_failed');
+    }
+
     // Create registration activity for new users
     if (isNewUser) {
       await createRegistrationActivity(app, user);
     }
 
-    const token = generateToken(user.id);
+    const token = generateToken({ userId: user.id });
     res.redirect(`/auth/callback?token=${token}`);
   } catch (error) {
     console.error('Yandex OAuth error:', error);
@@ -370,12 +385,16 @@ router.post('/auth/telegram', async (req: Request, res: Response) => {
       accessToken: authData.hash,
     });
 
+    if (!user) {
+      return res.status(400).json({ error: 'Authentication failed' });
+    }
+
     // Create registration activity for new users
     if (isNewUser) {
       await createRegistrationActivity(app, user);
     }
 
-    const token = generateToken(user.id);
+    const token = generateToken({ userId: user.id });
     res.json({ token });
   } catch (error) {
     console.error('Telegram OAuth error:', error);
