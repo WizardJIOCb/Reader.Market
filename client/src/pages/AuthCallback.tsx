@@ -33,14 +33,14 @@ export default function AuthCallback() {
           },
         })
           .then(res => res.json())
-          .then(data => {
+          .then(async (data) => {
             // Store user data
             localStorage.setItem('userData', JSON.stringify(data));
             
-            // Trigger auth context update
-            refreshUser();
+            // Trigger auth context update and wait for it to complete
+            await refreshUser();
             
-            // Redirect to stream page
+            // Redirect to stream page after auth state is updated
             navigate('/stream');
           })
           .catch(err => {
