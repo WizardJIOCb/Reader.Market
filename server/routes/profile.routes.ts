@@ -524,6 +524,9 @@ export function createProfileRouter() {
           });
         }
         
+        // Count all nested replies for this root comment
+        const replyCount = await storage.countCommentReplies(comment.id);
+        
         return {
           ...comment,
           attachments: commentAttachments.map(att => ({
@@ -534,7 +537,8 @@ export function createProfileRouter() {
             mimeType: att.mimeType,
             thumbnailUrl: att.thumbnailUrl
           })),
-          reactions: reactionsWithCounts
+          reactions: reactionsWithCounts,
+          replyCount
         };
       }));
       
