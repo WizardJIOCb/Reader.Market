@@ -456,7 +456,7 @@ export function CommentItem({
               onReply={onReply}
               onCancelReply={onCancelReply}
               onReplyTextChange={onReplyTextChange}
-              onSubmitReply={() => onSubmitReply(reply)}
+              onSubmitReply={onSubmitReply}
               onDelete={onDelete}
               onReaction={onReaction}
               onTextSelect={onTextSelect}

@@ -643,6 +643,9 @@ export function createProfileRouter() {
             });
           }
           
+          // Count nested replies for this reply
+          const replyCount = await storage.countCommentReplies(reply.id);
+          
           return {
             ...reply,
             attachments: replyAttachments.map(att => ({
@@ -653,7 +656,8 @@ export function createProfileRouter() {
               mimeType: att.mimeType,
               thumbnailUrl: att.thumbnailUrl
             })),
-            reactions: replyReactionsWithCounts
+            reactions: replyReactionsWithCounts,
+            replyCount
           };
         }));
         
@@ -1008,6 +1012,64 @@ export function createProfileRouter() {
     }
   });
     
+  // Get replies for a specific profile comment (with nested replies)
+  router.get('/comment/:commentId/replies', optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      const currentUserId = (req as any).user?.userId;
+      
+      // Use storage method that recursively loads nested replies
+      const replies = await storage.getCommentReplies(commentId, currentUserId);
+      
+      // Recursive function to add attachments to all nested replies
+      const addAttachmentsRecursively = async (replyList: any[]): Promise<any[]> => {
+        return Promise.all(replyList.map(async (reply) => {
+          // Get attachments for this reply
+          const attachments = await db
+            .select({
+              id: fileUploads.id,
+              fileUrl: fileUploads.fileUrl,
+              filename: fileUploads.filename,
+              fileSize: fileUploads.fileSize,
+              mimeType: fileUploads.mimeType,
+              thumbnailUrl: fileUploads.thumbnailUrl
+            })
+            .from(fileUploads)
+            .where(and(
+              eq(fileUploads.entityId, reply.id),
+              eq(fileUploads.entityType, 'comment')
+            ));
+          
+          // Process nested replies recursively if they exist
+          let processedNestedReplies = reply.replies || [];
+          if (processedNestedReplies.length > 0) {
+            processedNestedReplies = await addAttachmentsRecursively(processedNestedReplies);
+          }
+          
+          return {
+            ...reply,
+            attachments: attachments.map(att => ({
+              uploadId: att.id,
+              url: att.fileUrl,
+              filename: att.filename,
+              fileSize: att.fileSize,
+              mimeType: att.mimeType,
+              thumbnailUrl: att.thumbnailUrl
+            })),
+            replies: processedNestedReplies
+          };
+        }));
+      };
+      
+      const repliesWithAttachments = await addAttachmentsRecursively(replies);
+      
+      res.json(repliesWithAttachments);
+    } catch (error) {
+      console.error('Get profile comment replies error:', error);
+      res.status(500).json({ error: "Failed to get profile comment replies" });
+    }
+  });
+  
   // Get detailed reactions for a profile comment
   router.get('/comment/:commentId/reactions', optionalAuthenticateToken, async (req, res) => {
     try {
