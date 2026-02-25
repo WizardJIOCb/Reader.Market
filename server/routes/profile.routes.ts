@@ -1008,6 +1008,33 @@ export function createProfileRouter() {
     }
   });
     
+  // Get detailed reactions for a profile comment
+  router.get('/comment/:commentId/reactions', optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      
+      // Get detailed reactions with user information
+      const detailedReactions = await db
+        .select({
+          id: reactions.id,
+          userId: reactions.userId,
+          emoji: reactions.emoji,
+          createdAt: reactions.createdAt,
+          username: users.username,
+          fullName: users.fullName,
+          avatarUrl: users.avatarUrl
+        })
+        .from(reactions)
+        .leftJoin(users, eq(reactions.userId, users.id))
+        .where(eq(reactions.profileCommentId, commentId));
+      
+      res.json(detailedReactions);
+    } catch (error) {
+      console.error('Get profile comment reactions error:', error);
+      res.status(500).json({ error: "Failed to get profile comment reactions" });
+    }
+  });
+  
   // Toggle reaction on a profile comment
   router.post('/comment/:commentId/reaction', authenticateToken, async (req, res) => {
     try {

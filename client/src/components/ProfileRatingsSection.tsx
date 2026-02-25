@@ -335,6 +335,8 @@ export function CommentItem({
               <ReactionBar
                 reactions={comment.reactions || []}
                 onReact={(emoji) => onReaction(comment.id, emoji)}
+                commentId={comment.id}
+                isProfileComment={true}
               />
             </div>
 

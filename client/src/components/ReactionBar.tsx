@@ -39,11 +39,12 @@ interface ReactionBarProps {
   newsId?: string;
   bookId?: string;
   articleId?: string;
+  isProfileComment?: boolean;
 }
 
 const AVAILABLE_EMOJIS = ['👍', '👎', '❤️', '🔥', '👏', '🤯', '🤔', '😢', '😂', '😊', '😐'];
 
-export function ReactionBar({ reactions = [], onReact, commentId, reviewId, newsId, bookId, articleId }: ReactionBarProps) {
+export function ReactionBar({ reactions = [], onReact, commentId, reviewId, newsId, bookId, articleId, isProfileComment = false }: ReactionBarProps) {
   const [reactionDetails, setReactionDetails] = useState<Record<string, ReactionDetail[]>>({});
   const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({});
   const [dialogReaction, setDialogReaction] = useState<{emoji: string, users: ReactionDetail[]} | null>(null);
@@ -100,7 +101,12 @@ export function ReactionBar({ reactions = [], onReact, commentId, reviewId, news
       if (entityInfo.type === 'news') {
         endpoint = `/api/admin/news/${entityInfo.id}/reactions`;
       } else if (entityInfo.type === 'comment') {
-        endpoint = `/api/comments/${entityInfo.id}/reactions`;
+        // Use different endpoint for profile comments vs book comments
+        if (isProfileComment) {
+          endpoint = `/api/profile/comment/${entityInfo.id}/reactions`;
+        } else {
+          endpoint = `/api/comments/${entityInfo.id}/reactions`;
+        }
       } else if (entityInfo.type === 'review') {
         endpoint = `/api/reviews/${entityInfo.id}/reactions`;
       } else if (entityInfo.type === 'book') {
