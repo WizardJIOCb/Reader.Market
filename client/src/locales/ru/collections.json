@@ -40,7 +40,7 @@
   "collectionCard": {
     "bookmarks": "закладок",
     "public": "Публичная",
-    "private": "Приватная",
+    "private": "Приватная", 
     "view": "Просмотр",
     "created": "Создана",
     "clone": "Клон",
