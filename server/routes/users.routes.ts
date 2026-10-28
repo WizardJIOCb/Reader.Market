@@ -1,47 +1,342 @@
 import { Router } from "express";
-import type { Storage } from "../storage/types";
 import { authenticateToken, optionalAuthenticateToken } from "../middleware/auth";
+import { requireAdminOrModerator } from "../middleware/admin-auth";
+import { storage } from "../storage";
+import bcrypt from "bcrypt";
+import { generateToken } from '../utils/jwt-utils';
 
-export function createUsersRouter(storage: Storage) {
+export function createUsersRouter() {
   const router = Router();
 
-  // Get user by ID
+  // Get user by ID (alias for /api/profile/:userId for backward compatibility with useUserProfile hook)
   router.get("/:userId", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get user by ID endpoint called");
+    try {
+      const { userId: targetUserId } = req.params;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Check if the param is a UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(targetUserId);
+      
+      // Only accept UUIDs for this endpoint
+      if (!isUuid) {
+        return res.status(400).json({ error: "Invalid user ID format" });
+      }
+      
+      const user = await storage.getUser(targetUserId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Fetch profile rating from user record (already calculated with Bayesian algorithm)
+      let profileRating = user.profileRating ? Number(user.profileRating) : null;
+      let ratingCount = 0;
+      try {
+        const ratings = await storage.getProfileRatings(user.id);
+        ratingCount = ratings.length;
+      } catch (error) {
+        console.error("Error fetching profile ratings:", error);
+      }
+      
+      // Return user profile without sensitive information
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({
+        ...userWithoutPassword,
+        profileRating,
+        ratingCount
+      });
+    } catch (error) {
+      console.error("Get user by ID error:", error);
+      res.status(500).json({ error: "Failed to get user" });
+    }
+  });
+
+  // Get all users (public users page with pagination)
+  router.get("/", optionalAuthenticateToken, async (req, res) => {
+    console.log("GET /api/users endpoint called with query:", req.query);
+    try {
+      const { page = 1, limit = 10, search = '' } = req.query;
+
+      const pageNum = parseInt(page as string) || 1;
+      const limitNum = parseInt(limit as string) || 10;
+      const offset = (pageNum - 1) * limitNum;
+
+      // Prepare search parameter
+      const searchStr = typeof search === 'string' ? search : '';
+
+      let users = [];
+      let totalCount = 0;
+
+      if (searchStr) {
+        console.log("Searching users with query:", searchStr);
+        // Use search if provided
+        users = await storage.searchUsers(searchStr);
+        // For search, we'll use the actual result count
+        totalCount = users.length;
+      } else {
+        console.log("Getting users with pagination - offset:", offset, "limit:", limitNum);
+        // Otherwise get users with stats
+        users = await storage.getUsersWithStats(limitNum, offset);
+        // Get total count for pagination
+        totalCount = await storage.getUsersCount();
+        console.log("Retrieved", users.length, "users, total count:", totalCount);
+      }
+
+      const totalPages = Math.ceil(totalCount / limitNum);
+      console.log("Calculated pagination - page:", pageNum, "totalPages:", totalPages, "totalItems:", totalCount);
+
+      res.json({
+        users: users,
+        pagination: {
+          page: pageNum,
+          totalPages: totalPages || 1, // Ensure at least 1 page
+          totalItems: totalCount,
+          itemsPerPage: limitNum,
+          hasNext: pageNum < totalPages,
+          hasPrev: pageNum > 1
+        }
+      });
+      console.log("Response sent successfully");
+    } catch (error) {
+      console.error("Get users error:", error);
+      // Even in case of error, return the expected structure to prevent client-side crashes
+      res.status(500).json({
+        users: [],
+        pagination: {
+          page: 1,
+          totalPages: 1,
+          totalItems: 0,
+          itemsPerPage: 10,
+          hasNext: false,
+          hasPrev: false
+        },
+        error: "Failed to get users"
+      });
+      console.log("Error response sent");
+    }
+  });
+
+  // Get user statistics (open to all users)
+  router.get("/:userId/statistics", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get user statistics endpoint called");
+    try {
+      const { userId: targetUserId } = req.params;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Check if the param is a UUID or a username
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(targetUserId);
+      
+      let user;
+      if (isUuid) {
+        user = await storage.getUser(targetUserId);
+      } else {
+        user = await storage.getUserByUsername(targetUserId);
+      }
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const stats = await storage.getUserStatistics(user.id);
+      
+      // Return default stats if user doesn't have statistics yet
+      res.json(stats || {
+        totalBooksRead: 0,
+        totalWordsRead: 0,
+        totalLettersRead: 0
+      });
+    } catch (error) {
+      console.error("Get user statistics error:", error);
+      res.status(500).json({ error: "Failed to get user statistics" });
+    }
+  });
+
+  // Get shelves for a specific user with books (for profile viewing) - open to all users
+  router.get("/:userId/shelves/with-books", optionalAuthenticateToken, async (req, res) => {
+    console.log("Get user shelves with books endpoint called");
     try {
       const { userId } = req.params;
       
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Verify user exists
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
       
-      res.json(user);
+      // Get the requesting user ID if authenticated
+      const requestingUserId = (req as any).user?.userId || null;
+      
+      const shelvesWithBooks = await storage.getShelvesWithBooks(userId);
+      res.json(shelvesWithBooks);
     } catch (error) {
-      console.error("Error getting user:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error("Get user shelves with books error:", error);
+      res.status(500).json({ error: "Failed to get user shelves with books" });
+    }
+  });
+
+  // Get shelves for a specific user (for profile viewing) - open to all users
+  router.get("/:userId/shelves", optionalAuthenticateToken, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Verify user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const shelves = await storage.getShelves(userId);
+      res.json(shelves);
+    } catch (error) {
+      console.error("Get user shelves error:", error);
+      res.status(500).json({ error: "Failed to get user shelves" });
     }
   });
 
   // Search users
   router.get("/search", authenticateToken, async (req, res) => {
+    const { q } = req.query;
+    
     try {
-      const { q, query } = req.query;
-      const searchQuery = (q || query) as string;
-      
-      if (!searchQuery) {
-        return res.status(400).json({ error: "Query parameter is required" });
+      if (!q || typeof q !== 'string' || q.trim().length === 0) {
+        return res.status(400).json({ error: "Search query is required" });
       }
       
-      // For now, we'll return an empty array since we don't have a searchUsers method
-      // This would need to be implemented in the storage layer
-      res.json([]);
+      const users = await storage.searchUsers(q.trim());
+      res.json(users);
     } catch (error) {
-      console.error("Error searching users:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error("Search users error:", error);
+      res.status(500).json({ error: "Failed to search users" });
+    }
+  });
+
+  // Admin: Update user access level
+  router.put("/api/admin/users/:userId/access-level", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Update user access level endpoint called");
+    try {
+      const { userId } = req.params;
+      const { accessLevel, isBlocked, blockReason } = req.body;
+      
+      if (!accessLevel || !['admin', 'moder', 'user'].includes(accessLevel)) {
+        return res.status(400).json({ error: "Valid access level is required (admin, moder, or user)" });
+      }
+      
+      const updatedUser = await storage.updateAccessLevel(userId, accessLevel, isBlocked, blockReason);
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Update user access level error:", error);
+      res.status(500).json({ error: "Failed to update user access level" });
+    }
+  });
+
+  // Admin: Update user
+  router.put("/api/admin/users/:userId", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Update user endpoint called");
+    try {
+      const { userId } = req.params;
+      const { fullName, bio, avatarUrl, email, username, accessLevel, isBlocked, blockReason } = req.body;
+      
+      // Build update object with allowed fields
+      const updateData: any = {};
+      if (fullName !== undefined) updateData.fullName = fullName;
+      if (bio !== undefined) updateData.bio = bio;
+      if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+      if (email !== undefined) updateData.email = email;
+      if (username !== undefined) updateData.username = username;
+      if (accessLevel !== undefined) updateData.accessLevel = accessLevel;
+      if (isBlocked !== undefined) updateData.isBlocked = isBlocked;
+      if (blockReason !== undefined) updateData.blockReason = blockReason;
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, updateData);
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // Admin: Change user password
+  router.put("/api/admin/users/:userId/password", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Change user password endpoint called");
+    try {
+      const { userId } = req.params;
+      const { newPassword } = req.body;
+      
+      if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+        return res.status(400).json({ error: "New password is required and must be at least 6 characters" });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await import('bcrypt').then(bcrypt => bcrypt.hash(newPassword, 10));
+      
+      // Update user password
+      const updatedUser = await storage.updateUser(userId, { password: hashedPassword });
+      
+      // Return success response without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json({ success: true, user: userWithoutPassword });
+    } catch (error) {
+      console.error("Change user password error:", error);
+      res.status(500).json({ error: "Failed to change user password" });
+    }
+  });
+
+  // Admin: Generate impersonation token
+  router.post("/api/admin/users/:userId/impersonate", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Generate impersonation token endpoint called");
+    try {
+      const { userId } = req.params;
+      
+      // Verify user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Generate impersonation token
+      const tokenPayload = {
+        userId: user.id,
+        username: user.username,
+        email: user.email || '',
+        accessLevel: user.accessLevel || 'user',
+        isImpersonated: true,  // Flag to indicate this is an impersonation token
+        originalAdminId: (req as any).user.userId  // Store who impersonated
+      };
+      const token = generateToken(tokenPayload);
+      
+      res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
+    } catch (error) {
+      console.error("Generate impersonation token error:", error);
+      res.status(500).json({ error: "Failed to generate impersonation token" });
     }
   });
 
   return router;
 }
-
-export default createUsersRouter;
