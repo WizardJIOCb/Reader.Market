@@ -16,6 +16,14 @@ export interface Book {
   coverImage?: string;
   rating?: number;
   readTime?: string;
+  genre: string[];
+  style?: string;
+  tags?: string[];
+  year?: number;
+  // Date fields for book display
+  uploadedAt?: string; // ISO date string
+  publishedAt?: string; // ISO date string
+  createdAt?: string;   // ISO date string (fallback)
 }
 
 export interface Bookmark {
@@ -28,9 +36,9 @@ export interface Bookmark {
 
 export interface Shelf {
   id: string;
-  title: string;
+  name: string;
   description?: string;
-  bookIds: number[];
+  bookIds: string[];
   color?: string;
 }
 
@@ -57,6 +65,36 @@ export interface Review {
   content: string;
   createdAt: string; // ISO date string
   reactions: Reaction[];
+  userId?: string; // Add userId to determine ownership
+}
+
+export interface UserStats {
+  booksRead: number;
+  wordsRead: number;
+  lettersRead: number;
+}
+
+// New interface for reading progress
+export interface ReadingProgress {
+  bookId: number;
+  percentage: number;
+  wordsRead: number;
+  lettersRead: number;
+  lastReadAt: Date;
+  currentPage: number;
+  totalPages: number;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  bio: string;
+  stats: UserStats;
+  shelves: Shelf[];
+  recentlyReadIds: number[];
+  readingProgress?: ReadingProgress[]; // Add reading progress to user
 }
 
 export const mockBook: Book = {
@@ -67,6 +105,12 @@ export const mockBook: Book = {
   description: "Научная фантастика о границах человеческого сознания и искусственного интеллекта. Погрузитесь в мир будущего с нейро-комментариями.",
   rating: 4.8,
   readTime: "~2.5 ч.",
+  genre: ["Научная Фантастика", "Киберпанк"],
+  style: "Философский",
+  tags: ["ИИ", "Будущее", "Сознание"],
+  year: 2024,
+  uploadedAt: "2024-03-10T10:00:00Z",
+  publishedAt: "2024-02-15T00:00:00Z",
   chapters: [
     {
       id: 1,
@@ -151,6 +195,12 @@ export const mockBooks: Book[] = [
     description: "Детектив в мире, где смерть отменена. Кто решился на убийство, когда жизнь бесконечна?",
     rating: 4.5,
     readTime: "~3.1 ч.",
+    genre: ["Детектив", "Фантастика"],
+    style: "Нуар",
+    tags: ["Бессмертие", "Расследование"],
+    year: 2023,
+    uploadedAt: "2024-03-05T14:30:00Z",
+    publishedAt: "2023-11-20T00:00:00Z",
     chapters: []
   },
   {
@@ -161,6 +211,12 @@ export const mockBooks: Book[] = [
     description: "Космическая опера о последнем корабле, покинувшем умирающую Землю в поисках нового дома.",
     rating: 4.9,
     readTime: "~5.0 ч.",
+    genre: ["Космическая Опера", "Приключения"],
+    style: "Эпический",
+    tags: ["Космос", "Выживание", "Драма"],
+    year: 2022,
+    uploadedAt: "2024-02-28T09:15:00Z",
+    publishedAt: "2022-08-10T00:00:00Z",
     chapters: []
   },
   {
@@ -171,30 +227,95 @@ export const mockBooks: Book[] = [
     description: "Сгенерированное продолжение культового романа, созданное нейросетью на основе черновиков автора.",
     rating: 4.2,
     readTime: "~4.5 ч.",
+    genre: ["Киберпанк", "Экспериментальный"],
+    style: "Техногенный",
+    tags: ["Хакеры", "ИИ", "Глобальная сеть"],
+    year: 2025,
+    uploadedAt: "2024-03-12T16:45:00Z",
+    publishedAt: "2025-01-30T00:00:00Z",
+    chapters: []
+  },
+  {
+    id: 5,
+    title: "Тени Петербурга",
+    author: "Анна Каренина (Не та)",
+    coverColor: "bg-red-900",
+    description: "Мистический триллер в декорациях альтернативного Петербурга XIX века, где магия соседствует с паровыми машинами.",
+    rating: 4.6,
+    readTime: "~3.8 ч.",
+    genre: ["Стимпанк", "Мистика", "Фэнтези"],
+    style: "Готический",
+    tags: ["Магия", "Альтернативная история"],
+    year: 2021,
+    uploadedAt: "2024-03-01T11:20:00Z",
+    publishedAt: "2021-05-15T00:00:00Z",
+    chapters: []
+  },
+  {
+    id: 6,
+    title: "Алгоритм Любви",
+    author: "Сергей Бот",
+    coverColor: "bg-pink-900",
+    description: "Романтическая комедия о том, как программист пытался создать идеальную девушку, но влюбился в техподдержку.",
+    rating: 4.1,
+    readTime: "~2.0 ч.",
+    genre: ["Романтика", "Комедия"],
+    style: "Легкий",
+    tags: ["Отношения", "Юмор", "IT"],
+    year: 2023,
+    uploadedAt: "2024-02-25T13:10:00Z",
+    publishedAt: "2023-09-22T00:00:00Z",
+    chapters: []
+  },
+  {
+    id: 7,
+    title: "Хроники Марса",
+    author: "Рэй Брэдбери (Ремастер)",
+    coverColor: "bg-orange-800",
+    description: "Классика в новом прочтении. Интерактивная версия знаменитых хроник с возможностью выбора судьбы колонистов.",
+    rating: 5.0,
+    readTime: "~6.0 ч.",
+    genre: ["Научная Фантастика", "Классика"],
+    style: "Поэтический",
+    tags: ["Марс", "Колонизация", "Философия"],
+    year: 1950,
+    uploadedAt: "2024-01-15T08:00:00Z",
+    publishedAt: "1950-01-01T00:00:00Z",
     chapters: []
   }
+];
+
+// Recently searched books (for default search view)
+export const recentlySearchedBooks: Book[] = [
+  mockBooks[0], // Эхо Будущего
+  mockBooks[2], // Звездный Пилигрим
+  mockBooks[3], // Нейромант 2.0
+  mockBooks[1], // Код Вечности
+  mockBooks[6], // Хроники Марса
+  mockBooks[4], // Тени Петербурга
+  mockBooks[5], // Алгоритм Любви
 ];
 
 export const mockShelves: Shelf[] = [
   {
     id: '1',
-    title: 'Избранное',
+    name: 'Избранное',
     description: 'Книги, которые хочется перечитывать',
-    bookIds: [1],
+    bookIds: ['1'],
     color: 'bg-rose-100 dark:bg-rose-900/20'
   },
   {
     id: '2',
-    title: 'Хочу прочитать',
+    name: 'Хочу прочитать',
     description: 'Список на будущее',
-    bookIds: [2, 3],
+    bookIds: ['2', '3'],
     color: 'bg-blue-100 dark:bg-blue-900/20'
   },
   {
     id: '3',
-    title: 'Научная фантастика',
+    name: 'Научная фантастика',
     description: 'Лучшее из жанра Sci-Fi',
-    bookIds: [1, 3, 4],
+    bookIds: ['1', '3', '4'],
     color: 'bg-purple-100 dark:bg-purple-900/20'
   }
 ];
@@ -266,3 +387,76 @@ export const mockReviews: Review[] = [
     ]
   }
 ];
+
+export const mockUser: User = {
+  id: 'user1',
+  name: 'Алекс Читатель',
+  username: '@alex_reads',
+  bio: `Любитель научной фантастики и <b>киберпанка</b>. 
+  
+  Мой топ авторов:
+  - Филип Дик
+  - Уильям Гибсон
+  - Станислав Лем
+  
+  Ищу единомышленников для обсуждения новинок!`,
+  stats: {
+    booksRead: 42,
+    wordsRead: 1543002,
+    lettersRead: 9845120
+  },
+  shelves: mockShelves,
+  recentlyReadIds: [1, 2],
+  readingProgress: [
+    {
+      bookId: 1,
+      percentage: 65,
+      wordsRead: 12500,
+      lettersRead: 75000,
+      lastReadAt: new Date('2024-03-15'),
+      currentPage: 130,
+      totalPages: 200
+    },
+    {
+      bookId: 2,
+      percentage: 30,
+      wordsRead: 8200,
+      lettersRead: 49200,
+      lastReadAt: new Date('2024-03-12'),
+      currentPage: 45,
+      totalPages: 150
+    }
+  ]
+};
+
+export const mockOtherUser: User = {
+  id: 'user2',
+  name: 'Мария SciFi',
+  username: '@maria_scifi',
+  bio: 'Пишу рецензии на новинки фантастики. Веду блог о книгах будущего.',
+  stats: {
+    booksRead: 156,
+    wordsRead: 5430020,
+    lettersRead: 32845120
+  },
+  shelves: [
+    {
+      id: '10',
+      name: 'Топ 2024',
+      bookIds: ['1', '3'],
+      color: 'bg-emerald-100 dark:bg-emerald-900/20'
+    }
+  ],
+  recentlyReadIds: [3, 4],
+  readingProgress: [
+    {
+      bookId: 3,
+      percentage: 85,
+      wordsRead: 5400,
+      lettersRead: 32000,
+      lastReadAt: new Date('2024-03-16'),
+      currentPage: 170,
+      totalPages: 200
+    }
+  ]
+};
