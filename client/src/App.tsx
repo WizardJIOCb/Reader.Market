@@ -7,13 +7,26 @@ import NotFound from "@/pages/not-found";
 import Library from "@/pages/Library";
 import Reader from "@/pages/Reader";
 import Shelves from "@/pages/Shelves";
+import Profile from "@/pages/Profile";
+import SearchPage from "@/pages/Search";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import BookDetail from "@/pages/BookDetail";
+import AddBook from "@/pages/AddBook";
+import { Navbar } from "@/components/Navbar";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Library} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       <Route path="/shelves" component={Shelves} />
+      <Route path="/add-book" component={AddBook} />
+      <Route path="/search" component={SearchPage} />
+      <Route path="/book/:bookId" component={BookDetail} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
+      <Route path="/profile/:userId?" component={Profile} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -24,6 +37,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        <Navbar />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>

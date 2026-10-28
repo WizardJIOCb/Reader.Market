@@ -1,67 +1,288 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
-import { mockBooks, mockShelves, Shelf, Book } from '@/lib/mockData';
-import { Plus, Search, Book as BookIcon, MoreVertical, X, LayoutGrid } from 'lucide-react';
+import { mockUser } from '@/lib/mockData';
+import { Plus, Search, Book as BookIcon, User, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
+import { BookCard } from '@/components/BookCard';
+import { useAuth } from '@/lib/auth';
+import { PageHeader } from '@/components/PageHeader';
+import { useToast } from '@/hooks/use-toast';
+import { useShelves } from '@/hooks/useShelves';
+import { useBooks } from '@/hooks/useBooks';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Shelves() {
-  const [shelves, setShelves] = useState<Shelf[]>(mockShelves);
+  const { user } = useAuth();
+  const { shelves, loading, error, createShelf, updateShelf, deleteShelf, addBookToShelf, removeBookFromShelf } = useShelves();
+  const { fetchBooksByIds } = useBooks();
   const [searchQuery, setSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [newShelfName, setNewShelfName] = useState('');
   const [isAddShelfOpen, setIsAddShelfOpen] = useState(false);
+  const [editingShelf, setEditingShelf] = useState<{ id: string; name: string; description?: string } | null>(null);
+  const [isEditShelfOpen, setIsEditShelfOpen] = useState(false);
+  const [shelfBooks, setShelfBooks] = useState<{[key: string]: any[]}>({});
+  const { toast } = useToast();
 
-  const filteredBooks = mockBooks.filter(book => 
-    book.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    book.author.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Fetch books for all shelves
+  useEffect(() => {
+    const fetchAllShelfBooks = async () => {
+      if (shelves.length > 0) {
+        const newShelfBooks: {[key: string]: any[]} = {};
+        
+        // Fetch books for each shelf
+        for (const shelf of shelves) {
+          if (shelf.bookIds && shelf.bookIds.length > 0) {
+            try {
+              // Convert book IDs to strings if they're not already
+              const bookIds = shelf.bookIds.map(id => String(id));
+              const books = await fetchBooksByIds(bookIds);
+              newShelfBooks[shelf.id] = books;
+            } catch (err) {
+              console.error(`Error fetching books for shelf ${shelf.id}:`, err);
+              newShelfBooks[shelf.id] = [];
+            }
+          } else {
+            newShelfBooks[shelf.id] = [];
+          }
+        }
+        
+        setShelfBooks(newShelfBooks);
+      }
+    };
+    
+    fetchAllShelfBooks();
+  }, [shelves]);
+  
+  // Perform global search when search query changes
+  useEffect(() => {
+    const performGlobalSearch = async () => {
+      if (searchQuery.trim() === '') {
+        setGlobalSearchResults([]);
+        return;
+      }
+      
+      setIsSearching(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+        
+        const response = await fetch(`http://localhost:5001/api/books/search?query=${encodeURIComponent(searchQuery)}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setGlobalSearchResults(data);
+        } else {
+          throw new Error('Failed to search books');
+        }
+      } catch (err) {
+        console.error('Global search error:', err);
+        toast({
+          title: "Ошибка поиска",
+          description: "Не удалось выполнить глобальный поиск",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSearching(false);
+      }
+    };
+    
+    const delayDebounceFn = setTimeout(() => {
+      performGlobalSearch();
+    }, 300);
+    
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
-  const handleAddShelf = (e: React.FormEvent) => {
+  const handleAddShelf = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newShelfName.trim()) {
-      const newShelf: Shelf = {
-        id: Date.now().toString(),
-        title: newShelfName,
-        bookIds: [],
-        color: 'bg-muted/50'
-      };
-      setShelves([...shelves, newShelf]);
-      setNewShelfName('');
-      setIsAddShelfOpen(false);
+      try {
+        await createShelf({ 
+          name: newShelfName,
+          color: 'bg-muted/50'
+        });
+        setNewShelfName('');
+        setIsAddShelfOpen(false);
+        
+        toast({
+          title: "Полка создана",
+          description: `Полка "${newShelfName}" успешно создана!`,
+        });
+      } catch (err) {
+        toast({
+          title: "Ошибка",
+          description: err instanceof Error ? err.message : "Не удалось создать полку",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const handleToggleShelf = (bookId: number, shelfId: string, isAdded: boolean) => {
-    setShelves(shelves.map(shelf => {
-      if (shelf.id === shelfId) {
-        if (isAdded) {
-          return { ...shelf, bookIds: [...shelf.bookIds, bookId] };
-        } else {
-          return { ...shelf, bookIds: shelf.bookIds.filter(id => id !== bookId) };
+  const handleToggleShelf = async (shelfId: string, bookId: string | number, isAdded: boolean) => {
+    try {
+      // Convert bookId to string if it's a number
+      const bookIdStr = typeof bookId === 'number' ? bookId.toString() : bookId;
+      
+      if (isAdded) {
+        // Check if book is already in shelf
+        const shelf = shelves.find(s => s.id === shelfId);
+        if (shelf && shelf.bookIds.includes(bookIdStr)) {
+          return;
         }
+        
+        await addBookToShelf(shelfId, bookIdStr);
+        
+        toast({
+          title: "Книга добавлена",
+          description: "Книга успешно добавлена на полку!",
+        });
+      } else {
+        await removeBookFromShelf(shelfId, bookIdStr);
+        
+        toast({
+          title: "Книга удалена",
+          description: "Книга удалена с полки!",
+        });
       }
-      return shelf;
-    }));
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : "Не удалось обновить полку",
+        variant: "destructive",
+      });
+    }
   };
+
+  const handleEditShelf = (shelf: { id: string; name: string; description?: string }) => {
+    setEditingShelf(shelf);
+    setIsEditShelfOpen(true);
+  };
+
+  const handleUpdateShelf = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingShelf && editingShelf.name.trim()) {
+      try {
+        await updateShelf(editingShelf.id, { 
+          name: editingShelf.name,
+          description: editingShelf.description
+        });
+        setIsEditShelfOpen(false);
+        setEditingShelf(null);
+        
+        toast({
+          title: "Полка обновлена",
+          description: `Полка "${editingShelf.name}" успешно обновлена!`,
+        });
+      } catch (err) {
+        toast({
+          title: "Ошибка",
+          description: err instanceof Error ? err.message : "Не удалось обновить полку",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleDeleteShelf = async (shelfId: string, shelfName: string) => {
+    try {
+      await deleteShelf(shelfId);
+      
+      toast({
+        title: "Полка удалена",
+        description: `Полка "${shelfName}" успешно удалена!`,
+      });
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: err instanceof Error ? err.message : "Не удалось удалить полку",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background font-sans pb-20">
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <PageHeader title="Мои полки" />
+          <div className="flex justify-center items-center h-64">
+            <p>Загрузка полок...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background font-sans pb-20">
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <PageHeader title="Мои полки" />
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <p className="text-red-500 mb-4">Ошибка загрузки полок:</p>
+              <p className="text-red-500 text-sm font-mono">{error}</p>
+              <Button 
+                className="mt-4" 
+                onClick={() => window.location.reload()}
+              >
+                Перезагрузить страницу
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background font-sans pb-20">
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <PageHeader title="Мои полки" />
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <p className="text-muted-foreground mb-4">Для просмотра полок необходимо войти в систему</p>
+              <Link href="/login">
+                <Button>Войти</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <header className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-3">
-             <Link href="/">
-                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-serif font-bold text-xl cursor-pointer">
-                  N
-                </div>
-             </Link>
-            <h1 className="font-serif text-2xl font-bold">Мои полки</h1>
-          </div>
-          
+        <PageHeader title="Мои полки" />
+        
+        <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2">
+            <Link href="/profile/user1">
+               <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
+                 <User className="w-5 h-5" />
+               </Button>
+            </Link>
+
             <div className="relative w-full max-w-xs hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
@@ -71,6 +292,13 @@ export default function Shelves() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            
+            <Link href="/add-book">
+              <Button className="gap-2">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Новая книга</span>
+              </Button>
+            </Link>
             
             <Dialog open={isAddShelfOpen} onOpenChange={setIsAddShelfOpen}>
               <DialogTrigger asChild>
@@ -98,7 +326,7 @@ export default function Shelves() {
               </DialogContent>
             </Dialog>
           </div>
-        </header>
+        </div>
 
         {/* Mobile Search */}
         <div className="md:hidden mb-8">
@@ -113,42 +341,156 @@ export default function Shelves() {
             </div>
         </div>
 
-        {/* Search Results (if active) */}
+        {/* Global Search Results (if search query exists) */}
         {searchQuery && (
           <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
               <Search className="w-4 h-4" />
-              Результаты поиска
+              Глобальные результаты поиска
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredBooks.length > 0 ? (
-                filteredBooks.map(book => (
-                  <div key={book.id} className="bg-card border rounded-xl p-4 flex gap-4 hover:shadow-lg transition-all">
-                    <div className={`w-16 h-24 rounded-md shadow-sm flex-shrink-0 ${book.coverColor}`} />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-serif font-bold truncate">{book.title}</h3>
-                      <p className="text-sm text-muted-foreground truncate mb-2">{book.author}</p>
-                      
-                      <div className="mt-2">
-                        <AddToShelfDialog 
-                          bookId={book.id}
-                          shelves={shelves}
-                          onToggleShelf={handleToggleShelf}
-                          trigger={
-                            <Button variant="outline" size="sm" className="w-full text-xs h-8">
-                              Добавить на полку
-                            </Button>
-                          }
-                        />
-                      </div>
-                    </div>
+            {isSearching ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {globalSearchResults.length > 0 ? (
+                  globalSearchResults.map((book: any) => {
+                    // Find reading progress for this book
+                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
+                    
+                    // Convert book data to match BookCard expectations
+                    const bookData = {
+                      id: book.id,
+                      title: book.title,
+                      author: book.author,
+                      description: book.description,
+                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl,
+                      rating: book.rating,
+                      commentCount: book.commentCount,
+                      reviewCount: book.reviewCount,
+                      genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [],
+                      year: book.publishedYear,
+                      uploadedAt: book.uploadedAt,
+                      publishedAt: book.publishedAt,
+                    };
+                    
+                    return (
+                      <BookCard 
+                        key={book.id} 
+                        book={bookData} 
+                        variant="detailed"
+                        readingProgress={readingProgress}
+                        addToShelfButton={
+                          <AddToShelfDialog 
+                            bookId={book.id}
+                            shelves={shelves.map(s => ({
+                              id: s.id,
+                              name: s.name,
+                              description: s.description,
+                              bookIds: s.bookIds || [],
+                              color: s.color
+                            }))}
+                            onToggleShelf={handleToggleShelf}
+                            trigger={
+                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                </svg>
+                                <span className="truncate">Полки</span>
+                              </Button>
+                            }
+                          />
+                        }
+                      />
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full text-center py-12 text-muted-foreground">
+                    Ничего не найдено
                   </div>
-                ))
-              ) : (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
-                  Ничего не найдено
-                </div>
-              )}
+                )}
+              </div>
+            )}
+          </section>
+        )}
+        
+        {/* Shelf Books Matching Search Query */}
+        {searchQuery && (
+          <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+              <BookIcon className="w-4 h-4" />
+              Книги на ваших полках
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(() => {
+                // Flatten all shelf books into a single array
+                const allShelfBooks = Object.values(shelfBooks).flat();
+                
+                // Deduplicate books by ID to avoid showing the same book multiple times
+                const uniqueBooks = allShelfBooks.filter((book, index, self) => 
+                  index === self.findIndex(b => b.id === book.id)
+                );
+                
+                // Filter books that match the search query
+                const matchingShelfBooks = uniqueBooks.filter(book => {
+                  const searchLower = searchQuery.toLowerCase();
+                  return (
+                    book.title.toLowerCase().includes(searchLower) ||
+                    book.author.toLowerCase().includes(searchLower) ||
+                    (book.description && book.description.toLowerCase().includes(searchLower)) ||
+                    (book.genre && book.genre.toLowerCase().includes(searchLower))
+                  );
+                });
+                
+                return matchingShelfBooks.length > 0 ? (
+                  matchingShelfBooks.map((book: any) => {
+                    // Find reading progress for this book
+                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
+                    
+                    // Convert book data to match BookCard expectations
+                    const bookData = {
+                      ...book,
+                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl,
+                      genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                    };
+                    
+                    return (
+                      <BookCard 
+                        key={book.id} 
+                        book={bookData} 
+                        variant="detailed"
+                        readingProgress={readingProgress}
+                        addToShelfButton={
+                          <AddToShelfDialog 
+                            bookId={book.id}
+                            shelves={shelves.map(s => ({
+                              id: s.id,
+                              name: s.name,
+                              description: s.description,
+                              bookIds: s.bookIds || [],
+                              color: s.color
+                            }))}
+                            onToggleShelf={handleToggleShelf}
+                            trigger={
+                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                </svg>
+                                <span className="truncate">Полки</span>
+                              </Button>
+                            }
+                          />
+                        }
+                      />
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full text-center py-12 text-muted-foreground">
+                    Нет совпадений на ваших полках
+                  </div>
+                );
+              })()}
             </div>
           </section>
         )}
@@ -159,47 +501,151 @@ export default function Shelves() {
             <section key={shelf.id} className="relative group">
               <div className="flex items-baseline justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <h2 className="font-serif text-2xl font-bold">{shelf.title}</h2>
-                  <Badge variant="secondary" className="rounded-full">{shelf.bookIds.length}</Badge>
+                  <h2 className="font-serif text-2xl font-bold">{shelf.name}</h2>
+                  <Badge variant="secondary" className="rounded-full">{(shelf.bookIds || []).length}</Badge>
                 </div>
-                {shelf.description && (
-                  <p className="text-sm text-muted-foreground hidden sm:block">{shelf.description}</p>
-                )}
+                <div className="flex items-center gap-2">
+                  {shelf.description && (
+                    <p className="text-sm text-muted-foreground hidden sm:block">{shelf.description}</p>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditShelf({ id: shelf.id, name: shelf.name, description: shelf.description })}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Редактировать
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10" 
+                        onClick={() => handleDeleteShelf(shelf.id, shelf.name)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Удалить
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
 
-              {shelf.bookIds.length === 0 ? (
+              {(shelf.bookIds || []).length === 0 ? (
                 <div className={`h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground gap-2 ${shelf.color} bg-opacity-20`}>
                   <BookIcon className="w-8 h-8 opacity-50" />
                   <p>Полка пуста</p>
                 </div>
               ) : (
-                <ScrollArea className="w-full whitespace-nowrap rounded-xl">
-                  <div className="flex w-max space-x-4 p-1 pb-4">
-                    {shelf.bookIds.map(bookId => {
-                      const book = mockBooks.find(b => b.id === bookId);
-                      if (!book) return null;
-                      return (
-                        <div key={book.id} className="w-[160px] group/book relative">
-                          <Link href={`/read/${book.id}/1`}>
-                            <div className={`aspect-[2/3] rounded-lg shadow-md mb-3 overflow-hidden cursor-pointer transition-transform hover:scale-105 ${book.coverColor} relative`}>
-                               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover/book:opacity-100 transition-opacity flex items-end p-3">
-                                  <span className="text-white text-xs font-medium">Читать</span>
-                               </div>
-                            </div>
-                          </Link>
-                          <h3 className="font-bold text-sm truncate pr-2" title={book.title}>{book.title}</h3>
-                          <p className="text-xs text-muted-foreground truncate">{book.author}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {(shelfBooks[shelf.id] || []).map((book: any) => {
+                    // Convert book data to match BookCard expectations
+                    const bookData = {
+                      id: book.id, // Keep the original ID as string (UUID)
+                      title: book.title,
+                      author: book.author,
+                      description: book.description,
+                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl, // Pass the cover image URL
+                      rating: book.rating,
+                      commentCount: book.commentCount,
+                      reviewCount: book.reviewCount,
+                      genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [], // Split genre string into array
+                      year: book.publishedYear,
+                      uploadedAt: book.uploadedAt, // Add upload date
+                      publishedAt: book.publishedAt, // Add publication date
+                    };
+                    
+                    // Find reading progress for this book
+                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
+                    
+                    return (
+                      <BookCard 
+                        key={book.id} 
+                        book={bookData} 
+                        variant="detailed"
+                        readingProgress={readingProgress}
+                        addToShelfButton={
+                          <AddToShelfDialog 
+                            bookId={book.id} // Pass the original ID
+                            shelves={shelves.map(s => ({
+                              id: s.id,
+                              name: s.name,
+                              description: s.description,
+                              bookIds: s.bookIds || [],
+                              color: s.color
+                            }))}
+                            onToggleShelf={handleToggleShelf}
+                            trigger={
+                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                </svg>
+                                <span className="truncate">Полки</span>
+                              </Button>
+                            }
+                          />
+                        }
+                      />
+                    );
+                  })}
+                </div>
               )}
             </section>
           ))}
         </div>
       </div>
+      
+      {/* Add Shelf Dialog */}
+      <Dialog open={isAddShelfOpen} onOpenChange={setIsAddShelfOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Создать новую полку</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddShelf} className="space-y-4 pt-4">
+            <Input 
+              placeholder="Название полки (например: Фантастика)" 
+              value={newShelfName}
+              onChange={(e) => setNewShelfName(e.target.value)}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setIsAddShelfOpen(false)}>Отмена</Button>
+              <Button type="submit">Создать</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Shelf Dialog */}
+      <Dialog open={isEditShelfOpen} onOpenChange={(open) => {
+        setIsEditShelfOpen(open);
+        if (!open) setEditingShelf(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Редактировать полку</DialogTitle>
+          </DialogHeader>
+          {editingShelf && (
+            <form onSubmit={handleUpdateShelf} className="space-y-4 pt-4">
+              <Input 
+                placeholder="Название полки" 
+                value={editingShelf.name}
+                onChange={(e) => setEditingShelf({...editingShelf, name: e.target.value})}
+                autoFocus
+              />
+              <Input 
+                placeholder="Описание полки (необязательно)" 
+                value={editingShelf.description || ''}
+                onChange={(e) => setEditingShelf({...editingShelf, description: e.target.value})}
+              />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setIsEditShelfOpen(false)}>Отмена</Button>
+                <Button type="submit">Сохранить</Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

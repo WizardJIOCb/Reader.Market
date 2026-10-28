@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test New Releases Endpoint</title>
+</head>
+<body>
+    <h1>Test New Releases Endpoint</h1>
+    <button onclick="loginAndTest()">Login and Test New Releases</button>
+    <div id="result"></div>
+
+    <script>
+        async function loginAndTest() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // First, login to get a token
+                const loginResponse = await fetch('http://localhost:5001/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'user1',
+                        password: 'password123'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status} ${loginResponse.statusText}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.token;
+                
+                resultDiv.innerHTML += `<p>Login successful. Token: ${token.substring(0, 20)}...</p>`;
+                
+                // Now test the new releases endpoint
+                const newReleasesResponse = await fetch('http://localhost:5001/api/books/new-releases', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                resultDiv.innerHTML += `<p>New releases request sent. Status: ${newReleasesResponse.status}</p>`;
+                
+                if (newReleasesResponse.ok) {
+                    const newReleasesData = await newReleasesResponse.json();
+                    resultDiv.innerHTML += `<p>New releases data: ${JSON.stringify(newReleasesData, null, 2)}</p>`;
+                } else {
+                    const errorText = await newReleasesResponse.text();
+                    resultDiv.innerHTML += `<p>Error: ${newReleasesResponse.status} - ${errorText}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML += `<p>Error: ${error.message}</p>`;
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html>
+<head>
+    <title>Test New Releases Endpoint</title>
+</head>
+<body>
+    <h1>Test New Releases Endpoint</h1>
+    <button onclick="loginAndTest()">Login and Test New Releases</button>
+    <div id="result"></div>
+
+    <script>
+        async function loginAndTest() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // First, login to get a token
+                const loginResponse = await fetch('http://localhost:5001/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'user1',
+                        password: 'password123'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status} ${loginResponse.statusText}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.token;
+                
+                resultDiv.innerHTML += `<p>Login successful. Token: ${token.substring(0, 20)}...</p>`;
+                
+                // Now test the new releases endpoint
+                const newReleasesResponse = await fetch('http://localhost:5001/api/books/new-releases', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                resultDiv.innerHTML += `<p>New releases request sent. Status: ${newReleasesResponse.status}</p>`;
+                
+                if (newReleasesResponse.ok) {
+                    const newReleasesData = await newReleasesResponse.json();
+                    resultDiv.innerHTML += `<p>New releases data: ${JSON.stringify(newReleasesData, null, 2)}</p>`;
+                } else {
+                    const errorText = await newReleasesResponse.text();
+                    resultDiv.innerHTML += `<p>Error: ${newReleasesResponse.status} - ${errorText}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML += `<p>Error: ${error.message}</p>`;
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

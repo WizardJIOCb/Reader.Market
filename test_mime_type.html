@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test MIME Type</title>
+</head>
+<body>
+    <h2>Test what MIME type your browser assigns to FB2 files</h2>
+    <input type="file" id="fileInput" accept=".fb2">
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('result').innerHTML = 
+                    '<p>File name: ' + file.name + '</p>' +
+                    '<p>File type (MIME): ' + file.type + '</p>' +
+                    '<p>File size: ' + file.size + ' bytes</p>';
+            }
+        });
+    </script>
+</body>
+</html>

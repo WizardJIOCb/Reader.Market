@@ -1,10 +1,26 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Add CORS middleware
+app.use((req, res, next) => {
+  console.log(`CORS middleware: ${req.method} ${req.path}`);
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 declare module "http" {
   interface IncomingMessage {
@@ -22,6 +38,10 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// Serve uploaded files BEFORE any other routes to ensure they're not intercepted
+const uploadsPath = path.resolve('./uploads');
+app.use('/uploads', express.static(uploadsPath));
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -34,6 +54,7 @@ export function log(message: string, source = "express") {
 }
 
 app.use((req, res, next) => {
+  console.log(`Logging middleware: ${req.method} ${req.path}`);
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
@@ -59,9 +80,10 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  await registerRoutes(httpServer, app);
-
+// Register API routes first, before Vite middleware
+registerRoutes(httpServer, app).then(async () => {
+  console.log("Setting up error handling and Vite middleware...");
+  
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -84,15 +106,18 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
+  const port = parseInt(process.env.PORT || "3000", 10);
   httpServer.listen(
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
+      reusePort: false,
     },
     () => {
       log(`serving on port ${port}`);
     },
   );
-})();
+}).catch(error => {
+  console.error("Failed to register routes:", error);
+  process.exit(1);
+});
