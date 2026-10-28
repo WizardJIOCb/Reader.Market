@@ -68,10 +68,10 @@ REM Extra aggressive window closing for any remaining processes - at the very en
 echo Performing final aggressive cleanup...
 
 REM Use PowerShell to find all processes related to our project and terminate them
-powershell -Command "Get-WmiObject Win32_Process | Where-Object {((($_.CommandLine -like '*start-dev*') -and ($_.CommandLine -notlike '*restart-dev*')) -or (($_.CommandLine -like '*C:\\Projects\\reader.market*') -and ($_.CommandLine -notlike '*restart-dev*')) -or (($_.CommandLine -like '*Reader.Market*') -and ($_.CommandLine -notlike '*restart-dev*'))) } | ForEach-Object {try {Stop-Process $_.ProcessId -Force -ErrorAction SilentlyContinue} catch {}}"
+powershell -Command "Get-WmiObject Win32_Process | Where-Object {((($_.CommandLine -like '*start-dev*') -and ($_.CommandLine -notlike '*restart-dev*')) -or (($_.CommandLine -like '*C:\\Projects\\reader.market - kilo code*') -and ($_.CommandLine -notlike '*restart-dev*')) -or (($_.CommandLine -like '*Reader.Market*') -and ($_.CommandLine -notlike '*restart-dev*'))) } | ForEach-Object {try {Stop-Process $_.ProcessId -Force -ErrorAction SilentlyContinue} catch {}}"
 
 REM Use PowerShell to find and terminate cmd processes with specific directory in their working directory
-powershell -Command "Get-WmiObject Win32_Process | Where-Object {($_.Name -eq 'cmd.exe') -and ((($_.CommandLine -like '*C:\\Projects\\reader.market*') -and ($_.CommandLine -notlike '*restart-dev*')) -or (($_.ExecutablePath -like '*reader.market*') -and ($_.ExecutablePath -notlike '*restart-dev*'))) } | ForEach-Object {try {Stop-Process $_.ProcessId -Force -ErrorAction SilentlyContinue} catch {}}"
+powershell -Command "Get-WmiObject Win32_Process | Where-Object {($_.Name -eq 'cmd.exe') -and ((($_.CommandLine -like '*C:\\Projects\\reader.market - kilo code*') -and ($_.CommandLine -notlike '*restart-dev*')) -or (($_.ExecutablePath -like '*reader.market - kilo code*') -and ($_.ExecutablePath -notlike '*restart-dev*'))) } | ForEach-Object {try {Stop-Process $_.ProcessId -Force -ErrorAction SilentlyContinue} catch {}}"
 
 REM Create a temporary VBS script to send a keypress to any remaining console window
 echo Set objShell = CreateObject("WScript.Shell") > "%temp%\sendkey.vbs"

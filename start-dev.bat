@@ -127,13 +127,13 @@ echo ================================
 echo.
 echo Starting servers...
 REM Ensure we're in the right directory
-cd /d C:\Projects\reader.market
+cd /d "C:\Projects\reader.market - kilo code"
 
 echo Launching backend server...
-start "Backend - Reader.Market" cmd /k "cd /d C:\Projects\reader.market && set PORT=5001 && echo Starting backend... && npm run dev && pause"
+start "Backend - Reader.Market" cmd /k "cd /d ""C:\Projects\reader.market - kilo code"" && set PORT=5001 && echo Starting backend... && npm run dev && pause"
 
 echo Launching frontend server...
-start "Frontend - Reader.Market" cmd /k "cd /d C:\Projects\reader.market && echo Starting frontend... && npm run dev:client && pause"
+start "Frontend - Reader.Market" cmd /k "cd /d ""C:\Projects\reader.market - kilo code"" && echo Starting frontend... && npm run dev:client && pause"
 
 echo Servers launched. This window will stay open to keep the process running.
 echo Close this window or run stop-dev.bat to stop all services.
